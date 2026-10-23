@@ -53,10 +53,13 @@ export interface HttpOptions {
   maxRetries?: number;
   /**
    * Shared per-host limiter. Pass one instance to every client that should share host limits.
+   * When set, it wins: perHostConcurrency and minHostIntervalMs are ignored.
    * Default: a private limiter built from perHostConcurrency / minHostIntervalMs.
    */
   limiter?: HostLimiter;
+  /** Only used when no `limiter` is passed. */
   perHostConcurrency?: number;
+  /** Only used when no `limiter` is passed. Gates new requests; retries (ky) run inside the slot without this gap. */
   minHostIntervalMs?: number;
   maxResponseBytes?: number;
   /** Hostnames (or "*.suffix" patterns) requests may reach. Empty blocks everything. */
@@ -136,6 +139,8 @@ export function createHttp(options: HttpOptions): Http {
       "user-agent": options.userAgent ?? "TalloBot/0.1 (+https://tallo.nandan.fyi)",
       accept: "application/json, text/plain;q=0.9, */*;q=0.5",
     },
+    // Retries run inside the single limiter.run task: a backing-off request keeps its per-host
+    // slot (polite under 429s), but a retry does not wait for minHostIntervalMs.
     retry: {
       limit: options.maxRetries ?? 3,
       methods: ["get", "post"],

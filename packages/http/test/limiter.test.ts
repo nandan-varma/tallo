@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHostLimiter, createHttp, type HostLimiter } from "../src/index.ts";
 
 const allowedHosts = ["api.example.com"];
@@ -71,5 +71,46 @@ describe("createHostLimiter", () => {
       http.getJson("https://boards.example.com/x"),
     ]);
     expect(state.peak).toBe(2);
+  });
+});
+
+describe("createHostLimiter interval gate", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("starts new requests to one host at least minHostIntervalMs apart", async () => {
+    vi.useFakeTimers();
+    const starts: number[] = [];
+    const fetchImpl = (async () => {
+      starts.push(Date.now());
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    const http = createHttp({
+      fetch: fetchImpl,
+      allowedHosts,
+      limiter: createHostLimiter({ perHostConcurrency: 4, minHostIntervalMs: 250 }),
+    });
+    const start = Date.now();
+    const done = Promise.all(urls("g", 3).map((u) => http.getJson(u)));
+    await vi.advanceTimersByTimeAsync(1_000);
+    await done;
+    expect(starts.map((t) => t - start)).toEqual([0, 250, 500]);
+  });
+
+  it("does not gate hosts when no interval is set", async () => {
+    vi.useFakeTimers();
+    const starts: number[] = [];
+    const fetchImpl = (async () => {
+      starts.push(Date.now());
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    const http = createHttp({
+      fetch: fetchImpl,
+      allowedHosts,
+      limiter: createHostLimiter({ perHostConcurrency: 4 }),
+    });
+    await Promise.all(urls("n", 3).map((u) => http.getJson(u)));
+    expect(new Set(starts).size).toBe(1);
   });
 });
