@@ -1,3 +1,4 @@
+import { STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -18,6 +19,8 @@ export const searchSchema = z.object({
   postedWithinDays: z.coerce.number().int().positive().max(365).optional(),
   /** Include jobs the heuristics hide (non-US / non-tech). */
   all: z.coerce.boolean().optional(),
+  /** Include jobs from sources that stopped listing for STALE_HIDE_DAYS. */
+  includeStale: z.coerce.boolean().optional(),
   cursor: z
     .string()
     .regex(/^\d+\.\d+$/)
@@ -60,6 +63,9 @@ export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.no
   const where: (SQL | undefined)[] = [
     sql`${jobs.closedAt} IS NULL`,
     input.all ? undefined : sql`${jobs.hidden} = 0`,
+    input.includeStale
+      ? undefined
+      : sql`NOT EXISTS (SELECT 1 FROM sources WHERE sources.id = ${jobs.sourceId} AND coalesce(sources.last_listed_at, 0) < ${now - STALE_HIDE_DAYS * 86400})`,
     match
       ? sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`
       : undefined,
@@ -100,6 +106,17 @@ export async function getJob(db: Db, id: number) {
   return (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
 }
 
-export async function listSources(db: Db) {
-  return db.select().from(sources).orderBy(sources.id);
+export type Freshness = "fresh" | "stale" | "hidden";
+
+export const freshness = (
+  lastListedAt: number | null,
+  now = Math.floor(Date.now() / 1000),
+): Freshness => {
+  const days = lastListedAt === null ? Number.POSITIVE_INFINITY : (now - lastListedAt) / 86400;
+  return days >= STALE_HIDE_DAYS ? "hidden" : days >= STALE_FLAG_DAYS ? "stale" : "fresh";
+};
+
+export async function listSources(db: Db, now = Math.floor(Date.now() / 1000)) {
+  const rows = await db.select().from(sources).orderBy(sources.id);
+  return rows.map((source) => ({ ...source, freshness: freshness(source.lastListedAt, now) }));
 }

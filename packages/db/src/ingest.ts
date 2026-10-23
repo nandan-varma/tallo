@@ -171,7 +171,12 @@ export async function applyJobs(
       changed: sql`${runs.changed} + ${ready.length - added}`,
     })
     .where(eq(runs.id, runId));
-  await batch(db, [...upserts, counters]);
+  // Jobs are visible as soon as they land, even if the run never finalizes.
+  const listed = db
+    .update(sources)
+    .set({ lastListedAt: sql`coalesce(${sources.lastListedAt}, ${now})` })
+    .where(eq(sources.id, sourceId));
+  await batch(db, [...upserts, counters, listed]);
   return { applied: ready.length, missingBlobs };
 }
 

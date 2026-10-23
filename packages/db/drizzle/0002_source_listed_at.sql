@@ -1,0 +1,1 @@
+ALTER TABLE `sources` ADD `last_listed_at` integer;

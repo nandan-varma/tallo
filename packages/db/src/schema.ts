@@ -10,8 +10,10 @@ export const sources = sqliteTable("sources", {
   companySlug: text("company_slug").notNull(),
   params: text({ mode: "json" }).$type<Record<string, string | number | boolean>>().notNull(),
   lastRunAt: integer("last_run_at"),
-  /** Last run that listed the whole board. Basis for staleness. */
+  /** Last run that listed the whole board. */
   lastCompleteRunAt: integer("last_complete_run_at"),
+  /** Last run that listed any postings, complete or not. Basis for staleness. */
+  lastListedAt: integer("last_listed_at"),
   lastStatus: text("last_status"),
 });
 

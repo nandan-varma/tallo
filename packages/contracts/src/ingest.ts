@@ -93,3 +93,7 @@ export interface FinalizeResult {
 }
 
 export const CLOSE_AFTER_ABSENT_RUNS = 2;
+
+/** A source with no successful listing for this long is flagged, then hidden from search. */
+export const STALE_FLAG_DAYS = 7;
+export const STALE_HIDE_DAYS = 14;

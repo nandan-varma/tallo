@@ -7,6 +7,7 @@ import {
   finalize,
   getJob,
   jdKey,
+  listSources,
   memoryBlobs,
   purgeClosed,
   searchJobs,
@@ -34,6 +35,7 @@ const mapped = (postingId: string, over: Partial<MappedJob> = {}): MappedJob => 
   ...over,
 });
 
+const T = Math.floor(Date.now() / 1000);
 let db: ReturnType<typeof testDb>;
 let blobs: ReturnType<typeof memoryBlobs>;
 let n = 0;
@@ -48,7 +50,7 @@ const fin = (seenIds: string[], over = {}) => ({
   issues: [],
   ...over,
 });
-const start = async (now = 1000) => {
+const start = async (now = T + 1000) => {
   const runId = `run-${String(++n).padStart(6, "0")}`;
   await startRun(
     db,
@@ -58,7 +60,7 @@ const start = async (now = 1000) => {
   return runId;
 };
 /** Prepare, upload blobs, apply: what the runner does. */
-async function ingest(runId: string, jobs: MappedJob[], hash = "a".repeat(64), now = 1000) {
+async function ingest(runId: string, jobs: MappedJob[], hash = "a".repeat(64), now = T + 1000) {
   const prepared = await Promise.all(jobs.map((j) => prepareJob(j, source, hash)));
   for (const p of prepared) await blobs.put(jdKey(p.facts.jdHash), p.jd);
   return applyJobs(
@@ -91,7 +93,7 @@ describe("ingest", () => {
     const run = await start();
     await ingest(run, [mapped("1")], "a".repeat(64));
     await finalize(db, run, fin(["1"]));
-    const second = await start(2000);
+    const second = await start(T + 2000);
     expect(
       await diff(db, second, [
         { id: "1", hash: "a".repeat(64) },
@@ -104,7 +106,7 @@ describe("ingest", () => {
   it("skips jobs whose JD blob is missing and reports the hash", async () => {
     const run = await start();
     const [p] = [await prepareJob(mapped("1"), source, "a".repeat(64))];
-    const result = await applyJobs(db, blobs, run, [p!.facts], 1000);
+    const result = await applyJobs(db, blobs, run, [p!.facts], T + 1000);
     expect(result).toEqual({ applied: 0, missingBlobs: [p!.facts.jdHash] });
   });
 
@@ -114,8 +116,8 @@ describe("ingest", () => {
     await expect(
       startRun(
         db,
-        { runId: run, source, runnerId: "mac", collectorVersion: "t", startedAt: 1000 },
-        1000,
+        { runId: run, source, runnerId: "mac", collectorVersion: "t", startedAt: T + 1000 },
+        T + 1000,
       ),
     ).resolves.toBeUndefined();
   });
@@ -176,24 +178,24 @@ describe("closure", () => {
   const open = async () => (await searchJobs(db, { limit: 50 })).jobs.length;
 
   it("closes a job only after consecutive complete runs omit it, and reopens on return", async () => {
-    await listed(["1", "2"], 1000);
+    await listed(["1", "2"], T + 1000);
     expect(await open()).toBe(2);
     const emptyRun = async (now: number, over = {}) => {
       const run = await start(now);
       return finalize(db, run, fin(["1"], over), now);
     };
-    expect((await emptyRun(2000)).closed).toBe(0);
+    expect((await emptyRun(T + 2000)).closed).toBe(0);
     expect(await open()).toBe(2);
-    expect((await emptyRun(3000)).closed).toBe(1);
+    expect((await emptyRun(T + 3000)).closed).toBe(1);
     expect(await open()).toBe(1);
-    const back = await start(4000); // job 2 is unchanged, so the runner sends no facts for it
-    expect(await finalize(db, back, fin(["1", "2"]), 4000)).toMatchObject({ reopened: 1 });
+    const back = await start(T + 4000); // job 2 is unchanged, so the runner sends no facts for it
+    expect(await finalize(db, back, fin(["1", "2"]), T + 4000)).toMatchObject({ reopened: 1 });
     expect(await open()).toBe(2);
   });
 
   it("never closes on an incomplete run", async () => {
-    await listed(["1", "2"], 1000);
-    for (const now of [2000, 3000, 4000]) {
+    await listed(["1", "2"], T + 1000);
+    for (const now of [T + 2000, T + 3000, T + 4000]) {
       const run = await start(now);
       expect(await finalize(db, run, fin(["1"], { listingComplete: false }), now)).toMatchObject({
         status: "partial",
@@ -204,13 +206,13 @@ describe("closure", () => {
   });
 
   it("does not treat an ambiguous empty listing as proof, but does an authoritative one", async () => {
-    await listed(["1"], 1000);
-    for (const now of [2000, 3000]) {
+    await listed(["1"], T + 1000);
+    for (const now of [T + 2000, T + 3000]) {
       const run = await start(now);
       expect((await finalize(db, run, fin([]), now)).closureApplied).toBe(false);
     }
     expect(await open()).toBe(1);
-    for (const now of [4000, 5000]) {
+    for (const now of [T + 4000, T + 5000]) {
       const run = await start(now);
       await finalize(db, run, fin([], { emptyIsAuthoritative: true }), now);
     }
@@ -224,8 +226,8 @@ describe("closure", () => {
   });
 
   it("purges long-closed jobs and their orphaned blobs", async () => {
-    await listed(["1", "2"], 1000);
-    for (const now of [2000, 3000]) {
+    await listed(["1", "2"], T + 1000);
+    for (const now of [T + 2000, T + 3000]) {
       const run = await start(now);
       await finalize(db, run, fin(["1"]), now);
     }
@@ -233,8 +235,34 @@ describe("closure", () => {
       j.title.endsWith("2"),
     );
     expect(closedId).toBeUndefined();
-    expect(await purgeClosed(db, blobs, 30, 3000 + 31 * 86400)).toBe(1);
+    expect(await purgeClosed(db, blobs, 30, T + 3000 + 31 * 86400)).toBe(1);
     expect(blobs.keys()).toHaveLength(1);
+  });
+});
+
+describe("staleness", () => {
+  it("hides jobs from sources that stopped listing, unless asked", async () => {
+    const run = await start(T + 1000);
+    await ingest(run, [mapped("1")], "a".repeat(64), T + 1000);
+    await finalize(db, run, fin(["1"]), T + 1000);
+    const day = 86400;
+    expect((await searchJobs(db, { limit: 10 }, T + 1000 + 6 * day)).jobs).toHaveLength(1);
+    expect((await searchJobs(db, { limit: 10 }, T + 1000 + 15 * day)).jobs).toHaveLength(0);
+    expect(
+      (await searchJobs(db, { limit: 10, includeStale: true }, T + 1000 + 15 * day)).jobs,
+    ).toHaveLength(1);
+    expect((await listSources(db, T + 1000 + 8 * day))[0]?.freshness).toBe("stale");
+    expect((await listSources(db, T + 1000 + 15 * day))[0]?.freshness).toBe("hidden");
+  });
+
+  it("an incomplete listing still counts as listing, a failed one does not", async () => {
+    const run = await start(T + 1000);
+    await ingest(run, [mapped("1")], "a".repeat(64), T + 1000);
+    await finalize(db, run, fin(["1"], { listingComplete: false }), T + 1000);
+    const failed = await start(T + 2000);
+    await finalize(db, failed, fin([], { listingComplete: false }), T + 2000 + 20 * 86400);
+    expect((await listSources(db, T + 1000 + 5 * 86400))[0]?.freshness).toBe("fresh");
+    expect((await listSources(db, T + 1000 + 20 * 86400))[0]?.freshness).toBe("hidden");
   });
 });
 

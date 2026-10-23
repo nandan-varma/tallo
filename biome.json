@@ -9,7 +9,7 @@
       "!**/.wrangler",
       "!**/fixtures",
       "!sources",
-      "!**/*.astro",
+      "!**/*.astro", "!**/*.css",
       "!pnpm-lock.yaml",
       "!**/drizzle/meta",
       "!**/worker-configuration.d.ts"
