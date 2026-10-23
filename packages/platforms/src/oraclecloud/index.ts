@@ -48,7 +48,8 @@ async function assertNotHostDefault(
   if (real === undefined) return;
   const probe = firstItem((await ctx.http.getJson(finderUrl(source, NO_SUCH_SITE, 1, 0))).data);
   const probeFirst = id(rows(probe.requisitionList, "requisitionList")[0]?.Id);
-  if (num(probe.TotalJobsCount) === total && probeFirst === real)
+  // Either signal alone counts: a typo'd site can share the newest posting or the total with the default.
+  if (num(probe.TotalJobsCount) === total || probeFirst === real)
     throw new SchemaError(
       `Oracle Cloud siteNumber ${siteOf(source)} answers like the host's default site; ` +
         "if it is the host default, set params.defaultSite: true",

@@ -268,6 +268,27 @@ describe("oraclecloud", () => {
     await expect(drain(oraclecloud.list(src, same.ctx))).rejects.toBeInstanceOf(SchemaError);
   });
 
+  it("refuses when only the first requisition Id matches the host default", async () => {
+    const first = { ...obj(rowsFx[0]), Id: "NEWEST" };
+    const board = fakeCtx((url) =>
+      siteOfUrl(url) === "CX_2001"
+        ? { items: [{ TotalJobsCount: 2975, requisitionList: [first] }] }
+        : { items: [{ TotalJobsCount: 3196, requisitionList: [first] }] },
+    );
+    await expect(drain(oraclecloud.list(src, board.ctx))).rejects.toBeInstanceOf(SchemaError);
+    await expect(drain(oraclecloud.list(src, board.ctx))).rejects.toThrow(/defaultSite/);
+  });
+
+  it("refuses when only the total matches the host default", async () => {
+    const board = fakeCtx((url) =>
+      siteOfUrl(url) === "CX_2001"
+        ? { items: [{ TotalJobsCount: 3196, requisitionList: [{ ...obj(rowsFx[0]), Id: "A" }] }] }
+        : { items: [{ TotalJobsCount: 3196, requisitionList: [{ ...obj(rowsFx[0]), Id: "B" }] }] },
+    );
+    await expect(drain(oraclecloud.list(src, board.ctx))).rejects.toBeInstanceOf(SchemaError);
+    await expect(drain(oraclecloud.list(src, board.ctx))).rejects.toThrow(/defaultSite/);
+  });
+
   it("lists a host-default site only when the source acknowledges it", async () => {
     const acknowledged = source("oraclecloud", "eluq.fa.us2.oraclecloud.com", {
       siteNumber: "CX_2001",
