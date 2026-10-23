@@ -45,14 +45,6 @@
     }
   },
   {
-    "key": "eodr.fa.us2.oraclecloud.com",
-    "company": "Tenet Healthcare",
-    "params": {
-      "siteNumber": "CX_1001",
-      "sitePath": "CX_1001"
-    }
-  },
-  {
     "key": "edel.fa.us2.oraclecloud.com",
     "company": "Fortinet",
     "params": {

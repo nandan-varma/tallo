@@ -14,7 +14,7 @@ sites and long-tail ATS.
 | ashby                                             | 1    | shipped, live-verified               | no                          | pay components from `compensation`                                                      |
 | smartrecruiters                                   | 1    | shipped, live-verified               | yes (job ad)                | unknown company answers 200 empty                                                       |
 | workday                                           | 2    | shipped, live-verified on one tenant | yes (description)           | 2,000-result cap handled by facet splitting; slices that cannot split report incomplete |
-| oraclecloud                                       | 3    | shipped, live-verified on 8 boards   | yes (description, dates)    | `siteNumber` (+`sitePath`), `defaultSite: true` on host default; 10k cap, see below     |
+| oraclecloud                                       | 3    | shipped, live-verified on 7 boards   | yes (description, dates)    | `siteNumber` (+`sitePath`), `defaultSite: true` on host default; 10k cap, see below     |
 | eightfold, icims                                  | 3    | todo                                 |                             |                                                                                         |
 | workable, recruitee, gem, rippling                | 3    | todo                                 |                             | candidates once sources are found                                                       |
 | amazon, apple, google, microsoft, meta, uber, ... | 3    | todo                                 |                             | one adapter per company site; browser-walled sites need a managed browser               |
@@ -27,5 +27,7 @@ Experience years are inferred from description text for all platforms (`inferred
 
 Oracle Cloud (`params.siteNumber`): hosts are `*.fa.oraclecloud.com`, `*.fa.us2.oraclecloud.com` and `*.fa.ocs.oraclecloud.com`.
 An unknown siteNumber silently returns the host's default board, so `list()` probes a site that cannot exist and
-refuses a match unless the source says `params.defaultSite: true`. Seven of the eight seeds are the host default and
-carry it; Tenet (`eodr`, CX_1001) answers differently and does not. Listing stops at 10,000 results and reports incomplete.
+refuses a site whose first requisition Id or total matches the probe, unless the source says `params.defaultSite: true`.
+The seven seeds that carry it are the host default. Tenet (`eodr`, CX_1001) is not seeded: its first Id matches the
+host default, so it is refused, and it is a distinct board (different total, 94 of the first 100 Ids shared), so the
+acknowledgement would be false. Listing stops at 10,000 results and reports incomplete.
