@@ -1,4 +1,5 @@
 ---
+import { JobFacts } from "@/components/JobFacts";
 import { JobMeta } from "@/components/JobMeta";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -20,6 +21,7 @@ const link = job.applyUrl ?? job.url;
         <Button asChild><a href={link} rel="noopener noreferrer" target="_blank">Apply on {job.company}'s site ↗</a></Button>
       </div>
     )}
+    <JobFacts facts={job.facts} />
   </div>
   <Separator />
   <div class="whitespace-pre-wrap break-words text-sm leading-relaxed">{job.description ?? "Description unavailable."}</div>
