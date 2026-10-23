@@ -25,13 +25,22 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
 
 ## In flight
 
-See labels on issues/PRs. At last update: PR #18 (shared host limiter) and #19 (job facts view) were in review
-after fixes; #20 (Oracle Cloud) in review; first full production sweep (#1) waits on #18.
+- **First full sweep (#1)** started 2026-10-23 16:23 PDT as a background process on this Mac
+  (`~/Library/Logs/tallo-sweep.log`; order: ashby, lever, greenhouse, smartrecruiters; workday still to do).
+  It is idempotent: if interrupted, rerun `tallo sync -p <platform> -c 6` (sources completed in the last 20h are
+  skipped). Check progress with `grep -c '"msg":"synced"' ~/Library/Logs/tallo-sweep.log` and `GET /v1/sources`.
+  After it finishes: install the launchd job (`scripts/launchd/`, see `docs/runbook.md`), check D1/R2 usage, record results here.
+
+## Merged this session
+
+PR #18 shared per-host limiter, #19 structured facts on the job page, #20 Oracle Cloud platform
+(7 boards; the host-default guard refuses a wrong siteNumber; Tenet board dropped, see #21).
 
 ## Next (priority order)
 
-1. #1 first full sweep + launchd schedule. 2. #13 classifier precision sampling at scale. 3. #3 dead boards,
-   #14 raw pack pruning, #10 facets, #11 status page, more platforms (#6–#8), #9 source discovery (needs URL lists).
+1. Finish #1 (sweep, launchd, usage check). 2. #13 classifier precision at scale (re-sample after the sweep,
+   rerun `tallo reclassify` after any rule change). 3. #3 dead boards, #14 raw pack pruning, #10 facets, #11 status
+   page, #6-#8 more platforms, #9 source discovery (needs URL lists), #21 Tenet.
 
 ## Known gaps / notes
 
