@@ -44,7 +44,8 @@ A role is a hat, not a person: the same prompt can be run any number of times.
 6. **Address feedback** (any worker in the author's role): `gh pr list --label status:changes-requested`.
    Read the review, fix on the PR branch, push, comment `Addressed:` with one line per review item (fixed /
    disagree + why), relabel `status:in-review`.
-7. **Merge**: the main agent squash-merges `status:approved` PRs with green CI, deletes the branch, closes the
+7. **Merge**: the main agent squash-merges `status:approved` PRs only after `gh pr checks N` shows every check
+   passing (never merge on red), then deletes the branch, closes the
    issue, updates `docs/PROGRESS.md` if the change matters to the next session.
 8. **Blocked**: comment the exact question or missing input, relabel `status:blocked`. The main agent or the
    user answers in a comment and relabels `status:ready`.
