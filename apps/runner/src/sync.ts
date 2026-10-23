@@ -8,7 +8,7 @@ import type {
   RawPosting,
   SourceConfig,
 } from "@tallo/contracts";
-import { createHttp } from "@tallo/http";
+import { createHttp, type HostLimiter } from "@tallo/http";
 import { platformFor } from "@tallo/platforms";
 import PQueue from "p-queue";
 import type { Logger } from "pino";
@@ -21,8 +21,8 @@ export interface SyncOptions {
   log: Logger;
   /** Parallel detail fetches within one source. */
   detailConcurrency?: number;
-  perHostConcurrency?: number;
-  minHostIntervalMs?: number;
+  /** One limiter for the whole process, so per-host limits hold across parallel sources. */
+  limiter?: HostLimiter;
   maxPostings?: number;
   /** Injected in tests. */
   fetch?: typeof fetch;
@@ -46,8 +46,7 @@ export async function syncSource(
   const http = createHttp({
     ...(options.fetch ? { fetch: options.fetch } : {}),
     allowedHosts: platform.hosts,
-    perHostConcurrency: options.perHostConcurrency ?? 8,
-    minHostIntervalMs: options.minHostIntervalMs ?? 0,
+    ...(options.limiter ? { limiter: options.limiter } : {}),
     onRequest: () => void requests++,
   });
   const ctx: CollectContext = {

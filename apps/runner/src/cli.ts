@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
-import { Command } from "commander";
+import { createHostLimiter } from "@tallo/http";
+import { Command, InvalidArgumentError } from "commander";
 import PQueue from "p-queue";
 import pino from "pino";
 import { createApi } from "./api.ts";
@@ -20,6 +21,28 @@ const log = pino({
   level: process.env.LOG_LEVEL ?? "info",
   ...(process.stdout.isTTY ? { transport: { target: "pino-pretty" } } : {}),
 });
+/** One rule for every numeric flag and env var: a finite number at or above `min`. Rejects NaN. */
+const toNumber = (label: string, raw: string, min: number): number => {
+  const value = Number(raw);
+  if (raw.trim() === "" || !Number.isFinite(value) || value < min)
+    throw new Error(`${label} must be a number >= ${min}`);
+  return value;
+};
+/** Commander argument parser for a numeric flag. Runs only when the flag is given. */
+const numberFlag =
+  (flag: string, min: number) =>
+  (raw: string): number => {
+    try {
+      return toNumber(flag, raw, min);
+    } catch (error) {
+      throw new InvalidArgumentError(error instanceof Error ? error.message : String(error));
+    }
+  };
+/** Env override read inside an action, so `tallo --help` never touches it. */
+const envNumber = (name: string, min: number, fallback: number): number => {
+  const raw = process.env[name];
+  return raw === undefined || raw === "" ? fallback : toNumber(name, raw, min);
+};
 const need = (name: string): string => {
   const value = process.env[name];
   if (!value) throw new Error(`Set ${name}`);
@@ -38,10 +61,30 @@ program
   .description("Collect sources that are due and upload them")
   .option("-p, --platform <id>", "only this platform")
   .option("-s, --source <id>", "only this source, e.g. greenhouse:stripe")
-  .option("-n, --limit <n>", "at most n sources", Number)
-  .option("-c, --concurrency <n>", "sources in parallel", Number, 4)
-  .option("--stale-hours <h>", "skip sources completed more recently than this", Number, 20)
+  .option("-n, --limit <n>", "at most n sources", numberFlag("--limit", 1))
+  .option("-c, --concurrency <n>", "sources in parallel", numberFlag("--concurrency", 1), 4)
+  .option(
+    "--stale-hours <h>",
+    "skip sources completed more recently than this",
+    numberFlag("--stale-hours", 0),
+    20,
+  )
+  .option(
+    "--per-host <n>",
+    "max concurrent requests per host, shared by all sources (env TALLO_PER_HOST, default 8)",
+    numberFlag("--per-host", 1),
+  )
+  .option(
+    "--host-interval-ms <ms>",
+    "min gap between request starts per host (env TALLO_HOST_INTERVAL_MS, default 0)",
+    numberFlag("--host-interval-ms", 0),
+  )
   .action(async (opts) => {
+    // Validate all knobs before any network call (api.sources, startRun).
+    const concurrency = opts.concurrency as number;
+    const perHost = (opts.perHost as number | undefined) ?? envNumber("TALLO_PER_HOST", 1, 8);
+    const hostIntervalMs =
+      (opts.hostIntervalMs as number | undefined) ?? envNumber("TALLO_HOST_INTERVAL_MS", 0, 0);
     const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
     const done = new Map((await api.sources()).map((s) => [s.id, s.lastCompleteRunAt ?? 0]));
     const cutoff = Date.now() / 1000 - opts.staleHours * 3600;
@@ -55,7 +98,11 @@ program
       .sort((a, b) => (done.get(a.id) ?? 0) - (done.get(b.id) ?? 0));
     if (opts.limit) due = due.slice(0, opts.limit);
     log.info({ due: due.length }, "starting sync");
-    const queue = new PQueue({ concurrency: opts.concurrency });
+    const limiter = createHostLimiter({
+      perHostConcurrency: perHost,
+      minHostIntervalMs: hostIntervalMs,
+    });
+    const queue = new PQueue({ concurrency });
     let failed = 0;
     await Promise.all(
       due.map((source) =>
@@ -64,6 +111,7 @@ program
             const result = await syncSource(source, {
               api,
               log,
+              limiter,
               runnerId: process.env.TALLO_RUNNER_ID ?? hostname(),
               version: process.env.npm_package_version ?? "dev",
             });
@@ -81,7 +129,7 @@ program
 program
   .command("verify <source>")
   .description("Dry-run a source: list a sample, map it, report quality and unmapped fields")
-  .option("-n, --sample <n>", "postings to sample", Number, 5)
+  .option("-n, --sample <n>", "postings to sample", numberFlag("--sample", 1), 5)
   .option("--json", "machine-readable output")
   .action(async (id: string, opts) => {
     const result = await verifySource(pick(id), opts.sample);

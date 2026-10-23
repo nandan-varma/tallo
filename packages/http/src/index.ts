@@ -15,14 +15,51 @@ export class HttpError extends Error {
   }
 }
 
+export interface HostLimiterOptions {
+  /** Concurrent in-flight requests per host. */
+  perHostConcurrency?: number;
+  /** Minimum gap between request starts per host. */
+  minHostIntervalMs?: number;
+}
+
+/** Per-host queues. Share one instance across clients to bound a host process-wide. */
+export interface HostLimiter {
+  run<T>(host: string, task: () => Promise<T>): Promise<T>;
+}
+
+export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter {
+  const concurrency = options.perHostConcurrency ?? 4;
+  const interval = options.minHostIntervalMs ?? 0;
+  const queues = new Map<string, PQueue>();
+  return {
+    run<T>(host: string, task: () => Promise<T>): Promise<T> {
+      let q = queues.get(host);
+      if (!q) {
+        q = new PQueue({
+          concurrency,
+          ...(interval > 0 ? { interval, intervalCap: 1 } : {}),
+        });
+        queues.set(host, q);
+      }
+      return q.add(task);
+    },
+  };
+}
+
 export interface HttpOptions {
   fetch?: typeof fetch;
   userAgent?: string;
   timeoutMs?: number;
   maxRetries?: number;
-  /** Concurrent in-flight requests per host. */
+  /**
+   * Shared per-host limiter. Pass one instance to every client that should share host limits.
+   * When set, it wins: perHostConcurrency and minHostIntervalMs are ignored.
+   * Default: a private limiter built from perHostConcurrency / minHostIntervalMs.
+   */
+  limiter?: HostLimiter;
+  /** Only used when no `limiter` is passed. */
   perHostConcurrency?: number;
-  /** Minimum gap between request starts per host. */
+  /** Only used when no `limiter` is passed. Gates new requests; retries (ky) run inside the slot without this gap. */
   minHostIntervalMs?: number;
   maxResponseBytes?: number;
   /** Hostnames (or "*.suffix" patterns) requests may reach. Empty blocks everything. */
@@ -84,7 +121,16 @@ async function readCapped(response: Response, max: number, url: string): Promise
 
 export function createHttp(options: HttpOptions): Http {
   const maxBytes = options.maxResponseBytes ?? 64 * 1024 * 1024;
-  const queues = new Map<string, PQueue>();
+  const limiter =
+    options.limiter ??
+    createHostLimiter({
+      ...(options.perHostConcurrency !== undefined
+        ? { perHostConcurrency: options.perHostConcurrency }
+        : {}),
+      ...(options.minHostIntervalMs !== undefined
+        ? { minHostIntervalMs: options.minHostIntervalMs }
+        : {}),
+    });
   const client = ky.create({
     ...(options.fetch ? { fetch: options.fetch } : {}),
     timeout: options.timeoutMs ?? 30_000,
@@ -93,6 +139,8 @@ export function createHttp(options: HttpOptions): Http {
       "user-agent": options.userAgent ?? "TalloBot/0.1 (+https://tallo.nandan.fyi)",
       accept: "application/json, text/plain;q=0.9, */*;q=0.5",
     },
+    // Retries run inside the single limiter.run task: a backing-off request keeps its per-host
+    // slot (polite under 429s), but a retry does not wait for minHostIntervalMs.
     retry: {
       limit: options.maxRetries ?? 3,
       methods: ["get", "post"],
@@ -104,19 +152,6 @@ export function createHttp(options: HttpOptions): Http {
       ...(options.retryDelay ? { delay: options.retryDelay } : {}),
     },
   });
-
-  const queue = (host: string): PQueue => {
-    let q = queues.get(host);
-    if (!q) {
-      const interval = options.minHostIntervalMs ?? 0;
-      q = new PQueue({
-        concurrency: options.perHostConcurrency ?? 4,
-        ...(interval > 0 ? { interval, intervalCap: 1 } : {}),
-      });
-      queues.set(host, q);
-    }
-    return q;
-  };
 
   function check(raw: string): URL {
     let url: URL;
@@ -145,7 +180,7 @@ export function createHttp(options: HttpOptions): Http {
     for (let hops = 0; hops <= 5; hops++) {
       options.signal?.throwIfAborted();
       try {
-        const response = await queue(url.hostname).add(async () => {
+        const response = await limiter.run(url.hostname, async () => {
           options.onRequest?.();
           return client(url, {
             method: verb,
