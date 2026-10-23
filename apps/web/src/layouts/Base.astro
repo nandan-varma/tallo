@@ -1,0 +1,39 @@
+---
+interface Props {
+  title?: string;
+}
+const { title = "Tallo" } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{title}</title>
+    <style>
+      :root { color-scheme: light dark; --muted: color-mix(in srgb, currentColor 60%, transparent); --line: color-mix(in srgb, currentColor 14%, transparent); }
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+      a { color: inherit; }
+      header a { font-weight: 700; text-decoration: none; letter-spacing: -0.02em; }
+      form { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.5rem; margin: 1rem 0 1.5rem; }
+      form input[name="q"] { grid-column: 1 / -1; }
+      input, select, button { font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--line); border-radius: 0.4rem; background: transparent; color: inherit; }
+      button { cursor: pointer; font-weight: 600; }
+      .job { padding: 1rem 0; border-top: 1px solid var(--line); }
+      .job h2 { font-size: 1.05rem; margin: 0; }
+      .job h2 a { text-decoration: none; }
+      .job h2 a:hover { text-decoration: underline; }
+      .meta { color: var(--muted); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; }
+      .excerpt { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.92rem; }
+      .apply { display: inline-block; margin: 1rem 0; padding: 0.55rem 1.1rem; border-radius: 0.4rem; background: currentColor; text-decoration: none; }
+      .apply span { color: Canvas; font-weight: 700; }
+      .description { white-space: pre-wrap; overflow-wrap: anywhere; }
+      .more { display: block; margin-top: 1.5rem; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <header><a href="/">Tallo</a></header>
+    <main><slot /></main>
+  </body>
+</html>

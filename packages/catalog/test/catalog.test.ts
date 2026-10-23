@@ -37,6 +37,7 @@ describe("parseLocation / usFlag", () => {
     ["Toronto, ON", "CA"],
     ["Vancouver, Canada", "CA"],
     ["London, United Kingdom", "GB"],
+    ["3300 Channahon Rd, Joliet,IL 60436-8579", "US"],
   ])("%s -> %s", (text, code) => expect(parseLocation(text).countryCode).toBe(code));
   it("leaves bare remote unknown, flags it remote", () => {
     const l = parseLocation("Remote");

@@ -106,6 +106,8 @@ const ALIASES: Record<string, string> = {
   russia: "RU",
 };
 
+/** Trailing postal code ("IL 60436-8579"). */
+const ZIP = /\s+\d{5}(?:-\d{4})?$/;
 const REMOTE = /\b(remote|work from home|wfh|telecommute|distributed|anywhere)\b/i;
 const HYBRID = /\bhybrid\b/i;
 const ONSITE = /\b(on[- ]?site|in[- ]office|in[- ]person)\b/i;
@@ -136,15 +138,20 @@ export function parseLocation(text: string, hints: Partial<JobLocation> = {}): J
   const parts = clean
     .replace(/\((.*?)\)/g, ", $1")
     .split(/[,|/–—]| - /)
-    .map((p) => p.replace(REMOTE, "").replace(HYBRID, "").trim())
+    .map((p) => p.replace(REMOTE, "").replace(HYBRID, "").replace(ZIP, "").trim())
     .filter(Boolean);
 
   for (let i = parts.length - 1; i >= 0 && !loc.countryCode; i--) {
     const part = parts[i]!;
+    // A bare two-letter part after a city is a US state or Canadian province before it is a country
+    // ("Joliet, IL" is Illinois, not Israel).
+    if (
+      part.length === 2 &&
+      (US_STATES[part.toUpperCase()] || CA_PROVINCES.has(part.toUpperCase()))
+    )
+      continue;
     const code = countryCodeFor(part);
     if (code && (part.length > 2 || part === part.toUpperCase())) {
-      // "CA" alone is ambiguous: California unless the text also names Canada.
-      if (part.toUpperCase() === "CA" && !/canada/i.test(clean)) continue;
       loc.countryCode = code;
       loc.country ??= part;
     }
@@ -170,9 +177,10 @@ export function parseLocation(text: string, hints: Partial<JobLocation> = {}): J
       else if (US_STATE_NAMES.has(part.toLowerCase())) loc.region = part;
     }
   }
-  if (!loc.city && parts.length > 1 && !countryCodeFor(parts[0]) && !REMOTE.test(parts[0] ?? "")) {
-    loc.city = parts[0];
-  }
+  // The first part is the city unless it is a street address, a country or "remote".
+  const city = parts.find((p) => !/^\d/.test(p));
+  if (!loc.city && parts.length > 1 && city && city === parts[0] && !countryCodeFor(city))
+    loc.city = city;
   return loc;
 }
 

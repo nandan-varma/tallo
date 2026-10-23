@@ -90,7 +90,7 @@ const NON_TECH_TITLE = new RegExp(
     "\\b(recruiter|talent acquisition|hr (business|generalist)|payroll|copywriter|merchandis|store manager|retail)",
     "\\b(account executive|sales (representative|associate|manager|director)|business development rep|sdr|bdr)\\b",
     "\\b(mechanic|welder|electrician|plumber|machinist|assembler|hvac|carpenter|technician(?! .*(it|software|network)))",
-    "\\b(mechanical|civil|chemical|structural|process|manufacturing|industrial) engineer",
+    "\\b(mechanical|civil|chemical|structural|process|manufacturing|industrial) engineer(ing)?",
     "\\b(claims|adjuster|case manager|social worker|counselor|patient)",
   ].join("|"),
   "i",

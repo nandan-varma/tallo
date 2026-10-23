@@ -1,0 +1,26 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getJob } from "../../lib/api";
+import { ago, experience, salary } from "../../lib/format";
+
+const id = Number(Astro.params.id);
+const job = Number.isInteger(id) ? await getJob(id) : null;
+if (!job) return new Response("Not found", { status: 404 });
+const link = job.applyUrl ?? job.url;
+---
+<Base title={`${job.title} · ${job.company}`}>
+  <p><a href="javascript:history.back()">← Results</a></p>
+  <h1>{job.title}</h1>
+  <div class="meta">
+    <span>{job.company}</span>
+    {job.locationText && <span>{job.locationText}</span>}
+    {job.workMode && <span>{job.workMode}</span>}
+    {job.department && <span>{job.department}</span>}
+    {job.employmentType && <span>{job.employmentType}</span>}
+    {salary(job) && <span>{salary(job)}</span>}
+    {experience(job.expMinYears) && <span>{experience(job.expMinYears)}</span>}
+    {ago(job.postedAt ?? job.sortAt) && <span>{ago(job.postedAt ?? job.sortAt)}</span>}
+  </div>
+  {link && <a class="apply" href={link} rel="noopener noreferrer" target="_blank"><span>Apply on {job.company}'s site ↗</span></a>}
+  <div class="description">{job.description ?? "Description unavailable."}</div>
+</Base>

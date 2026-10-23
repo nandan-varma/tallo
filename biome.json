@@ -8,6 +8,8 @@
       "!**/.astro",
       "!**/.wrangler",
       "!**/fixtures",
+      "!sources",
+      "!**/*.astro",
       "!pnpm-lock.yaml",
       "!**/drizzle/meta",
       "!**/worker-configuration.d.ts"

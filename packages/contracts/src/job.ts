@@ -74,3 +74,43 @@ export interface MappedJob {
 /** 1 when heuristics are confident a job is out of the public scope (non-US or non-tech). */
 export const outOfScope = (flags: { isUs: 0 | 1 | null; isTech: 0 | 1 | null }): 0 | 1 =>
   flags.isUs === 0 || flags.isTech === 0 ? 1 : 0;
+
+/** Read model: one row in a result list. */
+export interface JobSummary {
+  id: number;
+  title: string;
+  applyUrl: string | null;
+  url: string | null;
+  company: string;
+  companySlug: string;
+  locationText: string | null;
+  city: string | null;
+  region: string | null;
+  countryCode: string | null;
+  workMode: WorkMode | null;
+  department: string | null;
+  employmentType: string | null;
+  /** Epoch seconds. */
+  postedAt: number | null;
+  salaryMinAnnual: number | null;
+  salaryMaxAnnual: number | null;
+  salaryCurrency: string | null;
+  expMinYears: number | null;
+  excerpt: string;
+  sortAt: number;
+}
+
+export interface JobPage {
+  jobs: JobSummary[];
+  nextCursor: string | null;
+}
+
+/** Read model: one job with its full description text. */
+export interface JobDetail extends JobSummary {
+  team: string | null;
+  requisitionId: string | null;
+  expMaxYears: number | null;
+  description: string | null;
+  /** Rich typed detail: all locations, pay components, experience, extras. */
+  facts: Record<string, unknown>;
+}

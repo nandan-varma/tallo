@@ -35,6 +35,8 @@ export function ftsQuery(q: string): string | undefined {
 const summary = {
   id: jobs.id,
   title: jobs.title,
+  applyUrl: jobs.applyUrl,
+  url: jobs.url,
   company: jobs.company,
   companySlug: jobs.companySlug,
   locationText: jobs.locationText,
