@@ -1,5 +1,5 @@
 import type { BlobStore } from "@tallo/db";
-import { purgeClosed, schema } from "@tallo/db";
+import { pruneRuns, purgeClosed, schema } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
 import { createApp } from "./app.ts";
 
@@ -39,9 +39,10 @@ const appFor = (env: Env) => {
 
 export default {
   fetch: (request, env, ctx) => appFor(env).fetch(request, env, ctx),
-  /** Daily housekeeping: drop jobs closed for 30+ days and their orphaned description blobs. */
+  /** Hourly housekeeping: drop jobs closed for 30+ days and their orphaned description blobs. */
   async scheduled(_event: ScheduledController, env: Env) {
     const { db, blobs } = deps(env);
     await purgeClosed(db, blobs);
+    await pruneRuns(db, blobs);
   },
 } satisfies ExportedHandler<Env>;

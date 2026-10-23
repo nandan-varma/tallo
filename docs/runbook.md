@@ -63,3 +63,21 @@ per source. A source with no complete run for 7 days is stale.
 - _Workday incomplete_: expected for slices that cannot be split; closure is skipped, jobs stay open.
 - _Unexpected closures after a mapper change_: closures only come from complete listings; check `runs` for
   the source and whether its listing really shrank.
+
+## Raw pack and run retention
+
+The hourly API cron keeps the newest two finalized raw packs per source (complete or partial),
+ordered by run start time and id. It deletes older packs before clearing their run references,
+so storage failures can be retried safely. Unfinalized packs are removed after 30 days.
+Run rows older than 30 days are deleted once their pack is removed; the two retained pack
+references are exempt so later sweeps can still prune them. Source health and jobs are unchanged.
+Each invocation removes at most 1,000 packs and 1,000 expired run rows; a backlog drains over
+subsequent hourly invocations.
+
+The hourly schedule permits up to 24,000 pack deletions and run deletions per day, exceeding
+the configured roughly 9,000-board daily sweep. Raw uploads record their key before writing R2
+so interrupted uploads can be removed after 30 days.
+
+Apply migration `0003` before deploying: `runs.raw_uploaded` distinguishes successful packs
+from upload intent, so failed uploads cannot displace retained packs. Existing tracked packs
+are treated as uploaded. Packs orphaned before upload tracking was introduced are not reclaimed.

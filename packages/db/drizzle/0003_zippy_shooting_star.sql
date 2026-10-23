@@ -1,0 +1,1 @@
+ALTER TABLE `runs` ADD `raw_uploaded` integer DEFAULT 1 NOT NULL;

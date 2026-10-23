@@ -56,7 +56,7 @@ what ran where and when. Failures finalize the run as `partial`; nothing is infe
 
 - Seen in a complete listing: `absent_runs = 0`, reopened if closed.
 - Missing from a complete, non-empty (or authoritatively empty) listing: `absent_runs += 1`; at 2, `closed_at` is set.
-- Closed jobs are purged (rows and orphaned description blobs) 30 days later by the Worker's daily cron.
+- Closed jobs are purged (rows and orphaned description blobs) 30 days later by the Worker's hourly cron.
 - A source with no complete run for 7 days is flagged stale (`sources.last_complete_run_at`); hiding stale
   sources' jobs is a read-side policy (planned, see issues).
 - No per-job `last_seen` writes: presence is derived from set difference per complete run.

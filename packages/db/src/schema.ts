@@ -35,6 +35,7 @@ export const runs = sqliteTable(
     closed: integer(),
     reopened: integer(),
     rawKey: text("raw_key"),
+    rawUploaded: integer("raw_uploaded").notNull().default(1),
     issues: text({ mode: "json" }).$type<
       { code: string; message: string; url?: string; postingId?: string }[]
     >(),
