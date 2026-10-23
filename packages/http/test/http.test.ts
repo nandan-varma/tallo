@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import { createHttp, hostAllowed, HttpError } from "../src/index.ts";
+import { createHttp, HttpError, hostAllowed } from "../src/index.ts";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), { status, headers });
 
 function make(fetchImpl: typeof fetch, extra = {}) {
-  return createHttp({ fetch: fetchImpl, allowedHosts: ["api.example.com", "*.cdn.test"], retryDelay: () => 0, ...extra });
+  return createHttp({
+    fetch: fetchImpl,
+    allowedHosts: ["api.example.com", "*.cdn.test"],
+    retryDelay: () => 0,
+    ...extra,
+  });
 }
 
 describe("hostAllowed", () => {
@@ -30,7 +35,9 @@ describe("createHttp", () => {
 
   it("does not retry 404 and surfaces the status", async () => {
     const f = vi.fn<typeof fetch>().mockResolvedValue(json({}, 404));
-    await expect(make(f).getJson("https://api.example.com/x")).rejects.toMatchObject({ status: 404 });
+    await expect(make(f).getJson("https://api.example.com/x")).rejects.toMatchObject({
+      status: 404,
+    });
     expect(f).toHaveBeenCalledTimes(1);
   });
 
@@ -43,7 +50,12 @@ describe("createHttp", () => {
   it("blocks disallowed hosts, http, and private addresses without fetching", async () => {
     const f = vi.fn<typeof fetch>();
     const http = make(f);
-    for (const url of ["https://evil.com/", "http://api.example.com/", "https://127.0.0.1/", "https://localhost/"]) {
+    for (const url of [
+      "https://evil.com/",
+      "http://api.example.com/",
+      "https://127.0.0.1/",
+      "https://localhost/",
+    ]) {
       await expect(http.getJson(url)).rejects.toMatchObject({ kind: "blocked" });
     }
     expect(f).not.toHaveBeenCalled();
@@ -52,21 +64,29 @@ describe("createHttp", () => {
   it("re-checks redirect targets against the allowlist", async () => {
     const f = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "https://evil.com/" } }));
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { location: "https://evil.com/" } }),
+      );
     await expect(make(f).getJson("https://api.example.com/x")).rejects.toBeInstanceOf(HttpError);
     expect(f).toHaveBeenCalledTimes(1);
   });
 
   it("rejects oversized and non-JSON bodies", async () => {
     const big = vi.fn<typeof fetch>().mockResolvedValue(new Response("x".repeat(100)));
-    await expect(make(big, { maxResponseBytes: 10 }).getText("https://api.example.com/")).rejects.toMatchObject({ kind: "blocked" });
+    await expect(
+      make(big, { maxResponseBytes: 10 }).getText("https://api.example.com/"),
+    ).rejects.toMatchObject({ kind: "blocked" });
     const bad = vi.fn<typeof fetch>().mockResolvedValue(new Response("<html>"));
-    await expect(make(bad).getJson("https://api.example.com/")).rejects.toMatchObject({ kind: "schema" });
+    await expect(make(bad).getJson("https://api.example.com/")).rejects.toMatchObject({
+      kind: "schema",
+    });
   });
 
   it("gives up after maxRetries on network failure", async () => {
     const f = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("boom"));
-    await expect(make(f, { maxRetries: 2 }).getJson("https://api.example.com/")).rejects.toMatchObject({ kind: "network" });
+    await expect(
+      make(f, { maxRetries: 2 }).getJson("https://api.example.com/"),
+    ).rejects.toMatchObject({ kind: "network" });
     expect(f).toHaveBeenCalledTimes(3);
   });
 });

@@ -5,27 +5,105 @@ import en from "i18n-iso-countries/langs/en.json" with { type: "json" };
 countries.registerLocale(en);
 
 const US_STATES: Record<string, string> = {
-  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado",
-  CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho",
-  IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana",
-  ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota",
-  MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada",
-  NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina",
-  ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
-  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas",
-  UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia",
-  WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia",
+  AL: "Alabama",
+  AK: "Alaska",
+  AZ: "Arizona",
+  AR: "Arkansas",
+  CA: "California",
+  CO: "Colorado",
+  CT: "Connecticut",
+  DE: "Delaware",
+  FL: "Florida",
+  GA: "Georgia",
+  HI: "Hawaii",
+  ID: "Idaho",
+  IL: "Illinois",
+  IN: "Indiana",
+  IA: "Iowa",
+  KS: "Kansas",
+  KY: "Kentucky",
+  LA: "Louisiana",
+  ME: "Maine",
+  MD: "Maryland",
+  MA: "Massachusetts",
+  MI: "Michigan",
+  MN: "Minnesota",
+  MS: "Mississippi",
+  MO: "Missouri",
+  MT: "Montana",
+  NE: "Nebraska",
+  NV: "Nevada",
+  NH: "New Hampshire",
+  NJ: "New Jersey",
+  NM: "New Mexico",
+  NY: "New York",
+  NC: "North Carolina",
+  ND: "North Dakota",
+  OH: "Ohio",
+  OK: "Oklahoma",
+  OR: "Oregon",
+  PA: "Pennsylvania",
+  RI: "Rhode Island",
+  SC: "South Carolina",
+  SD: "South Dakota",
+  TN: "Tennessee",
+  TX: "Texas",
+  UT: "Utah",
+  VT: "Vermont",
+  VA: "Virginia",
+  WA: "Washington",
+  WV: "West Virginia",
+  WI: "Wisconsin",
+  WY: "Wyoming",
+  DC: "District of Columbia",
 };
-const US_STATE_NAMES = new Map(Object.entries(US_STATES).map(([code, name]) => [name.toLowerCase(), code]));
+const US_STATE_NAMES = new Map(
+  Object.entries(US_STATES).map(([code, name]) => [name.toLowerCase(), code]),
+);
 
-const CA_PROVINCES = new Set(["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]);
+const CA_PROVINCES = new Set([
+  "AB",
+  "BC",
+  "MB",
+  "NB",
+  "NL",
+  "NS",
+  "NT",
+  "NU",
+  "ON",
+  "PE",
+  "QC",
+  "SK",
+  "YT",
+]);
 
 /** Aliases the ISO name tables don't cover. */
 const ALIASES: Record<string, string> = {
-  usa: "US", us: "US", "u.s.": "US", "u.s.a.": "US", america: "US", "united states of america": "US",
-  uk: "GB", "u.k.": "GB", england: "GB", scotland: "GB", wales: "GB", "northern ireland": "GB", "great britain": "GB",
-  uae: "AE", korea: "KR", "south korea": "KR", "czech republic": "CZ", czechia: "CZ", "the netherlands": "NL",
-  deutschland: "DE", türkiye: "TR", turkey: "TR", "hong kong": "HK", "puerto rico": "PR", russia: "RU",
+  usa: "US",
+  us: "US",
+  "u.s.": "US",
+  "u.s.a.": "US",
+  america: "US",
+  "united states of america": "US",
+  uk: "GB",
+  "u.k.": "GB",
+  england: "GB",
+  scotland: "GB",
+  wales: "GB",
+  "northern ireland": "GB",
+  "great britain": "GB",
+  uae: "AE",
+  korea: "KR",
+  "south korea": "KR",
+  "czech republic": "CZ",
+  czechia: "CZ",
+  "the netherlands": "NL",
+  deutschland: "DE",
+  türkiye: "TR",
+  turkey: "TR",
+  "hong kong": "HK",
+  "puerto rico": "PR",
+  russia: "RU",
 };
 
 const REMOTE = /\b(remote|work from home|wfh|telecommute|distributed|anywhere)\b/i;
@@ -36,7 +114,8 @@ export function countryCodeFor(name: string | undefined): string | undefined {
   if (!name) return undefined;
   const key = name.trim().toLowerCase().replace(/\.$/, "");
   if (ALIASES[key]) return ALIASES[key];
-  if (/^[a-z]{2}$/.test(key)) return countries.isValid(key.toUpperCase()) ? key.toUpperCase() : undefined;
+  if (/^[a-z]{2}$/.test(key))
+    return countries.isValid(key.toUpperCase()) ? key.toUpperCase() : undefined;
   return countries.getAlpha2Code(name.trim(), "en");
 }
 

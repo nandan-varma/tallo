@@ -8,8 +8,12 @@ const MIGRATIONS = new URL("../drizzle/", import.meta.url);
 /** In-memory SQLite behind Drizzle's proxy driver, with every migration applied. Tests only. */
 export function testDb() {
   const sqlite = new DatabaseSync(":memory:");
-  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort()) {
-    for (const statement of readFileSync(new URL(file, MIGRATIONS), "utf8").split("--> statement-breakpoint")) {
+  for (const file of readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()) {
+    for (const statement of readFileSync(new URL(file, MIGRATIONS), "utf8").split(
+      "--> statement-breakpoint",
+    )) {
       if (statement.trim()) sqlite.exec(statement);
     }
   }
@@ -20,7 +24,7 @@ export function testDb() {
       return { rows: [] };
     }
     stmt.setReturnArrays(true);
-    const rows = stmt.all(...(params as never[])) as unknown[][];
+    const rows = stmt.all(...(params as never[])) as unknown as unknown[][];
     return { rows: method === "get" ? (rows[0] ?? []) : rows };
   };
   return drizzle(

@@ -1,5 +1,5 @@
-import { purgeClosed, schema } from "@tallo/db";
 import type { BlobStore } from "@tallo/db";
+import { purgeClosed, schema } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
 import { createApp } from "./app.ts";
 
@@ -27,10 +27,18 @@ const deps = (env: Env) => ({
   ingestToken: env.INGEST_TOKEN,
 });
 
-const app = createApp<Env>(deps);
+// The env object is stable for the life of an isolate, so build the app once per env.
+const apps = new WeakMap<Env, ReturnType<typeof createApp>>();
+const appFor = (env: Env) => {
+  const cached = apps.get(env);
+  if (cached) return cached;
+  const app = createApp(deps(env));
+  apps.set(env, app);
+  return app;
+};
 
 export default {
-  fetch: app.fetch,
+  fetch: (request, env, ctx) => appFor(env).fetch(request, env, ctx),
   /** Daily housekeeping: drop jobs closed for 30+ days and their orphaned description blobs. */
   async scheduled(_event: ScheduledController, env: Env) {
     const { db, blobs } = deps(env);

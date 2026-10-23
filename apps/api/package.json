@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "deploy": "wrangler deploy",
     "types": "wrangler types"
   },

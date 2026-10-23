@@ -16,7 +16,10 @@ try {
 }
 
 const SOURCES_DIR = fileURLToPath(new URL("../../../sources", import.meta.url));
-const log = pino({ level: process.env.LOG_LEVEL ?? "info", ...(process.stdout.isTTY ? { transport: { target: "pino-pretty" } } : {}) });
+const log = pino({
+  level: process.env.LOG_LEVEL ?? "info",
+  ...(process.stdout.isTTY ? { transport: { target: "pino-pretty" } } : {}),
+});
 const need = (name: string): string => {
   const value = process.env[name];
   if (!value) throw new Error(`Set ${name}`);
@@ -43,7 +46,11 @@ program
     const done = new Map((await api.sources()).map((s) => [s.id, s.lastCompleteRunAt ?? 0]));
     const cutoff = Date.now() / 1000 - opts.staleHours * 3600;
     let due = loadSources(SOURCES_DIR)
-      .filter((s) => (!opts.platform || s.platform === opts.platform) && (!opts.source || s.id === opts.source))
+      .filter(
+        (s) =>
+          (!opts.platform || s.platform === opts.platform) &&
+          (!opts.source || s.id === opts.source),
+      )
       .filter((s) => opts.source || (done.get(s.id) ?? 0) < cutoff)
       .sort((a, b) => (done.get(a.id) ?? 0) - (done.get(b.id) ?? 0));
     if (opts.limit) due = due.slice(0, opts.limit);
@@ -54,7 +61,12 @@ program
       due.map((source) =>
         queue.add(async () => {
           try {
-            const result = await syncSource(source, { api, log, runnerId: process.env.TALLO_RUNNER_ID ?? hostname(), version: process.env.npm_package_version ?? "dev" });
+            const result = await syncSource(source, {
+              api,
+              log,
+              runnerId: process.env.TALLO_RUNNER_ID ?? hostname(),
+              version: process.env.npm_package_version ?? "dev",
+            });
             if (!result.listingComplete) failed++;
           } catch (error) {
             failed++;
@@ -81,8 +93,12 @@ program
   .description("List configured sources")
   .option("-p, --platform <id>")
   .action((opts) => {
-    const sources = loadSources(SOURCES_DIR).filter((s) => !opts.platform || s.platform === opts.platform);
-    const counts = Object.entries(Object.groupBy(sources, (s) => s.platform)).map(([p, list]) => `${p}: ${list?.length}`);
+    const sources = loadSources(SOURCES_DIR).filter(
+      (s) => !opts.platform || s.platform === opts.platform,
+    );
+    const counts = Object.entries(Object.groupBy(sources, (s) => s.platform)).map(
+      ([p, list]) => `${p}: ${list?.length}`,
+    );
     console.log(`${sources.length} sources\n${counts.join("\n")}`);
   });
 

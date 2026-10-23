@@ -6,24 +6,80 @@ export const CLASSIFIER_VERSION = 1;
 
 const TECH_TITLE = new RegExp(
   [
-    "software", "developer", "programmer", "devops", "\\bsre\\b", "site reliability", "machine learning",
-    "\\bml\\b", "\\bai\\b", "artificial intelligence", "data (scientist|engineer|analyst|architect|platform)",
-    "analytics engineer", "full.?stack", "front.?end", "back.?end", "\\bandroid\\b", "\\bios\\b", "mobile engineer",
-    "platform engineer", "infrastructure", "\\bcloud\\b", "\\bsdet\\b", "\\bqa (engineer|analyst)", "quality engineer",
-    "test engineer", "automation engineer", "embedded", "firmware", "kubernetes", "\\bweb\\b", "cyber", "security (engineer|analyst|architect|researcher)",
-    "network engineer", "systems? (engineer|administrator|architect|analyst)", "solutions? (engineer|architect)",
-    "sales engineer", "forward deployed", "technical (program|product|account|support|writer)", "developer (advocate|relations)",
-    "support engineer", "product (manager|designer|design)", "ux|ui (designer|design|researcher)", "\\bux\\b",
-    "engineering manager", "research (scientist|engineer)", "computer vision", "\\bnlp\\b", "blockchain", "database",
-    "\\bdba\\b", "\\bit (support|analyst|manager|specialist|administrator)", "technology (analyst|consultant|manager)",
-    "\\bsap\\b", "salesforce (developer|admin)", "robotics", "hardware engineer", "\\bfpga\\b", "\\basic\\b", "\\brtl\\b",
-    "gameplay", "game (developer|engineer)", "graphics", "compiler", "distributed systems", "staff engineer",
-    "principal engineer", "member of technical staff", "mts\\b",
+    "software",
+    "developer",
+    "programmer",
+    "devops",
+    "\\bsre\\b",
+    "site reliability",
+    "machine learning",
+    "\\bml\\b",
+    "\\bai\\b",
+    "artificial intelligence",
+    "data (scientist|engineer|analyst|architect|platform)",
+    "analytics engineer",
+    "full.?stack",
+    "front.?end",
+    "back.?end",
+    "\\bandroid\\b",
+    "\\bios\\b",
+    "mobile engineer",
+    "platform engineer",
+    "infrastructure",
+    "\\bcloud\\b",
+    "\\bsdet\\b",
+    "\\bqa (engineer|analyst)",
+    "quality engineer",
+    "test engineer",
+    "automation engineer",
+    "embedded",
+    "firmware",
+    "kubernetes",
+    "\\bweb\\b",
+    "cyber",
+    "security (engineer|analyst|architect|researcher)",
+    "network engineer",
+    "systems? (engineer|administrator|architect|analyst)",
+    "solutions? (engineer|architect)",
+    "sales engineer",
+    "forward deployed",
+    "technical (program|product|account|support|writer)",
+    "developer (advocate|relations)",
+    "support engineer",
+    "product (manager|designer|design)",
+    "ux|ui (designer|design|researcher)",
+    "\\bux\\b",
+    "engineering manager",
+    "research (scientist|engineer)",
+    "computer vision",
+    "\\bnlp\\b",
+    "blockchain",
+    "database",
+    "\\bdba\\b",
+    "\\bit (support|analyst|manager|specialist|administrator)",
+    "technology (analyst|consultant|manager)",
+    "\\bsap\\b",
+    "salesforce (developer|admin)",
+    "robotics",
+    "hardware engineer",
+    "\\bfpga\\b",
+    "\\basic\\b",
+    "\\brtl\\b",
+    "gameplay",
+    "game (developer|engineer)",
+    "graphics",
+    "compiler",
+    "distributed systems",
+    "staff engineer",
+    "principal engineer",
+    "member of technical staff",
+    "mts\\b",
   ].join("|"),
   "i",
 );
 
-const TECH_DEPT = /\b(engineering|technology|software|data|product|design|information technology|\bit\b|security|infrastructure|platform|research|ai|machine learning|r&d|development)\b/i;
+const TECH_DEPT =
+  /\b(engineering|technology|software|data|product|design|information technology|\bit\b|security|infrastructure|platform|research|ai|machine learning|r&d|development)\b/i;
 
 const NON_TECH_TITLE = new RegExp(
   [
@@ -40,7 +96,8 @@ const NON_TECH_TITLE = new RegExp(
   "i",
 );
 
-const NON_TECH_DEPT = /\b(sales|marketing|finance|accounting|legal|people|human resources|\bhr\b|clinical|manufacturing|retail|supply chain|facilities|operations|customer (success|support|service)|food|hospitality|healthcare|nursing|logistics|real estate|procurement|communications|public relations|administrative)\b/i;
+const NON_TECH_DEPT =
+  /\b(sales|marketing|finance|accounting|legal|people|human resources|\bhr\b|clinical|manufacturing|retail|supply chain|facilities|operations|customer (success|support|service)|food|hospitality|healthcare|nursing|logistics|real estate|procurement|communications|public relations|administrative)\b/i;
 
 export interface Classification {
   isUs: 0 | 1 | null;

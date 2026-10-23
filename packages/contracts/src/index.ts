@@ -3,6 +3,6 @@
  * Adding a platform never requires editing this file.
  */
 export * from "./ingest.ts";
-export * from "./json.ts";
 export * from "./job.ts";
+export * from "./json.ts";
 export * from "./platform.ts";

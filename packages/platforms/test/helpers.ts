@@ -1,16 +1,36 @@
 import { readFileSync } from "node:fs";
-import type { CollectContext, Http, HttpResponse, Issue, Json, SourceConfig } from "@tallo/contracts";
+import type {
+  CollectContext,
+  Http,
+  HttpResponse,
+  Issue,
+  Json,
+  SourceConfig,
+} from "@tallo/contracts";
 
-export const fixture = (name: string): Json => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
+export const fixture = (name: string): Json =>
+  JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
 
-export const source = (platform: string, key: string, params: SourceConfig["params"] = {}): SourceConfig => ({
-  id: `${platform}:${key}`, platform, key, company: key, params,
+export const source = (
+  platform: string,
+  key: string,
+  params: SourceConfig["params"] = {},
+): SourceConfig => ({
+  id: `${platform}:${key}`,
+  platform,
+  key,
+  company: key,
+  params,
 });
 
 type Handler = (url: string, body?: Json) => Json;
 
 /** Fake Http serving `handler(url, body)` and counting requests. */
-export function fakeCtx(handler: Handler): { ctx: CollectContext; urls: string[]; issues: Issue[] } {
+export function fakeCtx(handler: Handler): {
+  ctx: CollectContext;
+  urls: string[];
+  issues: Issue[];
+} {
   const urls: string[] = [];
   const issues: Issue[] = [];
   const respond = (url: string, body?: Json): HttpResponse => {

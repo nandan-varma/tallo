@@ -41,7 +41,7 @@ export function extractExperience(text: string): Quantity[] {
 }
 
 const MONEY_AMOUNT = String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s?([kK])?`;
-const SYMBOLS: Record<string, string> = { "$": "USD", "£": "GBP", "€": "EUR" };
+const SYMBOLS: Record<string, string> = { $: "USD", "£": "GBP", "€": "EUR" };
 
 function interval(context: string, value: number): PayInterval {
   if (/\b(per|a|\/)\s?(year|yr|annum)|annual|yearly|\bp\.?a\.?\b/i.test(context)) return "year";
@@ -72,7 +72,7 @@ export function extractCompensation(text: string): Money[] {
   };
   for (const m of text.matchAll(range)) {
     let min = scale(m[2]!, m[3]);
-    let max = scale(m[4]!, m[5]);
+    const max = scale(m[4]!, m[5]);
     if (m[5] && !m[3] && min < max / 100) min *= 1000; // "$120-150k"
     if (max < min) continue;
     const context = text.slice(m.index, (m.index ?? 0) + m[0].length + 60);
@@ -87,20 +87,38 @@ export function extractCompensation(text: string): Money[] {
       const context = text.slice(m.index, (m.index ?? 0) + m[0].length + 40);
       const iv = interval(context, value);
       if (iv === "unknown" || (iv === "year" && value < 20000)) continue;
-      push({ min: value, currency: SYMBOLS[m[1]!], interval: iv, component: "base", inferred: true, text: m[0] });
+      push({
+        min: value,
+        currency: SYMBOLS[m[1]!],
+        interval: iv,
+        component: "base",
+        inferred: true,
+        text: m[0],
+      });
     }
   }
   return out;
 }
 
 const ANNUAL_FACTOR: Partial<Record<PayInterval, number>> = {
-  year: 1, month: 12, week: 52, day: 260, hour: 2080,
+  year: 1,
+  month: 12,
+  week: 52,
+  day: 260,
+  hour: 2080,
 };
 
 /** Annualized base band for filtering. Currencies are never converted; the first band's wins. */
-export function annualizeBase(bands: Money[]): { min: number | null; max: number | null; currency: string | null } {
+export function annualizeBase(bands: Money[]): {
+  min: number | null;
+  max: number | null;
+  currency: string | null;
+} {
   const usable = bands.filter(
-    (b) => (b.component === "base" || b.component === "total" || b.component === "unknown") && ANNUAL_FACTOR[b.interval] && (b.min !== undefined || b.max !== undefined),
+    (b) =>
+      (b.component === "base" || b.component === "total" || b.component === "unknown") &&
+      ANNUAL_FACTOR[b.interval] &&
+      (b.min !== undefined || b.max !== undefined),
   );
   const structured = usable.filter((b) => !b.inferred);
   const pool = structured.length > 0 ? structured : usable;
@@ -114,7 +132,10 @@ export function annualizeBase(bands: Money[]): { min: number | null; max: number
 }
 
 /** Strictest required minimum and widest stated maximum, in years. */
-export function summarizeExperience(quantities: Quantity[]): { min: number | null; max: number | null } {
+export function summarizeExperience(quantities: Quantity[]): {
+  min: number | null;
+  max: number | null;
+} {
   const years = quantities.filter((q) => q.unit === "years" && q.kind !== "preferred");
   const mins = years.map((q) => q.min ?? q.exact).filter((n): n is number => n !== undefined);
   const maxs = years.map((q) => q.max ?? q.exact).filter((n): n is number => n !== undefined);

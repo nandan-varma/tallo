@@ -1,9 +1,21 @@
-import type { DrizzleD1Database } from "drizzle-orm/d1";
-import type { SqliteRemoteDatabase } from "drizzle-orm/sqlite-proxy";
+import type { BatchItem } from "drizzle-orm/batch";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type * as schema from "./schema.ts";
 
-/** D1 in production, a SQLite proxy in tests and tooling. Both are async and support `batch`. */
-export type Db = DrizzleD1Database<typeof schema> | SqliteRemoteDatabase<typeof schema>;
+// biome-ignore lint/suspicious/noExplicitAny: D1 and the SQLite proxy differ only in their run-result type.
+type AnyRunResult = any;
+
+/**
+ * D1 in production, a SQLite proxy in tests and tooling. Both are async and support `batch`
+ * (D1 has no interactive transactions, so every multi-statement write goes through it).
+ */
+export type Db = BaseSQLiteDatabase<"async", AnyRunResult, typeof schema> & {
+  batch(queries: readonly [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]): Promise<unknown>;
+};
+
+/** Atomically run one or more statements. */
+export const batch = (db: Db, statements: BatchItem<"sqlite">[]): Promise<unknown> =>
+  db.batch(statements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
 
 /** The ids are numeric and server-generated, so sending them as one JSON param is safe and
  * sidesteps D1's 100-bound-parameter limit. */

@@ -1,5 +1,5 @@
-import type { Json } from "./json.ts";
 import type { MappedJob } from "./job.ts";
+import type { Json } from "./json.ts";
 
 /** One configured recruiting surface (a board). Trusted configuration, never user input. */
 export interface SourceConfig {

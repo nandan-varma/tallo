@@ -1,19 +1,36 @@
-import { arr, id, isObject, num, obj, str } from "@tallo/contracts";
-import type { CollectContext, Json, JsonObject, Platform, RawPosting, SourceConfig } from "@tallo/contracts";
-import { describe, locations, SchemaError, rows } from "../kit.ts";
+import type {
+  CollectContext,
+  Json,
+  JsonObject,
+  Platform,
+  RawPosting,
+  SourceConfig,
+} from "@tallo/contracts";
+import { arr, isObject, num, obj, str } from "@tallo/contracts";
+import { describe, locations, rows, SchemaError } from "../kit.ts";
 
 const PAGE = 20;
 /** Workday serves at most 2000 results per query, however large the board is. */
 const CAP = 2000;
 
 type Applied = Record<string, string[]>;
-interface Leaf { param: string; id: string; count: number }
+interface Leaf {
+  param: string;
+  id: string;
+  count: number;
+}
 
 const parts = (s: SourceConfig) => {
   const [tenant, site] = s.key.split("/");
   const wd = String(s.params.wd ?? "");
-  if (!tenant || !site || !/^wd\d+$/.test(wd)) throw new Error(`Workday key must be "tenant/site" with params.wd: ${s.key}`);
-  return { tenant, site, origin: `https://${tenant}.${wd}.myworkdayjobs.com`, api: `https://${tenant}.${wd}.myworkdayjobs.com/wday/cxs/${tenant}/${site}` };
+  if (!tenant || !site || !/^wd\d+$/.test(wd))
+    throw new Error(`Workday key must be "tenant/site" with params.wd: ${s.key}`);
+  return {
+    tenant,
+    site,
+    origin: `https://${tenant}.${wd}.myworkdayjobs.com`,
+    api: `https://${tenant}.${wd}.myworkdayjobs.com/wday/cxs/${tenant}/${site}`,
+  };
 };
 
 /** Facet values, flattened across nested groups. A group carries its own `facetParameter`. */
@@ -36,12 +53,23 @@ function bestSplit(facets: Json, applied: Applied): Leaf[] | undefined {
   return options.sort((a, b) => coverage(b) - coverage(a) || b.length - a.length)[0];
 }
 
-async function* slice(source: SourceConfig, ctx: CollectContext, applied: Applied, seen: Set<string>, state: { complete: boolean }): AsyncGenerator<RawPosting> {
+async function* slice(
+  source: SourceConfig,
+  ctx: CollectContext,
+  applied: Applied,
+  seen: Set<string>,
+  state: { complete: boolean },
+): AsyncGenerator<RawPosting> {
   const { api } = parts(source);
   let facets: Json = [];
   let total = Number.POSITIVE_INFINITY;
   for (let offset = 0; offset < Math.min(total, CAP); offset += PAGE) {
-    const { data } = await ctx.http.postJson(`${api}/jobs`, { appliedFacets: applied, limit: PAGE, offset, searchText: "" });
+    const { data } = await ctx.http.postJson(`${api}/jobs`, {
+      appliedFacets: applied,
+      limit: PAGE,
+      offset,
+      searchText: "",
+    });
     const body = obj(data);
     const page = rows(body.jobPostings, "jobPostings");
     if (offset === 0) {
@@ -62,7 +90,10 @@ async function* slice(source: SourceConfig, ctx: CollectContext, applied: Applie
   const split = bestSplit(facets, applied);
   if (!split) {
     state.complete = false;
-    ctx.record({ code: "pagination", message: `Workday slice over ${CAP} jobs cannot be split further` });
+    ctx.record({
+      code: "pagination",
+      message: `Workday slice over ${CAP} jobs cannot be split further`,
+    });
     return;
   }
   for (const leaf of split) {
@@ -83,7 +114,8 @@ export const workday: Platform = {
   },
 
   async detail(source, posting, ctx) {
-    if (!posting.id.startsWith("/job/")) throw new SchemaError(`Unexpected Workday path: ${posting.id}`);
+    if (!posting.id.startsWith("/job/"))
+      throw new SchemaError(`Unexpected Workday path: ${posting.id}`);
     return (await ctx.http.getJson(`${parts(source).api}${posting.id}`)).data;
   },
 
@@ -104,7 +136,10 @@ export const workday: Platform = {
       url: str(info.externalUrl),
       applyUrl: str(info.externalUrl),
       description: describe(info.jobDescription),
-      locations: locations([{ text: info.location ?? l.locationsText, hints: { country } }, ...extra]),
+      locations: locations([
+        { text: info.location ?? l.locationsText, hints: { country } },
+        ...extra,
+      ]),
       employmentType: str(info.timeType),
       requisitionId: str(info.jobReqId) ?? str(arr(l.bulletFields)[0]),
       postedAt: str(info.startDate),
@@ -113,7 +148,9 @@ export const workday: Platform = {
       experience: [],
       extras: {
         ...(str(info.remoteType) ? { remoteType: str(info.remoteType) } : {}),
-        ...(str(obj(obj(detail).hiringOrganization).name) ? { organization: str(obj(obj(detail).hiringOrganization).name) } : {}),
+        ...(str(obj(obj(detail).hiringOrganization).name)
+          ? { organization: str(obj(obj(detail).hiringOrganization).name) }
+          : {}),
       },
     };
   },

@@ -33,7 +33,9 @@ export const runs = sqliteTable(
     closed: integer(),
     reopened: integer(),
     rawKey: text("raw_key"),
-    issues: text({ mode: "json" }).$type<{ code: string; message: string; url?: string; postingId?: string }[]>(),
+    issues: text({ mode: "json" }).$type<
+      { code: string; message: string; url?: string; postingId?: string }[]
+    >(),
   },
   (t) => [index("runs_source_idx").on(t.sourceId, t.startedAt)],
 );

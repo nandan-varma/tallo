@@ -1,5 +1,5 @@
-import { obj } from "@tallo/contracts";
 import type { Json, RawPosting } from "@tallo/contracts";
+import { obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import { ashby, greenhouse, lever, platformFor, smartrecruiters, workday } from "../src/index.ts";
 import { drain, fakeCtx, fixture, source } from "./helpers.ts";
@@ -27,9 +27,21 @@ describe("greenhouse", () => {
     const detail = fixture("greenhouse-detail");
     const raw: RawPosting = { id: "5456619008", listing: detail, detail };
     const job = greenhouse.map(raw, source("greenhouse", "anthropic"));
-    expect(job).toMatchObject({ postingId: "5456619008", title: "3P Revenue Accounting & Reporting", department: "Finance" });
-    expect(job.compensation[0]).toMatchObject({ min: 190000, max: 230000, currency: "USD", interval: "year", component: "base" });
-    expect(job.locations.map((l) => l.text)).toEqual(expect.arrayContaining(["San Francisco, CA", "Seattle, WA"]));
+    expect(job).toMatchObject({
+      postingId: "5456619008",
+      title: "3P Revenue Accounting & Reporting",
+      department: "Finance",
+    });
+    expect(job.compensation[0]).toMatchObject({
+      min: 190000,
+      max: 230000,
+      currency: "USD",
+      interval: "year",
+      component: "base",
+    });
+    expect(job.locations.map((l) => l.text)).toEqual(
+      expect.arrayContaining(["San Francisco, CA", "Seattle, WA"]),
+    );
     expect(job.locations[0]).toMatchObject({ primary: true, countryCode: "US" });
     expect(job.description.length).toBeGreaterThan(500);
     expect(job.description).not.toContain("<");
@@ -37,7 +49,9 @@ describe("greenhouse", () => {
   it("fetches pay detail by posting id", async () => {
     const { ctx, urls } = fakeCtx(() => fixture("greenhouse-detail"));
     await greenhouse.detail!(src, { id: "42", listing: null }, ctx);
-    expect(urls[0]).toBe("https://boards-api.greenhouse.io/v1/boards/stripe/jobs/42?questions=true&pay_transparency=true");
+    expect(urls[0]).toBe(
+      "https://boards-api.greenhouse.io/v1/boards/stripe/jobs/42?questions=true&pay_transparency=true",
+    );
   });
   it("treats a malformed response as a failed run, not an empty board", async () => {
     const { ctx } = fakeCtx(() => ({ unexpected: true }));
@@ -61,9 +75,14 @@ describe("lever", () => {
     expect(job.postedAt).toMatch(/^\d{4}-/);
   });
   it("maps structured salary ranges with their interval", () => {
-    const listing = { ...obj((fixture("lever-list") as Json[])[0]), salaryRange: { currency: "USD", interval: "per-hour-wage", min: 40, max: 55 } };
+    const listing = {
+      ...obj((fixture("lever-list") as Json[])[0]),
+      salaryRange: { currency: "USD", interval: "per-hour-wage", min: 40, max: 55 },
+    };
     const job = lever.map({ id: "x", listing }, src);
-    expect(job.compensation).toEqual([{ min: 40, max: 55, currency: "USD", interval: "hour", component: "base" }]);
+    expect(job.compensation).toEqual([
+      { min: 40, max: 55, currency: "USD", interval: "hour", component: "base" },
+    ]);
   });
 });
 
@@ -73,7 +92,10 @@ describe("ashby", () => {
     const { ctx } = fakeCtx(() => fixture("ashby-list"));
     const { items } = await drain(ashby.list(src, ctx));
     const job = ashby.map(items[0]!, src);
-    expect(job.compensation.find((c) => c.component === "base")).toMatchObject({ currency: "USD", interval: "year" });
+    expect(job.compensation.find((c) => c.component === "base")).toMatchObject({
+      currency: "USD",
+      interval: "year",
+    });
     expect(job.locations.length).toBeGreaterThan(0);
     expect(job.locations[0]?.countryCode).toBe("US");
     expect(job.description.length).toBeGreaterThan(300);
@@ -99,7 +121,11 @@ describe("smartrecruiters", () => {
     expect(items).toHaveLength(3);
     const detail = fixture("smartrecruiters-detail");
     const job = smartrecruiters.map({ id: "1", listing: rowsFx[0]!, detail }, src);
-    expect(job).toMatchObject({ title: "Associate Software Engineer", requisitionId: "JB0076564", department: "Engineering, Infrastructure and Operations" });
+    expect(job).toMatchObject({
+      title: "Associate Software Engineer",
+      requisitionId: "JB0076564",
+      department: "Engineering, Infrastructure and Operations",
+    });
     expect(job.locations[0]).toMatchObject({ countryCode: "US", city: "Santa Clara" });
     expect(job.description).toContain("Company Description");
     expect(job.extras).toHaveProperty("customFields");
@@ -124,12 +150,31 @@ describe("workday", () => {
 
   it("splits capped boards by facet and dedupes overlap", async () => {
     // 2 states with 30 jobs each; job 0 appears in both (multi-location).
-    const states: Record<string, Json[]> = { a: Array.from({ length: 30 }, (_, i) => row(i)), b: Array.from({ length: 30 }, (_, i) => row(i + 29)) };
-    const facets = [{ facetParameter: "state", values: [{ id: "a", count: 30 }, { id: "b", count: 30 }] }];
+    const states: Record<string, Json[]> = {
+      a: Array.from({ length: 30 }, (_, i) => row(i)),
+      b: Array.from({ length: 30 }, (_, i) => row(i + 29)),
+    };
+    const facets = [
+      {
+        facetParameter: "state",
+        values: [
+          { id: "a", count: 30 },
+          { id: "b", count: 30 },
+        ],
+      },
+    ];
     const { ctx } = fakeCtx((_u, body) => {
-      const { appliedFacets, offset } = obj(body) as { appliedFacets: Record<string, string[]>; offset: number };
+      const { appliedFacets, offset } = obj(body) as {
+        appliedFacets: Record<string, string[]>;
+        offset: number;
+      };
       const id = appliedFacets.state?.[0];
-      if (!id) return { total: 2000, jobPostings: Array.from({ length: 20 }, (_, i) => row(1000 + i)), facets };
+      if (!id)
+        return {
+          total: 2000,
+          jobPostings: Array.from({ length: 20 }, (_, i) => row(1000 + i)),
+          facets,
+        };
       return { total: 30, jobPostings: states[id]!.slice(offset, offset + 20), facets: [] };
     });
     const { items, result } = await drain(workday.list(src, ctx));
@@ -139,7 +184,11 @@ describe("workday", () => {
   });
 
   it("reports an unsplittable capped slice as incomplete", async () => {
-    const { ctx, issues } = fakeCtx((_u, body) => ({ total: 2000, jobPostings: Array.from({ length: 20 }, (_, i) => row(obj(body).offset as number + i)), facets: [] }));
+    const { ctx, issues } = fakeCtx((_u, body) => ({
+      total: 2000,
+      jobPostings: Array.from({ length: 20 }, (_, i) => row((obj(body).offset as number) + i)),
+      facets: [],
+    }));
     const { result } = await drain(workday.list(src, ctx));
     expect(result.complete).toBe(false);
     expect(issues[0]?.code).toBe("pagination");
@@ -150,7 +199,12 @@ describe("workday", () => {
     expect(a).toEqual(workday.fingerprint!({ title: "t", postedOn: "Posted 3 Days Ago" }));
     const detail = fixture("workday-detail");
     const job = workday.map({ id: "/job/x/1", listing: list.jobPostings[0]!, detail }, src);
-    expect(job).toMatchObject({ title: "Lead Warehouse Worker", requisitionId: "R0000476959", employmentType: "Full time", postedAt: "2026-10-23" });
+    expect(job).toMatchObject({
+      title: "Lead Warehouse Worker",
+      requisitionId: "R0000476959",
+      employmentType: "Full time",
+      postedAt: "2026-10-23",
+    });
     expect(job.locations[0]?.countryCode).toBe("US");
     expect(job.description).toContain("pay range");
   });

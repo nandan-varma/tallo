@@ -1,12 +1,20 @@
-import { arr, isObject, obj, str } from "@tallo/contracts";
-import type { Json, JobLocation, JsonObject, PayInterval, SourceConfig, WorkMode } from "@tallo/contracts";
 import { htmlToText, parseLocation } from "@tallo/catalog";
+import type {
+  JobLocation,
+  Json,
+  JsonObject,
+  PayInterval,
+  SourceConfig,
+  WorkMode,
+} from "@tallo/contracts";
+import { arr, isObject, obj, str } from "@tallo/contracts";
 
 /** The source answered, but not in the shape we know. Aborts the run; never implies closure. */
 export class SchemaError extends Error {}
 
 export function rows(value: unknown, label: string): JsonObject[] {
-  if (!Array.isArray(value) || !value.every(isObject)) throw new SchemaError(`Expected array of objects at ${label}`);
+  if (!Array.isArray(value) || !value.every(isObject))
+    throw new SchemaError(`Expected array of objects at ${label}`);
   return value as JsonObject[];
 }
 
@@ -18,7 +26,9 @@ export const isoFromMs = (ms: unknown): string | undefined =>
   typeof ms === "number" && Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
 
 export function workModeOf(value: unknown): WorkMode | undefined {
-  const v = str(value)?.toLowerCase().replace(/[^a-z]/g, "");
+  const v = str(value)
+    ?.toLowerCase()
+    .replace(/[^a-z]/g, "");
   if (v === "remote") return "remote";
   if (v === "hybrid") return "hybrid";
   if (v === "onsite" || v === "inoffice" || v === "inperson") return "onsite";
@@ -32,11 +42,18 @@ export function guessInterval(amount: number): PayInterval {
 
 /** Description text from HTML fragments, in order. Fragments may be missing. */
 export function describe(...html: unknown[]): string {
-  return htmlToText(html.map((h) => str(h)).filter(Boolean).join("\n"));
+  return htmlToText(
+    html
+      .map((h) => str(h))
+      .filter(Boolean)
+      .join("\n"),
+  );
 }
 
 /** Distinct locations from free text; the first is primary. */
-export function locations(entries: { text: unknown; hints?: Partial<JobLocation> }[]): JobLocation[] {
+export function locations(
+  entries: { text: unknown; hints?: Partial<JobLocation> }[],
+): JobLocation[] {
   const seen = new Set<string>();
   const out: JobLocation[] = [];
   for (const { text, hints } of entries) {
@@ -62,7 +79,9 @@ export function pairs(list: unknown, nameKey: string, valueKey: string): JsonObj
 }
 
 export const pick = (value: Json | undefined, ...keys: string[]): JsonObject =>
-  Object.fromEntries(keys.filter((k) => obj(value)[k] != null).map((k) => [k, obj(value)[k] as Json]));
+  Object.fromEntries(
+    keys.filter((k) => obj(value)[k] != null).map((k) => [k, obj(value)[k] as Json]),
+  );
 
 /**
  * Field reader over layered payloads (first non-null wins). Reads stay explicit, so

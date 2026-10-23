@@ -18,14 +18,30 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
   return {
     startRun: (run: CreateRun) => client.post("v1/runs", { json: run }).then(() => undefined),
     diff: (runId: string, postings: { id: string; hash: string }[]) =>
-      client.post(`v1/runs/${runId}/diff`, { json: { postings } }).json<{ changed: string[] }>().then((r) => r.changed),
+      client
+        .post(`v1/runs/${runId}/diff`, { json: { postings } })
+        .json<{ changed: string[] }>()
+        .then((r) => r.changed),
     missingBlobs: (hashes: string[]) =>
-      client.post("v1/blobs/check", { json: { hashes } }).json<{ missing: string[] }>().then((r) => r.missing),
-    putJd: (hash: string, gz: Uint8Array) => client.put(`v1/blobs/jd/${hash}`, { body: gz as BodyInit }).then(() => undefined),
-    applyJobs: (runId: string, jobs: JobFacts[]) => client.post(`v1/runs/${runId}/jobs`, { json: { jobs } }).json<ApplyResult>(),
-    putRaw: (runId: string, gz: Uint8Array) => client.put(`v1/runs/${runId}/raw`, { body: gz as BodyInit }).json<{ key: string }>().then((r) => r.key),
-    finalize: (runId: string, body: Finalize) => client.post(`v1/runs/${runId}/finalize`, { json: body }).json<FinalizeResult>(),
-    sources: () => client.get("v1/sources").json<{ id: string; lastCompleteRunAt: number | null }[]>(),
+      client
+        .post("v1/blobs/check", { json: { hashes } })
+        .json<{ missing: string[] }>()
+        .then((r) => r.missing),
+    putJd: (hash: string, gz: Uint8Array) =>
+      client
+        .put(`v1/blobs/jd/${hash}`, { body: gz as Uint8Array<ArrayBuffer> })
+        .then(() => undefined),
+    applyJobs: (runId: string, jobs: JobFacts[]) =>
+      client.post(`v1/runs/${runId}/jobs`, { json: { jobs } }).json<ApplyResult>(),
+    putRaw: (runId: string, gz: Uint8Array) =>
+      client
+        .put(`v1/runs/${runId}/raw`, { body: gz as Uint8Array<ArrayBuffer> })
+        .json<{ key: string }>()
+        .then((r) => r.key),
+    finalize: (runId: string, body: Finalize) =>
+      client.post(`v1/runs/${runId}/finalize`, { json: body }).json<FinalizeResult>(),
+    sources: () =>
+      client.get("v1/sources").json<{ id: string; lastCompleteRunAt: number | null }[]>(),
   };
 }
 export type Api = ReturnType<typeof createApi>;

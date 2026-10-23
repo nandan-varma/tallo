@@ -42,18 +42,27 @@ export function hostAllowed(hostname: string, patterns: readonly string[]): bool
 }
 
 function isPrivateHost(hostname: string): boolean {
-  if (hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal")) return true;
+  if (hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal"))
+    return true;
   if (hostname.startsWith("[")) return true; // literal IPv6
   const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(hostname);
   if (!m) return false;
   const a = Number(m[1]);
   const b = Number(m[2]);
-  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+  return (
+    a === 10 ||
+    a === 127 ||
+    a === 0 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
 }
 
 async function readCapped(response: Response, max: number, url: string): Promise<string> {
   const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > max) throw new HttpError("blocked", `Response exceeds ${max} bytes`, url, response.status);
+  if (Number.isFinite(declared) && declared > max)
+    throw new HttpError("blocked", `Response exceeds ${max} bytes`, url, response.status);
   if (!response.body) return "";
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -68,7 +77,9 @@ async function readCapped(response: Response, max: number, url: string): Promise
     }
     chunks.push(value);
   }
-  return new TextDecoder().decode(await new Blob(chunks as BlobPart[]).arrayBuffer());
+  return new TextDecoder().decode(
+    await new Blob(chunks as Uint8Array<ArrayBuffer>[]).arrayBuffer(),
+  );
 }
 
 export function createHttp(options: HttpOptions): Http {
@@ -122,44 +133,57 @@ export function createHttp(options: HttpOptions): Http {
     return url;
   }
 
-  async function request(method: "GET" | "POST", raw: string, body: Json | undefined, init?: HttpInit): Promise<HttpResponse<string>> {
+  async function request(
+    method: "GET" | "POST",
+    raw: string,
+    body: Json | undefined,
+    init?: HttpInit,
+  ): Promise<HttpResponse<string>> {
     let url = check(raw);
     let verb = method;
     let payload = body;
     for (let hops = 0; hops <= 5; hops++) {
       options.signal?.throwIfAborted();
       try {
-        const response = await queue(url.hostname).add(
-          async () => {
-            options.onRequest?.();
-            return client(url, {
-              method: verb,
-              ...(payload === undefined ? {} : { json: payload }),
-              ...(init?.headers ? { headers: init.headers } : {}),
-              ...(options.signal ? { signal: options.signal } : {}),
-              throwHttpErrors: (status) => !(status >= 300 && status < 400) && !init?.okStatuses?.includes(status),
-            });
-          },
-          { throwOnTimeout: true },
-        );
+        const response = await queue(url.hostname).add(async () => {
+          options.onRequest?.();
+          return client(url, {
+            method: verb,
+            ...(payload === undefined ? {} : { json: payload }),
+            ...(init?.headers ? { headers: init.headers } : {}),
+            ...(options.signal ? { signal: options.signal } : {}),
+            throwHttpErrors: (status) =>
+              !(status >= 300 && status < 400) && !init?.okStatuses?.includes(status),
+          });
+        });
         if (response.status >= 300 && response.status < 400) {
           const location = response.headers.get("location");
           await response.body?.cancel();
-          if (!location) throw new HttpError("http", "Redirect without location", url.href, response.status);
+          if (!location)
+            throw new HttpError("http", "Redirect without location", url.href, response.status);
           url = check(new URL(location, url).href);
           verb = "GET";
           payload = undefined;
           continue;
         }
         if (response.ok || init?.okStatuses?.includes(response.status)) {
-          return { status: response.status, url: url.href, data: await readCapped(response, maxBytes, url.href) };
+          return {
+            status: response.status,
+            url: url.href,
+            data: await readCapped(response, maxBytes, url.href),
+          };
         }
         await response.body?.cancel();
         throw new HttpError("http", `HTTP ${response.status}`, url.href, response.status);
       } catch (error) {
         if (error instanceof HttpError) throw error;
-        if (error instanceof HTTPError) throw new HttpError("http", error.message, url.href, error.response.status);
-        throw new HttpError("network", error instanceof Error ? error.message : String(error), url.href);
+        if (error instanceof HTTPError)
+          throw new HttpError("http", error.message, url.href, error.response.status);
+        throw new HttpError(
+          "network",
+          error instanceof Error ? error.message : String(error),
+          url.href,
+        );
       }
     }
     throw new HttpError("blocked", "Too many redirects", raw);

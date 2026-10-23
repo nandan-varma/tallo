@@ -7,7 +7,8 @@ export interface BlobStore {
 }
 
 export const jdKey = (hash: string): string => `jd/${hash}`;
-export const rawKey = (sourceId: string, runId: string): string => `raw/${sourceId}/${runId}.ndjson.gz`;
+export const rawKey = (sourceId: string, runId: string): string =>
+  `raw/${sourceId}/${runId}.ndjson.gz`;
 
 export function memoryBlobs(): BlobStore & { keys(): string[] } {
   const map = new Map<string, Uint8Array>();

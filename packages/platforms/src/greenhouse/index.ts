@@ -1,6 +1,15 @@
-import { arr, id, obj, str } from "@tallo/contracts";
 import type { Money, Platform, SourceConfig } from "@tallo/contracts";
-import { describe, guessInterval, locations, pairs, requireKey, rows, workModeOf, lookup } from "../kit.ts";
+import { arr, id, obj, str } from "@tallo/contracts";
+import {
+  describe,
+  guessInterval,
+  locations,
+  lookup,
+  pairs,
+  requireKey,
+  rows,
+  workModeOf,
+} from "../kit.ts";
 
 const base = (s: SourceConfig) =>
   `https://${s.params.region === "eu" ? "boards-api.eu.greenhouse.io" : "boards-api.greenhouse.io"}/v1/boards/${s.key}/jobs`;
@@ -13,8 +22,21 @@ function pay(ranges: unknown): Money[] {
     const max = typeof max_cents === "number" ? max_cents / 100 : undefined;
     if (min === undefined && max === undefined) return [];
     const label = str(title) ?? "";
-    const interval = /hour/i.test(label) ? "hour" : /annual|year/i.test(label) ? "year" : guessInterval(max ?? min ?? 0);
-    return [{ min, max, currency: str(currency_type), interval, component: "base" as const, text: label || undefined }];
+    const interval = /hour/i.test(label)
+      ? "hour"
+      : /annual|year/i.test(label)
+        ? "year"
+        : guessInterval(max ?? min ?? 0);
+    return [
+      {
+        min,
+        max,
+        currency: str(currency_type),
+        interval,
+        component: "base" as const,
+        text: label || undefined,
+      },
+    ];
   });
 }
 
@@ -39,7 +61,9 @@ export const greenhouse: Platform = {
   map({ id: postingId, listing, detail }) {
     const j = lookup(detail, listing);
     const metadata = pairs(j("metadata"), "name", "value");
-    const departments = arr(j("departments")).map((d) => str(obj(d).name)).filter((n): n is string => !!n);
+    const departments = arr(j("departments"))
+      .map((d) => str(obj(d).name))
+      .filter((n): n is string => !!n);
     const offices = arr(j("offices")).map((o) => str(obj(o).location) ?? str(obj(o).name));
     const place = str(obj(j("location")).name);
     return {
