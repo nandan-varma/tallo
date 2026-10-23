@@ -83,14 +83,33 @@ describe("extractors", () => {
 
 describe("classify", () => {
   const us = [parseLocation("Austin, TX")];
+  // [title, department/team, expected isTech]: real rows from the catalog.
   it.each([
     ["Senior Software Engineer", undefined, 1],
     ["Product Manager", undefined, 1],
-    ["Registered Nurse", undefined, 0],
-    ["Account Executive", "Sales", 0],
+    ["IT Operations Specialist", "Operations IT Operations", 1],
+    ["Internship - 2027 Undergraduate IT Intern", undefined, 1],
+    ["Senior IT Vendor Manager", undefined, 1],
     ["Engineer II", "Engineering", 1],
+    ["Test Engineer", "Software Engineering", 1],
+    ["Registered Nurse", undefined, 0],
+    ["Registered Behavior Technician (RBT)", "North Carolina RBT", 0],
+    ["Account Executive", "Sales", 0],
+    ["Account Manager", "Sales Account Management", 0],
+    [
+      "Maintenance Technician",
+      "Able Services Field Engineering, General Maintenance Technician",
+      0,
+    ],
+    ["BOMA Certified Engineer", "Able Services Field Engineering, Building Engineer", 0],
+    ["Chief Engineer", "Able Services Field Engineering, Chief Engineer", 0],
+    ["Mechanical Engineering Manager", "Engineering", 0],
+    ["Test Engineer", "Manufacturing Operations", 0],
+    ["Proposal Strategist, Creative Strategy", "Business Development", 0],
+    ["Junk Removal and Driver", "1-800-GOT-JUNK?", 0],
     ["Office Coordinator", undefined, null],
-    ["Mechanical Engineer", "Engineering", 0],
+    ["Quant", "Trading", null],
+    ["Application Engineer - Space Segment", undefined, null],
   ])("%s (%s) -> %s", (title, department, expected) => {
     expect(classify({ title, department, locations: us }).isTech).toBe(expected);
   });

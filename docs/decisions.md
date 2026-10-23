@@ -9,8 +9,9 @@ the flow is linear, so its cost (style, learning curve) outweighs the benefit. R
 **D11. Platform = list + detail + map + fingerprint in one folder.** Adding a platform touches one folder and one
 registry line. `map` is pure code beside the collector; collectors still never touch a database.
 
-**D10. Diff by source fingerprint, not mapped facts.** `sourceHash` = fingerprint(listing) + platform version +
-classifier version. Daily runs fetch details only for changed postings; bumping a version re-processes everything.
+**D10. Diff by source fingerprint, not mapped facts.** `sourceHash` = fingerprint(listing) + platform version.
+Daily runs fetch details only for changed postings; bumping a platform version re-processes that platform.
+Heuristic flags are derived data with their own version: `tallo reclassify` upgrades them from stored facts.
 
 **D9. No per-job `last_seen`.** Presence comes from set difference against each complete listing; this avoids
 writing every row every day (~9M writes/month at 300k jobs).

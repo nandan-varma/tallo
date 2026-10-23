@@ -298,3 +298,56 @@ export async function purgeClosed(
   }
   return stale.length;
 }
+
+export type Classifier = (row: {
+  title: string;
+  department: string | null;
+  team: string | null;
+  locations: unknown;
+}) => {
+  isUs: 0 | 1 | null;
+  isTech: 0 | 1 | null;
+  version: number;
+};
+
+/**
+ * Re-derive heuristic flags for jobs classified by an older rule version, from stored facts alone
+ * (no refetching). Call repeatedly until `more` is false.
+ */
+export async function reclassify(
+  db: Db,
+  classify: Classifier,
+  version: number,
+  limit = 300,
+): Promise<{ updated: number; more: boolean }> {
+  const stale = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      department: jobs.department,
+      team: jobs.team,
+      facts: jobs.facts,
+    })
+    .from(jobs)
+    .where(sql`${jobs.classifierVersion} < ${version}`)
+    .limit(limit + 1);
+  const page = stale.slice(0, limit);
+  if (page.length > 0) {
+    await batch(
+      db,
+      page.map((row) => {
+        const verdict = classify({ ...row, locations: row.facts.locations });
+        return db
+          .update(jobs)
+          .set({
+            isUs: verdict.isUs,
+            isTech: verdict.isTech,
+            classifierVersion: verdict.version,
+            hidden: outOfScope(verdict),
+          })
+          .where(eq(jobs.id, row.id));
+      }),
+    );
+  }
+  return { updated: page.length, more: stale.length > limit };
+}

@@ -89,6 +89,20 @@ program
   });
 
 program
+  .command("reclassify")
+  .description("Re-derive US/tech flags for jobs classified by older rules (no refetching)")
+  .action(async () => {
+    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+    let total = 0;
+    for (;;) {
+      const { updated, more } = await api.reclassify();
+      total += updated;
+      log.info({ updated, total }, "reclassified");
+      if (!more) break;
+    }
+  });
+
+program
   .command("sources")
   .description("List configured sources")
   .option("-p, --platform <id>")

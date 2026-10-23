@@ -1,10 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
-import { gunzip, sha256 } from "@tallo/catalog";
+import { CLASSIFIER_VERSION, classify, gunzip, sha256 } from "@tallo/catalog";
 import {
   blobCheckSchema,
   createRunSchema,
   diffSchema,
   finalizeSchema,
+  type JobLocation,
   jobsBatchSchema,
 } from "@tallo/contracts";
 import type { BlobStore, Db } from "@tallo/db";
@@ -17,6 +18,7 @@ import {
   jdKey,
   listSources,
   rawKey,
+  reclassify,
   schema,
   searchJobs,
   searchSchema,
@@ -131,6 +133,23 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
 
   app.post("/v1/runs/:id/finalize", write, zValidator("json", finalizeSchema), async (c) =>
     c.json(await finalize(db, c.req.param("id"), c.req.valid("json"))),
+  );
+
+  /** Upgrade heuristic flags after a rule change, from stored facts. Call until `more` is false. */
+  app.post("/v1/admin/reclassify", write, async (c) =>
+    c.json(
+      await reclassify(
+        db,
+        (row) =>
+          classify({
+            title: row.title,
+            department: row.department ?? undefined,
+            team: row.team ?? undefined,
+            locations: Array.isArray(row.locations) ? (row.locations as JobLocation[]) : [],
+          }),
+        CLASSIFIER_VERSION,
+      ),
+    ),
   );
 
   return app;

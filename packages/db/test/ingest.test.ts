@@ -10,6 +10,7 @@ import {
   listSources,
   memoryBlobs,
   purgeClosed,
+  reclassify,
   searchJobs,
   startRun,
 } from "../src/index.ts";
@@ -273,5 +274,19 @@ describe("getJob", () => {
     const { jobs } = await searchJobs(db, { limit: 1 });
     const job = await getJob(db, jobs[0]!.id);
     expect(job?.facts).toMatchObject({ platform: "greenhouse", extras: { team: "x" } });
+  });
+});
+
+describe("reclassify", () => {
+  it("upgrades stale classifications from stored facts, in pages", async () => {
+    const run = await start();
+    await ingest(run, [mapped("1"), mapped("2"), mapped("3")]);
+    const verdict = { isUs: 0 as const, isTech: 1 as const, version: 9 };
+    const first = await reclassify(db, () => verdict, 9, 2);
+    expect(first).toEqual({ updated: 2, more: true });
+    expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 1, more: false });
+    expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 0, more: false });
+    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(0);
+    expect((await searchJobs(db, { limit: 10, all: true })).jobs).toHaveLength(3);
   });
 });

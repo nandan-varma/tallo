@@ -38,8 +38,9 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
    live in separate tables keyed by user.
 6. **Source config is trusted.** Never fetch a user-supplied URL. Every request passes the platform's
    host allowlist (`Platform.hosts`).
-7. **Heuristics are versioned.** Changing `catalog/classify.ts` rules: bump `CLASSIFIER_VERSION`.
-   Changing a platform's `map`: bump its `version`. Both force re-processing of changed postings.
+7. **Heuristics are versioned.** Changing `catalog/classify.ts` rules: bump `CLASSIFIER_VERSION`, deploy the API,
+   run `tallo reclassify` (re-derives flags from stored facts, no refetching). Changing a platform's `map`:
+   bump its `version`; the next sync re-fetches and re-maps every posting of that platform.
 8. Schema source of truth is `packages/db/src/schema.ts`; generate migrations with
    `pnpm --filter @tallo/db exec drizzle-kit generate`, never hand-edit generated SQL (FTS is a custom migration).
 

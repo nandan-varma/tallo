@@ -46,6 +46,7 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .then((r) => r.key),
     finalize: (runId: string, body: Finalize) =>
       client.post(`v1/runs/${runId}/finalize`, { json: body }).json<FinalizeResult>(),
+    reclassify: () => client.post("v1/admin/reclassify").json<{ updated: number; more: boolean }>(),
     sources: () =>
       client.get("v1/sources").json<{ id: string; lastCompleteRunAt: number | null }[]>(),
   };

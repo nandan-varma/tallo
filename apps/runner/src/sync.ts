@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { CLASSIFIER_VERSION, gzip, prepareJob, sha256, stableStringify } from "@tallo/catalog";
+import { gzip, prepareJob, sha256, stableStringify } from "@tallo/catalog";
 import type {
   CollectContext,
   Finalize,
@@ -107,12 +107,7 @@ export async function syncSource(
   const hashes = new Map<string, string>();
   for (const posting of listed) {
     const stable = platform.fingerprint?.(posting.listing) ?? posting.listing;
-    hashes.set(
-      posting.id,
-      await sha256(
-        stableStringify({ stable, platform: platform.version, classifier: CLASSIFIER_VERSION }),
-      ),
-    );
+    hashes.set(posting.id, await sha256(stableStringify({ stable, platform: platform.version })));
   }
   const changedIds = new Set(
     await api.diff(

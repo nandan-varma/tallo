@@ -42,7 +42,7 @@ redirect re-checks, response size caps, retries with `Retry-After`, per-host con
 
 1. `POST /v1/runs` start (idempotent on `runId`; one running run per source, stale after 2h).
 2. List, then `POST /v1/runs/:id/diff` with `{id, sourceHash}` for every listed posting. `sourceHash` =
-   sha256(fingerprint + platform version + classifier version). Server answers which are new/changed.
+   sha256(fingerprint + platform version). Server answers which are new/changed.
 3. Detail + map + `prepareJob` for changed postings only (Mac CPU, free).
 4. `POST /v1/blobs/check`, `PUT /v1/blobs/jd/:hash` for missing descriptions (hash verified server-side).
 5. `POST /v1/runs/:id/jobs` in batches of ≤100 (upsert; refuses jobs whose blob is missing).
