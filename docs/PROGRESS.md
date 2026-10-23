@@ -15,13 +15,13 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
 
 ## Infra
 
-| Thing | Id / location |
-|---|---|
-| D1 | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0002 applied remotely |
-| R2 | `tallo-blobs` |
-| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, daily cron 05:17 UTC purge), `tallo-web` (tallo.nandan.fyi) |
+| Thing   | Id / location                                                                                                                                      |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0002 applied remotely                                                              |
+| R2      | `tallo-blobs`                                                                                                                                      |
+| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, daily cron 05:17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                       |
 | Secrets | API: READ_TOKEN, INGEST_TOKEN. Web: READ_TOKEN, ACCESS_TOKEN. Local copies: `apps/runner/.env`, `~/.config/tallo/web-secrets.env` (both untracked) |
-| Zone | nandan.fyi (Cloudflare). `tallo-assets.nandan.fyi` not used yet |
+| Zone    | nandan.fyi (Cloudflare). `tallo-assets.nandan.fyi` not used yet                                                                                    |
 
 ## In flight
 
@@ -31,7 +31,7 @@ after fixes; #20 (Oracle Cloud) in review; first full production sweep (#1) wait
 ## Next (priority order)
 
 1. #1 first full sweep + launchd schedule. 2. #13 classifier precision sampling at scale. 3. #3 dead boards,
-#14 raw pack pruning, #10 facets, #11 status page, more platforms (#6–#8), #9 source discovery (needs URL lists).
+   #14 raw pack pruning, #10 facets, #11 status page, more platforms (#6–#8), #9 source discovery (needs URL lists).
 
 ## Known gaps / notes
 
