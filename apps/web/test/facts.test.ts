@@ -96,6 +96,26 @@ describe("location formatting", () => {
     expect(formatLocation({ text: "Remote - US", countryCode: "US" })).toBe("Remote - US");
     expect(formatLocation({ text: "Berlin" })).toBe("Berlin");
   });
+
+  it("matches country codes exactly, not as substrings", () => {
+    expect(formatLocation({ text: "Remote, BUSINESS district", countryCode: "US" })).toBe(
+      "Remote, BUSINESS district, US",
+    );
+    expect(formatLocation({ text: "Campus, Berlin", countryCode: "US" })).toBe(
+      "Campus, Berlin, US",
+    );
+    expect(formatLocation({ text: "Austin, us", countryCode: "US" })).toBe("Austin, us, US");
+  });
+
+  it("matches country names whole-word and case-insensitively", () => {
+    expect(formatLocation({ text: "london, united kingdom", country: "United Kingdom" })).toBe(
+      "london, united kingdom",
+    );
+    expect(formatLocation({ text: "St. Lucia office", country: "St. Lucia" })).toBe(
+      "St. Lucia office",
+    );
+    expect(formatLocation({ text: "Oman", country: "Man" })).toBe("Oman, Man");
+  });
 });
 
 describe("pay formatting", () => {
@@ -110,9 +130,14 @@ describe("pay formatting", () => {
         region: "US",
       }),
     ).toBe("$120,000 – $150,000 / yr · Base · US");
-    expect(formatPay({ min: 90000, interval: "year", component: "unknown" })).toBe("90,000 / yr");
+  });
+
+  it("says from/up to for open-ended bands instead of showing an exact amount", () => {
+    expect(formatPay({ min: 90000, interval: "year", component: "unknown" })).toBe(
+      "from 90,000 / yr",
+    );
     expect(formatPay({ max: 5000, interval: "once", component: "bonus", currency: "EUR" })).toBe(
-      "€5,000 one-time · Bonus",
+      "up to €5,000 one-time · Bonus",
     );
   });
 
@@ -124,8 +149,18 @@ describe("pay formatting", () => {
 
   it("ignores an invalid currency code instead of throwing", () => {
     expect(formatPay({ min: 10, interval: "hour", component: "base", currency: "dollars" })).toBe(
-      "10 / hr · Base",
+      "from 10 / hr · Base",
     );
+  });
+});
+
+describe("reversed bands", () => {
+  it("drops a pay band whose min is above its max", () => {
+    expect(readFacts({ compensation: [{ min: 200, max: 100 }] }).compensation).toEqual([]);
+  });
+
+  it("drops an experience range whose min is above its max", () => {
+    expect(readFacts({ experience: [{ min: 6, max: 2, unit: "years" }] }).experience).toEqual([]);
   });
 });
 

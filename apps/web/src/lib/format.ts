@@ -32,12 +32,28 @@ export const experience = (years: number | null): string | null =>
 export const sortLocations = (locations: JobLocation[]): JobLocation[] =>
   [...locations].sort((a, b) => Number(b.primary === true) - Number(a.primary === true));
 
-/** The location text, with the country appended unless the text already names it. */
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** True when `term` appears in `text` as a whole word, not as a fragment of a longer word. */
+export function mentions(text: string, term: string, caseInsensitive: boolean): boolean {
+  const word = "[\\p{L}\\p{N}]";
+  const pattern = new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(?!${word})`,
+    `u${caseInsensitive ? "i" : ""}`,
+  );
+  return pattern.test(text);
+}
+
+/**
+ * The location text, with the country appended unless the text already names it.
+ * A country name matches case-insensitively; a bare ISO code must match exactly (so "US" is
+ * not found inside "BUSINESS" or "us" inside "campus").
+ */
 export function formatLocation(location: JobLocation): string {
   const country = location.country ?? location.countryCode;
-  return country && !location.text.includes(country)
-    ? `${location.text}, ${country}`
-    : location.text;
+  if (!country) return location.text;
+  const isName = location.country !== undefined;
+  return mentions(location.text, country, isName) ? location.text : `${location.text}, ${country}`;
 }
 
 const INTERVAL_LABEL: Record<PayInterval, string> = {
@@ -69,16 +85,22 @@ const plain = (n: number, currency?: string): string => {
     : n.toLocaleString("en-US");
 };
 
-/** "$120,000 – $150,000 / yr · Base · US". Empty when the band has no amount. */
+/**
+ * "$120,000 – $150,000 / yr · Base · US". A min-only band reads "from $90,000", a max-only band
+ * "up to $5,000", and an exact amount (min = max) reads as a single figure.
+ * Empty when the band has no amount.
+ */
 export function formatPay(band: Money): string {
   const { min, max, currency } = band;
-  const single = min ?? max;
-  const amount =
-    min !== undefined && max !== undefined && min !== max
-      ? `${plain(min, currency)} – ${plain(max, currency)}`
-      : single === undefined
-        ? ""
-        : plain(single, currency);
+  let amount = "";
+  if (min !== undefined && max !== undefined) {
+    amount =
+      min === max ? plain(min, currency) : `${plain(min, currency)} – ${plain(max, currency)}`;
+  } else if (min !== undefined) {
+    amount = `from ${plain(min, currency)}`;
+  } else if (max !== undefined) {
+    amount = `up to ${plain(max, currency)}`;
+  }
   const head = [amount, INTERVAL_LABEL[band.interval]].filter(Boolean).join(" ");
   return [head, COMPONENT_LABEL[band.component], band.region].filter(Boolean).join(" · ");
 }

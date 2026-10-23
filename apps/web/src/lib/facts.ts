@@ -46,6 +46,7 @@ function readMoney(raw: unknown): Money | undefined {
   const min = num(raw.min);
   const max = num(raw.max);
   if (min === undefined && max === undefined) return undefined;
+  if (min !== undefined && max !== undefined && min > max) return undefined;
   return {
     min,
     max,
@@ -65,6 +66,7 @@ function readQuantity(raw: unknown): Quantity | undefined {
   const max = num(raw.max);
   const exact = num(raw.exact);
   if (!unit || (min === undefined && max === undefined && exact === undefined)) return undefined;
+  if (min !== undefined && max !== undefined && min > max) return undefined;
   return {
     min,
     max,
