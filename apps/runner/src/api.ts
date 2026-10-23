@@ -22,11 +22,17 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .post(`v1/runs/${runId}/diff`, { json: { postings } })
         .json<{ changed: string[] }>()
         .then((r) => r.changed),
-    missingBlobs: (hashes: string[]) =>
-      client
-        .post("v1/blobs/check", { json: { hashes } })
-        .json<{ missing: string[] }>()
-        .then((r) => r.missing),
+    /** The server caps a check at 1000 hashes, so ask in chunks. */
+    missingBlobs: async (hashes: string[]) => {
+      const missing: string[] = [];
+      for (let i = 0; i < hashes.length; i += 500) {
+        const result = await client
+          .post("v1/blobs/check", { json: { hashes: hashes.slice(i, i + 500) } })
+          .json<{ missing: string[] }>();
+        missing.push(...result.missing);
+      }
+      return missing;
+    },
     putJd: (hash: string, gz: Uint8Array) =>
       client
         .put(`v1/blobs/jd/${hash}`, { body: gz as Uint8Array<ArrayBuffer> })
