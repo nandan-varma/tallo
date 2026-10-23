@@ -13,7 +13,8 @@
       "!**/*.css",
       "!pnpm-lock.yaml",
       "!**/drizzle/meta",
-      "!**/worker-configuration.d.ts"
+      "!**/worker-configuration.d.ts",
+      "!apps/web/src/styles"
     ]
   },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
