@@ -1,7 +1,9 @@
 ---
-import Base from "../../layouts/Base.astro";
-import { getJob } from "../../lib/api";
-import { ago, experience, salary } from "../../lib/format";
+import { JobMeta } from "@/components/JobMeta";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import Base from "@/layouts/Base.astro";
+import { getJob } from "@/lib/api";
 
 const id = Number(Astro.params.id);
 const job = Number.isInteger(id) ? await getJob(id) : null;
@@ -9,18 +11,16 @@ if (!job) return new Response("Not found", { status: 404 });
 const link = job.applyUrl ?? job.url;
 ---
 <Base title={`${job.title} · ${job.company}`}>
-  <p><a href="javascript:history.back()">← Results</a></p>
-  <h1>{job.title}</h1>
-  <div class="meta">
-    <span>{job.company}</span>
-    {job.locationText && <span>{job.locationText}</span>}
-    {job.workMode && <span>{job.workMode}</span>}
-    {job.department && <span>{job.department}</span>}
-    {job.employmentType && <span>{job.employmentType}</span>}
-    {salary(job) && <span>{salary(job)}</span>}
-    {experience(job.expMinYears) && <span>{experience(job.expMinYears)}</span>}
-    {ago(job.postedAt ?? job.sortAt) && <span>{ago(job.postedAt ?? job.sortAt)}</span>}
+  <a href="/" class="text-sm text-muted-foreground hover:underline">← Results</a>
+  <div class="grid gap-3">
+    <h1 class="text-2xl font-semibold tracking-tight">{job.title}</h1>
+    <JobMeta job={job} extended />
+    {link && (
+      <div>
+        <Button asChild><a href={link} rel="noopener noreferrer" target="_blank">Apply on {job.company}'s site ↗</a></Button>
+      </div>
+    )}
   </div>
-  {link && <a class="apply" href={link} rel="noopener noreferrer" target="_blank"><span>Apply on {job.company}'s site ↗</span></a>}
-  <div class="description">{job.description ?? "Description unavailable."}</div>
+  <Separator />
+  <div class="whitespace-pre-wrap break-words text-sm leading-relaxed">{job.description ?? "Description unavailable."}</div>
 </Base>

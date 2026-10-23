@@ -63,6 +63,9 @@ Secrets live in Wrangler secrets / `.dev.vars` / `.env`, all gitignored. Never c
 - Small, plain code. Prefer a library to hand-rolled machinery. No abstraction without a second user.
 - Relative imports use the `.ts` extension. `erasableSyntaxOnly`: no enums, no constructor parameter properties.
 - Biome formats and lints (`.astro` files are excluded; keep them tidy by hand).
+- UI: compose from `apps/web/src/components` (reusable React components rendered server-side, no hydration)
+  built on shadcn primitives (`pnpm dlx shadcn@latest add <name>` inside `apps/web`). Pages stay thin. Prefer
+  native HTML forms and links over client state; add `client:*` only when interactivity truly needs it.
 - Tests sit next to the package (`test/`), use recorded fixtures for platforms, and fake `Http`/`fetch`
   instead of the network. Live checks go through `tallo verify`, not the test suite.
 - Commit messages: imperative, no AI attribution lines. Work on a branch, open a PR, link the issue.

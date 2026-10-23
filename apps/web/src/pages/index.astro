@@ -1,47 +1,19 @@
 ---
-import Base from "../layouts/Base.astro";
-import { searchJobs } from "../lib/api";
-import { ago, experience, salary } from "../lib/format";
+import { JobCard } from "@/components/JobCard";
+import { SearchForm } from "@/components/SearchForm";
+import { Button } from "@/components/ui/button";
+import Base from "@/layouts/Base.astro";
+import { searchJobs } from "@/lib/api";
 
 const params = Astro.url.searchParams;
-const query = new URLSearchParams([...params].filter(([, v]) => v !== ""));
+const query = new URLSearchParams([...params].filter(([, value]) => value !== ""));
 const { jobs, nextCursor } = await searchJobs(query);
-const value = (name: string) => params.get(name) ?? "";
-const next = new URLSearchParams(query);
-if (nextCursor) next.set("cursor", nextCursor);
+const more = new URLSearchParams(query);
+if (nextCursor) more.set("cursor", nextCursor);
 ---
 <Base>
-  <form method="get">
-    <input name="q" value={value("q")} placeholder="Title, company or place" autofocus />
-    <select name="workMode">
-      <option value="">Any work mode</option>
-      {["remote", "hybrid", "onsite"].map((m) => <option value={m} selected={value("workMode") === m}>{m}</option>)}
-    </select>
-    <input name="country" value={value("country")} placeholder="Country (US)" maxlength="2" />
-    <input name="salaryMin" value={value("salaryMin")} placeholder="Min pay / yr" inputmode="numeric" />
-    <input name="maxExperience" value={value("maxExperience")} placeholder="Max yrs required" inputmode="numeric" />
-    <select name="postedWithinDays">
-      <option value="">Any time</option>
-      {[1, 7, 30].map((d) => <option value={d} selected={value("postedWithinDays") === String(d)}>Last {d === 1 ? "24h" : `${d} days`}</option>)}
-    </select>
-    <label><input type="checkbox" name="all" value="true" checked={value("all") === "true"} /> include hidden</label>
-    <button>Search</button>
-  </form>
-
-  {jobs.length === 0 && <p>No jobs match.</p>}
-  {jobs.map((job) => (
-    <article class="job">
-      <h2><a href={`/jobs/${job.id}`}>{job.title}</a></h2>
-      <div class="meta">
-        <span>{job.company}</span>
-        {job.locationText && <span>{job.locationText}</span>}
-        {job.workMode && <span>{job.workMode}</span>}
-        {salary(job) && <span>{salary(job)}</span>}
-        {experience(job.expMinYears) && <span>{experience(job.expMinYears)}</span>}
-        {ago(job.postedAt ?? job.sortAt) && <span>{ago(job.postedAt ?? job.sortAt)}</span>}
-      </div>
-      <p class="excerpt">{job.excerpt}</p>
-    </article>
-  ))}
-  {nextCursor && <a class="more" href={`/?${next}`}>More</a>}
+  <SearchForm values={Object.fromEntries(params)} />
+  {jobs.length === 0 && <p class="text-muted-foreground">No jobs match.</p>}
+  <div class="grid gap-3">{jobs.map((job) => <JobCard job={job} />)}</div>
+  {nextCursor && <Button variant="outline" asChild><a href={`/?${more}`}>More</a></Button>}
 </Base>

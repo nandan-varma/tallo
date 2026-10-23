@@ -5,12 +5,13 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  "routes": [{ "pattern": "tallo-api.nandan.fyi", "custom_domain": true }],
   "triggers": { "crons": ["17 5 * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "tallo",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "001b036c-2e15-45c8-9284-edb9d374b849",
       "migrations_dir": "../../packages/db/drizzle"
     }
   ],
