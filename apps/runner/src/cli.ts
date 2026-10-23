@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
+import { createHostLimiter } from "@tallo/http";
 import { Command } from "commander";
 import PQueue from "p-queue";
 import pino from "pino";
@@ -20,6 +21,14 @@ const log = pino({
   level: process.env.LOG_LEVEL ?? "info",
   ...(process.stdout.isTTY ? { transport: { target: "pino-pretty" } } : {}),
 });
+/** Numeric env override with a default; rejects non-numbers instead of silently using NaN. */
+const envNumber = (name: string, fallback: number): number => {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) throw new Error(`${name} must be a number >= 0`);
+  return value;
+};
 const need = (name: string): string => {
   const value = process.env[name];
   if (!value) throw new Error(`Set ${name}`);
@@ -41,6 +50,18 @@ program
   .option("-n, --limit <n>", "at most n sources", Number)
   .option("-c, --concurrency <n>", "sources in parallel", Number, 4)
   .option("--stale-hours <h>", "skip sources completed more recently than this", Number, 20)
+  .option(
+    "--per-host <n>",
+    "max concurrent requests per host, shared by all sources (env TALLO_PER_HOST)",
+    Number,
+    envNumber("TALLO_PER_HOST", 8),
+  )
+  .option(
+    "--host-interval-ms <ms>",
+    "min gap between request starts per host (env TALLO_HOST_INTERVAL_MS)",
+    Number,
+    envNumber("TALLO_HOST_INTERVAL_MS", 0),
+  )
   .action(async (opts) => {
     const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
     const done = new Map((await api.sources()).map((s) => [s.id, s.lastCompleteRunAt ?? 0]));
@@ -55,6 +76,11 @@ program
       .sort((a, b) => (done.get(a.id) ?? 0) - (done.get(b.id) ?? 0));
     if (opts.limit) due = due.slice(0, opts.limit);
     log.info({ due: due.length }, "starting sync");
+    if (!(opts.perHost >= 1)) throw new Error("--per-host / TALLO_PER_HOST must be at least 1");
+    const limiter = createHostLimiter({
+      perHostConcurrency: opts.perHost,
+      minHostIntervalMs: opts.hostIntervalMs,
+    });
     const queue = new PQueue({ concurrency: opts.concurrency });
     let failed = 0;
     await Promise.all(
@@ -64,6 +90,7 @@ program
             const result = await syncSource(source, {
               api,
               log,
+              limiter,
               runnerId: process.env.TALLO_RUNNER_ID ?? hostname(),
               version: process.env.npm_package_version ?? "dev",
             });
