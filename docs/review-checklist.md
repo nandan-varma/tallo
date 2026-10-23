@@ -1,7 +1,6 @@
 # Review checklist
 
 Run the PR (`pnpm check`, plus `tallo verify` for platform/source work) before commenting. Check, in order:
-
 1. **CLAUDE.md rules**: lossless collectors with pure `map`; no closure from failed/partial runs; `ingest.ts` is
    the only catalog writer; nothing heavy in D1; source config trusted; heuristics/platform versions bumped.
 2. **Correctness**: edge cases, error paths, off-by-ones, concurrency, behavior changes for existing callers.

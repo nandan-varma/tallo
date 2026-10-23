@@ -6,11 +6,11 @@ agent's memory or in chat. Every handoff is a comment; every status is a label.
 
 ## Labels
 
-| Kind | Labels |
-|---|---|
-| Area | `platform` `sources` `search` `web` `infra` `quality` `docs` `enrichment` |
-| Priority | `p1` (now) `p2` (next) `p3` (later) |
-| Status | `status:ready` → `status:in-progress` → `status:in-review` → (`status:changes-requested` ↔ `status:in-review`) → `status:approved` → merged/closed. Side exit: `status:blocked`. |
+| Kind     | Labels                                                                                                                                                                           |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area     | `platform` `sources` `search` `web` `infra` `quality` `docs` `enrichment`                                                                                                        |
+| Priority | `p1` (now) `p2` (next) `p3` (later)                                                                                                                                              |
+| Status   | `status:ready` → `status:in-progress` → `status:in-review` → (`status:changes-requested` ↔ `status:in-review`) → `status:approved` → merged/closed. Side exit: `status:blocked`. |
 
 Exactly one `status:*` label on an open issue or PR. Closed means done.
 
@@ -27,11 +27,13 @@ A role is a hat, not a person: the same prompt can be run any number of times.
 2. **Claim**: `gh issue edit N --add-label status:in-progress --remove-label status:ready`, then comment
    `Claimed by <role>. Branch: feat/<slug>.`
 3. **Work** in your own worktree, never in the main clone:
+
    ```
    git -C ~/dev/tallo fetch origin
    git -C ~/dev/tallo worktree add ~/dev/tallo-wt/<slug> -b feat/<slug> origin/main
    cd ~/dev/tallo-wt/<slug> && pnpm install --frozen-lockfile
    ```
+
    Small commits, imperative messages, no AI attribution. `pnpm check` must pass.
 4. **Open the PR**: `gh pr create --base main` with the PR template, `Closes #N`, label `status:in-review`
    (copy the area label). Comment on the issue: `PR opened: #P` plus a two-line summary. Relabel the issue
