@@ -1,7 +1,16 @@
 import type { Json, RawPosting } from "@tallo/contracts";
-import { obj } from "@tallo/contracts";
+import { arr, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
-import { ashby, greenhouse, lever, platformFor, smartrecruiters, workday } from "../src/index.ts";
+import {
+  ashby,
+  greenhouse,
+  lever,
+  oraclecloud,
+  platformFor,
+  SchemaError,
+  smartrecruiters,
+  workday,
+} from "../src/index.ts";
 import { drain, fakeCtx, fixture, source } from "./helpers.ts";
 
 const jobs = (name: string, key: string): Json[] => obj(fixture(name))[key] as Json[];
@@ -207,5 +216,197 @@ describe("workday", () => {
     });
     expect(job.locations[0]?.countryCode).toBe("US");
     expect(job.description).toContain("pay range");
+  });
+});
+
+describe("oraclecloud", () => {
+  const src = source("oraclecloud", "eluq.fa.us2.oraclecloud.com", { siteNumber: "CX_2001" });
+  const rowsFx = obj((obj(fixture("oraclecloud-list")).items as Json[])[0])
+    .requisitionList as Json[];
+  const siteOfUrl = (url: string) => /siteNumber=([^,]+)/.exec(url)?.[1];
+  const emptyBoard = { items: [{ TotalJobsCount: 0, requisitionList: [] }] };
+  /**
+   * Serves `total` postings for CX_2001 in pages, like the finder (100 per page, capped at 10,000).
+   * Any other site, including the sentinel probe, sees an empty board.
+   */
+  const pages = (total: number) =>
+    fakeCtx((url) => {
+      if (siteOfUrl(url) !== "CX_2001") return emptyBoard;
+      const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
+      const rowsAt = offset < total ? Math.min(100, total - offset) : 0;
+      const requisitionList = Array.from({ length: rowsAt }, (_, i) => ({
+        ...obj(rowsFx[0]),
+        Id: String(offset + i),
+      }));
+      return { items: [{ TotalJobsCount: total, requisitionList }] };
+    });
+  const realCalls = (urls: string[]) => urls.filter((u) => siteOfUrl(u) === "CX_2001");
+  const probeCalls = (urls: string[]) => urls.filter((u) => siteOfUrl(u) !== "CX_2001");
+
+  it("pages the finder until TotalJobsCount and keeps rows untouched", async () => {
+    const { ctx, urls } = pages(250);
+    const { items, result } = await drain(oraclecloud.list(src, ctx));
+    expect(realCalls(urls)).toHaveLength(3);
+    expect(realCalls(urls)[0]).toContain(
+      "finder=findReqs;siteNumber=CX_2001,limit=100,offset=0,keyword=",
+    );
+    expect(items).toHaveLength(250);
+    expect(items[0]?.listing).toEqual({ ...obj(rowsFx[0]), Id: "0" });
+    expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
+  });
+
+  it("probes an impossible siteNumber once and proceeds when the answer differs", async () => {
+    const { ctx, urls } = pages(250);
+    await drain(oraclecloud.list(src, ctx));
+    expect(probeCalls(urls)).toHaveLength(1);
+    expect(probeCalls(urls)[0]).toContain("siteNumber=CX_TALLO_NO_SUCH_SITE,limit=1,offset=0");
+  });
+
+  it("refuses a configured site that answers like the host default", async () => {
+    const same = fakeCtx(() => ({ items: [{ TotalJobsCount: 2, requisitionList: rowsFx }] }));
+    await expect(drain(oraclecloud.list(src, same.ctx))).rejects.toThrow(/defaultSite/);
+    await expect(drain(oraclecloud.list(src, same.ctx))).rejects.toBeInstanceOf(SchemaError);
+  });
+
+  it("lists a host-default site only when the source acknowledges it", async () => {
+    const acknowledged = source("oraclecloud", "eluq.fa.us2.oraclecloud.com", {
+      siteNumber: "CX_2001",
+      defaultSite: true,
+    });
+    const same = fakeCtx(() => ({ items: [{ TotalJobsCount: 2, requisitionList: rowsFx }] }));
+    const { items, result } = await drain(oraclecloud.list(acknowledged, same.ctx));
+    expect(items).toHaveLength(rowsFx.length);
+    expect(result.complete).toBe(true);
+    expect(probeCalls(same.urls)).toHaveLength(0);
+  });
+
+  it("does not probe an empty board, where the default cannot be told apart", async () => {
+    const { ctx, urls } = fakeCtx(() => emptyBoard);
+    const { items } = await drain(oraclecloud.list(src, ctx));
+    expect(items).toEqual([]);
+    expect(probeCalls(urls)).toHaveLength(0);
+  });
+
+  it("reports a board over the 10,000 cap as incomplete, never closable", async () => {
+    const { ctx, issues } = pages(11790);
+    const { result } = await drain(oraclecloud.list(src, ctx));
+    expect(result.complete).toBe(false);
+    expect(issues[0]?.code).toBe("pagination");
+  });
+
+  it("reports a short page before the reported total as incomplete", async () => {
+    const { ctx, issues } = fakeCtx((url) =>
+      siteOfUrl(url) === "CX_2001"
+        ? { items: [{ TotalJobsCount: 150, requisitionList: rowsFx }] }
+        : emptyBoard,
+    );
+    const { result } = await drain(oraclecloud.list(src, ctx));
+    expect(result.complete).toBe(false);
+    expect(issues[0]?.code).toBe("pagination");
+  });
+
+  it("treats an empty board as complete but not authoritative", async () => {
+    const { ctx } = fakeCtx(() => emptyBoard);
+    const { items, result } = await drain(oraclecloud.list(src, ctx));
+    expect(items).toEqual([]);
+    expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
+  });
+
+  it("treats a malformed response as a failed run, not an empty board", async () => {
+    const { ctx } = fakeCtx(() => ({ unexpected: true }));
+    await expect(drain(oraclecloud.list(src, ctx))).rejects.toThrow(/Expected array/);
+  });
+
+  it("rejects a response without TotalJobsCount", async () => {
+    const { ctx } = fakeCtx(() => ({ items: [{ requisitionList: rowsFx }] }));
+    await expect(drain(oraclecloud.list(src, ctx))).rejects.toBeInstanceOf(SchemaError);
+  });
+
+  it("rejects a requisition without an Id", async () => {
+    const { ctx } = fakeCtx(() => ({
+      items: [{ TotalJobsCount: 1, requisitionList: [{ Title: "No id" }] }],
+    }));
+    await expect(drain(oraclecloud.list(src, ctx))).rejects.toBeInstanceOf(SchemaError);
+  });
+
+  it("rejects a detail response with no items", async () => {
+    const { ctx } = fakeCtx(() => ({ items: [] }));
+    await expect(oraclecloud.detail!(src, { id: "1", listing: null }, ctx)).rejects.toBeInstanceOf(
+      SchemaError,
+    );
+  });
+
+  it("fetches detail by id and maps the posting from fixtures", async () => {
+    const envelope = fixture("oraclecloud-detail");
+    const detail = (obj(envelope).items as Json[])[0];
+    const { ctx, urls } = fakeCtx(() => envelope);
+    await oraclecloud.detail!(src, { id: "210574363", listing: null }, ctx);
+    expect(urls[0]).toContain('finder=ById;Id="210574363",siteNumber=CX_2001');
+
+    const job = oraclecloud.map(
+      { id: "210574363", listing: rowsFx[0]!, detail },
+      source("oraclecloud", "jpmc.fa.oraclecloud.com", { siteNumber: "CX_1001" }),
+    );
+    expect(job).toMatchObject({
+      postingId: "210574363",
+      applyUrl:
+        "https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/job/210574363",
+      employmentType: "Full time",
+      team: "Advisors",
+      postedAt: "2026-10-23T20:16:52+00:00",
+    });
+    expect(job.title).toContain("Private Client Advisor");
+    expect(job.locations[0]).toMatchObject({
+      primary: true,
+      countryCode: "US",
+      region: "Kentucky",
+    });
+    expect(job.description.length).toBeGreaterThan(300);
+    expect(job.description).not.toContain("<");
+    expect(job.extras).toMatchObject({ businessUnit: "Consumer & Community Banking" });
+  });
+
+  it("maps secondary locations from the listing", () => {
+    const withSecondary = rowsFx.find((r) => arr(obj(r).secondaryLocations).length > 0)!;
+    const job = oraclecloud.map({ id: "1", listing: withSecondary }, src);
+    expect(job.locations.length).toBeGreaterThan(1);
+  });
+
+  it("ignores per-query relevancy in the fingerprint", () => {
+    const row = obj(rowsFx[0]);
+    expect(oraclecloud.fingerprint!({ ...row, Relevancy: 1 })).toEqual(
+      oraclecloud.fingerprint!({ ...row, Relevancy: 99 }),
+    );
+  });
+
+  it("rejects hosts outside the Oracle recruiting pods and missing site numbers", () => {
+    expect(() =>
+      oraclecloud.validate(source("oraclecloud", "evil.example.com", { siteNumber: "CX_1" })),
+    ).toThrow(/oraclecloud/);
+    expect(() =>
+      oraclecloud.validate(source("oraclecloud", "x.oraclecloud.com", { siteNumber: "CX_1" })),
+    ).toThrow(/oraclecloud/);
+    expect(() =>
+      oraclecloud.validate(source("oraclecloud", "jpmc.fa.oraclecloud.com", {})),
+    ).toThrow(/siteNumber/);
+  });
+
+  it("accepts the three seeded pod shapes and rejects a non-boolean defaultSite", () => {
+    for (const key of [
+      "jpmc.fa.oraclecloud.com",
+      "eeho.fa.us2.oraclecloud.com",
+      "fa-evmr-saasfaprod1.fa.ocs.oraclecloud.com",
+    ])
+      expect(() =>
+        oraclecloud.validate(source("oraclecloud", key, { siteNumber: "CX_1" })),
+      ).not.toThrow();
+    expect(() =>
+      oraclecloud.validate(
+        source("oraclecloud", "jpmc.fa.oraclecloud.com", {
+          siteNumber: "CX_1",
+          defaultSite: "yes",
+        }),
+      ),
+    ).toThrow(/defaultSite/);
   });
 });

@@ -1,0 +1,73 @@
+[
+  {
+    "key": "jpmc.fa.oraclecloud.com",
+    "company": "JPMorgan Chase",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "CX_1001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "eeho.fa.us2.oraclecloud.com",
+    "company": "Oracle",
+    "params": {
+      "siteNumber": "CX_45001",
+      "sitePath": "jobsearch",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ibqbjb.fa.ocs.oraclecloud.com",
+    "company": "Honeywell",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "Honeywell",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "hckd.fa.us2.oraclecloud.com",
+    "company": "Molina Healthcare",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "efet.fa.us2.oraclecloud.com",
+    "company": "Hilton",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "eodr.fa.us2.oraclecloud.com",
+    "company": "Tenet Healthcare",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "CX_1001"
+    }
+  },
+  {
+    "key": "edel.fa.us2.oraclecloud.com",
+    "company": "Fortinet",
+    "params": {
+      "siteNumber": "CX_20",
+      "sitePath": "CX_20",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-evmr-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Nokia",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  }
+]
