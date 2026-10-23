@@ -72,12 +72,13 @@ Secrets live in Wrangler secrets / `.dev.vars` / `.env`, all gitignored. Never c
 
 ## Team workflow
 
-See `docs/orchestration.md`. In short: GitHub issues are the backlog; each issue gets a branch and PR;
-cheap (haiku) subagents do bounded work and review one another's PRs; the main agent integrates and owns
-architecture. Update `docs/PROGRESS.md` at the end of every working session.
+Stateless and GitHub-native: issues are the backlog, labels are status, PRs and comments are handoffs. Read
+`docs/workflow.md` (lifecycle, labels, comment formats, guardrails). Roles are defined in `.claude/agents/`;
+reviews follow `docs/review-checklist.md`; the main agent's duties are in `docs/orchestration.md`. Update
+`docs/PROGRESS.md` at the end of every session. To resume: `gh issue list`, `gh pr list`, `docs/PROGRESS.md`.
 
 ## Deeper docs
 
-`docs/architecture.md` (design, data model, protocol) · `docs/adding-a-platform.md` ·
+`docs/architecture.md` (design, data model, protocol) · `docs/workflow.md` · `docs/adding-a-platform.md` ·
 `docs/adding-sources.md` · `docs/runbook.md` (deploy, secrets, schedule) · `docs/platforms.md` (status) ·
 `docs/decisions.md` (why).

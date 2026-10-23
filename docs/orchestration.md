@@ -1,31 +1,22 @@
-# Orchestration: how work is run
+# Orchestration
 
-The main agent (Fable/Opus-class) owns architecture and integration. Cheap Haiku subagents do bounded work.
+The main agent (strongest model) owns architecture, integration, merging, deploys and secrets. Cheap workers
+(Haiku) implement one issue each; a different worker reviews every PR. All coordination is stateless and lives in
+GitHub issues, PRs, labels and comments: see `docs/workflow.md` for the lifecycle, label scheme and comment
+formats, `.claude/agents/*.md` for role definitions and `docs/review-checklist.md` for reviews.
 
-## Loop
+## Dispatching a worker (main agent)
 
-1. **Backlog = GitHub issues.** Labels: `platform`, `sources`, `search`, `web`, `infra`, `quality`, `docs`; priority
-   `p1`/`p2`/`p3`. An issue states the goal, acceptance criteria, and files likely touched.
-2. **One issue → one branch → one PR** (`feat/<slug>`), PR body links `Closes #n` and lists how it was verified
-   (`pnpm check`, `tallo verify`, tests added).
-3. **Workers** (haiku subagents, named by role, e.g. `platform-dev`, `sources-scout`, `reviewer-a`) implement a single
-   issue each. They never change architecture rules in `CLAUDE.md`; if blocked by one they comment on the issue.
-4. **Cross-review.** Every PR is reviewed by a _different_ worker than its author (reuse a named reviewer so it accumulates
-   context across PRs). The reviewer checks the rules in `CLAUDE.md`, test quality, and leaves PR comments; the author
-   fixes; the main agent merges (squash) when `pnpm check` passes.
-5. **Main agent** triages new issues, resolves conflicts between workers, and updates `docs/PROGRESS.md`.
+A worker needs only its role and an issue number; give it nothing else:
 
-## Roles
+> You are `<role>`. Read `.claude/agents/<role>.md`, `docs/workflow.md` and `CLAUDE.md`, then do issue #N.
 
-| Role                    | Does                                                                               |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| main                    | architecture, hard integrations, merging, infra/deploy, docs                       |
-| platform-dev            | new platform folders from `docs/adding-a-platform.md`                              |
-| sources-scout           | takes URL lists, adds `sources/*.json` entries via `tallo verify`, reports rejects |
-| reviewer-a / reviewer-b | review PRs authored by anyone else; alternate so each sees different authors       |
-| quality                 | tests, fixtures, lint, small refactors flagged by reviewers                        |
+Run several workers in parallel when their issues touch different files. Do not run two schema-changing issues
+at once (migration numbers collide). Workers never merge, deploy, sync or touch Cloudflare.
 
-## Stopping and resuming
+## Main-agent duties each session
 
-All state is in git and GitHub. To resume: read `CLAUDE.md`, `docs/PROGRESS.md`, then `gh issue list` and
-`gh pr list`. Always leave `docs/PROGRESS.md` current (done / in flight / next / blockers) and commit it.
+1. `gh issue list` / `gh pr list`: triage new issues (area, priority, `status:ready`).
+2. Dispatch reviewers for `status:in-review` PRs and fixers for `status:changes-requested` ones.
+3. Merge `status:approved` PRs with green CI; apply remote migrations and deploy when needed (`docs/runbook.md`).
+4. Keep `docs/PROGRESS.md` current (done / in flight / next / blockers).
