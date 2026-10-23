@@ -58,7 +58,7 @@ export type CreateRun = z.infer<typeof createRunSchema>;
 export const diffSchema = z.object({
   postings: z
     .array(z.object({ id: z.string().min(1).max(512), hash: hex64 }))
-    .max(5000),
+    .max(50000),
 });
 export type DiffRequest = z.infer<typeof diffSchema>;
 

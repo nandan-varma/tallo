@@ -70,3 +70,7 @@ export interface MappedJob {
   experience: Quantity[];
   extras: JsonObject;
 }
+
+/** 1 when heuristics are confident a job is out of the public scope (non-US or non-tech). */
+export const outOfScope = (flags: { isUs: 0 | 1 | null; isTech: 0 | 1 | null }): 0 | 1 =>
+  flags.isUs === 0 || flags.isTech === 0 ? 1 : 0;

@@ -212,7 +212,13 @@ importers:
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
+      '@tallo/catalog':
+        specifier: workspace:*
+        version: link:../catalog
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11

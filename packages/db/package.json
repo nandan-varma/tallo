@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@tallo/contracts": "workspace:*",
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@tallo/catalog": "workspace:*",
     "drizzle-kit": "^0.31.11"
   }
 }

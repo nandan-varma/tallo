@@ -65,8 +65,3 @@ export function classify(input: {
   else if (dept && NON_TECH_DEPT.test(dept) && !techTitle) isTech = 0;
   return { isUs: usFlag(input.locations), isTech, version: CLASSIFIER_VERSION };
 }
-
-/** Hidden from the default public view only when we are confident it is out of scope. */
-export function scopeHidden(c: Classification): boolean {
-  return c.isUs === 0 || c.isTech === 0;
-}
