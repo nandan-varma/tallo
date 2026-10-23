@@ -1,6 +1,6 @@
 import { arr, id, obj, str } from "@tallo/contracts";
 import type { Money, Platform, SourceConfig } from "@tallo/contracts";
-import { describe, guessInterval, locations, pairs, requireKey, rows, workModeOf } from "../kit.ts";
+import { describe, guessInterval, locations, pairs, requireKey, rows, workModeOf, lookup } from "../kit.ts";
 
 const base = (s: SourceConfig) =>
   `https://${s.params.region === "eu" ? "boards-api.eu.greenhouse.io" : "boards-api.greenhouse.io"}/v1/boards/${s.key}/jobs`;
@@ -37,33 +37,33 @@ export const greenhouse: Platform = {
   },
 
   map({ id: postingId, listing, detail }) {
-    const j = { ...obj(listing), ...obj(detail) };
-    const metadata = pairs(j.metadata, "name", "value");
-    const departments = arr(j.departments).map((d) => str(obj(d).name)).filter((n): n is string => !!n);
-    const offices = arr(j.offices).map((o) => str(obj(o).location) ?? str(obj(o).name));
-    const place = str(obj(j.location).name);
+    const j = lookup(detail, listing);
+    const metadata = pairs(j("metadata"), "name", "value");
+    const departments = arr(j("departments")).map((d) => str(obj(d).name)).filter((n): n is string => !!n);
+    const offices = arr(j("offices")).map((o) => str(obj(o).location) ?? str(obj(o).name));
+    const place = str(obj(j("location")).name);
     return {
       postingId,
-      title: str(j.title) ?? "",
-      url: str(j.absolute_url),
-      applyUrl: str(j.absolute_url),
-      description: describe(j.content),
+      title: str(j("title")) ?? "",
+      url: str(j("absolute_url")),
+      applyUrl: str(j("absolute_url")),
+      description: describe(j("content")),
       locations: locations([{ text: place }, ...offices.map((text) => ({ text }))]),
       workMode: workModeOf(metadata["Workplace Type"]) ?? workModeOf(metadata["Work Type"]),
       department: departments[0],
       employmentType: str(metadata["Employment Type"]) ?? str(metadata["Job Type"]),
-      requisitionId: str(j.requisition_id),
-      postedAt: str(j.first_published),
-      updatedAt: str(j.updated_at),
-      expiresAt: str(j.application_deadline),
-      compensation: pay(j.pay_input_ranges),
+      requisitionId: str(j("requisition_id")),
+      postedAt: str(j("first_published")),
+      updatedAt: str(j("updated_at")),
+      expiresAt: str(j("application_deadline")),
+      compensation: pay(j("pay_input_ranges")),
       experience: [],
       extras: {
         departments,
         ...(Object.keys(metadata).length ? { metadata } : {}),
-        ...(j.education ? { education: j.education } : {}),
-        ...(j.language ? { language: j.language } : {}),
-        ...(j.internal_job_id ? { internalJobId: j.internal_job_id } : {}),
+        ...(j("education") ? { education: j("education") } : {}),
+        ...(j("language") ? { language: j("language") } : {}),
+        ...(j("internal_job_id") ? { internalJobId: j("internal_job_id") } : {}),
       },
     };
   },

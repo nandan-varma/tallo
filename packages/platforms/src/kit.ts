@@ -63,3 +63,17 @@ export function pairs(list: unknown, nameKey: string, valueKey: string): JsonObj
 
 export const pick = (value: Json | undefined, ...keys: string[]): JsonObject =>
   Object.fromEntries(keys.filter((k) => obj(value)[k] != null).map((k) => [k, obj(value)[k] as Json]));
+
+/**
+ * Field reader over layered payloads (first non-null wins). Reads stay explicit, so
+ * `tallo verify` can tell which source fields a mapper really uses.
+ */
+export const lookup =
+  (...layers: unknown[]) =>
+  (key: string): Json | undefined => {
+    for (const layer of layers) {
+      const value = obj(layer)[key];
+      if (value !== undefined && value !== null) return value;
+    }
+    return undefined;
+  };
