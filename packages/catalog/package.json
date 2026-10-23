@@ -1,0 +1,22 @@
+{
+  "name": "@tallo/catalog",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tallo/contracts": "workspace:*",
+    "entities": "^8.1.0",
+    "html-to-text": "^10.0.1",
+    "i18n-iso-countries": "^7.14.0",
+    "safe-stable-stringify": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/html-to-text": "^9.0.4"
+  }
+}

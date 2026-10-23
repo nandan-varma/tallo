@@ -1,0 +1,21 @@
+{
+  "name": "tallo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false 2>/dev/null || pnpm -r typecheck",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "fix": "biome check --write .",
+    "check": "pnpm lint && pnpm -r typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

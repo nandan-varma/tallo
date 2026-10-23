@@ -1,0 +1,140 @@
+{
+ "id": "744000157571919",
+ "name": "Associate Software Engineer",
+ "uuid": "976e03b9-407f-408e-ba74-79b5fd273e30",
+ "jobId": "efaba15a-cfa9-412d-98de-6ae337e24425",
+ "jobAdId": "341cb800-e2da-407d-b101-ec363db12990",
+ "defaultJobAd": true,
+ "refNumber": "JB0076564",
+ "company": {
+  "name": "ServiceNow",
+  "identifier": "ServiceNow"
+ },
+ "location": {
+  "city": "Santa Clara",
+  "region": "CALIFORNIA",
+  "country": "us",
+  "address": "Building A,B,C 2225 Lawson Lane",
+  "postalCode": "95054",
+  "remote": false,
+  "hybrid": false,
+  "fullLocation": "Santa Clara, CALIFORNIA, United States"
+ },
+ "customField": [
+  {
+   "fieldId": "60345fa28b4ba8595bef1863",
+   "fieldLabel": "Recruiting Team",
+   "valueId": "early-in-career",
+   "valueLabel": "Global Emerging Talent"
+  },
+  {
+   "fieldId": "60345e1a0b24a127cbdfa148",
+   "fieldLabel": "Employee Type",
+   "valueId": "0082f6cbe6154da19322cbab1f6aa5af",
+   "valueLabel": "Regular"
+  },
+  {
+   "fieldId": "5f63a78f1dae5c5c4e54ba2b",
+   "fieldLabel": "Department",
+   "valueId": "2294038",
+   "valueLabel": "Engineering, Infrastructure and Operations"
+  },
+  {
+   "fieldId": "COUNTRY",
+   "fieldLabel": "Country/Region",
+   "valueId": "us",
+   "valueLabel": "United States"
+  },
+  {
+   "fieldId": "5f63a78f1dae5c5c4e54ba2a",
+   "fieldLabel": "Brands",
+   "valueId": "default",
+   "valueLabel": "ServiceNow"
+  },
+  {
+   "fieldId": "60345d5c5165a31b17288279",
+   "fieldLabel": "Region",
+   "valueId": "722a833b93e4437798309f43c0d25990",
+   "valueLabel": "AMS - North America and Canada"
+  },
+  {
+   "fieldId": "603462175165a31b1728827d",
+   "fieldLabel": "Cost Center",
+   "valueId": "CC6361",
+   "valueLabel": "6361 Platform Data - Infra Automation"
+  },
+  {
+   "fieldId": "6034601b43915a29a4b3389b",
+   "fieldLabel": "Job Location",
+   "valueId": "L_SJC005",
+   "valueLabel": "2225 Lawson Lane, Santa Clara, California, 95054, United States of America(L_SJC005)"
+  },
+  {
+   "fieldId": "618ed92b8f5e5f110e5bfb95",
+   "fieldLabel": "Work Persona",
+   "valueId": "bf7551c6-9b06-4e7c-8217-3baf43edd060",
+   "valueLabel": "Flexible"
+  },
+  {
+   "fieldId": "690cc0e8c682c3dbadaa7d73",
+   "fieldLabel": "Job Posting Type",
+   "valueId": "early-career",
+   "valueLabel": "Early Career"
+  }
+ ],
+ "releasedDate": "2026-10-23T21:24:58.987Z",
+ "creator": {
+  "name": "",
+  "avatarUrl": ""
+ },
+ "postingUrl": "https://jobs.smartrecruiters.com/ServiceNow/744000157571919-associate-software-engineer",
+ "applyUrl": "https://jobs.smartrecruiters.com/ServiceNow/744000157571919-associate-software-engineer?oga=true",
+ "referralUrl": "https://jobs.smartrecruiters.com/external-referrals/company/ServiceNow/publication/976e03b9-407f-408e-ba74-79b5fd273e30?dcr_ci=ServiceNow",
+ "jobAd": {
+  "sections": {
+   "companyDescription": {
+    "title": "Company Description",
+    "text": "<p>It all started when engineer Fred Luddy wrote code that automated a tedious task for his coworker, Phyllis. She cried tears of joy. That moment inspired Fred to build a company that could do that for everyone—freeing people from busywork so they could focus on meaningful work. Today, ServiceNow is the AI control tower for business reinvention. Our ServiceNow AI platform brings together any AI, any data, and any workflow— helping 85% of the Fortune 500® work smarter, faster, and better. We're building an AI-native culture where technology and talent are unstoppable together. And we're just getting started.</p><p>Join us to put AI to work for people.</p><p><strong><u>Position Location:</u></strong><br>\nThis is a&#xa0;<strong>Flexible (Hybrid)</strong>&#xa0;position.&#xa0;&#xa0;<strong>Flexible</strong>&#xa0;positions require 2 days per week in a ServiceNow office location.&#xa0; This role is available in either our Kirkland, WA or Santa Clara, CA office.</p><p><strong><u>Please Note:</u></strong><strong>&#xa0;&#xa0;</strong>This position will include&#xa0;supporting our US Regulated Markets.<br>\n<em>“This position requires passing a ServiceNow background screening, USFedPASS (US Federal Personnel Authorization Screening Standards). This includes a credit check, criminal/misdemeanor check and taking a drug test. Any employment is contingent upon passing the screening.&#xa0;&#xa0;<strong>Due to Federal requirements, only US citizens, US naturalized citizens or US Permanent Residents, holding a green card, will be considered.</strong></em></p><p>&#xa0;</p>"
+   },
+   "jobDescription": {
+    "title": "Job Description",
+    "text": "<p>What you get to do in this role:</p><ul><li>Build the best cloud software for businesses using a market leading development cloud platform.</li><li>Collaborate daily with a team of like-minded developers using agile software development methodology.</li><li>Master new areas and take ownership of features that matter to our customers.</li><li>Design features with a core commitment to quality and an eye to how the products will evolve in future releases.</li><li>Work in a Scrum-based Agile development process that is light on documentation and meetings and heavy on design, coding and debugging.</li></ul>"
+   },
+   "qualifications": {
+    "title": "Qualifications",
+    "text": "<p>To be successful in this role you have:</p><ul><li>Experience in leveraging or critically thinking about how to integrate AI into work processes, decision-making, or problem-solving. This may include using AI-powered tools, automating workflows, analyzing AI-driven insights, or exploring AI's potential impact on the function or industry.</li><li>0+ years of professional work experience in software development</li><li>Experience with debugging and testing software through a CI lifecycle</li><li>Experience with Java, OOP, and Design Patterns</li><li>Experience with relational databases such as MySQL, Postgres and Oracle</li><li>Experience with front-end technologies (HTML, JavaScript, CSS)</li><li>Some working knowledge and ability to use tools to assist with daily tasks (IDE, debugger, build tools, source control, ServiceNow instances, profilers, system administration/Unix tools)</li></ul><p>For positions in this location, we offer a base pay of <strong>$108,800 - $157,800</strong>, plus equity (when applicable), variable/incentive compensation and benefits. Sales positions generally offer a competitive On Target Earnings (OTE) incentive compensation structure. Please note that the base pay shown is a guideline, and individual total compensation will vary based on factors such as qualifications, skill level, competencies, and work location. We also offer health plans, including flexible spending accounts, a 401(k) Plan with company match, ESPP, matching donations, a flexible time away plan and family leave programs. Compensation is based on the geographic location in which the role is located and is subject to change based on work location.</p>"
+   },
+   "additionalInformation": {
+    "title": "Additional Information",
+    "text": "<p><strong>Work Personas</strong></p><p>We approach our distributed world of work with flexibility and trust. Work personas (flexible, remote, or required in office) are categories that are assigned to ServiceNow employees depending on the nature of their work and their assigned work location. <a href=\"https://careers.servicenow.com/life-at-servicenow#workpersonas\" rel=\"noopener noreferrer\"><u>Learn more here</u></a>. To determine eligibility for a work persona, ServiceNow may confirm the distance between your primary residence and the closest ServiceNow office using a third-party service.</p><p><strong>Equal Opportunity Employer</strong></p><p>ServiceNow is an equal opportunity employer. All qualified applicants will receive consideration for employment without regard to race, color, religion, sex, sexual orientation, national origin, age, disability, gender identity,&#xa0; veteran status, or any other category protected by law. In addition, all qualified applicants with arrest or conviction records will be considered for employment in accordance with legal requirements. &#xa0;</p><p><strong>Accommodations</strong></p><p>We strive to create an accessible and inclusive experience for all candidates. If you require a reasonable accommodation to complete any part of the application process, or are unable to use this online application and need an alternative method to apply, please contact <a href=\"mailto:globaltalentss@servicenow.com\" rel=\"noopener noreferrer\">globaltalentss@servicenow.com </a>for assistance.&#xa0;</p><p><strong>Export Control Regulations</strong></p><p>For positions requiring access to controlled technology subject to export control regulations, including the U.S. Export Administration Regulations (EAR), ServiceNow may be required to obtain export control approval from government authorities for certain individuals. All employment is contingent upon ServiceNow obtaining any export license or other approval that may be required by relevant export control authorities.&#xa0;</p><p>From Fortune. ©2026 Fortune Media IP Limited. All rights reserved. Used under license.</p>"
+   }
+  }
+ },
+ "active": true,
+ "visibility": "PUBLIC",
+ "industry": {
+  "id": "it_and_services",
+  "label": "Information Technology And Services"
+ },
+ "function": {
+  "id": "engineering",
+  "label": "Engineering"
+ },
+ "department": {
+  "id": 2294038,
+  "label": "Engineering, Infrastructure and Operations"
+ },
+ "experienceLevel": {
+  "id": "not_applicable",
+  "label": "Not Applicable"
+ },
+ "typeOfEmployment": {
+  "id": "permanent",
+  "label": "Full-time"
+ },
+ "language": {
+  "code": "en",
+  "label": "English",
+  "labelNative": "English (US)"
+ }
+}
