@@ -1,5 +1,6 @@
 ---
 import "@/styles/global.css";
+import { ClientRouter } from "astro:transitions";
 
 interface Props {
   title?: string;
@@ -19,6 +20,7 @@ const { title = "Tallo" } = Astro.props;
         document.documentElement.classList.add("dark");
       }
     </script>
+    <ClientRouter />
   </head>
   <body class="flex min-h-screen flex-col bg-background text-foreground">
     <a
@@ -30,7 +32,7 @@ const { title = "Tallo" } = Astro.props;
     <header
       class="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70"
     >
-      <div class="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
+      <div class="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <a
           href="/"
           class="flex items-center gap-2 text-lg font-semibold tracking-tight transition-opacity hover:opacity-80"
@@ -53,13 +55,13 @@ const { title = "Tallo" } = Astro.props;
     </header>
     <main
       id="main"
-      class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
+      class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
     >
       <slot />
     </main>
     <footer class="mt-8 border-t border-border/60">
       <div
-        class="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 text-xs text-muted-foreground sm:px-6"
+        class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 text-xs text-muted-foreground sm:px-6 lg:px-8"
       >
         <span>Tallo · job search dashboard</span>
         <span>{new Date().getFullYear()}</span>
