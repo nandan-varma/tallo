@@ -6,7 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   "routes": [{ "pattern": "tallo-api.nandan.fyi", "custom_domain": true }],
-  "triggers": { "crons": ["17 5 * * *"] },
+  "triggers": { "crons": ["17 * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",

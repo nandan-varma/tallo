@@ -17,12 +17,12 @@ import {
   IngestError,
   jdKey,
   listSources,
-  rawKey,
   reclassify,
   schema,
   searchJobs,
   searchSchema,
   startRun,
+  storeRawPack,
 } from "@tallo/db";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -126,8 +126,7 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
     if (!run) return c.json({ error: "Unknown run" }, 404);
     const bytes = new Uint8Array(await c.req.arrayBuffer());
     if (bytes.byteLength > MAX_BLOB_BYTES) return c.json({ error: "Too large" }, 413);
-    const key = rawKey(run.sourceId, run.id);
-    await blobs.put(key, bytes);
+    const key = await storeRawPack(db, blobs, run.id, bytes);
     return c.json({ key });
   });
 

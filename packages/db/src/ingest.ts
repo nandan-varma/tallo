@@ -3,7 +3,7 @@ import { CLOSE_AFTER_ABSENT_RUNS, outOfScope } from "@tallo/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { BlobStore } from "./blobs.ts";
-import { jdKey } from "./blobs.ts";
+import { jdKey, rawKey } from "./blobs.ts";
 import type { Db } from "./db.ts";
 import { batch, CHUNK, chunks } from "./db.ts";
 import { jobs, runs, sources } from "./schema.ts";
@@ -259,7 +259,7 @@ export async function finalize(
         seen: fin.seenIds.length,
         closed: closureApplied ? closed : null,
         reopened: closureApplied ? reopened : null,
-        rawKey: fin.rawKey,
+        rawKey: current.rawKey ?? fin.rawKey,
         issues: fin.issues,
       })
       .where(eq(runs.id, runId)),
@@ -297,6 +297,68 @@ export async function purgeClosed(
     if (!used) await blobs.delete(jdKey(hash));
   }
   return stale.length;
+}
+
+/** Record intent before uploading so an interrupted upload remains discoverable by cleanup. */
+export async function storeRawPack(
+  db: Db,
+  blobs: BlobStore,
+  runId: string,
+  bytes: Uint8Array,
+): Promise<string> {
+  const current = await run(db, runId);
+  const key = rawKey(current.sourceId, current.id);
+  await db.update(runs).set({ rawKey: key, rawUploaded: 0 }).where(eq(runs.id, runId));
+  await blobs.put(key, bytes);
+  await db.update(runs).set({ rawUploaded: 1 }).where(eq(runs.id, runId));
+  return key;
+}
+
+/**
+ * Keep two finalized raw packs per source. Their rows stay as blob references even
+ * after 30 days; all other expired runs (including abandoned runs) are removed.
+ * Delete blobs before clearing references so a failed delete can be retried.
+ */
+export async function pruneRuns(
+  db: Db,
+  blobs: BlobStore,
+  now = nowSeconds(),
+): Promise<{ packs: number; runs: number }> {
+  const retained = sql`(
+    SELECT id FROM (
+      SELECT id, row_number() OVER (
+        PARTITION BY source_id ORDER BY started_at DESC, id DESC
+      ) AS rank
+      FROM runs WHERE raw_key IS NOT NULL AND raw_uploaded = 1 AND status != 'running'
+    ) WHERE rank <= 2
+  )`;
+  const obsolete = await db
+    .select({ id: runs.id, rawKey: runs.rawKey })
+    .from(runs)
+    .where(sql`${runs.rawKey} IS NOT NULL AND (
+      (${runs.status} != 'running' AND ${runs.rawUploaded} = 1 AND ${runs.id} NOT IN ${retained})
+      OR ((${runs.status} = 'running' OR ${runs.rawUploaded} = 0) AND ${runs.startedAt} < ${now - 30 * 86400})
+    )`)
+    .limit(1000);
+  for (const page of chunks(obsolete, CHUNK)) {
+    for (const row of page) await blobs.delete(row.rawKey!);
+    await db
+      .update(runs)
+      .set({ rawKey: null })
+      .where(sql`${runs.id} IN ${jsonIds(page.map((row) => row.id))}`);
+  }
+  const expired = await db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(sql`${runs.startedAt} < ${now - 30 * 86400} AND ${runs.rawKey} IS NULL`)
+    .limit(1000);
+  for (const ids of chunks(
+    expired.map((row) => row.id),
+    CHUNK,
+  )) {
+    await db.delete(runs).where(sql`${runs.id} IN ${jsonIds(ids)}`);
+  }
+  return { packs: obsolete.length, runs: expired.length };
 }
 
 export type Classifier = (row: {

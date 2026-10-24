@@ -9,10 +9,14 @@ import {
   jdKey,
   listSources,
   memoryBlobs,
+  pruneRuns,
   purgeClosed,
+  rawKey,
   reclassify,
+  schema,
   searchJobs,
   startRun,
+  storeRawPack,
 } from "../src/index.ts";
 import { testDb } from "../src/testing.ts";
 
@@ -288,5 +292,125 @@ describe("reclassify", () => {
     expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 0, more: false });
     expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(0);
     expect((await searchJobs(db, { limit: 10, all: true })).jobs).toHaveLength(3);
+  });
+});
+
+describe("run retention", () => {
+  const packRun = async (
+    id: string,
+    sourceId: string,
+    startedAt: number,
+    status: "complete" | "partial" | "running" = "complete",
+  ) => {
+    const key = rawKey(sourceId, id);
+    await db.insert(schema.runs).values({
+      id,
+      sourceId,
+      runnerId: "mac",
+      collectorVersion: "t",
+      startedAt,
+      status,
+      rawKey: key,
+    });
+    await blobs.put(key, new Uint8Array([1]));
+    return key;
+  };
+
+  it("retains two packs per source, including partial runs, and prunes expired history", async () => {
+    const day = 86400;
+    const old = await packRun("a", "one", T - 40 * day);
+    const second = await packRun("b", "one", T - 35 * day, "partial");
+    const newest = await packRun("c", "one", T - day);
+    const other = await packRun("d", "two", T - 40 * day);
+    const active = await packRun("e", "one", T, "running");
+    await packRun("abandoned", "one", T - 40 * day, "running");
+    await db.insert(schema.runs).values({
+      id: "expired",
+      sourceId: "two",
+      runnerId: "mac",
+      collectorVersion: "t",
+      startedAt: T - 31 * day,
+      status: "running",
+    });
+    expect(await pruneRuns(db, blobs, T)).toEqual({ packs: 2, runs: 3 });
+    expect(await blobs.has(old)).toBe(false);
+    expect(blobs.keys().sort()).toEqual([second, newest, other, active].sort());
+    expect((await db.select().from(schema.runs)).map((r) => r.id).sort()).toEqual([
+      "b",
+      "c",
+      "d",
+      "e",
+    ]);
+    expect(await pruneRuns(db, blobs, T)).toEqual({ packs: 0, runs: 0 });
+  });
+
+  it("keeps recent history after pruning a pack and breaks timestamp ties by id", async () => {
+    await packRun("a", "one", T);
+    await packRun("b", "one", T);
+    await packRun("c", "one", T);
+    expect(await pruneRuns(db, blobs, T)).toEqual({ packs: 1, runs: 0 });
+    const rows = await db.select().from(schema.runs);
+    expect(rows.find((row) => row.id === "a")?.rawKey).toBeNull();
+    expect(blobs.keys().sort()).toEqual([rawKey("one", "b"), rawKey("one", "c")]);
+    expect(rows).toHaveLength(3);
+  });
+
+  it("drains a backlog over bounded invocations", async () => {
+    for (let i = 0; i < 1003; i++) {
+      await packRun(`run-${i}`, "one", T - 40 * 86400 + i);
+    }
+    expect(await pruneRuns(db, blobs, T)).toEqual({ packs: 1000, runs: 1000 });
+    expect(await pruneRuns(db, blobs, T)).toEqual({ packs: 1, runs: 1 });
+    expect(blobs.keys()).toHaveLength(2);
+    expect(await db.select().from(schema.runs)).toHaveLength(2);
+  });
+
+  it("tracks interrupted raw uploads before finalization", async () => {
+    await packRun("valid-a", source.id, T - 2);
+    await packRun("valid-b", source.id, T - 1);
+    const id = await start(T);
+    await expect(
+      storeRawPack(
+        db,
+        {
+          ...blobs,
+          put: async () => {
+            throw new Error("upload failed");
+          },
+        },
+        id,
+        new Uint8Array([1]),
+      ),
+    ).rejects.toThrow("upload failed");
+    expect((await db.select().from(schema.runs)).find((row) => row.id === id)).toMatchObject({
+      rawKey: rawKey(source.id, id),
+      rawUploaded: 0,
+    });
+    await finalize(db, id, fin([], { listingComplete: false }), T);
+    expect(await pruneRuns(db, blobs, T)).toEqual({ packs: 0, runs: 0 });
+    expect(await pruneRuns(db, blobs, T + 31 * 86400)).toEqual({ packs: 1, runs: 1 });
+    expect(blobs.keys()).toHaveLength(2);
+  });
+
+  it("keeps a reference when blob deletion fails so cleanup can retry", async () => {
+    await packRun("a", "one", T - 40 * 86400);
+    await packRun("b", "one", T - 2);
+    await packRun("c", "one", T - 1);
+    await expect(
+      pruneRuns(
+        db,
+        {
+          ...blobs,
+          delete: async () => {
+            throw new Error("R2 unavailable");
+          },
+        },
+        T,
+      ),
+    ).rejects.toThrow("R2 unavailable");
+    expect((await db.select().from(schema.runs)).find((r) => r.id === "a")?.rawKey).toBe(
+      rawKey("one", "a"),
+    );
+    expect(await pruneRuns(db, blobs, T)).toEqual({ packs: 1, runs: 1 });
   });
 });
