@@ -37,8 +37,8 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
   Main-process per-host concurrency is 8. Workday/Oracle uses 2 with a 250ms request gap
   after 3M returned 429s; its restarted PID is 58626. Upload concurrency is capped at 32 per
   process. Both append to
-  `~/Library/Logs/tallo-sweep.log`. Six interrupted runs were finalized partial via the API with
-  closure disabled before restarting. Recent completed boards are reused; failed boards are retried.
+  `~/Library/Logs/tallo-sweep.log`. Fourteen interrupted runs across the two restarts were finalized partial via the API with
+  closure disabled (six main-sweep runs and eight Workday/Oracle runs). Recent completed boards are reused; failed boards are retried.
   All six configured platforms are covered. Two existing upload-validation failures persist:
   `ashby:alan`, `greenhouse:bestversionmedia` (HTTP 400 on jobs upload); investigate before calling
   coverage complete. Failed/partial sources remain explicit, never counted as success.
