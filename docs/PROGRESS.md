@@ -17,17 +17,19 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
 
 | Thing   | Id / location                                                                                                                                      |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0002 applied remotely                                                              |
+| D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0003 applied remotely                                                              |
 | R2      | `tallo-blobs`                                                                                                                                      |
-| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, daily cron 05:17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                       |
+| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, hourly cron at :17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                       |
 | Secrets | API: READ_TOKEN, INGEST_TOKEN. Web: READ_TOKEN, ACCESS_TOKEN. Local copies: `apps/runner/.env`, `~/.config/tallo/web-secrets.env` (both untracked) |
 | Zone    | nandan.fyi (Cloudflare). `tallo-assets.nandan.fyi` not used yet                                                                                    |
 
 ## In flight
 
-- #14: raw-pack/run retention implemented on `feat/prune-history`; hourly cron keeps two finalized
-  packs per source and 30 days of other run history. Retained pack rows remain as references.
-  Checks pass (135 tests); independent review fixes addressed. Production behavior unchanged until deployment.
+- #14 / PR #22: retention deployed with `cf`; migration 0003 applied via `cf d1 migrations`
+  from Drizzle-generated SQL. Hourly cron retains two uploaded packs per source and 30 days
+  of other run history. Retained pack rows remain as references. Independent review approved;
+  `pnpm check` passes (135 tests). Production health and authenticated job search return 200.
+  API version: `5c8b93ae-9493-4c90-9d6a-af5bba3fef7a`.
 
 - **First full sweep (#1)** started 2026-10-23 16:23 PDT as a background process on this Mac
   (`~/Library/Logs/tallo-sweep.log`; order: ashby, lever, greenhouse, smartrecruiters; workday still to do).
