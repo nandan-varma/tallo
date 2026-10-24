@@ -29,10 +29,7 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
   Astro view transitions, Motion interactions, animated save feedback, browser-local saved roles,
   Radix select menus and mobile sheets, compact search/filters, and no promotional copy,
   persistent search filters, current-page salary sorting, and refreshed standalone role pages.
-  Local preview: `TALLO_UI_PREVIEW=true pnpm --filter @tallo/web dev --host 127.0.0.1`.
-  Preview uses 10 explicitly labeled fictional example openings and company careers links;
-  access bypass and fixtures require both development mode and the explicit preview flag.
-  Tests and browser inspection intentionally deferred at the user's request for visual review.
+  Uses live API data only. `pnpm check` and the web build pass; browser inspection pending.
 
 - #14 / PR #22: retention deployed with `cf`; migration 0003 applied via `cf d1 migrations`
   from Drizzle-generated SQL. Hourly cron retains two uploaded packs per source and 30 days

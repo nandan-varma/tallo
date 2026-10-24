@@ -1,8 +1,12 @@
 ---
 import { ClientRouter } from "astro:transitions";
 import "@/styles/global.css";
-interface Props { title?: string }
+interface Props {
+  title?: string;
+}
 const { title = "Jobs · Tallo" } = Astro.props;
+const savedView = Astro.url.searchParams.has("saved");
+const jobsActive = Astro.url.pathname === "/" && !savedView;
 ---
 <!doctype html>
 <html lang="en">
@@ -19,8 +23,11 @@ const { title = "Jobs · Tallo" } = Astro.props;
     <a href="#main" class="skip-link">Skip to content</a>
     <header class="site-header" transition:name="site-header">
       <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
-      <nav aria-label="Main navigation" class="header-nav"><a href="/" aria-current={Astro.url.pathname === '/' && !Astro.url.searchParams.has('saved') ? 'page' : undefined}>Jobs</a><a href="/?saved=true" aria-current={Astro.url.searchParams.has('saved') ? 'page' : undefined}>Saved jobs</a></nav>
+      <nav aria-label="Main navigation" class="header-nav">
+        <a href="/" aria-current={jobsActive ? "page" : undefined}>Jobs</a>
+        <a href="/?saved=true" aria-current={savedView ? "page" : undefined}>Saved jobs</a>
+      </nav>
     </header>
-    <main id="main" transition:animate="fade">{import.meta.env.DEV && import.meta.env.TALLO_UI_PREVIEW === "true" && <div class="preview-banner">Preview data · Example jobs link to company careers pages</div>}<slot /></main>
+    <main id="main" transition:animate="fade"><slot /></main>
   </body>
 </html>

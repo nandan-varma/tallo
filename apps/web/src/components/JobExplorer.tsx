@@ -35,7 +35,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { ago, salary } from "@/lib/format";
+import { readSavedJobs } from "@/lib/saved-jobs";
 
+const savedStorageKey = "tallo:saved-roles";
 const filterKeys = ["workMode", "postedWithinDays", "country", "salaryMin", "maxExperience", "all"];
 export function JobExplorer({
   jobs,
@@ -62,6 +64,11 @@ export function JobExplorer({
   const [sort, setSort] = useState("newest");
   const cache = useRef(new Map<number, { job: JobDetail; expires: number }>());
   const lastOpened = useRef<HTMLAnchorElement | null>(null);
+  const filtersTrigger = useRef<HTMLButtonElement>(null);
+  const detailPane = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (detailPane.current) detailPane.current.scrollTop = 0;
+  }, [selected?.id]);
   const savedView = values.saved === "true";
   const active = filterKeys.filter((key) => values[key]).length;
   const shownJobs = [...(savedView ? saved : jobs)].sort((a, b) =>
@@ -72,17 +79,7 @@ export function JobExplorer({
   );
   useEffect(() => {
     try {
-      const stored: unknown = JSON.parse(localStorage.getItem("tallo:saved-roles") ?? "[]");
-      if (Array.isArray(stored))
-        setSaved(
-          stored.filter(
-            (item) =>
-              item &&
-              typeof item.id === "number" &&
-              typeof item.title === "string" &&
-              typeof item.company === "string",
-          ),
-        );
+      setSaved(readSavedJobs(localStorage.getItem(savedStorageKey)));
     } catch {
       /* A fresh collection is available when storage is unavailable. */
     }
@@ -146,7 +143,7 @@ export function JobExplorer({
     const next = exists ? saved.filter((item) => item.id !== job.id) : [...saved, job];
     setSaved(next);
     try {
-      localStorage.setItem("tallo:saved-roles", JSON.stringify(next));
+      localStorage.setItem(savedStorageKey, JSON.stringify(next));
       setNotice(exists ? "Job removed from saved" : "Job saved");
     } catch {
       setNotice("Saved for this visit. Browser storage is unavailable.");
@@ -201,29 +198,31 @@ export function JobExplorer({
             {savedView && <p className="text-xs text-muted-foreground">Saved in this browser</p>}
           </header>
           {!savedView && (
-            <form method="get" className="mb-3 flex gap-2" role="search">
-              <div className="relative min-w-0 flex-1">
-                <Label htmlFor="job-search" className="sr-only">
-                  Search jobs
-                </Label>
-                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="h-10 bg-card pl-9"
-                  id="job-search"
-                  name="q"
-                  defaultValue={values.q ?? ""}
-                  placeholder="Job title, company, or keyword"
-                />
-              </div>
-              {filterKeys
-                .filter((key) => values[key])
-                .map((key) => (
-                  <input key={key} type="hidden" name={key} value={values[key]} />
-                ))}
-              <Button type="submit" className="h-10 px-4">
-                Search
-              </Button>
-            </form>
+            <search>
+              <form method="get" className="mb-3 flex gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <Label htmlFor="job-search" className="sr-only">
+                    Search jobs
+                  </Label>
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-10 bg-card pl-9"
+                    id="job-search"
+                    name="q"
+                    defaultValue={values.q ?? ""}
+                    placeholder="Job title, company, or keyword"
+                  />
+                </div>
+                {filterKeys
+                  .filter((key) => values[key])
+                  .map((key) => (
+                    <input key={key} type="hidden" name={key} value={values[key]} />
+                  ))}
+                <Button type="submit" className="h-10 px-4">
+                  Search
+                </Button>
+              </form>
+            </search>
           )}
           <div className="results-controls">
             <div className="flex flex-wrap items-center gap-2">
@@ -232,6 +231,7 @@ export function JobExplorer({
                   <Button
                     variant="outline"
                     className="lg:hidden"
+                    ref={filtersTrigger}
                     onClick={() => setFiltersOpen(true)}
                   >
                     <SlidersHorizontal />
@@ -399,7 +399,7 @@ export function JobExplorer({
                 </Button>
               )}
             </section>
-            <Card className="desktop-detail gap-0 py-0" aria-label="Job details">
+            <Card className="desktop-detail gap-0 py-0" ref={detailPane} aria-label="Job details">
               <div className="flex min-h-11 items-center justify-between border-b px-5">
                 <span className="text-xs font-medium text-muted-foreground">Job details</span>
                 {selected && (
@@ -431,7 +431,14 @@ export function JobExplorer({
         </div>
       </div>
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="left" className="overflow-y-auto">
+        <SheetContent
+          side="left"
+          className="overflow-y-auto"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            filtersTrigger.current?.focus();
+          }}
+        >
           <SheetHeader>
             <SheetTitle>Filters</SheetTitle>
             <SheetDescription className="sr-only">

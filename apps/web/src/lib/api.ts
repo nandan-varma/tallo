@@ -12,12 +12,6 @@ const edgeCache = caches as CacheStorage & { default: Cache };
  * reads for descriptions) across server renders and the hydrated detail route.
  */
 async function call<T>(path: string, maxAgeSeconds: number): Promise<T | null> {
-  if (import.meta.env.DEV && import.meta.env.TALLO_UI_PREVIEW === "true") {
-    const { previewJobs, previewSearch } = await import("./preview");
-    const url = new URL(path, "http://localhost");
-    if (url.pathname === "/v1/jobs") return previewSearch(url.searchParams) as T;
-    return (previewJobs.find(job => job.id === Number(url.pathname.split("/").at(-1))) ?? null) as T | null;
-  }
   const cacheKey = new Request(`https://tallo-cache.internal${path}`);
   const cached = await edgeCache.default.match(cacheKey);
   if (cached) return (await cached.json()) as T;

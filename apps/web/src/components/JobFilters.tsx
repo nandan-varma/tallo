@@ -1,5 +1,5 @@
-import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -19,14 +19,20 @@ function FilterSelect({
   label,
   initialValue,
   options,
+  customLabel,
 }: {
   name: string;
   label: string;
   initialValue: string;
   options: [string, string][];
+  customLabel: (value: string) => string;
 }) {
   const id = useId();
   const [value, setValue] = useState(initialValue || "any");
+  const choices: [string, string][] =
+    initialValue && !options.some(([key]) => key === initialValue)
+      ? [...options, [initialValue, customLabel(initialValue)]]
+      : options;
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
@@ -37,7 +43,7 @@ function FilterSelect({
         </SelectTrigger>
         <SelectContent position="popper" align="start">
           <SelectGroup>
-            {options.map(([key, text]) => (
+            {choices.map(([key, text]) => (
               <SelectItem key={key} value={key}>
                 {text}
               </SelectItem>
@@ -79,6 +85,7 @@ export function JobFilters({ values }: { values: Record<string, string> }) {
       </fieldset>
       <FilterSelect
         name="postedWithinDays"
+        customLabel={(value) => `Past ${value} days`}
         label="Date posted"
         initialValue={values.postedWithinDays ?? ""}
         options={[
@@ -90,6 +97,7 @@ export function JobFilters({ values }: { values: Record<string, string> }) {
       />
       <FilterSelect
         name="salaryMin"
+        customLabel={(value) => `$${Number(value).toLocaleString("en-US")}+`}
         label="Minimum annual salary"
         initialValue={values.salaryMin ?? ""}
         options={[

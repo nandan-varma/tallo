@@ -5,7 +5,9 @@ import { searchJobs } from "@/lib/api";
 
 const params = Astro.url.searchParams;
 const query = new URLSearchParams([...params].filter(([, value]) => value !== ""));
-const { jobs, nextCursor } = await searchJobs(query);
+const { jobs, nextCursor } = params.get("saved") === "true"
+  ? { jobs: [], nextCursor: null }
+  : await searchJobs(query);
 ---
 <Base>
   <JobExplorer
