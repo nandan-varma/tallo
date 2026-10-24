@@ -2,7 +2,6 @@
 import { JobCard } from "@/components/JobCard";
 import { SearchForm } from "@/components/SearchForm";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import Base from "@/layouts/Base.astro";
 import { searchJobs } from "@/lib/api";
 
@@ -11,17 +10,20 @@ const query = new URLSearchParams([...params].filter(([, value]) => value !== ""
 const { jobs, nextCursor } = await searchJobs(query);
 const more = new URLSearchParams(query);
 if (nextCursor) more.set("cursor", nextCursor);
-const filtered = [...params].some(([key, value]) => value !== "" && key !== "cursor");
-const pageHeld = params.get("cursor") !== null || filtered;
+const filtered = [...params].some(
+  ([key, value]) => value !== "" && key !== "cursor" && key !== "q",
+);
+const onFirstPage = !params.get("cursor");
+const searching = Boolean(params.get("q"));
 ---
 <Base>
-  <section aria-label="Search" class="grid gap-4">
-    <div class="grid gap-1">
-      <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        Find your next role
+  <section aria-label="Search" class="grid gap-5">
+    <div class="grid gap-1.5">
+      <h1 class="font-heading text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+        {searching && filtered ? "Results" : "Find your next role"}
       </h1>
       <p class="text-sm text-muted-foreground">
-        Fresh tech jobs with parsed pay, experience and location facts.
+        Tech jobs with parsed pay, experience and location — refreshes hourly.
       </p>
     </div>
     <SearchForm values={Object.fromEntries(params)} />
@@ -29,14 +31,14 @@ const pageHeld = params.get("cursor") !== null || filtered;
 
   {
     jobs.length === 0 && (
-      <div class="mt-2 rounded-xl border border-dashed border-border bg-muted/40 px-6 py-12 text-center">
+      <div class="mt-6 rounded-lg border border-dashed border-border bg-muted/30 px-6 py-16 text-center">
         <p class="font-medium text-foreground">No jobs match</p>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Try fewer filters or a broader search term.
+        <p class="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+          Fewer filters or a broader term usually helps.
         </p>
-        {pageHeld && (
+        {(!onFirstPage || filtered || searching) && (
           <Button variant="outline" size="sm" asChild className="mt-4">
-            <a href="/">Clear all filters</a>
+            <a href="/">Reset everything</a>
           </Button>
         )}
       </div>
@@ -45,18 +47,18 @@ const pageHeld = params.get("cursor") !== null || filtered;
 
   {
     jobs.length > 0 && (
-      <section aria-label="Results" class="mt-6 grid gap-3">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-sm font-medium text-muted-foreground">
-            {jobs.length} job{jobs.length === 1 ? "" : "s"}
+      <section aria-label="Results" class="mt-8 grid gap-4">
+        <div class="flex items-baseline justify-between gap-3 border-b border-border pb-3">
+          <h2 class="font-heading text-sm font-medium text-foreground">
+            {jobs.length} job{jobs.length === 1 ? "" : "s"} on this page
           </h2>
-          {filtered && (
-            <Badge variant="secondary" className="font-normal">
-              filtered
-            </Badge>
+          {nextCursor && (
+            <span class="text-xs text-muted-foreground">older pages follow below</span>
           )}
         </div>
-        <div class="grid gap-3">
+        {/* Fluid card grid: the row wraps at each breakpoint so wide screens use
+            their full width instead of leaving dead whitespace. */}
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {jobs.map((job) => (
             <JobCard job={job} />
           ))}
@@ -64,7 +66,7 @@ const pageHeld = params.get("cursor") !== null || filtered;
         {nextCursor && (
           <div class="mt-2 flex justify-center">
             <Button variant="outline" asChild>
-              <a href={`/?${more}`}>Load more</a>
+              <a href={`/?${more}`}>Load next page</a>
             </Button>
           </div>
         )}

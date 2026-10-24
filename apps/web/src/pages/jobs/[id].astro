@@ -5,22 +5,34 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import Base from "@/layouts/Base.astro";
 import { getJob } from "@/lib/api";
+import { salary } from "@/lib/format";
 
 const id = Number(Astro.params.id);
 const job = Number.isInteger(id) ? await getJob(id) : null;
 if (!job) return new Response("Not found", { status: 404 });
 const link = job.applyUrl ?? job.url;
+const pay = salary(job);
 ---
 <Base title={`${job.title} · ${job.company}`}>
-  <nav aria-label="Breadcrumb">
-    <a href="/" class="text-sm text-muted-foreground transition-colors hover:text-foreground">← Results</a>
+  <nav aria-label="Breadcrumb" class="mb-4">
+    <a href="/" class="text-xs text-muted-foreground transition-colors hover:text-foreground">
+      ← Search
+    </a>
   </nav>
 
-  <div class="mt-2 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-    <article class="grid gap-5">
+  <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <article class="grid min-w-0 gap-4">
       <header class="grid gap-2">
-        <h1 class="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">{job.title}</h1>
-        <JobMeta job={job} extended />
+        <h1 class="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
+          {job.title}
+        </h1>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span class="text-sm font-medium text-foreground">{job.company}</span>
+          <JobMeta job={job} extended />
+        </div>
+        {pay && (
+          <p class="font-heading text-lg font-medium tabular-nums">{pay}</p>
+        )}
       </header>
       <Separator />
       <div class="whitespace-pre-wrap break-words text-sm leading-relaxed">

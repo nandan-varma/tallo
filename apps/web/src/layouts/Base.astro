@@ -28,41 +28,42 @@ const { title = "Tallo" } = Astro.props;
       Skip to content
     </a>
     <header
-      class="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70"
+      class="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75"
     >
-      <div class="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
+      <div class="mx-auto flex h-14 w-full max-w-7xl items-center px-4 sm:px-6 lg:px-8">
         <a
           href="/"
-          class="flex items-center gap-2 text-lg font-semibold tracking-tight transition-opacity hover:opacity-80"
+          class="flex items-center gap-2.5 text-base font-semibold tracking-tight transition-opacity hover:opacity-80"
         >
           <span
             aria-hidden="true"
-            class="grid size-7 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground"
+            class="grid size-7 shrink-0 place-items-center rounded-md bg-primary font-mono text-sm font-bold text-primary-foreground"
           >
             T
           </span>
           Tallo
         </a>
-        <a
-          href="/"
-          class="text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Browse jobs
-        </a>
+        <span class="mx-3 hidden text-xs text-muted-foreground sm:inline">·</span>
+        <span class="hidden text-xs text-muted-foreground sm:inline">Tech jobs, parsed</span>
+        <nav aria-label="Main" class="ml-auto flex items-center gap-1">
+          <a
+            href="/"
+            class="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            Browse
+          </a>
+        </nav>
       </div>
     </header>
-    <main
-      id="main"
-      class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
-    >
+    <main id="main" class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <slot />
     </main>
-    <footer class="mt-8 border-t border-border/60">
+    <footer class="mt-10 border-t border-border">
       <div
-        class="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 text-xs text-muted-foreground sm:px-6"
+        class="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-muted-foreground sm:px-6 lg:px-8"
       >
-        <span>Tallo · job search dashboard</span>
-        <span>{new Date().getFullYear()}</span>
+        <span>Tallo · parsed job facts</span>
+        <span>Data refreshes hourly</span>
       </div>
     </footer>
   </body>
