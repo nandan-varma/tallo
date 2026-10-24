@@ -4,11 +4,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 const WORK_MODES = ["remote", "hybrid", "onsite"];
-const POSTED = [
-  { value: "1", label: "Last 24 hours" },
-  { value: "7", label: "Last 7 days" },
-  { value: "30", label: "Last 30 days" },
-];
+const POSTED = ["1", "7", "30"];
 
 const FILTER_KEYS = [
   "workMode",
@@ -22,7 +18,11 @@ const FILTER_KEYS = [
 const activeFilters = (values: Record<string, string>) =>
   FILTER_KEYS.filter((name) => values[name] && values[name] !== "").length;
 
-/** A plain GET form: the URL is the state, so there is nothing to hydrate. */
+/**
+ * A plain GET form: the URL is the state, so there is nothing to hydrate.
+ * Laid out as a filter rail: search on top, filters in two columns, then
+ * actions. Narrow enough to share space with results on desktop.
+ */
 export function SearchForm({ values }: { values: Record<string, string> }) {
   const v = (name: string) => values[name] ?? "";
   const active = activeFilters(values);
@@ -30,36 +30,23 @@ export function SearchForm({ values }: { values: Record<string, string> }) {
     <form
       method="get"
       aria-label="Job search filters"
-      className="rounded-lg border border-border bg-card p-4 sm:p-5"
+      className="grid gap-3 rounded-lg border border-border bg-card p-4"
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        {/* Primary search: the only field that needs no label above it. */}
-        <div className="grid gap-1.5">
-          <Label htmlFor="q" className="sr-only">
-            Search jobs
-          </Label>
-          <Input
-            id="q"
-            name="q"
-            defaultValue={v("q")}
-            placeholder="Title, company or place"
-            className="h-9 font-medium sm:text-base"
-            autoFocus
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit" size="sm" className="h-9 sm:px-8">
-            Search
-          </Button>
-          {active > 0 && (
-            <Button variant="ghost" size="sm" asChild className="h-9 text-muted-foreground">
-              <a href="/">Clear</a>
-            </Button>
-          )}
-        </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="q" className="text-xs font-normal text-muted-foreground">
+          Search
+        </Label>
+        <Input
+          id="q"
+          name="q"
+          defaultValue={v("q")}
+          placeholder="Title, company or place"
+          className="h-9"
+          autoFocus
+        />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5">
         <div className="grid gap-1">
           <Label htmlFor="workMode" className="text-xs font-normal text-muted-foreground">
             Work mode
@@ -89,9 +76,9 @@ export function SearchForm({ values }: { values: Record<string, string> }) {
             className="h-9 text-sm"
           >
             <NativeSelectOption value="">Any time</NativeSelectOption>
-            {POSTED.map(({ value, label }) => (
+            {POSTED.map((value) => (
               <NativeSelectOption key={value} value={value}>
-                {label}
+                {value === "1" ? "24 hours" : `${value} days`}
               </NativeSelectOption>
             ))}
           </NativeSelect>
@@ -111,7 +98,7 @@ export function SearchForm({ values }: { values: Record<string, string> }) {
         </div>
         <div className="grid gap-1">
           <Label htmlFor="salaryMin" className="text-xs font-normal text-muted-foreground">
-            Min pay / yr
+            Min pay
           </Label>
           <Input
             id="salaryMin"
@@ -124,40 +111,58 @@ export function SearchForm({ values }: { values: Record<string, string> }) {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
-        {/* Advanced filters collapse with native details/summary: no client JS. */}
-        <details className="group min-w-0">
-          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-            <span
-              aria-hidden="true"
-              className="text-base leading-none transition-transform group-open:rotate-45"
-            >
-              +
-            </span>
-            Max years{active > 0 ? ` · ${active} filter${active === 1 ? "" : "s"} on` : ""}
-          </summary>
-          <div className="grid gap-1.5 pt-3 sm:w-56">
-            <Input
-              id="maxExperience"
-              name="maxExperience"
-              defaultValue={v("maxExperience")}
-              inputMode="numeric"
-              placeholder="Max years required"
-              aria-label="Max years required"
-              className="h-9 text-sm"
-            />
-          </div>
-        </details>
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            name="all"
-            value="true"
-            defaultChecked={v("all") === "true"}
-            className="size-3.5 rounded accent-primary"
+      {/* Rarely-used filters collapse with native details/summary: no client JS. */}
+      <details className="group min-w-0">
+        <summary className="flex cursor-pointer select-none list-none items-center justify-between rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <span>
+            Max years
+            {active > 0 && <span className="text-primary">{` (${active})`}</span>}
+          </span>
+          <span
+            aria-hidden="true"
+            className="text-base leading-none transition-transform group-open:rotate-45"
+          >
+            +
+          </span>
+        </summary>
+        <div className="grid gap-2 pt-3">
+          <Input
+            id="maxExperience"
+            name="maxExperience"
+            defaultValue={v("maxExperience")}
+            inputMode="numeric"
+            placeholder="Max years required"
+            aria-label="Max years required"
+            className="h-9 text-sm"
           />
-          Include hidden jobs
-        </label>
+        </div>
+      </details>
+
+      <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          name="all"
+          value="true"
+          defaultChecked={v("all") === "true"}
+          className="size-3.5 rounded accent-primary"
+        />
+        Include hidden jobs
+      </label>
+
+      <div className="mt-1 flex items-center gap-2 border-t border-border pt-3">
+        <Button type="submit" size="sm" className="flex-1">
+          Search
+        </Button>
+        {active > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="h-8 text-muted-foreground hover:text-foreground"
+          >
+            <a href="/">Clear</a>
+          </Button>
+        )}
       </div>
     </form>
   );
