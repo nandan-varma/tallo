@@ -33,7 +33,7 @@ function firstItem(data: unknown): JsonObject {
 }
 
 /**
- * A wrong siteNumber silently reads the host's default board, so the first page of the configured site must
+ * A wrong siteNumber silently reads the host's default board, so the first non-empty page must
  * differ from a probe of a site that cannot exist. Sources that really are the host default say so with
  * `params.defaultSite: true`.
  */
@@ -80,6 +80,7 @@ export const oraclecloud: Platform = {
   async *list(source, ctx) {
     let total = Number.POSITIVE_INFINITY;
     let complete = true;
+    let siteChecked = false;
     for (let offset = 0; offset < total; offset += PAGE) {
       if (offset >= CAP) {
         complete = false;
@@ -97,7 +98,10 @@ export const oraclecloud: Platform = {
         throw new SchemaError("Oracle Cloud response without TotalJobsCount");
       total = count;
       const jobs = rows(page.requisitionList, "requisitionList");
-      if (offset === 0) await assertNotHostDefault(source, ctx, count, jobs[0]?.Id);
+      if (!siteChecked && jobs.length > 0) {
+        await assertNotHostDefault(source, ctx, count, jobs[0]?.Id);
+        siteChecked = true;
+      }
       for (const job of jobs) {
         const postingId = id(job.Id);
         if (!postingId) throw new SchemaError("Oracle Cloud requisition without Id");
@@ -106,7 +110,8 @@ export const oraclecloud: Platform = {
       if (jobs.length < PAGE && offset + jobs.length < total) {
         complete = false;
         ctx.record({ code: "pagination", message: `Short page at offset ${offset}` });
-        break;
+        // The finder can omit rows within a page while later offsets still contain jobs.
+        // Keep collecting those pages, but never infer closure from the incomplete listing.
       }
     }
     return { complete, emptyIsAuthoritative: false };

@@ -358,6 +358,24 @@ describe("oraclecloud", () => {
     await expect(drain(oraclecloud.list(src, board.ctx))).rejects.toThrow(/defaultSite/);
   });
 
+  it.each([150, 200])(
+    "checks the host default before yielding after an empty first page (probe total %i)",
+    async (probeTotal) => {
+      const fallback = { Id: "DEFAULT", Title: "Host default job" };
+      const { ctx, urls } = fakeCtx((url) => {
+        if (siteOfUrl(url) !== "CX_2001")
+          return { items: [{ TotalJobsCount: probeTotal, requisitionList: [fallback] }] };
+        const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
+        return {
+          items: [{ TotalJobsCount: 150, requisitionList: offset === 0 ? [] : [fallback] }],
+        };
+      });
+      await expect(oraclecloud.list(src, ctx).next()).rejects.toThrow(/defaultSite/);
+      expect(realCalls(urls)).toHaveLength(2);
+      expect(probeCalls(urls)).toHaveLength(1);
+    },
+  );
+
   it("lists a host-default site only when the source acknowledges it", async () => {
     const acknowledged = source("oraclecloud", "eluq.fa.us2.oraclecloud.com", {
       siteNumber: "CX_2001",
@@ -393,6 +411,53 @@ describe("oraclecloud", () => {
     const { result } = await drain(oraclecloud.list(src, ctx));
     expect(result.complete).toBe(false);
     expect(issues[0]?.code).toBe("pagination");
+  });
+
+  it.each([99, 0])(
+    "continues after an intermediate page with %i rows without claiming completeness",
+    async (shortRows) => {
+      const { ctx, urls, issues } = fakeCtx((url) => {
+        if (siteOfUrl(url) !== "CX_2001") return emptyBoard;
+        const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
+        const size = offset === 0 ? 100 : offset === 100 ? shortRows : 50;
+        return {
+          items: [
+            {
+              TotalJobsCount: 250,
+              requisitionList: Array.from({ length: size }, (_, i) => ({
+                Id: String(offset + i),
+                Title: `Job ${offset + i}`,
+              })),
+            },
+          ],
+        };
+      });
+      const { items, result } = await drain(oraclecloud.list(src, ctx));
+      expect(realCalls(urls).map((url) => Number(/offset=(\d+)/.exec(url)?.[1]))).toEqual([
+        0, 100, 200,
+      ]);
+      expect(items).toHaveLength(150 + shortRows);
+      expect(items.at(-1)).toEqual({
+        id: "249",
+        listing: { Id: "249", Title: "Job 249" },
+      });
+      expect(result).toEqual({ complete: false, emptyIsAuthoritative: false });
+      expect(issues).toEqual([{ code: "pagination", message: "Short page at offset 100" }]);
+    },
+  );
+
+  it("bounds requests at the cap even when every page is unexpectedly empty", async () => {
+    const { ctx, urls, issues } = fakeCtx((url) =>
+      siteOfUrl(url) === "CX_2001"
+        ? { items: [{ TotalJobsCount: 20000, requisitionList: [] }] }
+        : emptyBoard,
+    );
+    const { items, result } = await drain(oraclecloud.list(src, ctx));
+    expect(items).toEqual([]);
+    expect(realCalls(urls)).toHaveLength(100);
+    expect(realCalls(urls).at(-1)).toContain("offset=9900");
+    expect(result.complete).toBe(false);
+    expect(issues.at(-1)?.message).toContain("caps at 10000");
   });
 
   it("treats an empty board as complete but not authoritative", async () => {
