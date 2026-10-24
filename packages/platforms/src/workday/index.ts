@@ -83,7 +83,16 @@ async function* slice(
       seen.add(path);
       yield { id: path, listing: job };
     }
-    if (page.length < PAGE) break;
+    if (page.length < PAGE) {
+      if (offset + page.length < total) {
+        state.complete = false;
+        ctx.record({
+          code: "pagination",
+          message: `Workday short page at offset ${offset}: received ${page.length} of ${total} jobs`,
+        });
+      }
+      break;
+    }
   }
   if (total < CAP) return;
   // Capped: partition by a facet and recurse. Overlap is removed by `seen`.

@@ -157,6 +157,75 @@ describe("workday", () => {
     expect(result.complete).toBe(true);
   });
 
+  it.each([
+    [0, 0],
+    [0, 7],
+    [20, 7],
+  ])(
+    "reports a premature page at offset %i with %i rows as incomplete",
+    async (shortOffset, count) => {
+      const { ctx, issues } = fakeCtx((_u, body) => {
+        const offset = obj(body).offset as number;
+        return {
+          total: 50,
+          jobPostings: Array.from({ length: offset === shortOffset ? count : 20 }, (_, i) =>
+            row(offset + i),
+          ),
+          facets: [],
+        };
+      });
+      const { items, result } = await drain(workday.list(src, ctx));
+      expect(items).toHaveLength(shortOffset + count);
+      expect(result.complete).toBe(false);
+      expect(issues).toEqual([
+        {
+          code: "pagination",
+          message: `Workday short page at offset ${shortOffset}: received ${count} of 50 jobs`,
+        },
+      ]);
+    },
+  );
+
+  it("propagates a premature facet page to the whole listing without losing other slices", async () => {
+    const facets = [
+      {
+        facetParameter: "state",
+        values: [
+          { id: "a", count: 30 },
+          { id: "b", count: 20 },
+        ],
+      },
+    ];
+    const { ctx, issues } = fakeCtx((_u, body) => {
+      const { offset, appliedFacets } = obj(body) as {
+        offset: number;
+        appliedFacets: Record<string, string[]>;
+      };
+      const state = appliedFacets.state?.[0];
+      if (!state)
+        return {
+          total: 2000,
+          jobPostings: Array.from({ length: 20 }, (_, i) => row(1000 + offset + i)),
+          facets,
+        };
+      const count = state === "a" && offset === 20 ? 5 : 20;
+      return {
+        total: state === "a" ? 30 : 20,
+        jobPostings: Array.from({ length: count }, (_, i) =>
+          row((state === "a" ? 0 : 100) + offset + i),
+        ),
+        facets: [],
+      };
+    });
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(result.complete).toBe(false);
+    expect(issues).toEqual([
+      { code: "pagination", message: "Workday short page at offset 20: received 5 of 30 jobs" },
+    ]);
+    expect(items.some((posting) => posting.id === "/job/x/24")).toBe(true);
+    expect(items.some((posting) => posting.id === "/job/x/119")).toBe(true);
+  });
+
   it("splits capped boards by facet and dedupes overlap", async () => {
     // 2 states with 30 jobs each; job 0 appears in both (multi-location).
     const states: Record<string, Json[]> = {
