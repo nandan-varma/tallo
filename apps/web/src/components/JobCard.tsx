@@ -1,31 +1,57 @@
 import type { JobSummary } from "@tallo/contracts";
-import { JobMeta } from "@/components/JobMeta";
-import { Card } from "@/components/ui/card";
-import { salary } from "@/lib/format";
+import { Clock3, Code2, MapPin } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ago, experience, salary } from "@/lib/format";
 
 /**
- * Result card in the fluid grid. Fixed line order (title → company → meta →
- * excerpt → pay footer) keeps every card's rows aligned across the grid so
- * cards on the same row line up; pay sits on the footer line as the key fact.
+ * One row of the results list. A real list-alignment of title/company/facts
+ * line up down the page, so it scans like a table — no card chrome. The
+ * overlay link covers the whole row; the excerpt volunteers as plain text.
  */
 export function JobCard({ job }: { job: JobSummary }) {
   const pay = salary(job);
+  const age = ago(job.postedAt ?? job.sortAt);
+  const years = experience(job.expMinYears);
   return (
-    <Card className="relative grid content-start gap-2 rounded-lg p-4 ring-foreground/10 transition-colors hover:ring-foreground/25">
-      <a
-        href={`/jobs/${job.id}`}
-        className="font-heading text-[0.95rem] font-medium leading-snug text-foreground after:absolute after:inset-0 hover:underline"
-      >
-        {job.title}
+    <li className="group relative border-b border-border/70 px-3 py-3 first:rounded-t-lg last:rounded-b-lg hover:bg-accent/50">
+      <a href={`/jobs/${job.id}`} className="absolute inset-0 z-10">
+        <span className="sr-only">{`View ${job.title} at ${job.company}`}</span>
       </a>
-      <div className="text-xs font-medium text-foreground/90">{job.company}</div>
-      <JobMeta job={job} />
-      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{job.excerpt}</p>
-      {pay && (
-        <div className="mt-auto border-t border-border pt-2 font-heading text-sm font-medium tabular-nums text-foreground">
-          {pay}
+      <div className="pointer-events-none grid gap-1 relative">
+        <div className="flex items-baseline justify-between gap-4">
+          <h3 className="min-w-0 truncate font-heading text-sm font-medium text-foreground group-hover:underline">
+            {job.title}
+          </h3>
+          {pay && (
+            <span className="shrink-0 font-heading text-sm font-medium tabular-nums text-foreground">
+              {pay}
+            </span>
+          )}
         </div>
-      )}
-    </Card>
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+          <span className="shrink-0 font-medium text-foreground/90">{job.company}</span>
+          {job.locationText && (
+            <span className="pointer-events-none flex min-w-0 items-center gap-1">
+              <MapPin strokeWidth={2} className="size-3 shrink-0" />
+              <span className="max-w-48 truncate">{job.locationText}</span>
+            </span>
+          )}
+          {age && (
+            <span className="shrink-0 flex items-center gap-1">
+              <Clock3 strokeWidth={2} className="size-3 shrink-0" />
+              {age}
+            </span>
+          )}
+          {years && (
+            <span className="shrink-0 flex items-center gap-1">
+              <Code2 strokeWidth={2} className="size-3 shrink-0" />
+              {years}
+            </span>
+          )}
+          {job.workMode && <Badge className="pointer-events-none">{job.workMode}</Badge>}
+          <span className="ml-auto hidden min-w-0 truncate sm:inline">{job.excerpt}</span>
+        </div>
+      </div>
+    </li>
   );
 }

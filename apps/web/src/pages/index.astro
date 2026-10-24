@@ -60,12 +60,12 @@ const searching = Boolean(params.get("q"));
                 <span class="text-xs text-muted-foreground">pages follow below</span>
               )}
             </div>
-            {/* Cards keep to two columns beside the rail; a third only at 2xl screens. */}
-            <div class="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+            {/* Single-column list: rows share one edge so facts align down the page. */}
+            <ul class="list-none overflow-hidden rounded-lg border border-border bg-card">
               {jobs.map((job) => (
                 <JobCard job={job} />
               ))}
-            </div>
+            </ul>
             {nextCursor && (
               <div class="mt-2 flex justify-center">
                 <Button variant="outline" asChild>
