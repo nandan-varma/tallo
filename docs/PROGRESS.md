@@ -19,7 +19,7 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0003 applied remotely                                                              |
 | R2      | `tallo-blobs`                                                                                                                                      |
-| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, hourly cron at :17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                       |
+| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, hourly cron at :17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                     |
 | Secrets | API: READ_TOKEN, INGEST_TOKEN. Web: READ_TOKEN, ACCESS_TOKEN. Local copies: `apps/runner/.env`, `~/.config/tallo/web-secrets.env` (both untracked) |
 | Zone    | nandan.fyi (Cloudflare). `tallo-assets.nandan.fyi` not used yet                                                                                    |
 
