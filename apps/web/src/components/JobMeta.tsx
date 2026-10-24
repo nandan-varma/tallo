@@ -1,6 +1,7 @@
 import type { JobSummary } from "@tallo/contracts";
 import { Badge } from "@/components/ui/badge";
 import { ago, experience, salary } from "@/lib/format";
+import { Banknote, Clock3, Code2, MapPin } from "lucide-react";
 
 type Meta = Pick<
   JobSummary,
@@ -25,11 +26,31 @@ export function JobMeta({ job, extended = false }: { job: Meta; extended?: boole
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
       <span className="font-medium text-foreground">{job.company}</span>
-      {job.locationText && <span>{job.locationText}</span>}
-      {age && <span>{age}</span>}
+      {job.locationText && (
+        <span className="flex items-center gap-1">
+          <MapPin />
+          {job.locationText}
+        </span>
+      )}
+      {age && (
+        <span className="flex items-center gap-1">
+          <Clock3 />
+          {age}
+        </span>
+      )}
       {job.workMode && <Badge variant="secondary">{job.workMode}</Badge>}
-      {pay && <Badge variant="outline">{pay}</Badge>}
-      {years && <Badge variant="outline">{years}</Badge>}
+      {pay && (
+        <Badge variant="outline" className="gap-1">
+          <Banknote />
+          {pay}
+        </Badge>
+      )}
+      {years && (
+        <Badge variant="outline" className="gap-1">
+          <Code2 />
+          {years}
+        </Badge>
+      )}
       {extended && job.department && <Badge variant="outline">{job.department}</Badge>}
       {extended && job.employmentType && <Badge variant="outline">{job.employmentType}</Badge>}
     </div>
