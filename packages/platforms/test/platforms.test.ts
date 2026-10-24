@@ -326,6 +326,53 @@ describe("oraclecloud", () => {
     expect(issues[0]?.code).toBe("pagination");
   });
 
+  it.each([99, 0])(
+    "continues after an intermediate page with %i rows without claiming completeness",
+    async (shortRows) => {
+      const { ctx, urls, issues } = fakeCtx((url) => {
+        if (siteOfUrl(url) !== "CX_2001") return emptyBoard;
+        const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
+        const size = offset === 0 ? 100 : offset === 100 ? shortRows : 50;
+        return {
+          items: [
+            {
+              TotalJobsCount: 250,
+              requisitionList: Array.from({ length: size }, (_, i) => ({
+                Id: String(offset + i),
+                Title: `Job ${offset + i}`,
+              })),
+            },
+          ],
+        };
+      });
+      const { items, result } = await drain(oraclecloud.list(src, ctx));
+      expect(realCalls(urls).map((url) => Number(/offset=(\d+)/.exec(url)?.[1]))).toEqual([
+        0, 100, 200,
+      ]);
+      expect(items).toHaveLength(150 + shortRows);
+      expect(items.at(-1)).toEqual({
+        id: "249",
+        listing: { Id: "249", Title: "Job 249" },
+      });
+      expect(result).toEqual({ complete: false, emptyIsAuthoritative: false });
+      expect(issues).toEqual([{ code: "pagination", message: "Short page at offset 100" }]);
+    },
+  );
+
+  it("bounds requests at the cap even when every page is unexpectedly empty", async () => {
+    const { ctx, urls, issues } = fakeCtx((url) =>
+      siteOfUrl(url) === "CX_2001"
+        ? { items: [{ TotalJobsCount: 20000, requisitionList: [] }] }
+        : emptyBoard,
+    );
+    const { items, result } = await drain(oraclecloud.list(src, ctx));
+    expect(items).toEqual([]);
+    expect(realCalls(urls)).toHaveLength(100);
+    expect(realCalls(urls).at(-1)).toContain("offset=9900");
+    expect(result.complete).toBe(false);
+    expect(issues.at(-1)?.message).toContain("caps at 10000");
+  });
+
   it("treats an empty board as complete but not authoritative", async () => {
     const { ctx } = fakeCtx(() => emptyBoard);
     const { items, result } = await drain(oraclecloud.list(src, ctx));

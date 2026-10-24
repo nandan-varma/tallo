@@ -106,7 +106,8 @@ export const oraclecloud: Platform = {
       if (jobs.length < PAGE && offset + jobs.length < total) {
         complete = false;
         ctx.record({ code: "pagination", message: `Short page at offset ${offset}` });
-        break;
+        // The finder can omit rows within a page while later offsets still contain jobs.
+        // Keep collecting those pages, but never infer closure from the incomplete listing.
       }
     }
     return { complete, emptyIsAuthoritative: false };

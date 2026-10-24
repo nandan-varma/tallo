@@ -31,3 +31,7 @@ refuses a site whose first requisition Id or total matches the probe, unless the
 The seven seeds that carry it are the host default. Tenet (`eodr`, CX_1001) is not seeded: its first Id matches the
 host default, so it is refused, and it is a distinct board (different total, 94 of the first 100 Ids shared), so the
 acknowledgement would be false. Listing stops at 10,000 results and reports incomplete.
+
+Oracle short pages before the reported total are recorded as incomplete, but collection continues
+through later offsets up to the 10,000-result cap. This retains later postings without treating
+the missing rows as proof that jobs closed.
