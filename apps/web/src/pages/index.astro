@@ -1,74 +1,19 @@
 ---
-import { JobCard } from "@/components/JobCard";
-import { SearchForm } from "@/components/SearchForm";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { JobExplorer } from "@/components/JobExplorer";
 import Base from "@/layouts/Base.astro";
 import { searchJobs } from "@/lib/api";
 
 const params = Astro.url.searchParams;
 const query = new URLSearchParams([...params].filter(([, value]) => value !== ""));
-const { jobs, nextCursor } = await searchJobs(query);
-const more = new URLSearchParams(query);
-if (nextCursor) more.set("cursor", nextCursor);
-const filtered = [...params].some(([key, value]) => value !== "" && key !== "cursor");
-const pageHeld = params.get("cursor") !== null || filtered;
+const { jobs, nextCursor } = params.get("saved") === "true"
+  ? { jobs: [], nextCursor: null }
+  : await searchJobs(query);
 ---
 <Base>
-  <section aria-label="Search" class="grid gap-4">
-    <div class="grid gap-1">
-      <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        Find your next role
-      </h1>
-      <p class="text-sm text-muted-foreground">
-        Fresh tech jobs with parsed pay, experience and location facts.
-      </p>
-    </div>
-    <SearchForm values={Object.fromEntries(params)} />
-  </section>
-
-  {
-    jobs.length === 0 && (
-      <div class="mt-2 rounded-xl border border-dashed border-border bg-muted/40 px-6 py-12 text-center">
-        <p class="font-medium text-foreground">No jobs match</p>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Try fewer filters or a broader search term.
-        </p>
-        {pageHeld && (
-          <Button variant="outline" size="sm" asChild className="mt-4">
-            <a href="/">Clear all filters</a>
-          </Button>
-        )}
-      </div>
-    )
-  }
-
-  {
-    jobs.length > 0 && (
-      <section aria-label="Results" class="mt-6 grid gap-3">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-sm font-medium text-muted-foreground">
-            {jobs.length} job{jobs.length === 1 ? "" : "s"}
-          </h2>
-          {filtered && (
-            <Badge variant="secondary" className="font-normal">
-              filtered
-            </Badge>
-          )}
-        </div>
-        <div class="grid gap-3">
-          {jobs.map((job) => (
-            <JobCard job={job} />
-          ))}
-        </div>
-        {nextCursor && (
-          <div class="mt-2 flex justify-center">
-            <Button variant="outline" asChild>
-              <a href={`/?${more}`}>Load more</a>
-            </Button>
-          </div>
-        )}
-      </section>
-    )
-  }
+  <JobExplorer
+    client:load
+    jobs={jobs}
+    nextCursor={nextCursor}
+    values={Object.fromEntries(params)}
+  />
 </Base>

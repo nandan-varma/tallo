@@ -10,6 +10,7 @@
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
+    "@animateicons/react": "^0.12.1",
     "@astrojs/cloudflare": "^14.4.2",
     "@astrojs/react": "^7.1.1",
     "@fontsource-variable/geist": "^5.3.0",
@@ -19,6 +20,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
     "lucide-react": "^1.61.0",
+    "motion": "^14.6.0",
     "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

@@ -25,6 +25,12 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
 
 ## In flight
 
+- Web workspace redesign: compact neutral shadcn UI, responsive job list and reading pane,
+  Astro view transitions, Motion interactions, animated save feedback, browser-local saved roles,
+  Radix select menus and mobile sheets, compact search/filters, and no promotional copy,
+  persistent search filters, current-page salary sorting, and refreshed standalone role pages.
+  Uses live API data only. `pnpm check` and the web build pass; browser inspection pending.
+
 - #14 / PR #22: retention deployed with `cf`; migration 0003 applied via `cf d1 migrations`
   from Drizzle-generated SQL. Hourly cron retains two uploaded packs per source and 30 days
   of other run history. Retained pack rows remain as references. Independent review approved;

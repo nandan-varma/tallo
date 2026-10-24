@@ -1,10 +1,12 @@
 ---
+import { ClientRouter } from "astro:transitions";
 import "@/styles/global.css";
-
 interface Props {
   title?: string;
 }
-const { title = "Tallo" } = Astro.props;
+const { title = "Jobs · Tallo" } = Astro.props;
+const savedView = Astro.url.searchParams.has("saved");
+const jobsActive = Astro.url.pathname === "/" && !savedView;
 ---
 <!doctype html>
 <html lang="en">
@@ -12,58 +14,20 @@ const { title = "Tallo" } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fafafa" />
+    <meta name="description" content="Search tech jobs, save roles, and apply directly with the company." />
     <title>{title}</title>
-    <script is:inline>
-      if (matchMedia("(prefers-color-scheme: dark)").matches) {
-        document.documentElement.classList.add("dark");
-      }
-    </script>
+    <ClientRouter />
   </head>
-  <body class="flex min-h-screen flex-col bg-background text-foreground">
-    <a
-      href="#main"
-      class="sr-only rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
-    >
-      Skip to content
-    </a>
-    <header
-      class="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70"
-    >
-      <div class="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
-        <a
-          href="/"
-          class="flex items-center gap-2 text-lg font-semibold tracking-tight transition-opacity hover:opacity-80"
-        >
-          <span
-            aria-hidden="true"
-            class="grid size-7 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground"
-          >
-            T
-          </span>
-          Tallo
-        </a>
-        <a
-          href="/"
-          class="text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Browse jobs
-        </a>
-      </div>
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header class="site-header" transition:name="site-header">
+      <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
+      <nav aria-label="Main navigation" class="header-nav">
+        <a href="/" aria-current={jobsActive ? "page" : undefined}>Jobs</a>
+        <a href="/?saved=true" aria-current={savedView ? "page" : undefined}>Saved jobs</a>
+      </nav>
     </header>
-    <main
-      id="main"
-      class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
-    >
-      <slot />
-    </main>
-    <footer class="mt-8 border-t border-border/60">
-      <div
-        class="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 text-xs text-muted-foreground sm:px-6"
-      >
-        <span>Tallo · job search dashboard</span>
-        <span>{new Date().getFullYear()}</span>
-      </div>
-    </footer>
+    <main id="main" transition:animate="fade"><slot /></main>
   </body>
 </html>
