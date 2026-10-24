@@ -18,6 +18,10 @@ export interface PreparedJob {
 
 const MAX_EXTRAS_BYTES = 4096;
 
+/** A shortened place name would be a different fact; keep the full value in facts.locations. */
+const placeName = (value: string | undefined): string | null =>
+  value !== undefined && value.length <= 120 ? value : null;
+
 const epoch = (iso: string | undefined): number | null => {
   const ms = iso ? Date.parse(iso) : Number.NaN;
   return Number.isFinite(ms) && ms >= 0 ? Math.floor(ms / 1000) : null;
@@ -50,9 +54,9 @@ export async function prepareJob(
     title: job.title,
     url: job.url ?? null,
     applyUrl: job.applyUrl ?? null,
-    locationText: primary?.text ?? null,
-    city: primary?.city ?? null,
-    region: primary?.region ?? null,
+    locationText: primary ? excerpt(primary.text, 500) : null,
+    city: placeName(primary?.city),
+    region: placeName(primary?.region),
     countryCode: primary?.countryCode ?? null,
     workMode: job.workMode ?? detectWorkMode(...job.locations.map((l) => l.text)) ?? null,
     isUs: verdict.isUs,
