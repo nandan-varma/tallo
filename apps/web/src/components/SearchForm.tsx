@@ -84,7 +84,7 @@ export function SearchForm({ values }: { values: Record<string, string> }) {
                 name="salaryMin"
                 defaultValue={v("salaryMin")}
                 inputMode="numeric"
-                placeholder="90,000"
+                placeholder="90000"
               />
             </div>
             <div className="grid gap-1.5">
