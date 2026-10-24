@@ -19,6 +19,11 @@ sites and long-tail ATS.
 | workable, recruitee, gem, rippling                | 3    | todo                                 |                             | candidates once sources are found                                                                            |
 | amazon, apple, google, microsoft, meta, uber, ... | 3    | todo                                 |                             | one adapter per company site; browser-walled sites need a managed browser                                    |
 
+Workday requires a nonnegative integer `total` on every page. It keeps the highest reported total
+if a board changes while paging, and marks the listing incomplete when the final unique posting
+count falls short. Facet coverage or duplicate pages cannot establish completeness from page
+length alone; incomplete listings never apply job closure.
+
 ## Per-platform field coverage (what maps today)
 
 All: title, apply/job URL, description text, locations (+country/state when parsable), work mode, department,

@@ -59,7 +59,7 @@ async function* slice(
   applied: Applied,
   seen: Set<string>,
   state: { complete: boolean },
-): AsyncGenerator<RawPosting> {
+): AsyncGenerator<RawPosting, number> {
   const { api } = parts(source);
   let facets: Json = [];
   let total = Number.POSITIVE_INFINITY;
@@ -72,10 +72,15 @@ async function* slice(
     });
     const body = obj(data);
     const page = rows(body.jobPostings, "jobPostings");
-    if (offset === 0) {
-      total = num(body.total) ?? page.length;
-      facets = body.facets ?? [];
-    }
+    const reportedTotal = body.total;
+    if (
+      typeof reportedTotal !== "number" ||
+      !Number.isSafeInteger(reportedTotal) ||
+      reportedTotal < 0
+    )
+      throw new SchemaError("Workday response without a nonnegative integer total");
+    total = offset === 0 ? reportedTotal : Math.max(total, reportedTotal);
+    if (offset === 0) facets = body.facets ?? [];
     for (const job of page) {
       const path = str(job.externalPath);
       if (!path) throw new SchemaError("Workday posting without externalPath");
@@ -94,7 +99,7 @@ async function* slice(
       break;
     }
   }
-  if (total < CAP) return;
+  if (total < CAP) return total;
   // Capped: partition by a facet and recurse. Overlap is removed by `seen`.
   const split = bestSplit(facets, applied);
   if (!split) {
@@ -103,11 +108,12 @@ async function* slice(
       code: "pagination",
       message: `Workday slice over ${CAP} jobs cannot be split further`,
     });
-    return;
+    return total;
   }
   for (const leaf of split) {
     yield* slice(source, ctx, { ...applied, [leaf.param]: [leaf.id] }, seen, state);
   }
+  return total;
 }
 
 export const workday: Platform = {
@@ -118,7 +124,15 @@ export const workday: Platform = {
 
   async *list(source, ctx) {
     const state = { complete: true };
-    yield* slice(source, ctx, {}, new Set(), state);
+    const seen = new Set<string>();
+    const total = yield* slice(source, ctx, {}, seen, state);
+    if (state.complete && seen.size < total) {
+      state.complete = false;
+      ctx.record({
+        code: "pagination",
+        message: `Workday listing has ${seen.size} unique jobs, fewer than reported ${total}`,
+      });
+    }
     return { complete: state.complete, emptyIsAuthoritative: false };
   },
 

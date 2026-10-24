@@ -157,6 +157,96 @@ describe("workday", () => {
     expect(result.complete).toBe(true);
   });
 
+  it("accepts a well-formed empty listing without making it authoritative", async () => {
+    const { ctx } = fakeCtx(() => ({ total: 0, jobPostings: [], facets: [] }));
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(items).toEqual([]);
+    expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
+  });
+
+  it("keeps collecting when later pages report a larger total", async () => {
+    const all = Array.from({ length: 41 }, (_, i) => row(i));
+    const { ctx } = fakeCtx((_u, body) => {
+      const offset = obj(body).offset as number;
+      return {
+        total: offset === 0 ? 40 : 41,
+        jobPostings: all.slice(offset, offset + 20),
+        facets: [],
+      };
+    });
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(items).toHaveLength(41);
+    expect(result.complete).toBe(true);
+  });
+
+  it.each([undefined, null, -1, 1.5, "20", Number.POSITIVE_INFINITY])(
+    "rejects an invalid reported total %s instead of inferring a complete listing",
+    async (total) => {
+      const { ctx } = fakeCtx(() => ({
+        ...(total === undefined ? {} : { total }),
+        jobPostings: [row(1)],
+        facets: [],
+      }));
+      await expect(drain(workday.list(src, ctx))).rejects.toBeInstanceOf(SchemaError);
+    },
+  );
+
+  it("validates the reported total on later pages too", async () => {
+    const { ctx } = fakeCtx((_u, body) => ({
+      ...(obj(body).offset === 0 ? { total: 40 } : {}),
+      jobPostings: Array.from({ length: 20 }, (_, i) => row((obj(body).offset as number) + i)),
+      facets: [],
+    }));
+    await expect(drain(workday.list(src, ctx))).rejects.toBeInstanceOf(SchemaError);
+  });
+
+  it("reports duplicate pages that leave fewer unique jobs than advertised as incomplete", async () => {
+    const { ctx, issues } = fakeCtx(() => ({
+      total: 40,
+      jobPostings: Array.from({ length: 20 }, (_, i) => row(i)),
+      facets: [],
+    }));
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(items).toHaveLength(20);
+    expect(result.complete).toBe(false);
+    expect(issues).toContainEqual({
+      code: "pagination",
+      message: "Workday listing has 20 unique jobs, fewer than reported 40",
+    });
+  });
+
+  it("reports capped boards whose facets do not cover the reported total as incomplete", async () => {
+    const { ctx, issues } = fakeCtx((_u, body) => {
+      const { offset, appliedFacets } = obj(body) as {
+        offset: number;
+        appliedFacets: Record<string, string[]>;
+      };
+      const filtered = !!appliedFacets.state;
+      return {
+        total: filtered ? 20 : 2500,
+        jobPostings: Array.from({ length: 20 }, (_, i) => row(offset + i)),
+        facets: filtered
+          ? []
+          : [
+              {
+                facetParameter: "state",
+                values: [
+                  { id: "a", count: 20 },
+                  { id: "b", count: 20 },
+                ],
+              },
+            ],
+      };
+    });
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(items).toHaveLength(2000);
+    expect(result.complete).toBe(false);
+    expect(issues).toContainEqual({
+      code: "pagination",
+      message: "Workday listing has 2000 unique jobs, fewer than reported 2500",
+    });
+  });
+
   it.each([
     [0, 0],
     [0, 7],
@@ -227,17 +317,17 @@ describe("workday", () => {
   });
 
   it("splits capped boards by facet and dedupes overlap", async () => {
-    // 2 states with 30 jobs each; job 0 appears in both (multi-location).
+    // Two 1,251-job facets cover the 2,501-job board with one overlapping posting.
     const states: Record<string, Json[]> = {
-      a: Array.from({ length: 30 }, (_, i) => row(i)),
-      b: Array.from({ length: 30 }, (_, i) => row(i + 29)),
+      a: Array.from({ length: 1251 }, (_, i) => row(i)),
+      b: Array.from({ length: 1251 }, (_, i) => row(i + 1250)),
     };
     const facets = [
       {
         facetParameter: "state",
         values: [
-          { id: "a", count: 30 },
-          { id: "b", count: 30 },
+          { id: "a", count: 1251 },
+          { id: "b", count: 1251 },
         ],
       },
     ];
@@ -249,15 +339,15 @@ describe("workday", () => {
       const id = appliedFacets.state?.[0];
       if (!id)
         return {
-          total: 2000,
-          jobPostings: Array.from({ length: 20 }, (_, i) => row(1000 + i)),
+          total: 2501,
+          jobPostings: Array.from({ length: 20 }, (_, i) => row(offset + i)),
           facets,
         };
-      return { total: 30, jobPostings: states[id]!.slice(offset, offset + 20), facets: [] };
+      return { total: 1251, jobPostings: states[id]!.slice(offset, offset + 20), facets: [] };
     });
     const { items, result } = await drain(workday.list(src, ctx));
     expect(new Set(items.map((i) => i.id)).size).toBe(items.length);
-    expect(items.length).toBeGreaterThanOrEqual(59);
+    expect(items).toHaveLength(2501);
     expect(result.complete).toBe(true);
   });
 
