@@ -31,11 +31,29 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
   `pnpm check` passes (135 tests). Production health and authenticated job search return 200.
   API version: `5c8b93ae-9493-4c90-9d6a-af5bba3fef7a`.
 
-- **First full sweep (#1)** started 2026-10-23 16:23 PDT as a background process on this Mac
-  (`~/Library/Logs/tallo-sweep.log`; order: ashby, lever, greenhouse, smartrecruiters; workday still to do).
-  It is idempotent: if interrupted, rerun `tallo sync -p <platform> -c 6` (sources completed in the last 20h are
-  skipped). Check progress with `grep -c '"msg":"synced"' ~/Library/Logs/tallo-sweep.log` and `GET /v1/sources`.
-  After it finishes: install the launchd job (`scripts/launchd/`, see `docs/runbook.md`), check D1/R2 usage, record results here.
+- **First full sweep (#1)** restarted with parallel platform collection on 2026-10-23.
+  Main process PID 57310: Greenhouse/SmartRecruiters/Ashby/Lever, 32 board slots;
+  Workday/Oracle Cloud run in a separate process with 8 board slots (distinct host sets).
+  Main-process per-host concurrency is 8. Workday/Oracle uses 2 with a 250ms request gap
+  after 3M returned 429s; its restarted PID is 58626. Upload concurrency is capped at 32 per
+  process. Both append to
+  `~/Library/Logs/tallo-sweep.log`. Fourteen interrupted runs across the two restarts were finalized partial via the API with
+  closure disabled (six main-sweep runs and eight Workday/Oracle runs). Recent completed boards are reused; failed boards are retried.
+  All six configured platforms are covered. Two existing upload-validation failures persist:
+  `ashby:alan`, `greenhouse:bestversionmedia` (HTTP 400 on jobs upload); investigate before calling
+  coverage complete. Failed/partial sources remain explicit, never counted as success.
+  One-off resume/drain script: `~/.local/share/tallo/parallel-sweep.mjs` (absolute repo imports).
+  Default platforms are the main four; use `--platforms=workday,oraclecloud --concurrency=8
+  --per-host=2 --host-interval-ms=250` for
+  the others. SIGTERM/SIGINT stops new board starts and drains active sources; do not launch a
+  second process for overlapping platforms. Existing job keys and content hashes prevent duplicate
+  catalog rows/blobs. Resume skips sources completed in the last 20h; review run issues for partial
+  details before declaring completion. Workday unsplittable slices remain explicitly incomplete.
+  Postflight PID 58786 (`~/.local/share/tallo/sweep-postflight.py`) waits for both collectors,
+  retries boards with detail issues once with lower host limits, and writes unresolved latest
+  runs to `~/Library/Logs/tallo-sweep-audit.json`. It does not silently treat partial data as success.
+  After collection: resolve failed/partial boards, install launchd (`scripts/launchd/`), check storage,
+  and record outcomes. Background work is active; no unattended code changes or deployments.
 
 ## Merged this session
 
