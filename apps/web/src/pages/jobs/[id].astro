@@ -1,43 +1,27 @@
 ---
 import { JobFacts } from "@/components/JobFacts";
 import { JobMeta } from "@/components/JobMeta";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import Base from "@/layouts/Base.astro";
 import { getJob } from "@/lib/api";
-
 const id = Number(Astro.params.id);
 const job = Number.isInteger(id) ? await getJob(id) : null;
-if (!job) return new Response("Not found", { status: 404 });
+if (!job) return Astro.redirect("/?missing=true");
 const link = job.applyUrl ?? job.url;
 ---
-<Base title={`${job.title} · ${job.company}`}>
-  <nav aria-label="Breadcrumb">
-    <a href="/" class="text-sm text-muted-foreground transition-colors hover:text-foreground">← Results</a>
-  </nav>
-
-  <div class="mt-2 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-    <article class="grid gap-5">
-      <header class="grid gap-2">
-        <h1 class="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">{job.title}</h1>
-        <JobMeta job={job} extended />
-      </header>
-      <Separator />
-      <div class="whitespace-pre-wrap break-words text-sm leading-relaxed">
-        {job.description ?? "Description unavailable."}
-      </div>
-    </article>
-
-    <aside aria-label="Apply and facts" class="grid gap-5 lg:sticky lg:top-20">
-      {link && (
-        <Button asChild className="w-full">
-          <a href={link} rel="noopener noreferrer" target="_blank">
-            Apply on {job.company}’s site
-            <span aria-hidden="true" class="ml-1">↗</span>
-          </a>
-        </Button>
-      )}
-      <JobFacts facts={job.facts} />
-    </aside>
+<Base title={`${job.title} · ${job.company} — Tallo`}>
+  <div class="standalone">
+    <nav aria-label="Breadcrumb" class="standalone-breadcrumb"><a href="/">← Discover roles</a><span>/</span><span>{job.company}</span></nav>
+    <div class="standalone-grid">
+      <article>
+        <header><p class="standalone-kicker">YOUR NEXT CHAPTER · {job.company}</p><h1 class="standalone-heading">{job.title}</h1><JobMeta job={job} extended /></header>
+        <div class="standalone-description">{job.description ?? "The full job description is available on the company’s website."}</div>
+      </article>
+      <aside aria-label="Apply and role facts" class="standalone-aside">
+        {link && <a href={link} rel="noopener noreferrer" target="_blank" class="button primary-button">Apply for this role <span aria-hidden="true">↗</span></a>}
+        <p class="apply-note">Direct to {job.company}. Always.</p>
+        <JobFacts facts={job.facts} />
+        <div class="sidebar-note"><h3>A little closer to what’s next.</h3><p>Take your time. Explore the team, get to know the work, and find your fit.</p></div>
+      </aside>
+    </div>
   </div>
 </Base>

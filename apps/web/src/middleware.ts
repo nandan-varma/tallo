@@ -9,6 +9,7 @@ const digest = async (value: string) =>
 
 /** v1 is private: everything needs the access key, given once as `?key=` and kept in a cookie. */
 export const onRequest = defineMiddleware(async (context, next) => {
+  if (import.meta.env.DEV && import.meta.env.TALLO_UI_PREVIEW === "true") return next();
   const expected = await digest(env.ACCESS_TOKEN);
   if (context.cookies.get(COOKIE)?.value === expected) return next();
 
