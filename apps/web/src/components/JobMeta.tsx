@@ -1,7 +1,7 @@
 import type { JobSummary } from "@tallo/contracts";
+import { Banknote, Clock3, Code2, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ago, experience, salary } from "@/lib/format";
-import { Banknote, Clock3, Code2, MapPin } from "lucide-react";
 
 type Meta = Pick<
   JobSummary,

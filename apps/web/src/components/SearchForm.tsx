@@ -1,10 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 const WORK_MODES = ["remote", "hybrid", "onsite"];
 const POSTED = [
@@ -14,9 +11,7 @@ const POSTED = [
 ];
 
 const activeFilters = (values: Record<string, string>) =>
-  Object.entries(values).some(
-    ([name, value]) => value !== "" && name !== "q" && name !== "cursor",
-  );
+  Object.entries(values).some(([name, value]) => value !== "" && name !== "q" && name !== "cursor");
 
 /** A plain GET form: the URL is the state, so there is nothing to hydrate. */
 export function SearchForm({ values }: { values: Record<string, string> }) {
@@ -119,9 +114,7 @@ export function SearchForm({ values }: { values: Record<string, string> }) {
             <a href="/">Clear</a>
           </Button>
         )}
-        <span className="ml-auto text-xs text-muted-foreground">
-          Saved in the URL — shareable
-        </span>
+        <span className="ml-auto text-xs text-muted-foreground">Saved in the URL — shareable</span>
       </div>
     </form>
   );
