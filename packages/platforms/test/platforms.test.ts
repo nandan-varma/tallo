@@ -289,6 +289,24 @@ describe("oraclecloud", () => {
     await expect(drain(oraclecloud.list(src, board.ctx))).rejects.toThrow(/defaultSite/);
   });
 
+  it.each([150, 200])(
+    "checks the host default before yielding after an empty first page (probe total %i)",
+    async (probeTotal) => {
+      const fallback = { Id: "DEFAULT", Title: "Host default job" };
+      const { ctx, urls } = fakeCtx((url) => {
+        if (siteOfUrl(url) !== "CX_2001")
+          return { items: [{ TotalJobsCount: probeTotal, requisitionList: [fallback] }] };
+        const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
+        return {
+          items: [{ TotalJobsCount: 150, requisitionList: offset === 0 ? [] : [fallback] }],
+        };
+      });
+      await expect(oraclecloud.list(src, ctx).next()).rejects.toThrow(/defaultSite/);
+      expect(realCalls(urls)).toHaveLength(2);
+      expect(probeCalls(urls)).toHaveLength(1);
+    },
+  );
+
   it("lists a host-default site only when the source acknowledges it", async () => {
     const acknowledged = source("oraclecloud", "eluq.fa.us2.oraclecloud.com", {
       siteNumber: "CX_2001",
