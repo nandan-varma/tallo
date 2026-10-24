@@ -25,8 +25,9 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
 
 ## In flight
 
-- Web workspace redesign: editorial sage/cream UI, responsive job list and reading pane,
+- Web workspace redesign: compact neutral shadcn UI, responsive job list and reading pane,
   Astro view transitions, Motion interactions, animated save feedback, browser-local saved roles,
+  Radix select menus and mobile sheets, compact search/filters, and no promotional copy,
   persistent search filters, current-page salary sorting, and refreshed standalone role pages.
   Local preview: `TALLO_UI_PREVIEW=true pnpm --filter @tallo/web dev --host 127.0.0.1`.
   Preview uses 10 explicitly labeled fictional example openings and company careers links;

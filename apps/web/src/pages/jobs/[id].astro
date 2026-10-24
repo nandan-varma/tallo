@@ -1,5 +1,6 @@
 ---
 import { JobFacts } from "@/components/JobFacts";
+import { Button } from "@/components/ui/button";
 import { JobMeta } from "@/components/JobMeta";
 import Base from "@/layouts/Base.astro";
 import { getJob } from "@/lib/api";
@@ -10,17 +11,15 @@ const link = job.applyUrl ?? job.url;
 ---
 <Base title={`${job.title} · ${job.company} — Tallo`}>
   <div class="standalone">
-    <nav aria-label="Breadcrumb" class="standalone-breadcrumb"><a href="/">← Discover roles</a><span>/</span><span>{job.company}</span></nav>
+    <nav aria-label="Breadcrumb" class="standalone-breadcrumb"><a href="/">← Jobs</a><span>/</span><span>{job.company}</span></nav>
     <div class="standalone-grid">
       <article>
-        <header><p class="standalone-kicker">YOUR NEXT CHAPTER · {job.company}</p><h1 class="standalone-heading">{job.title}</h1><JobMeta job={job} extended /></header>
+        <header><p class="text-sm text-muted-foreground">{job.company}</p><h1 class="standalone-heading">{job.title}</h1><JobMeta job={job} extended /></header>
         <div class="standalone-description">{job.description ?? "The full job description is available on the company’s website."}</div>
       </article>
       <aside aria-label="Apply and role facts" class="standalone-aside">
-        {link && <a href={link} rel="noopener noreferrer" target="_blank" class="button primary-button">Apply for this role <span aria-hidden="true">↗</span></a>}
-        <p class="apply-note">Direct to {job.company}. Always.</p>
+        {link && <Button asChild className="w-full"><a href={link} rel="noopener noreferrer" target="_blank">Apply on company website <span aria-hidden="true">↗</span></a></Button>}
         <JobFacts facts={job.facts} />
-        <div class="sidebar-note"><h3>A little closer to what’s next.</h3><p>Take your time. Explore the team, get to know the work, and find your fit.</p></div>
       </aside>
     </div>
   </div>

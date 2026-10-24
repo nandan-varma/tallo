@@ -2,7 +2,7 @@
 import { ClientRouter } from "astro:transitions";
 import "@/styles/global.css";
 interface Props { title?: string }
-const { title = "Tallo — Find your next chapter" } = Astro.props;
+const { title = "Jobs · Tallo" } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
@@ -10,20 +10,17 @@ const { title = "Tallo — Find your next chapter" } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <meta name="theme-color" content="#f8f9f5" />
-    <meta name="description" content="A quieter way to find your next role. Explore tech opportunities, save your favorites, and apply directly with the company." />
+    <meta name="theme-color" content="#fafafa" />
+    <meta name="description" content="Search tech jobs, save roles, and apply directly with the company." />
     <title>{title}</title>
     <ClientRouter />
   </head>
   <body>
     <a href="#main" class="skip-link">Skip to content</a>
     <header class="site-header" transition:name="site-header">
-      <a href="/" class="wordmark" aria-label="Tallo home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>tallo<span class="wordmark-dot">.</span></a>
-      <nav aria-label="Main navigation" class="header-nav"><a href="/" aria-current={Astro.url.pathname === '/' && !Astro.url.searchParams.has('saved') ? 'page' : undefined}>Discover</a><a href="/?saved=true" aria-current={Astro.url.searchParams.has('saved') ? 'page' : undefined}>Saved roles <span aria-hidden="true">↗</span></a></nav>
-      <div class="header-note"><span class="status-dot"></span> Your next chapter starts here</div>
-      <a class="profile-avatar" href="/?saved=true" aria-label="Your saved roles">N</a>
+      <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
+      <nav aria-label="Main navigation" class="header-nav"><a href="/" aria-current={Astro.url.pathname === '/' && !Astro.url.searchParams.has('saved') ? 'page' : undefined}>Jobs</a><a href="/?saved=true" aria-current={Astro.url.searchParams.has('saved') ? 'page' : undefined}>Saved jobs</a></nav>
     </header>
-    <main id="main" transition:animate="fade">{import.meta.env.DEV && import.meta.env.TALLO_UI_PREVIEW === "true" && <div class="preview-banner">Design preview · 10 example roles · Application links open company careers pages</div>}<slot /></main>
-    <footer class="site-footer"><a href="/" class="footer-brand">tallo.</a><span>Good work. Better possibilities.</span><span>Always direct to the company <span aria-hidden="true">↗</span></span></footer>
+    <main id="main" transition:animate="fade">{import.meta.env.DEV && import.meta.env.TALLO_UI_PREVIEW === "true" && <div class="preview-banner">Preview data · Example jobs link to company careers pages</div>}<slot /></main>
   </body>
 </html>
