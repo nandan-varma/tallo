@@ -70,6 +70,10 @@ what ran where and when. Failures finalize the run as `partial`; nothing is infe
   `jd_hash`, `source_hash`, `facts` JSON (all locations, pay components, experience, extras), lifecycle fields.
 - `jobs_fts`: FTS5 over title, company, location (external-content, trigger-maintained). No descriptions.
 
+Location display text is bounded to 500 characters; city/region values over 120 characters stay NULL
+in indexed columns. Full location values remain in `facts.locations` and raw evidence. This keeps
+malformed source place fields from rejecting otherwise valid job batches.
+
 Quantities keep source semantics: "3+ years" is `{min: 3, kind: required}`, never a range or midpoint. Pay
 components keep currency, interval, component type and region. Inferred values (parsed from text) carry
 `inferred: true`; structured values always win. Unknown stays NULL.

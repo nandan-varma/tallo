@@ -1,3 +1,4 @@
+import { jobFactsSchema } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import {
   annualizeBase,
@@ -126,6 +127,55 @@ describe("prepareJob", () => {
     experience: [],
     extras: {},
   };
+  it("keeps oversized source locations in facts while bounding indexed display fields", async () => {
+    // Ashby alan supplied a list of cities as addressLocality. Greenhouse
+    // bestversionmedia supplied sales prose as location.name.
+    const city =
+      "Paris, France; Bordeaux, France; Lyon, France; Marseille, France; Biarritz, France; Nantes, France; Annecy, France; Madrid, Spain; Barcelona, Spain";
+    const locations = [
+      {
+        text: "Outside sales opportunity. ".repeat(25),
+        city,
+        region: "r".repeat(121),
+        primary: true,
+      },
+    ];
+    const prepared = await prepareJob({ ...job, locations }, source, "a".repeat(64));
+    expect(jobFactsSchema.safeParse(prepared.facts).success).toBe(true);
+    expect(prepared.facts.locationText).toHaveLength(500);
+    expect(prepared.facts.locationText).toMatch(/…$/);
+    expect(prepared.facts.city).toBeNull();
+    expect(prepared.facts.region).toBeNull();
+    expect(prepared.facts.facts.locations).toEqual(locations);
+  });
+
+  it.each([120, 121])(
+    "keeps complete city and region names only within the %i-character boundary",
+    async (length) => {
+      const name = "x".repeat(length);
+      const prepared = await prepareJob(
+        { ...job, locations: [{ text: "A place", city: name, region: name }] },
+        source,
+        "a".repeat(64),
+      );
+      expect(jobFactsSchema.safeParse(prepared.facts).success).toBe(true);
+      expect(prepared.facts.city).toBe(length === 120 ? name : null);
+      expect(prepared.facts.region).toBe(length === 120 ? name : null);
+    },
+  );
+
+  it.each([500, 501])(
+    "bounds a %i-character location label without changing its stored evidence",
+    async (length) => {
+      const text = "x".repeat(length);
+      const prepared = await prepareJob({ ...job, locations: [{ text }] }, source, "a".repeat(64));
+      expect(jobFactsSchema.safeParse(prepared.facts).success).toBe(true);
+      expect(prepared.facts.locationText).toHaveLength(500);
+      if (length === 500) expect(prepared.facts.locationText).toBe(text);
+      expect(prepared.facts.facts.locations).toEqual([{ text }]);
+    },
+  );
+
   it("derives facts and round-trips the JD", async () => {
     const hash = "a".repeat(64);
     const a = await prepareJob(job, source, hash);
