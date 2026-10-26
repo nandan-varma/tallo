@@ -61,10 +61,18 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
   After collection: resolve failed/partial boards, install launchd (`scripts/launchd/`), check storage,
   and record outcomes. Background work is active; no unattended code changes or deployments.
 
-- #10 facets: PR #34 (`status:in-review`). Adds migration 0005 `facet_counts` (0004 is `dead_boards`), hourly rebuild in cron, `/v1/facets`.
-  Needs the migration applied remotely and one `POST /v1/admin/facets/rebuild` after deploy.
+- **Deploy policy:** deploy to prod right after every merge (apply remote migrations, then API + web, then smoke-test).
+  Use `pnpm --filter @tallo/api run deploy` (plain `pnpm deploy` is a different command). The unit-test DB is not D1:
+  D1-only batch bugs show up in prod, so check `wrangler tail` after deploying DB write paths.
+- Live in prod (2026-10-26): migrations 0004 `dead_boards` and 0005 `facet_counts`; dead-board marking (3 consecutive
+  first-request 404s; `tallo sources --dead`, `sync --include-dead`), `/status` page, `GET /v1/runs`,
+  `GET /v1/sources/status`, `GET /v1/facets` (rebuilt hourly in cron; `POST /v1/admin/facets/rebuild` forces it).
+  The facet rebuild scans `jobs_feed_idx` (verified with EXPLAIN QUERY PLAN).
 
 ## Merged this session
+
+PR #32 dead boards (#3), #33 source status page (#11), #34 facets (#10), #37 review follow-ups (#36),
+#38 facet rebuild hotfix (`db.run` is invalid inside a D1 batch).
 
 PR #18 shared per-host limiter, #19 structured facts on the job page, #20 Oracle Cloud platform
 (7 boards; the host-default guard refuses a wrong siteNumber; Tenet board dropped, see #21).
