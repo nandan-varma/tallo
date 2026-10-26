@@ -20,8 +20,8 @@ show until the end). The agent does the same work in tool calls and streams ever
 - `packages/search-ai`: the agent. No database or framework imports; it needs a `JobsPort` (`search`, `read`).
   - `createJobAgent({model, jobs, profile})`: `ToolLoopAgent`, `reasoning: "none"` (tool routing needs no thinking tokens),
     `isStepCount(14)`, and `prepareStep` that removes `read_job` after 6 reads (depth is budgeted by the loop, not the prompt).
-  - Tools: `search_jobs` (several 2-3 word title phrases, up to 40 compact hits), `read_job` (the FULL description, never cut),
-    `show_jobs` (publishes the ranking to the results panel). Instructions: `prompt.ts`.
+  - Tools: `search_jobs` (several 2-3 word title phrases plus optional `locations`, up to 40 compact hits), `read_job` (the FULL description, never cut),
+    `show_jobs` (publishes the ranking, up to 30 matches, to the results panel; the panel pages it ten at a time). Instructions: `prompt.ts`.
   - `read_job` returns only `{found, title, company, chars, facts}` to the client; the full text reaches the model through
     `toModelOutput` from a per-request cache, so it never travels to the browser or back in the next request.
   - `show_jobs` drops any evidence quote that is not verbatim in a description it read or in the profile.
@@ -35,7 +35,8 @@ show until the end). The agent does the same work in tool calls and streams ever
 - `POST /v1/ai/chat`: `{messages}` (the whole conversation) in, `createAgentUIStreamResponse` out. Loads the saved profile each turn.
   Errors reach the client as one generic message; logs carry error names only.
 - `GET/PUT /v1/profile`, `POST /v1/profile/generate` (nothing saved until PUT). The read token may save its own profile (v1: one user).
-- `jobs-port.ts`: `search` runs one exact-term (ANDed, quoted) FTS query per phrase, 20 each, merged round-robin; `read` returns the
+- `jobs-port.ts`: `search` runs one exact-term (ANDed, quoted) FTS query per phrase, 20 each, merged round-robin; named places are part of
+  the MATCH (`location_text : (...)`, `ftsLocations`), so local jobs are not crowded out by newer ones elsewhere; `read` returns the
   gunzipped description. Both use `visibleJobs` (open, canonical, not hidden, fresh source), so the agent never sees a hidden job.
 - Missing `OPENCODE_API_KEY` or `AI_MODEL_SMART`: 503 with a clear message.
 
