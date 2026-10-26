@@ -415,6 +415,15 @@ importers:
         specifier: ^10.0.0
         version: 10.0.0
 
+  packages/search-ai:
+    dependencies:
+      ai:
+        specifier: 7.0.153
+        version: 7.0.153(zod@4.6.7)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+
 packages:
 
   '@ai-sdk/anthropic@4.0.88':

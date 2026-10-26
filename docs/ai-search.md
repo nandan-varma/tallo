@@ -37,8 +37,10 @@ can return empty content, so every call sets an explicit output budget and model
    Only impossible rows are excluded (closed, hidden, stale). Vector recall (#16) later, same `recall` port.
 3. **Triage** (fast, batches of ~100): per candidate `strong | maybe | no` from title, company, location and
    whatever facts exist. Missing facts stay `unknown`; nothing is invented.
-4. **Deep** (smart, budgeted ~10 reads): only for `maybe` rows near the cut. `description` is capped
-   (~6k chars) and sliced. Scores fit against the profile with quoted evidence.
+4. **Deep** (smart, budgeted ~10 reads): only for `maybe` rows near the cut. `description` is never truncated:
+   one part is judged whole; an oversized one is read in consecutive parts (24k chars each, notes carried
+   forward). More than `maxDescriptionParts` (8) parts fails the search loudly instead of cutting the tail.
+   Scores fit against the profile with quoted evidence.
 5. **Answer**: ranked best fit first; each item has a one-line reason, evidence, and an explicit unknown list.
 
 Rule: when the input is already known (e.g. one job's requirements) use one `generateText` with
