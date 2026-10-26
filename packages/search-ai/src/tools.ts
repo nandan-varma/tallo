@@ -1,37 +1,10 @@
+import { searchSpecSchema } from "@tallo/contracts";
 import { tool } from "ai";
 import { z } from "zod";
 import type { JobsPort } from "./jobs.ts";
 
-export const MAX_QUERIES = 8;
-export const MAX_LOCATIONS = 8;
 export const SEARCH_LIMIT = 40;
-export const MAX_MATCHES = 30;
-
-const Match = z.object({
-  id: z.string().describe("The id of a job returned by search_jobs."),
-  verdict: z
-    .enum(["strong", "maybe"])
-    .describe("strong: clearly fits. maybe: plausible, something is unknown."),
-  fit: z
-    .number()
-    .int()
-    .min(0)
-    .max(100)
-    .nullable()
-    .describe("0-100, only for a job you read in full; else null."),
-  reason: z.string().describe("One sentence: why this job fits this person."),
-  evidence: z
-    .array(z.string())
-    .max(3)
-    .describe(
-      "Exact quotes, copied character for character, from a description you read or the profile.",
-    ),
-  unknowns: z
-    .array(z.string())
-    .max(4)
-    .describe("What the person would want to know that the posting does not say."),
-});
-export type Match = z.infer<typeof Match>;
+export const MAX_NOTES = 12;
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -44,10 +17,27 @@ const isVerbatim = (quote: string, sources: (string | undefined)[]) => {
   );
 };
 
+const Note = z.object({
+  id: z.string().describe("The id of a job returned by search_jobs."),
+  why: z
+    .string()
+    .min(3)
+    .max(240)
+    .describe(
+      "One sentence: why this job is in the list, or what stands out. Only facts from its hit or a description you read.",
+    ),
+  evidence: z
+    .array(z.string())
+    .max(2)
+    .describe(
+      "Exact quotes copied character for character from a description you read or the profile. Empty if you did not read it.",
+    ),
+});
+
 /**
- * The agent's three tools. Each does one thing; the model decides when to use them:
- * search_jobs (cheap, many), read_job (deep, rare, full text) and show_jobs (publishes the ranking
- * to the results panel). Created per request: `descriptions` holds the full text read in this turn.
+ * The assistant's two tools. `search_jobs` is the contract with the app: its input is the search the person
+ * ends up seeing, run by the database, so the last call of a turn defines the results list. `read_job` is the
+ * deep look, used rarely. Created per request: `descriptions` holds the full text read in this turn.
  */
 export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string }) {
   const descriptions = new Map<string, string>();
@@ -55,23 +45,8 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
   return {
     search_jobs: tool({
       description:
-        "Search the catalog of open US tech jobs. Pass several title phrases of two or three words that the person could realistically hold, and the places they want: the search can require a place, and without one it returns the newest matches anywhere. Returns up to 40 compact hits (title, company, location, work mode, pay, posted date, department); a null field is unknown.",
-      inputSchema: z.object({
-        queries: z
-          .array(z.string().min(2).max(80))
-          .min(1)
-          .max(MAX_QUERIES)
-          .describe(
-            'Title phrases, for example "backend engineer", "platform engineer". Never one generic word.',
-          ),
-        locations: z
-          .array(z.string().min(2).max(60))
-          .max(MAX_LOCATIONS)
-          .optional()
-          .describe(
-            'Require the job to be in one of these places (any may match): cities, state names AND abbreviations, "remote". For Washington state: ["Seattle", "Bellevue", "Redmond", "Washington", "WA"]. Leave out when the person did not name a place.',
-          ),
-      }),
+        "Search the catalog of open US tech jobs. The results list the person sees is this search, run by the database, so put everything they asked for in it. Returns up to 40 compact hits (title, company, location, work mode, pay, posted date, department) for you to read; a null field is unknown.",
+      inputSchema: searchSpecSchema,
       execute: async ({ queries, locations }) => ({
         hits: await jobs.search(
           queries,
@@ -83,7 +58,7 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
 
     read_job: tool({
       description:
-        "Read one job in full: all facts and the complete description. Use only when a plausible fit cannot be judged from the search hit (pay, requirements, location unclear).",
+        "Read one job in full: all facts and the complete description. Use only when a question cannot be answered from the search hit (pay, requirements, location unclear).",
       inputSchema: z.object({
         id: z.string().describe("The id of a job returned by search_jobs."),
       }),
@@ -116,23 +91,20 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
       },
     }),
 
-    show_jobs: tool({
+    explain_jobs: tool({
       description:
-        "Publish the final ranking to the results panel beside the chat, best fit first. Call it once, when you are done. An empty list means nothing fits.",
-      inputSchema: z.object({ matches: z.array(Match).max(MAX_MATCHES) }),
-      execute: async ({ matches }) => {
-        const seen = new Set<string>();
-        let dropped = 0;
-        const checked = matches
-          .filter((m) => !seen.has(m.id) && seen.add(m.id))
-          .map((m) => {
-            const evidence = m.evidence.filter((q) =>
-              isVerbatim(q, [descriptions.get(m.id), profile]),
-            );
-            dropped += m.evidence.length - evidence.length;
-            return { ...m, evidence };
-          });
-        return { matches: checked, droppedEvidence: dropped };
+        "Attach a short note to jobs in the results list saying why each is there or what stands out. The list itself is not yours: you can only annotate jobs that exist. Notes with an unknown id are dropped, and quotes that are not word for word in a description you read are removed.",
+      inputSchema: z.object({ notes: z.array(Note).min(1).max(MAX_NOTES) }),
+      execute: async ({ notes }) => {
+        const unique = notes.filter((n, i) => notes.findIndex((m) => m.id === n.id) === i); // first note per job wins
+        const visible = new Set((await jobs.lookup(unique.map((n) => n.id))).map((hit) => hit.id));
+        const kept = unique
+          .filter((n) => visible.has(n.id))
+          .map((n) => ({
+            ...n,
+            evidence: n.evidence.filter((q) => isVerbatim(q, [descriptions.get(n.id), profile])),
+          }));
+        return { notes: kept, dropped: notes.length - kept.length };
       },
     }),
   };

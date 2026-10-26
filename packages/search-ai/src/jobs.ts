@@ -28,6 +28,8 @@ export interface JobsPort {
    * given, a job must also mention at least one of them in its location text.
    */
   search(queries: string[], limit: number, options?: { locations?: string[] }): Promise<JobHit[]>;
+  /** The compact record of each of these ids that is visible to the site; ids that are not are left out. */
+  lookup(ids: string[]): Promise<JobHit[]>;
   /** One job with its full description, or null when it is not visible. */
   read(id: string): Promise<JobRead | null>;
 }

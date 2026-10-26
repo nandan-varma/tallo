@@ -2,7 +2,7 @@ import { gzip, sha256 } from "@tallo/catalog";
 import { jdKey, memoryBlobs, schema } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
 import { describe, expect, it } from "vitest";
-import { jobsPort } from "../src/jobs-port.ts";
+import { jobsPort, searchPage } from "../src/jobs-port.ts";
 
 const SOURCE = "greenhouse:acme";
 const now = () => Math.floor(Date.now() / 1000);
@@ -224,5 +224,98 @@ describe("jobsPort.search with locations", () => {
     );
     expect(await port.search(["data engineer"], 40, { locations: ["--"] })).toHaveLength(4);
     expect(await port.search(["data engineer"], 40, { locations: [] })).toHaveLength(4);
+  });
+});
+
+describe("jobsPort.lookup", () => {
+  it("returns only jobs the site shows, once each, and ignores bad ids", async () => {
+    const { db, blobs, port } = setup();
+    const open = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    const closed = await seed(db, blobs, { postingId: "2", title: "Data Engineer", closed: true });
+    const hidden = await seed(db, blobs, { postingId: "3", title: "Data Engineer", hidden: true });
+
+    const hits = await port.lookup([
+      String(open),
+      String(open),
+      String(closed),
+      String(hidden),
+      "9999",
+      "abc",
+      "-4",
+    ]);
+
+    expect(hits.map((h) => h.id)).toEqual([String(open)]);
+    expect(await port.lookup([])).toEqual([]);
+  });
+});
+
+describe("searchPage", () => {
+  async function catalog() {
+    const { db, blobs } = setup();
+    for (let i = 1; i <= 5; i++) {
+      await seed(db, blobs, {
+        postingId: `${i}`,
+        title: `Data Engineer ${i}`,
+        location: i % 2 ? "Seattle, WA" : "Boston, MA",
+      });
+    }
+    await seed(db, blobs, { postingId: "6", title: "Platform Engineer", location: "Seattle, WA" });
+    await seed(db, blobs, {
+      postingId: "7",
+      title: "Data Engineer 7",
+      location: "Seattle, WA",
+      closed: true,
+    });
+    return db;
+  }
+
+  it("pages newest first with a cursor, and ends with none", async () => {
+    const db = await catalog();
+    const seen: string[] = [];
+    const sizes: number[] = [];
+    let cursor: string | undefined;
+    for (let guard = 0; guard < 5; guard++) {
+      const page = await searchPage(db, { queries: ["data engineer"], cursor, limit: 2 });
+      sizes.push(page.hits.length);
+      seen.push(...page.hits.map((h) => h.title));
+      if (!page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    expect(sizes).toEqual([2, 2, 1]);
+    expect(seen).toEqual([
+      "Data Engineer 5",
+      "Data Engineer 4",
+      "Data Engineer 3",
+      "Data Engineer 2",
+      "Data Engineer 1",
+    ]);
+  });
+
+  it("covers every phrase (OR), requires the places (AND), and never lists closed jobs", async () => {
+    const db = await catalog();
+    const both = await searchPage(db, {
+      queries: ["data engineer", "platform engineer"],
+      limit: 30,
+    });
+    expect(both.hits).toHaveLength(6);
+    const seattle = await searchPage(db, {
+      queries: ["data engineer", "platform engineer"],
+      locations: ["Seattle"],
+      limit: 30,
+    });
+    expect(seattle.hits.map((h) => h.title).sort()).toEqual([
+      "Data Engineer 1",
+      "Data Engineer 3",
+      "Data Engineer 5",
+      "Platform Engineer",
+    ]);
+  });
+
+  it("answers an empty page for phrases with no searchable word", async () => {
+    const db = await catalog();
+    expect(await searchPage(db, { queries: ['"" **'], limit: 10 })).toEqual({
+      hits: [],
+      nextCursor: null,
+    });
   });
 });

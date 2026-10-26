@@ -1,13 +1,13 @@
 import type { JobDetail, JobSummary } from "@tallo/contracts";
 import { ArrowLeft, ArrowUpRight, Bookmark, ExternalLink, Quote, RotateCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { summaryOf } from "@/components/assistant/hooks";
-import { Avatar, Verdict } from "@/components/assistant/ResultCard";
+import { Avatar } from "@/components/assistant/JobRow";
 import { JobFacts } from "@/components/JobFacts";
 import { JobMeta } from "@/components/JobMeta";
 import { Button } from "@/components/ui/button";
 import { Variants } from "@/components/Variants";
-import { markQuotes, type RankedMatch } from "@/lib/assistant";
+import type { Note } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
 
 const cache = new Map<string, JobDetail>();
@@ -40,9 +40,8 @@ function useJob(id: string) {
         cache.set(id, job);
         setLoad({ state: "ready", job });
       })
-      .catch((error) => {
+      .catch(() => {
         if (!controller.signal.aborted) setLoad({ state: "error" });
-        if (error?.name === "AbortError") return;
       });
     return () => controller.abort();
   }, [id, attempt]);
@@ -57,86 +56,45 @@ function Skeleton() {
       <div className="h-8 w-3/4 rounded bg-muted" />
       <div className="h-4 w-1/2 rounded bg-muted" />
       <div className="mt-6 grid gap-2">
-        {[100, 95, 90, 98, 70, 100, 92, 60].map((w, i) => (
-          <div key={i} className="h-3 rounded bg-muted" style={{ width: `${w}%` }} />
+        {[100, 95, 90, 98, 70, 100, 92, 60].map((w) => (
+          <div key={w} className="h-3 rounded bg-muted" style={{ width: `${w}%` }} />
         ))}
       </div>
     </div>
   );
 }
 
-/** The assistant's read of this job, with its quotes. Each quote scrolls to where the posting says it. */
-function WhyItFits({ match, found }: { match: RankedMatch; found: Set<number> }) {
+/** What the assistant said about this job. Its quotes were checked against the posting on the server. */
+function AssistantNote({ note }: { note: Note }) {
   return (
-    <section className="rounded-xl border bg-card p-4 shadow-xs" aria-label="Why this fits">
-      <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold">Why it fits</h2>
-        <Verdict verdict={match.verdict} fit={match.fit} />
-      </div>
-      {match.reason && <p className="mt-2 text-sm leading-relaxed">{match.reason}</p>}
-      {match.evidence.map((quote, i) => (
-        <button
+    <section className="rounded-xl border bg-muted/40 p-4" aria-label="Note from the assistant">
+      <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+        Assistant
+      </p>
+      <p className="mt-1 text-sm leading-relaxed">{note.why}</p>
+      {note.evidence.map((quote) => (
+        <p
           key={quote}
-          type="button"
-          disabled={!found.has(i)}
-          onClick={() =>
-            document
-              .getElementById(`evidence-${i}`)
-              ?.scrollIntoView({ behavior: "smooth", block: "center" })
-          }
-          className="mt-2 flex w-full gap-2 border-l-2 pl-2.5 text-left text-[13px] leading-relaxed text-muted-foreground italic enabled:hover:text-foreground"
+          className="mt-2 flex gap-2 border-l-2 pl-2.5 text-[13px] leading-relaxed text-muted-foreground italic"
         >
           <Quote className="mt-1 size-3 shrink-0 opacity-50" aria-hidden />
           <span>{quote}</span>
-        </button>
-      ))}
-      {match.unknowns.length > 0 && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          <span className="font-medium">The posting doesn't say:</span> {match.unknowns.join(" · ")}
         </p>
-      )}
+      ))}
     </section>
   );
 }
 
-/** The posting text exactly as stored, never cut, with the quotes the assistant cited marked in place. */
-function Description({ text, quotes }: { text: string | null; quotes: string[] }) {
-  const segments = useMemo(() => (text ? markQuotes(text, quotes) : []), [text, quotes]);
-  if (!text) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        The full description is on the company's website.
-      </p>
-    );
-  }
-  return (
-    <div className="text-[15px] leading-[1.8] whitespace-pre-wrap text-foreground/80 [overflow-wrap:anywhere]">
-      {segments.map((segment, i) =>
-        segment.quote === undefined ? (
-          segment.text
-        ) : (
-          <mark
-            key={i}
-            id={`evidence-${segment.quote}`}
-            className="rounded-sm bg-amber-100 px-0.5 text-foreground"
-          >
-            {segment.text}
-          </mark>
-        ),
-      )}
-    </div>
-  );
-}
-
+/** One posting, exactly as stored: the description is never cut. */
 export function Listing({
   id,
-  match,
+  note,
   saved,
   onToggleSave,
   onBack,
 }: {
   id: string;
-  match?: RankedMatch;
+  note?: Note;
   saved: boolean;
   onToggleSave: (job: JobSummary) => void;
   onBack: () => void;
@@ -144,16 +102,6 @@ export function Listing({
   const { load, retry } = useJob(id);
   const job = load.state === "ready" ? load.job : null;
   const link = job?.applyUrl ?? job?.url ?? null;
-  const quotes = match?.evidence ?? [];
-  const found = useMemo(() => {
-    const set = new Set<number>();
-    if (job?.description) {
-      markQuotes(job.description, quotes).forEach((s) => {
-        if (s.quote !== undefined) set.add(s.quote);
-      });
-    }
-    return set;
-  }, [job, quotes]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -166,7 +114,7 @@ export function Listing({
           className="-ml-1.5 gap-1.5"
         >
           <ArrowLeft aria-hidden />
-          Matches
+          Chat
         </Button>
         <span className="flex-1" />
         {job && (
@@ -217,7 +165,7 @@ export function Listing({
             </div>
           )}
           {job && (
-            <div className="grid gap-6">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
               <header className="grid gap-3">
                 <div className="flex items-center gap-2.5">
                   <Avatar name={job.company} />
@@ -228,10 +176,12 @@ export function Listing({
                 </h1>
                 <JobMeta job={job} extended />
               </header>
-              {match && <WhyItFits match={match} found={found} />}
-              <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_17rem]">
-                <Description text={job.description} quotes={quotes} />
-                <aside className="grid content-start gap-4 xl:order-last">
+              {note && <AssistantNote note={note} />}
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,1fr)_17rem]">
+                <div className="text-[15px] leading-[1.8] whitespace-pre-wrap text-foreground/80 [overflow-wrap:anywhere]">
+                  {job.description ?? "The full description is on the company's website."}
+                </div>
+                <aside className="grid content-start gap-4">
                   <Variants variants={job.variants} currentId={job.id} />
                   <JobFacts facts={job.facts} />
                 </aside>

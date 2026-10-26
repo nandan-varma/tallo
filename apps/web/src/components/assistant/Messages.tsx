@@ -3,15 +3,15 @@ import {
   ArrowRight,
   Check,
   FileText,
-  ListOrdered,
   Loader2,
+  NotebookPen,
   Search,
   TriangleAlert,
 } from "lucide-react";
 import { type Activity, activitiesOf, textBlocks, textOf } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
 
-const ICON = { search: Search, read: FileText, rank: ListOrdered } as const;
+const ICON = { search: Search, read: FileText, note: NotebookPen } as const;
 
 function StateIcon({ item }: { item: Activity }) {
   if (item.state === "running")
@@ -59,15 +59,15 @@ function Timeline({ items }: { items: Activity[] }) {
   );
 }
 
-/** One line for a finished turn: "2 searches · read 3 in full · ranked 10 matches". */
+/** One line for a finished turn: "2 searches · read 3 in full · 4 notes". */
 function summary(items: Activity[]): string {
   const searches = items.filter((i) => i.tool === "search").length;
   const reads = items.filter((i) => i.tool === "read").length;
-  const rank = items.find((i) => i.tool === "rank");
+  const notes = items.filter((i) => i.tool === "note" && i.state === "done").length;
   return [
     searches > 0 && `${searches} ${searches === 1 ? "search" : "searches"}`,
     reads > 0 && `read ${reads} in full`,
-    rank && rank.state !== "error" && rank.label.charAt(0).toLowerCase() + rank.label.slice(1),
+    notes > 0 && "added notes",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -119,18 +119,16 @@ function AssistantMessage({
   message,
   hits,
   live,
-  onShowMatches,
+  onShowResults,
 }: {
   message: JobAgentMessage;
   hits: Map<string, JobHit>;
   live: boolean;
-  onShowMatches?: () => void;
+  onShowResults?: () => void;
 }) {
   const items = activitiesOf(message, hits);
   const blocks = textBlocks(message);
-  const ranked = items.find(
-    (i) => i.tool === "rank" && i.state === "done" && !i.label.startsWith("Nothing"),
-  );
+  const searched = items.some((i) => i.tool === "search" && i.state === "done");
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2.5">
       <Activities items={items} live={live} />
@@ -147,13 +145,13 @@ function AssistantMessage({
         </p>
       ))}
       {live && blocks.length === 0 && items.length === 0 && <Typing />}
-      {ranked && onShowMatches && (
+      {searched && onShowResults && (
         <button
           type="button"
-          onClick={onShowMatches}
+          onClick={onShowResults}
           className="inline-flex w-fit items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-[13px] font-medium shadow-xs transition-colors hover:bg-muted"
         >
-          View {ranked.label.replace("Ranked ", "")}
+          View results
           <ArrowRight className="size-3.5" />
         </button>
       )}
@@ -168,7 +166,7 @@ export function Messages({
   waiting,
   error,
   onRetry,
-  onShowMatches,
+  onShowResults,
 }: {
   messages: JobAgentMessage[];
   hits: Map<string, JobHit>;
@@ -178,7 +176,7 @@ export function Messages({
   error: Error | undefined;
   onRetry: () => void;
   /** Only passed when results are on another screen (mobile). */
-  onShowMatches?: () => void;
+  onShowResults?: () => void;
 }) {
   const last = messages.at(-1);
   return (
@@ -201,7 +199,7 @@ export function Messages({
               message={message}
               hits={hits}
               live={busy && message === last}
-              onShowMatches={onShowMatches}
+              onShowResults={onShowResults}
             />
           )}
         </li>

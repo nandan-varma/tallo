@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   activitiesOf,
   collectHits,
-  latestRanking,
-  latestSearch,
+  currentSearch,
+  notesById,
+  payLabel,
+  postedLabel,
+  textBlocks,
   textOf,
 } from "../src/lib/assistant.ts";
 
@@ -22,144 +25,92 @@ const hit = (id: string, over: Partial<JobHit> = {}): JobHit => ({
 
 const assistant = (parts: unknown[]): JobAgentMessage =>
   ({ id: "a", role: "assistant", parts }) as unknown as JobAgentMessage;
+const user = (text: string) =>
+  ({ id: "u", role: "user", parts: [{ type: "text", text }] }) as unknown as JobAgentMessage;
 
-const searched = (hits: JobHit[], queries = ["backend engineer"]) => ({
+const searched = (
+  hits: JobHit[],
+  queries = ["backend engineer"],
+  locations?: string[],
+  state = "output-available",
+) => ({
   type: "tool-search_jobs",
-  toolCallId: "s1",
-  state: "output-available",
-  input: { queries },
+  toolCallId: `s-${queries.join()}`,
+  state,
+  input: { queries, locations },
   output: { hits },
 });
-
-const match = (id: string, over: Record<string, unknown> = {}) => ({
-  id,
-  verdict: "strong",
-  fit: 80,
-  reason: `reason ${id}`,
-  evidence: [],
-  unknowns: [],
-  ...over,
+const noted = (notes: { id: string; why: string; evidence?: string[] }[]) => ({
+  type: "tool-explain_jobs",
+  toolCallId: "n",
+  state: "output-available",
+  input: { notes: [] },
+  output: { notes: notes.map((n) => ({ evidence: [], ...n })), dropped: 0 },
 });
 
-describe("collectHits / latestSearch", () => {
-  it("gathers hits across searches; the newest wins for an id", () => {
+describe("currentSearch", () => {
+  it("is the last search that finished, wherever it was in the conversation", () => {
     const messages = [
-      assistant([searched([hit("1"), hit("2")])]),
-      assistant([searched([hit("2", { title: "Newer" }), hit("3")])]),
+      user("one"),
+      assistant([searched([], ["old title"])]),
+      user("two"),
+      assistant([searched([], ["data engineer", "data analyst"], ["Seattle", "WA"])]),
+      user("what do you mean"),
+      assistant([{ type: "text", text: "Just chatting." }]),
     ];
-    const hits = collectHits(messages);
-    expect([...hits.keys()].sort()).toEqual(["1", "2", "3"]);
-    expect(hits.get("2")?.title).toBe("Newer");
-    expect(latestSearch(messages).map((h) => h.id)).toEqual(["2", "3"]);
+    expect(currentSearch(messages)).toEqual({
+      queries: ["data engineer", "data analyst"],
+      locations: ["Seattle", "WA"],
+    });
   });
 
-  it("ignores searches still running", () => {
-    const running = assistant([
-      {
-        type: "tool-search_jobs",
-        toolCallId: "s",
-        state: "input-available",
-        input: { queries: ["x"] },
-      },
-    ]);
-    expect(collectHits([running]).size).toBe(0);
-    expect(latestSearch([running])).toEqual([]);
+  it("omits locations when there are none, and waits for a search to finish", () => {
+    expect(currentSearch([assistant([searched([], ["a b"], [])])])).toEqual({ queries: ["a b"] });
+    expect(
+      currentSearch([assistant([searched([], ["a b"], undefined, "input-streaming")])]),
+    ).toBeNull();
+    expect(currentSearch([])).toBeNull();
   });
 });
 
-describe("latestRanking", () => {
-  const hits = new Map([
-    ["1", hit("1")],
-    ["2", hit("2")],
-  ]);
-
-  it("is empty before any ranking", () => {
-    expect(latestRanking([assistant([{ type: "text", text: "hi" }])], hits)).toEqual({
-      state: "none",
-      matches: [],
-    });
+describe("notesById / collectHits", () => {
+  it("collects notes by job, later notes replace earlier ones", () => {
+    const notes = notesById([
+      assistant([
+        noted([
+          { id: "1", why: "first" },
+          { id: "2", why: "two" },
+        ]),
+      ]),
+      assistant([noted([{ id: "1", why: "second", evidence: ["q"] }])]),
+    ]);
+    expect([...notes.keys()].sort()).toEqual(["1", "2"]);
+    expect(notes.get("1")).toEqual({ id: "1", why: "second", evidence: ["q"] });
   });
 
-  it("shows cards while show_jobs streams, skipping entries whose id is missing or not a known job yet", () => {
-    const streaming = assistant([
-      {
-        type: "tool-show_jobs",
-        toolCallId: "r",
-        state: "input-streaming",
-        input: {
-          matches: [
-            match("1", { evidence: ["quote", undefined] }),
-            { reason: "no id yet" },
-            { id: "99", reason: "id still streaming, not a known job" },
-          ],
-        },
-      },
+  it("ignores notes still being written", () => {
+    const pending = assistant([
+      { type: "tool-explain_jobs", toolCallId: "n", state: "input-streaming", input: {} },
     ]);
-    const ranking = latestRanking([streaming], hits);
-    expect(ranking.state).toBe("ranking");
-    expect(ranking.matches).toHaveLength(1);
-    expect(ranking.matches[0]).toMatchObject({
-      id: "1",
-      reason: "reason 1",
-      evidence: ["quote"],
-      hit: { title: "Engineer 1" },
-    });
+    expect(notesById([pending]).size).toBe(0);
   });
 
-  it("prefers the checked output when finished, and the newest ranking wins", () => {
-    const first = assistant([
-      {
-        type: "tool-show_jobs",
-        toolCallId: "r1",
-        state: "output-available",
-        input: { matches: [] },
-        output: { matches: [match("1")], droppedEvidence: 0 },
-      },
+  it("gathers hits across searches; the newest wins for an id", () => {
+    const hits = collectHits([
+      assistant([searched([hit("1"), hit("2")])]),
+      assistant([searched([hit("2", { title: "Newer" })])]),
     ]);
-    const second = assistant([
-      {
-        type: "tool-show_jobs",
-        toolCallId: "r2",
-        state: "output-available",
-        input: { matches: [] },
-        output: { matches: [match("2"), match("9")], droppedEvidence: 1 },
-      },
-    ]);
-    const ranking = latestRanking([first, second], hits);
-    expect(ranking.state).toBe("done");
-    expect(ranking.matches.map((m) => m.id)).toEqual(["2", "9"]);
-    expect(ranking.matches[1]?.hit).toBeUndefined();
-  });
-
-  it("falls back to an older ranking when the newest call errored", () => {
-    const ok = assistant([
-      {
-        type: "tool-show_jobs",
-        toolCallId: "r1",
-        state: "output-available",
-        input: { matches: [] },
-        output: { matches: [match("1")], droppedEvidence: 0 },
-      },
-    ]);
-    const failed = assistant([
-      {
-        type: "tool-show_jobs",
-        toolCallId: "r2",
-        state: "output-error",
-        input: { matches: [] },
-        errorText: "boom",
-      },
-    ]);
-    expect(latestRanking([ok, failed], hits).matches.map((m) => m.id)).toEqual(["1"]);
+    expect([...hits.keys()].sort()).toEqual(["1", "2"]);
+    expect(hits.get("2")?.title).toBe("Newer");
   });
 });
 
 describe("activitiesOf", () => {
   const hits = new Map([["7", hit("7", { title: "Staff Engineer", company: "Grafana" })]]);
 
-  it("describes a turn: search, a read in full, a ranking", () => {
+  it("describes a turn: a search with places, a read in full, notes", () => {
     const message = assistant([
-      searched([hit("7")], ["backend engineer", "platform engineer"]),
+      searched([hit("7")], ["backend engineer", "platform engineer"], ["Seattle"]),
       {
         type: "tool-read_job",
         toolCallId: "d",
@@ -174,21 +125,15 @@ describe("activitiesOf", () => {
           facts: {},
         },
       },
-      {
-        type: "tool-show_jobs",
-        toolCallId: "r",
-        state: "output-available",
-        input: { matches: [] },
-        output: { matches: [match("7")], droppedEvidence: 0 },
-      },
+      noted([{ id: "7", why: "Pays well." }]),
     ]);
     expect(activitiesOf(message, hits)).toEqual([
       {
-        key: "s1",
+        key: "s-backend engineer,platform engineer",
         tool: "search",
         state: "done",
         label: "Found 1 role",
-        detail: "backend engineer · platform engineer",
+        detail: "backend engineer · platform engineer in Seattle",
       },
       {
         key: "d",
@@ -197,7 +142,7 @@ describe("activitiesOf", () => {
         label: "Read Staff Engineer · Grafana",
         detail: "9,303 characters, in full",
       },
-      { key: "r", tool: "rank", state: "done", label: "Ranked 1 match" },
+      { key: "n", tool: "note", state: "done", label: "Added 1 note" },
     ]);
   });
 
@@ -206,45 +151,35 @@ describe("activitiesOf", () => {
       { type: "tool-search_jobs", toolCallId: "a", state: "input-streaming", input: undefined },
       { type: "tool-read_job", toolCallId: "b", state: "input-available", input: { id: "7" } },
       {
-        type: "tool-show_jobs",
+        type: "tool-explain_jobs",
         toolCallId: "c",
         state: "output-error",
-        input: { matches: [] },
+        input: { notes: [] },
         errorText: "x",
       },
     ]);
-    const [search, read, rank] = activitiesOf(message, hits);
+    const [search, read, note] = activitiesOf(message, hits);
     expect(search).toMatchObject({ state: "running", label: "Searching" });
     expect(read).toMatchObject({ state: "running", label: "Reading Staff Engineer · Grafana" });
-    expect(rank).toMatchObject({ state: "error" });
-  });
-
-  it("says nothing fits for an empty ranking", () => {
-    const message = assistant([
-      {
-        type: "tool-show_jobs",
-        toolCallId: "r",
-        state: "output-available",
-        input: { matches: [] },
-        output: { matches: [], droppedEvidence: 0 },
-      },
-    ]);
-    expect(activitiesOf(message, hits)[0]?.label).toBe("Nothing fits well");
+    expect(note).toMatchObject({ state: "error" });
   });
 });
 
-describe("textOf", () => {
-  it("joins text parts and ignores tool parts", () => {
+describe("text", () => {
+  it("joins text parts as paragraphs and marks narration before the last tool call", () => {
     const message = assistant([
-      { type: "text", text: "One. " },
+      { type: "text", text: "Let me search. " },
       searched([]),
-      { type: "text", text: "Two." },
+      { type: "text", text: "  " },
+      { type: "text", text: "Here is what I found." },
     ]);
-    expect(textOf(message)).toBe("One.\n\nTwo.");
+    expect(textBlocks(message)).toEqual([
+      { text: "Let me search.", narration: true },
+      { text: "Here is what I found.", narration: false },
+    ]);
+    expect(textOf(message)).toBe("Let me search.\n\nHere is what I found.");
   });
 });
-
-import { markQuotes, payLabel, postedLabel } from "../src/lib/assistant.ts";
 
 describe("payLabel / postedLabel", () => {
   it("formats the API's pay text and passes unknown shapes through", () => {
@@ -261,54 +196,5 @@ describe("payLabel / postedLabel", () => {
     expect(postedLabel("2026-08-20", now)).toBe("2mo ago");
     expect(postedLabel(null, now)).toBeNull();
     expect(postedLabel("nonsense", now)).toBeNull();
-  });
-});
-
-describe("markQuotes", () => {
-  const text = "Intro.\nSalary: $190,000 - $220,000\nper year.\nMinimum 5 years of TypeScript.";
-
-  it("marks quotes even when whitespace differs, keeping every character of the text", () => {
-    const segments = markQuotes(text, [
-      "Salary: $190,000 - $220,000 per year.",
-      "minimum 5 years of typescript.",
-    ]);
-    expect(segments.map((s) => s.text).join("")).toBe(text);
-    expect(segments.filter((s) => s.quote !== undefined).map((s) => s.quote)).toEqual([0, 1]);
-    expect(segments.find((s) => s.quote === 0)?.text).toBe(
-      "Salary: $190,000 - $220,000\nper year.",
-    );
-  });
-
-  it("skips quotes that are absent or overlap an earlier one", () => {
-    const segments = markQuotes(text, [
-      "not in the text",
-      "Minimum 5 years",
-      "5 years of TypeScript",
-    ]);
-    expect(segments.filter((s) => s.quote !== undefined)).toHaveLength(1);
-    expect(segments.map((s) => s.text).join("")).toBe(text);
-  });
-
-  it("is a single plain segment with no quotes", () => {
-    expect(markQuotes("hello", [])).toEqual([{ text: "hello" }]);
-    expect(markQuotes("", ["x"])).toEqual([]);
-  });
-});
-
-import { textBlocks } from "../src/lib/assistant.ts";
-
-describe("textBlocks", () => {
-  it("separates paragraphs and marks the text before the last tool call as narration", () => {
-    const message = assistant([
-      { type: "text", text: "Let me search. " },
-      searched([]),
-      { type: "text", text: "  " },
-      { type: "text", text: "Here is what I found." },
-    ]);
-    expect(textBlocks(message)).toEqual([
-      { text: "Let me search.", narration: true },
-      { text: "Here is what I found.", narration: false },
-    ]);
-    expect(textOf(message)).toBe("Let me search.\n\nHere is what I found.");
   });
 });

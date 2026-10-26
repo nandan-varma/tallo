@@ -25,6 +25,9 @@ function port(descriptions: Record<string, string>, hits: JobHit[] = [hit("1"), 
       searches.push(queries);
       return hits;
     },
+    async lookup(ids) {
+      return hits.filter((h) => ids.includes(h.id));
+    },
     async read(id): Promise<JobRead | null> {
       reads.push(id);
       const found = hits.find((h) => h.id === id);
@@ -84,36 +87,28 @@ const toolNames = (options: LanguageModelV4CallOptions) =>
 const PROFILE = "# Summary\nSenior engineer. TypeScript, Postgres.";
 
 describe("job agent", () => {
-  it("searches, reads a job in full, publishes a ranking and keeps only verbatim evidence", async () => {
+  it("searches, reads a job in full, and keeps only notes about real jobs with verbatim evidence", async () => {
     const body = `${"Intro. ".repeat(2_000)}Salary: $190,000 - $220,000 per year.\nMinimum 5 years of TypeScript.`;
     const { jobs, reads } = port({ "1": body });
     const { model, seen } = scripted([
       calls({ name: "search_jobs", input: { queries: ["backend engineer"] } }),
       calls({ name: "read_job", input: { id: "1" } }),
       calls({
-        name: "show_jobs",
+        name: "explain_jobs",
         input: {
-          matches: [
+          notes: [
             {
               id: "1",
-              verdict: "strong",
-              fit: 90,
-              reason: "Pays well and wants TypeScript.",
-              evidence: [
-                "Salary: $190,000 - $220,000 per year.",
-                "Free lunch every day",
-                "Senior engineer. TypeScript, Postgres.",
-              ],
-              unknowns: ["Visa sponsorship"],
+              why: "Pays well and wants TypeScript.",
+              evidence: ["Salary: $190,000 - $220,000 per year.", "Free lunch every day"],
             },
             {
-              id: "1",
-              verdict: "maybe",
-              fit: null,
-              reason: "duplicate id",
-              evidence: [],
-              unknowns: [],
+              id: "2",
+              why: "Matches the profile.",
+              evidence: ["Senior engineer. TypeScript, Postgres."],
             },
+            { id: "1", why: "duplicate id", evidence: [] },
+            { id: "999", why: "a job that does not exist", evidence: [] },
           ],
         },
       }),
@@ -138,21 +133,24 @@ describe("job agent", () => {
     expect(JSON.stringify(readResult?.output)).not.toContain("Minimum 5 years");
     expect(readResult?.output).toMatchObject({ found: true, id: "1", chars: body.length });
 
-    // Evidence is kept only when it appears word for word in a description it read or the profile.
-    const shown = result.steps
+    // Notes: real jobs only, once each; a quote stays only if it is word for word in a description it read or the profile.
+    const noted = result.steps
       .flatMap((s) => s.toolResults)
-      .find((r) => r.toolName === "show_jobs");
-    expect(shown?.output).toMatchObject({
-      matches: [
+      .find((r) => r.toolName === "explain_jobs");
+    expect(noted?.output).toEqual({
+      notes: [
         {
           id: "1",
-          evidence: [
-            "Salary: $190,000 - $220,000 per year.",
-            "Senior engineer. TypeScript, Postgres.",
-          ],
+          why: "Pays well and wants TypeScript.",
+          evidence: ["Salary: $190,000 - $220,000 per year."],
+        },
+        {
+          id: "2",
+          why: "Matches the profile.",
+          evidence: ["Senior engineer. TypeScript, Postgres."],
         },
       ],
-      droppedEvidence: 1,
+      dropped: 2,
     });
   });
 
@@ -160,27 +158,18 @@ describe("job agent", () => {
     const { jobs } = port({ "1": "Pay: $100k" });
     const { model } = scripted([
       calls({
-        name: "show_jobs",
+        name: "explain_jobs",
         input: {
-          matches: [
-            {
-              id: "1",
-              verdict: "maybe",
-              fit: null,
-              reason: "r",
-              evidence: ["Pay: $100k"],
-              unknowns: [],
-            },
-          ],
+          notes: [{ id: "1", why: "Looks relevant from the title.", evidence: ["Pay: $100k"] }],
         },
       }),
       said("ok"),
     ]);
     const result = await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
-    const shown = result.steps
+    const noted = result.steps
       .flatMap((s) => s.toolResults)
-      .find((r) => r.toolName === "show_jobs");
-    expect(shown?.output).toMatchObject({ matches: [{ evidence: [] }], droppedEvidence: 1 });
+      .find((r) => r.toolName === "explain_jobs");
+    expect(noted?.output).toMatchObject({ notes: [{ id: "1", evidence: [] }], dropped: 0 });
   });
 
   it("takes read_job away after MAX_READS reads", async () => {
@@ -198,7 +187,7 @@ describe("job agent", () => {
 
     expect(toolNames(seen[0] as LanguageModelV4CallOptions)).toContain("read_job");
     expect(toolNames(seen[1] as LanguageModelV4CallOptions)).not.toContain("read_job");
-    expect(toolNames(seen[1] as LanguageModelV4CallOptions)).toContain("show_jobs");
+    expect(toolNames(seen[1] as LanguageModelV4CallOptions)).toContain("search_jobs");
   });
 
   it("answers an unavailable job without throwing", async () => {

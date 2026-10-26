@@ -1,13 +1,21 @@
 import { gunzip } from "@tallo/catalog";
+import type { SearchSpec } from "@tallo/contracts";
 import type { BlobStore, Db } from "@tallo/db";
 import { ftsAllTerms, ftsLocations, jdKey, schema, searchJobs, visibleJobs } from "@tallo/db";
 import type { JobHit, JobRead, JobsPort } from "@tallo/search-ai";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 /** Hits read per title phrase. Phrases are merged round-robin, so every phrase gets a say. */
 const PER_QUERY = 20;
 const MAX_QUERIES = 8;
 const MAX_QUERY_CHARS = 200;
+
+/**
+ * A named place is part of the match itself: it narrows the index lookup, instead of filtering only the
+ * newest few hits afterwards.
+ */
+const withPlace = (titles: string, place: string | undefined) =>
+  place ? `(${titles}) AND ${place}` : titles;
 
 /**
  * The agent's view of the catalog, over D1 and R2. Every read goes through the same visibility
@@ -25,10 +33,8 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
           // Exact terms, ANDed: "backend engineer" stays narrow where a bare "engineer" matches most rows.
           const titles = ftsAllTerms(q);
           if (!titles) return [];
-          // A named place is part of the match itself: it narrows the index lookup rather than filtering
-          // only the newest 20 hits afterwards.
-          const match = place ? `(${titles}) AND ${place}` : titles;
-          return (await searchJobs(db, { q, limit: PER_QUERY }, now, match)).jobs;
+          return (await searchJobs(db, { q, limit: PER_QUERY }, now, withPlace(titles, place)))
+            .jobs;
         }),
       );
       const seen = new Map<number, JobHit>();
@@ -39,6 +45,19 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
         }
       }
       return [...seen.values()];
+    },
+
+    async lookup(ids) {
+      const numeric = [...new Set(ids.map(Number))]
+        .filter((n) => Number.isInteger(n) && n > 0)
+        .slice(0, 50);
+      if (numeric.length === 0) return [];
+      const now = Math.floor(Date.now() / 1000);
+      const rows = await db
+        .select()
+        .from(schema.jobs)
+        .where(and(inArray(schema.jobs.id, numeric), ...visibleJobs(now)));
+      return rows.map(toHit);
     },
 
     async read(id): Promise<JobRead | null> {
@@ -83,4 +102,26 @@ function payText(row: Pick<Row, "salaryMinAnnual" | "salaryMaxAnnual" | "salaryC
   const high = row.salaryMaxAnnual ?? row.salaryMinAnnual;
   if (low === null || high === null) return null;
   return `${row.salaryCurrency ?? ""} ${low}-${high} per year`.trim();
+}
+
+/**
+ * One page of the database's answer to a search spec, newest first (keyset cursor). This is the list the
+ * person browses: the assistant only chose the spec. One OR across the title phrases, ANDed with the places,
+ * so a page is one indexed lookup however many phrases there are.
+ */
+export async function searchPage(db: Db, input: SearchSpec & { cursor?: string; limit: number }) {
+  const phrases = input.queries
+    .slice(0, MAX_QUERIES)
+    .map((q) => ftsAllTerms(q.slice(0, MAX_QUERY_CHARS)))
+    .filter((expression): expression is string => Boolean(expression))
+    .map((expression) => `(${expression})`);
+  if (phrases.length === 0) return { hits: [] as JobHit[], nextCursor: null };
+  const match = withPlace(phrases.join(" OR "), ftsLocations(input.locations ?? []));
+  const { jobs, nextCursor } = await searchJobs(
+    db,
+    { limit: input.limit, cursor: input.cursor },
+    Math.floor(Date.now() / 1000),
+    match,
+  );
+  return { hits: jobs.map(toHit), nextCursor };
 }

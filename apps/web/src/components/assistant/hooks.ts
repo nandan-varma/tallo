@@ -1,5 +1,6 @@
 import type { JobDetail, JobSummary } from "@tallo/contracts";
 import {
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -37,6 +38,20 @@ export function useChatWidth() {
 }
 const chatWidthFor = (viewport: number) =>
   Math.min(480, Math.max(360, Math.round(viewport * 0.34)));
+
+/** The element's width in pixels, kept current. 0 until it is first measured (before the first paint). */
+export function useElementWidth(ref: RefObject<HTMLElement | null>) {
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return width;
+}
 
 /**
  * Keeps a scroller pinned to the bottom while content grows, unless the person scrolled up to read.

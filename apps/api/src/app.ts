@@ -9,6 +9,7 @@ import {
   type JobLocation,
   jobsBatchSchema,
   saveProfileSchema,
+  searchPageSchema,
 } from "@tallo/contracts";
 import type { BlobStore, Db } from "@tallo/db";
 import {
@@ -43,7 +44,7 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { CHAT_MAX_BODY_BYTES } from "./ai.ts";
-import { jobsPort } from "./jobs-port.ts";
+import { jobsPort, searchPage } from "./jobs-port.ts";
 
 export interface Deps {
   db: Db;
@@ -76,6 +77,12 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   app.get("/v1/jobs", read, zValidator("query", searchSchema), async (c) => {
     c.header("cache-control", "private, max-age=30");
     return c.json(await searchJobs(db, c.req.valid("query")));
+  });
+
+  /** The results list: a page of the database's answer to a search spec (what the assistant searched for). */
+  app.post("/v1/jobs/search", read, zValidator("json", searchPageSchema), async (c) => {
+    c.header("cache-control", "private, no-store");
+    return c.json(await searchPage(db, c.req.valid("json")));
   });
 
   app.get(

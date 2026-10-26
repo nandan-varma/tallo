@@ -194,6 +194,30 @@ describe("POST /v1/ai/chat", () => {
   });
 });
 
+describe("POST /v1/jobs/search", () => {
+  it("pages the database's answer to a search spec, and validates the spec", async () => {
+    const { app, db, blobs } = build(null);
+    await seedJob(db, blobs);
+    const post = (value: unknown) =>
+      app.request("/v1/jobs/search", {
+        method: "POST",
+        headers: auth,
+        body: JSON.stringify(value),
+      });
+
+    const page = await post({ queries: ["backend engineer"], limit: 5 });
+    expect(page.status).toBe(200);
+    expect(page.headers.get("cache-control")).toBe("private, no-store");
+    const json = (await page.json()) as { hits: { title: string }[]; nextCursor: string | null };
+    expect(json.hits.map((h) => h.title)).toEqual(["Senior Backend Engineer"]);
+    expect(json.nextCursor).toBeNull();
+
+    expect((await post({ queries: [] })).status).toBe(400);
+    expect((await post({ queries: ["x y"], cursor: "nope" })).status).toBe(400);
+    expect((await app.request("/v1/jobs/search", { method: "POST", body: "{}" })).status).toBe(401);
+  });
+});
+
 describe("profile routes", () => {
   it("is null until saved, then round-trips", async () => {
     const { app } = build(null);

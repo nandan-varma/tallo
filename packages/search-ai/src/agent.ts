@@ -23,14 +23,13 @@ export function createJobAgent({
     stopWhen: isStepCount(MAX_STEPS),
     // Tool use needs routing, not deliberation: no thinking tokens (the SDK's provider-agnostic switch).
     reasoning: "none",
-    // Room for a full ranking: up to MAX_MATCHES entries, each with a reason, quotes and unknowns.
-    maxOutputTokens: 8_000,
+    maxOutputTokens: 2_000,
     // Going deep is budgeted by the loop, not left to the prompt: after MAX_READS reads the tool is gone.
     prepareStep: ({ steps }) => {
       const reads = steps
         .flatMap((s) => s.toolCalls)
         .filter((c) => c.toolName === "read_job").length;
-      return reads >= MAX_READS ? { activeTools: ["search_jobs", "show_jobs"] } : undefined;
+      return reads >= MAX_READS ? { activeTools: ["search_jobs"] } : undefined;
     },
   });
 }

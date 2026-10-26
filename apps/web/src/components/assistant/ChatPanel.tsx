@@ -73,7 +73,7 @@ export function ChatPanel({
   onStop,
   onRetry,
   onReset,
-  onShowMatches,
+  onShowResults,
 }: {
   messages: JobAgentMessage[];
   hits: Map<string, JobHit>;
@@ -87,7 +87,7 @@ export function ChatPanel({
   onStop: () => void;
   onRetry: () => void;
   onReset: () => void;
-  onShowMatches?: () => void;
+  onShowResults?: () => void;
 }) {
   const busy = status === "submitted" || status === "streaming";
   const { ref, onScroll } = useStickToBottom<HTMLDivElement>(messages);
@@ -131,7 +131,7 @@ export function ChatPanel({
             waiting={status === "submitted"}
             error={error}
             onRetry={onRetry}
-            onShowMatches={onShowMatches}
+            onShowResults={onShowResults}
           />
         )}
       </div>
