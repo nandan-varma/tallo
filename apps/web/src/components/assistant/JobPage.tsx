@@ -107,8 +107,8 @@ export function JobPage({
         )}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <article className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-8">
+      <div className="@container min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <article className="mx-auto w-full max-w-[96rem] px-4 py-7 sm:px-8 @4xl:px-12">
           {query.isPending && <Skeleton />}
           {query.isError && (
             <div className="py-20 text-center">
@@ -138,11 +138,11 @@ export function JobPage({
                 <JobMeta job={job} extended />
               </header>
               {note && <AssistantNote note={note} />}
-              <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,1fr)_17rem]">
-                <div className="text-[15px] leading-[1.8] whitespace-pre-wrap text-foreground/80 [overflow-wrap:anywhere]">
+              <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 @3xl:grid-cols-[minmax(0,1fr)_20rem] @6xl:grid-cols-[minmax(0,1fr)_24rem] @6xl:gap-12">
+                <div className="max-w-[110ch] text-[15px] leading-[1.8] whitespace-pre-wrap text-foreground/80 [overflow-wrap:anywhere]">
                   {job.description ?? "The full description is on the company's website."}
                 </div>
-                <aside className="grid content-start gap-4">
+                <aside className="grid content-start gap-4 @3xl:sticky @3xl:top-4">
                   <Variants variants={job.variants} currentId={job.id} />
                   <JobFacts facts={job.facts} />
                 </aside>
