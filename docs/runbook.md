@@ -62,10 +62,22 @@ conservative setting. Retries after a 429/5xx keep their per-host slot but do no
 Check health: `GET /v1/sources` (needs READ_TOKEN) shows `lastRunAt`, `lastCompleteRunAt`, `lastStatus`
 per source. A source with no complete run for 7 days is stale.
 
+### Dead boards
+
+A listing that returns HTTP 404 means the board does not exist. Three runs in a row that 404 mark the
+source `dead` (`sources.status`, `sources.consecutive_failures`). Any other outcome breaks the streak: a 500
+or a partial run resets the count to 0. A dead source is skipped by `tallo sync` (its jobs stay as they
+are; nothing closes on a failed run).
+- `pnpm --filter @tallo/runner tallo sources --dead` lists dead boards with their 404 count and last run.
+- Review each one, then remove it from `sources/*.json` to stop tracking it.
+- `tallo sync --include-dead` (or `--source <id>`, which still needs the flag) retries them. A complete
+  listing revives the board automatically.
+
 ## Troubleshooting
 
 - _Run stuck "running"_: a run older than 2h no longer blocks the source; start another.
-- _Source fails every run_: `tallo verify <id>`; 404 means the board moved or died (remove it from `sources/`).
+- _Source fails every run_: `tallo verify <id>`; 404 means the board moved or died. After three 404 runs it is
+  marked dead and skipped; see "Dead boards".
 - _Workday incomplete_: expected for slices that cannot be split; closure is skipped, jobs stay open.
 - _Unexpected closures after a mapper change_: closures only come from complete listings; check `runs` for
   the source and whether its listing really shrank.
