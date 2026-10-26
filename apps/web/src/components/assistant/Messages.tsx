@@ -8,7 +8,7 @@ import {
   Search,
   TriangleAlert,
 } from "lucide-react";
-import { type Activity, activitiesOf, textOf } from "@/lib/assistant";
+import { type Activity, activitiesOf, textBlocks, textOf } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
 
 const ICON = { search: Search, read: FileText, rank: ListOrdered } as const;
@@ -127,19 +127,26 @@ function AssistantMessage({
   onShowMatches?: () => void;
 }) {
   const items = activitiesOf(message, hits);
-  const text = textOf(message);
+  const blocks = textBlocks(message);
   const ranked = items.find(
     (i) => i.tool === "rank" && i.state === "done" && !i.label.startsWith("Nothing"),
   );
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2.5">
       <Activities items={items} live={live} />
-      {text && (
-        <p className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
-          {text}
+      {blocks.map((block, i) => (
+        <p
+          // biome-ignore lint/suspicious/noArrayIndexKey: text parts have no id and keep their order
+          key={i}
+          className={cn(
+            "leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]",
+            block.narration ? "text-[13px] text-muted-foreground" : "text-sm",
+          )}
+        >
+          {block.text}
         </p>
-      )}
-      {live && !text && items.length === 0 && <Typing />}
+      ))}
+      {live && blocks.length === 0 && items.length === 0 && <Typing />}
       {ranked && onShowMatches && (
         <button
           type="button"

@@ -22,6 +22,7 @@ async function seed(
     hidden?: boolean;
     dupOf?: number;
     pay?: [number, number];
+    location?: string;
   },
 ): Promise<number> {
   const text = args.description ?? `${args.title} description`;
@@ -56,7 +57,7 @@ async function seed(
       sortAt: 1000 + Number(args.postingId),
       firstSeenAt: 1,
       updatedAt: 1,
-      locationText: "Remote, US",
+      locationText: args.location ?? "Remote, US",
       workMode: "remote",
       salaryMinAnnual: args.pay?.[0] ?? null,
       salaryMaxAnnual: args.pay?.[1] ?? null,
@@ -165,5 +166,63 @@ describe("jobsPort.read", () => {
 
     for (const id of [closed, hidden, dup, 9999]) expect(await port.read(String(id))).toBeNull();
     for (const id of ["abc", "-1", "1.5", ""]) expect(await port.read(id)).toBeNull();
+  });
+});
+
+describe("jobsPort.search with locations", () => {
+  async function places() {
+    const { db, blobs, port } = setup();
+    await seed(db, blobs, {
+      postingId: "1",
+      title: "Data Engineer",
+      location: "Seattle, WA, United States",
+    });
+    await seed(db, blobs, {
+      postingId: "2",
+      title: "Data Engineer",
+      location: "Washington, DC, United States",
+    });
+    await seed(db, blobs, {
+      postingId: "3",
+      title: "Data Engineer",
+      location: "Boston, MA, United States",
+    });
+    await seed(db, blobs, { postingId: "4", title: "Data Engineer", location: "Redmond, WA" });
+    return { db, port };
+  }
+  const cities = (hits: { location: string | null }[]) => hits.map((h) => h.location).sort();
+
+  it("requires the place, so local jobs are not crowded out by newer ones elsewhere", async () => {
+    const { port } = await places();
+    const hits = await port.search(["data engineer"], 40, {
+      locations: ["Seattle", "Redmond", "WA"],
+    });
+    expect(cities(hits)).toEqual(["Redmond, WA", "Seattle, WA, United States"]);
+  });
+
+  it("keeps Washington state apart from Washington, DC by the words the caller gives", async () => {
+    const { port } = await places();
+    const state = await port.search(["data engineer"], 40, { locations: ["WA"] });
+    expect(cities(state)).toEqual(["Redmond, WA", "Seattle, WA, United States"]);
+    const capital = await port.search(["data engineer"], 40, { locations: ["Washington", "DC"] });
+    expect(cities(capital)).toEqual(["Washington, DC, United States"]);
+  });
+
+  it("an entry needs all of its words; entries are alternatives", async () => {
+    const { port } = await places();
+    expect(await port.search(["data engineer"], 40, { locations: ["Seattle Boston"] })).toEqual([]);
+    expect(
+      cities(await port.search(["data engineer"], 40, { locations: ["Boston", "Seattle"] })),
+    ).toEqual(["Boston, MA, United States", "Seattle, WA, United States"]);
+  });
+
+  it("is safe against search syntax: only its words count, and a place with no words is ignored", async () => {
+    const { port } = await places();
+    // The words "or" and "near" are searched like any other, so nothing matches, and nothing throws.
+    expect(await port.search(["data engineer"], 40, { locations: ['" OR *', "NEAR("] })).toEqual(
+      [],
+    );
+    expect(await port.search(["data engineer"], 40, { locations: ["--"] })).toHaveLength(4);
+    expect(await port.search(["data engineer"], 40, { locations: [] })).toHaveLength(4);
   });
 });

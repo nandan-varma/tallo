@@ -3,8 +3,9 @@ import { z } from "zod";
 import type { JobsPort } from "./jobs.ts";
 
 export const MAX_QUERIES = 8;
+export const MAX_LOCATIONS = 8;
 export const SEARCH_LIMIT = 40;
-export const MAX_MATCHES = 12;
+export const MAX_MATCHES = 30;
 
 const Match = z.object({
   id: z.string().describe("The id of a job returned by search_jobs."),
@@ -54,7 +55,7 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
   return {
     search_jobs: tool({
       description:
-        "Search the catalog of open US tech jobs. Pass several title phrases of two or three words that the person could realistically hold. Returns up to 40 compact hits (title, company, location, work mode, pay, posted date, department); a null field is unknown.",
+        "Search the catalog of open US tech jobs. Pass several title phrases of two or three words that the person could realistically hold, and the places they want: the search can require a place, and without one it returns the newest matches anywhere. Returns up to 40 compact hits (title, company, location, work mode, pay, posted date, department); a null field is unknown.",
       inputSchema: z.object({
         queries: z
           .array(z.string().min(2).max(80))
@@ -63,8 +64,21 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
           .describe(
             'Title phrases, for example "backend engineer", "platform engineer". Never one generic word.',
           ),
+        locations: z
+          .array(z.string().min(2).max(60))
+          .max(MAX_LOCATIONS)
+          .optional()
+          .describe(
+            'Require the job to be in one of these places (any may match): cities, state names AND abbreviations, "remote". For Washington state: ["Seattle", "Bellevue", "Redmond", "Washington", "WA"]. Leave out when the person did not name a place.',
+          ),
       }),
-      execute: async ({ queries }) => ({ hits: await jobs.search(queries, SEARCH_LIMIT) }),
+      execute: async ({ queries, locations }) => ({
+        hits: await jobs.search(
+          queries,
+          SEARCH_LIMIT,
+          locations?.length ? { locations } : undefined,
+        ),
+      }),
     }),
 
     read_job: tool({

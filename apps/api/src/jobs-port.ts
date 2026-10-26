@@ -1,6 +1,6 @@
 import { gunzip } from "@tallo/catalog";
 import type { BlobStore, Db } from "@tallo/db";
-import { ftsAllTerms, jdKey, schema, searchJobs, visibleJobs } from "@tallo/db";
+import { ftsAllTerms, ftsLocations, jdKey, schema, searchJobs, visibleJobs } from "@tallo/db";
 import type { JobHit, JobRead, JobsPort } from "@tallo/search-ai";
 import { and, eq } from "drizzle-orm";
 
@@ -16,14 +16,18 @@ const MAX_QUERY_CHARS = 200;
  */
 export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
   return {
-    async search(queries, limit) {
+    async search(queries, limit, options) {
       const now = Math.floor(Date.now() / 1000);
+      const place = ftsLocations(options?.locations ?? []);
       const lists = await Promise.all(
         queries.slice(0, MAX_QUERIES).map(async (raw) => {
           const q = raw.slice(0, MAX_QUERY_CHARS);
           // Exact terms, ANDed: "backend engineer" stays narrow where a bare "engineer" matches most rows.
-          const match = ftsAllTerms(q);
-          if (!match) return [];
+          const titles = ftsAllTerms(q);
+          if (!titles) return [];
+          // A named place is part of the match itself: it narrows the index lookup rather than filtering
+          // only the newest 20 hits afterwards.
+          const match = place ? `(${titles}) AND ${place}` : titles;
           return (await searchJobs(db, { q, limit: PER_QUERY }, now, match)).jobs;
         }),
       );

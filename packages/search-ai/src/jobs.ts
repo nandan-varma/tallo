@@ -23,8 +23,11 @@ export type JobRead = JobHit & {
  * imports a database. Both methods see only jobs the site shows (open, canonical, not hidden, fresh).
  */
 export interface JobsPort {
-  /** Jobs matching any of the title phrases, merged, each at most once, at most `limit`. */
-  search(queries: string[], limit: number): Promise<JobHit[]>;
+  /**
+   * Jobs matching any of the title phrases, merged, each at most once, at most `limit`. When `locations` is
+   * given, a job must also mention at least one of them in its location text.
+   */
+  search(queries: string[], limit: number, options?: { locations?: string[] }): Promise<JobHit[]>;
   /** One job with its full description, or null when it is not visible. */
   read(id: string): Promise<JobRead | null>;
 }

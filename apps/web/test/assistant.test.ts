@@ -240,7 +240,7 @@ describe("textOf", () => {
       searched([]),
       { type: "text", text: "Two." },
     ]);
-    expect(textOf(message)).toBe("One. Two.");
+    expect(textOf(message)).toBe("One.\n\nTwo.");
   });
 });
 
@@ -292,5 +292,23 @@ describe("markQuotes", () => {
   it("is a single plain segment with no quotes", () => {
     expect(markQuotes("hello", [])).toEqual([{ text: "hello" }]);
     expect(markQuotes("", ["x"])).toEqual([]);
+  });
+});
+
+import { textBlocks } from "../src/lib/assistant.ts";
+
+describe("textBlocks", () => {
+  it("separates paragraphs and marks the text before the last tool call as narration", () => {
+    const message = assistant([
+      { type: "text", text: "Let me search. " },
+      searched([]),
+      { type: "text", text: "  " },
+      { type: "text", text: "Here is what I found." },
+    ]);
+    expect(textBlocks(message)).toEqual([
+      { text: "Let me search.", narration: true },
+      { text: "Here is what I found.", narration: false },
+    ]);
+    expect(textOf(message)).toBe("Let me search.\n\nHere is what I found.");
   });
 });

@@ -1,10 +1,53 @@
 import type { JobSummary } from "@tallo/contracts";
 import type { JobHit } from "@tallo/search-ai";
-import { Bookmark, SearchX } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar, ResultCard } from "@/components/assistant/ResultCard";
 import { payLabel, type Ranking } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 10;
+
+function Pagination({
+  page,
+  pages,
+  total,
+  onPage,
+}: {
+  page: number;
+  pages: number;
+  total: number;
+  onPage: (page: number) => void;
+}) {
+  const first = page * PAGE_SIZE + 1;
+  const last = Math.min(total, (page + 1) * PAGE_SIZE);
+  return (
+    <nav aria-label="Pagination" className="mt-5 flex items-center justify-between gap-3">
+      <button
+        type="button"
+        onClick={() => onPage(page - 1)}
+        disabled={page === 0}
+        className="inline-flex h-8 items-center gap-1 rounded-lg border bg-card px-2.5 text-[13px] font-medium shadow-xs transition-colors enabled:hover:bg-muted disabled:opacity-40"
+      >
+        <ChevronLeft className="size-4" aria-hidden />
+        Previous
+      </button>
+      <span className="text-[13px] text-muted-foreground tabular-nums" aria-live="polite">
+        {first}–{last} of {total}
+      </span>
+      <button
+        type="button"
+        onClick={() => onPage(page + 1)}
+        disabled={page >= pages - 1}
+        className="inline-flex h-8 items-center gap-1 rounded-lg border bg-card px-2.5 text-[13px] font-medium shadow-xs transition-colors enabled:hover:bg-muted disabled:opacity-40"
+      >
+        Next
+        <ChevronRight className="size-4" aria-hidden />
+      </button>
+    </nav>
+  );
+}
 
 function Shimmer({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-md bg-muted", className)} />;
@@ -129,6 +172,17 @@ export function Results({
   const savedIds = new Set(saved.map((job) => String(job.id)));
   const ranking_ = ranking.state === "ranking";
 
+  // The ranked list is paged ten at a time. A new ranking starts at the first page.
+  const [page, setPage] = useState(0);
+  const scroller = useRef<HTMLDivElement>(null);
+  const pages = Math.max(1, Math.ceil(ranking.matches.length / PAGE_SIZE));
+  const current = Math.min(page, pages - 1);
+  const firstId = ranking.matches[0]?.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a different top match means a new ranking
+  useEffect(() => setPage(0), [firstId]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the page number is the trigger
+  useEffect(() => scroller.current?.scrollTo({ top: 0 }), [current]);
+
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
@@ -166,25 +220,40 @@ export function Results({
         </div>
       </header>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+      <div
+        ref={scroller}
+        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+      >
         <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
           {view === "saved" ? (
             <SavedList saved={saved} onOpen={onOpen} />
           ) : ranking.matches.length > 0 ? (
-            <ol className="grid grid-cols-[minmax(0,1fr)] gap-3" aria-label="Ranked matches">
-              <AnimatePresence initial={false}>
-                {ranking.matches.map((match) => (
-                  <ResultCard
-                    key={match.id}
-                    match={match}
-                    saved={savedIds.has(match.id)}
-                    active={match.id === activeId}
-                    onOpen={onOpen}
-                  />
-                ))}
-                {ranking_ && <SkeletonCard key="more" />}
-              </AnimatePresence>
-            </ol>
+            <>
+              <ol className="grid grid-cols-[minmax(0,1fr)] gap-3" aria-label="Ranked matches">
+                <AnimatePresence initial={false}>
+                  {ranking.matches
+                    .slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE)
+                    .map((match) => (
+                      <ResultCard
+                        key={match.id}
+                        match={match}
+                        saved={savedIds.has(match.id)}
+                        active={match.id === activeId}
+                        onOpen={onOpen}
+                      />
+                    ))}
+                  {ranking_ && current === pages - 1 && <SkeletonCard key="more" />}
+                </AnimatePresence>
+              </ol>
+              {pages > 1 && (
+                <Pagination
+                  page={current}
+                  pages={pages}
+                  total={ranking.matches.length}
+                  onPage={setPage}
+                />
+              )}
+            </>
           ) : busy && candidates.length > 0 ? (
             <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
               <Considering hits={candidates} />

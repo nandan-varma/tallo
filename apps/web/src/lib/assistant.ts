@@ -159,12 +159,22 @@ export function activitiesOf(message: JobAgentMessage, hits: Map<string, JobHit>
   return out;
 }
 
-/** Plain text of a message: what the person reads, tool calls excluded. */
+/** Plain text of a message, one paragraph per text part (the model writes a new part after each tool call). */
 export const textOf = (message: JobAgentMessage): string =>
   message.parts
-    .flatMap((p) => (p.type === "text" ? [p.text] : []))
-    .join("")
-    .trim();
+    .flatMap((p) => (p.type === "text" && p.text.trim() ? [p.text.trim()] : []))
+    .join("\n\n");
+
+/**
+ * The text parts of an assistant message, flagged when they come before its last tool call: that is narration
+ * ("let me search"), shown quietly, while the text after the last tool call is the answer.
+ */
+export function textBlocks(message: JobAgentMessage): { text: string; narration: boolean }[] {
+  const lastTool = message.parts.findLastIndex((p) => p.type.startsWith("tool-"));
+  return message.parts.flatMap((p, i) =>
+    p.type === "text" && p.text.trim() ? [{ text: p.text.trim(), narration: i < lastTool }] : [],
+  );
+}
 
 /** The last user message, for the "regenerate" and empty-result hints. */
 export const lastUserText = (messages: JobAgentMessage[]): string =>

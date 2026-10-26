@@ -48,6 +48,21 @@ export function ftsAllTerms(q: string): string | undefined {
   return terms?.map((t) => `"${t}"`).join(" ");
 }
 
+/**
+ * A MATCH clause that requires the job's location text to mention any of `locations` (OR), where each entry
+ * must contain all of its words (AND): ["Seattle", "WA"] is Seattle or WA, ["San Francisco"] needs both words.
+ * Words are quoted, so no FTS operator can come through. Undefined when no entry has a word.
+ */
+export function ftsLocations(locations: string[]): string | undefined {
+  const alternatives = locations.flatMap((location) => {
+    const words = location.toLowerCase().match(/[\p{L}\p{N}]+/gu);
+    if (!words) return [];
+    const quoted = words.map((w) => `"${w}"`);
+    return [quoted.length > 1 ? `(${quoted.join(" ")})` : (quoted[0] as string)];
+  });
+  return alternatives.length > 0 ? `location_text : (${alternatives.join(" OR ")})` : undefined;
+}
+
 const summary = {
   id: jobs.id,
   title: jobs.title,
