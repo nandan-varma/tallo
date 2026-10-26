@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { JobDetail, ProfileRecord } from "@tallo/contracts";
+import type { JobDetail, ProfileRecord, ResumeRecord, ResumeSummary } from "@tallo/contracts";
 import type { RunRecord, SourceRecord } from "@/lib/status";
 
 /**
@@ -71,4 +71,18 @@ export async function getProfile(): Promise<ProfileRecord | null> {
   const response = await upstream("/v1/profile");
   if (!response.ok) throw new Error(`API ${response.status} for /v1/profile`);
   return (await response.json()) as ProfileRecord | null;
+}
+
+/** A saved resume (the base one, or the copy tailored to `jobId`). Personal data: never cached. */
+export async function getResume(jobId: number | null = null): Promise<ResumeRecord | null> {
+  const path = jobId ? `/v1/resume?job=${jobId}` : "/v1/resume";
+  const response = await upstream(path);
+  if (!response.ok) throw new Error(`API ${response.status} for ${path}`);
+  return (await response.json()) as ResumeRecord | null;
+}
+
+export async function listResumes(): Promise<ResumeSummary[]> {
+  const response = await upstream("/v1/resumes");
+  if (!response.ok) throw new Error(`API ${response.status} for /v1/resumes`);
+  return (await response.json()) as ResumeSummary[];
 }

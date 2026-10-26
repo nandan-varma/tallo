@@ -38,6 +38,9 @@ const link = job.applyUrl ?? job.url;
             </Button>
           )
         }
+        <Button asChild variant="outline" className="w-full">
+          <a href={`/resume/${job.id}?tailor=1`}>Tailor resume to this role</a>
+        </Button>
         <Variants variants={job.variants} currentId={job.id} />
         <JobFacts facts={job.facts} />
       </aside>

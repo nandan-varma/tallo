@@ -134,7 +134,6 @@ function AssistantMessage({
       <Activities items={items} live={live} />
       {blocks.map((block, i) => (
         <p
-          // biome-ignore lint/suspicious/noArrayIndexKey: text parts have no id and keep their order
           key={i}
           className={cn(
             "leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]",

@@ -13,7 +13,6 @@ export function useStickToBottom<T extends HTMLElement>(dep: unknown) {
     const el = ref.current;
     if (el) stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
   }, []);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: dep is the trigger, not a value used inside
   useLayoutEffect(() => {
     const el = ref.current;
     if (el && stuck.current) el.scrollTop = el.scrollHeight;

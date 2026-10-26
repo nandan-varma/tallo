@@ -12,7 +12,6 @@ import type { BlobStore } from "./blobs.ts";
 import { jdKey, rawKey } from "./blobs.ts";
 import type { Db } from "./db.ts";
 import { batch, CHUNK, chunks } from "./db.ts";
-import { visibleJobs } from "./queries.ts";
 import { jobs, runs, sources } from "./schema.ts";
 
 export class IngestError extends Error {

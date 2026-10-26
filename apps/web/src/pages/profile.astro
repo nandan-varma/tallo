@@ -1,10 +1,15 @@
 ---
 import { ProfileEditor } from "@/components/ProfileEditor";
 import Base from "@/layouts/Base.astro";
-import { getProfile } from "@/lib/api";
+import { resumeToText } from "@tallo/resume";
+import { getProfile, getResume } from "@/lib/api";
 
-const profile = await getProfile().catch(() => null);
+const [profile, built] = await Promise.all([
+  getProfile().catch(() => null),
+  getResume().catch(() => null),
+]);
+const builtResume = built ? resumeToText(built.doc.resume) : "";
 ---
 <Base title="Profile · Tallo">
-  <ProfileEditor client:load initial={profile} />
+  <ProfileEditor client:load initial={profile} builtResume={builtResume} />
 </Base>

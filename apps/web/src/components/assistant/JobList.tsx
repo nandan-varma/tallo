@@ -120,7 +120,6 @@ export function JobList({
   const query = useSearchPage(spec, cursors[page]);
   const scroller = useRef<HTMLDivElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a different search or page starts at the top
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
   }, [searchKey, page]);

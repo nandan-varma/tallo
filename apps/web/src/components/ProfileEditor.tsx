@@ -3,22 +3,11 @@ import { Check, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { messageOf, requestJson } from "@/lib/client";
 import { cn } from "@/lib/utils";
 
 const RESUME_MAX = 60_000;
 const PROFILE_MAX = 30_000;
-
-async function failure(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as { error?: string };
-    if (body.error) return body.error;
-  } catch {
-    // Not JSON: fall through to the generic message.
-  }
-  return response.status === 503
-    ? "The assistant isn't set up on the server yet."
-    : "Something went wrong. Try again.";
-}
 
 function Section({
   step,
@@ -51,7 +40,14 @@ function Section({
  * Your resume in, a profile the assistant reads out. The model writes the first draft; you edit it. The
  * resume and the profile are saved together, and are the only things the app keeps about you.
  */
-export function ProfileEditor({ initial }: { initial: ProfileRecord | null }) {
+export function ProfileEditor({
+  initial,
+  builtResume,
+}: {
+  initial: ProfileRecord | null;
+  /** The resume from the builder as plain text, or "" when none has been built. */
+  builtResume: string;
+}) {
   const [resume, setResume] = useState(initial?.resume ?? "");
   const [profile, setProfile] = useState(initial?.profile ?? "");
   const [saved, setSaved] = useState({
@@ -83,15 +79,13 @@ export function ProfileEditor({ initial }: { initial: ProfileRecord | null }) {
     setBuilding(true);
     setError(null);
     try {
-      const response = await fetch("/api/profile/generate", {
+      const built = await requestJson<{ profile: string }>("/api/profile/generate", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resume }),
+        body: { resume },
       });
-      if (!response.ok) throw new Error(await failure(response));
-      setProfile(((await response.json()) as { profile: string }).profile);
+      setProfile(built.profile);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+      setError(messageOf(e));
     } finally {
       setBuilding(false);
     }
@@ -101,17 +95,14 @@ export function ProfileEditor({ initial }: { initial: ProfileRecord | null }) {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/profile", {
+      const record = await requestJson<ProfileRecord>("/api/profile", {
         method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resume, profile }),
+        body: { resume, profile },
       });
-      if (!response.ok) throw new Error(await failure(response));
-      const record = (await response.json()) as ProfileRecord;
       setSaved({ resume: record.resume, profile: record.profile });
       setSavedAt(record.updatedAt);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+      setError(messageOf(e));
     } finally {
       setSaving(false);
     }
@@ -144,7 +135,7 @@ export function ProfileEditor({ initial }: { initial: ProfileRecord | null }) {
           className="max-h-[28rem] min-h-44 text-sm leading-relaxed"
           aria-label="Resume"
         />
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <Button type="button" onClick={build} disabled={!canBuild} className="gap-1.5">
             {building ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
             {building
@@ -153,6 +144,26 @@ export function ProfileEditor({ initial }: { initial: ProfileRecord | null }) {
                 ? "Replace my edits"
                 : "Build my profile"}
           </Button>
+          {builtResume && builtResume !== resume && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setResume(builtResume);
+                setConfirmReplace(false);
+              }}
+            >
+              Use my built resume
+            </Button>
+          )}
+          {!builtResume && (
+            <a
+              href="/resume"
+              className="text-[13px] text-muted-foreground underline underline-offset-2"
+            >
+              Or build a resume here
+            </a>
+          )}
           {confirmReplace && (
             <span className="text-[13px] text-muted-foreground">
               This replaces the profile you edited below.

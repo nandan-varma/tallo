@@ -1,5 +1,13 @@
 import type { JobSummary } from "@tallo/contracts";
-import { ArrowLeft, ArrowUpRight, Bookmark, ExternalLink, Quote, RotateCw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Bookmark,
+  ExternalLink,
+  FileText,
+  Quote,
+  RotateCw,
+} from "lucide-react";
 import { summaryOf } from "@/components/assistant/hooks";
 import { Avatar } from "@/components/assistant/JobRow";
 import { useJob } from "@/components/assistant/queries";
@@ -93,6 +101,12 @@ export function JobPage({
             <Button asChild variant="ghost" size="icon" aria-label="Open the standalone page">
               <a href={`/jobs/${job.id}`} target="_blank" rel="noopener noreferrer">
                 <ExternalLink />
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <a href={`/resume/${job.id}?tailor=1`}>
+                <FileText aria-hidden />
+                <span className="max-sm:sr-only">Tailor resume</span>
               </a>
             </Button>
             {link && (

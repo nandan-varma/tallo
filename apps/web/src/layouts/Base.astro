@@ -25,6 +25,7 @@ const current = (active: boolean) => (active ? "page" : undefined);
       <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
       <nav aria-label="Main navigation" class="header-nav">
         <a href="/" aria-current={current(path === "/")}>Assistant</a>
+        <a href="/resume" aria-current={current(path.startsWith("/resume"))}>Resume</a>
         <a href="/profile" aria-current={current(path === "/profile")}>Profile</a>
         <a href="/status" aria-current={current(path === "/status")}>Status</a>
       </nav>
