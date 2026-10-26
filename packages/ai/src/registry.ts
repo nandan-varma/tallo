@@ -39,8 +39,8 @@ function withUserAgent(base: typeof fetch | undefined): typeof fetch {
 export function createAi({ env, sessionId = crypto.randomUUID(), fetch }: AiOptions): Ai {
   const providers: Providers = {};
 
-  if (env.OPENCODE_GO_API_KEY) {
-    const apiKey = env.OPENCODE_GO_API_KEY;
+  if (env.OPENCODE_API_KEY) {
+    const apiKey = env.OPENCODE_API_KEY;
     // The SDK builds its own User-Agent after config headers, so ours is set on the wire
     // by a fetch wrapper, which runs last. The session header is stable per conversation.
     const goFetch = withUserAgent(fetch);

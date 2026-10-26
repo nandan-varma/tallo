@@ -135,7 +135,7 @@ describe("OpenCode Go transports", () => {
   it("openai-compatible: posts to /openai/v1/chat/completions with our headers and the output budget", async () => {
     const { fetch, calls } = fakeFetch("pong");
     const ai = createAi({
-      env: { OPENCODE_GO_API_KEY: GO_KEY, AI_MODEL_FAST: "go:glm-5.3-flash" },
+      env: { OPENCODE_API_KEY: GO_KEY, AI_MODEL_FAST: "go:glm-5.3-flash" },
       sessionId: "conv-1",
       fetch,
     });
@@ -159,7 +159,7 @@ describe("OpenCode Go transports", () => {
   it("anthropic protocol: posts to /anthropic/v1/messages", async () => {
     const { fetch, calls } = fakeFetch("pong");
     const ai = createAi({
-      env: { OPENCODE_GO_API_KEY: GO_KEY, AI_MODEL_SMART: "go-anthropic:claude-haiku-5-5" },
+      env: { OPENCODE_API_KEY: GO_KEY, AI_MODEL_SMART: "go-anthropic:claude-haiku-5-5" },
       sessionId: "conv-2",
       fetch,
     });
@@ -181,7 +181,7 @@ describe("OpenCode Go transports", () => {
   it("responses protocol: posts to /openai/v1/responses", async () => {
     const { fetch, calls } = fakeFetch("pong");
     const ai = createAi({
-      env: { OPENCODE_GO_API_KEY: GO_KEY, AI_MODEL_FAST: "go-responses:gpt-luna" },
+      env: { OPENCODE_API_KEY: GO_KEY, AI_MODEL_FAST: "go-responses:gpt-luna" },
       sessionId: "conv-3",
       fetch,
     });
@@ -200,7 +200,7 @@ describe("OpenCode Go transports", () => {
   it("keeps one session id for every call from the same instance", async () => {
     const { fetch, calls } = fakeFetch("pong");
     const ai = createAi({
-      env: { OPENCODE_GO_API_KEY: GO_KEY, AI_MODEL_FAST: "go:glm-5.3-flash" },
+      env: { OPENCODE_API_KEY: GO_KEY, AI_MODEL_FAST: "go:glm-5.3-flash" },
       fetch,
     });
     const model = ai.getModel("fast");
@@ -212,11 +212,28 @@ describe("OpenCode Go transports", () => {
     expect(second?.headers["x-opencode-session"]).toBe(first?.headers["x-opencode-session"]);
   });
 
-  it("gives a fresh session id to each instance when the host does not pass one", () => {
-    const env = { OPENCODE_GO_API_KEY: GO_KEY, AI_MODEL_FAST: "go:glm-5.3-flash" };
-    const a = createAi({ env, fetch: fakeFetch().fetch });
-    const b = createAi({ env, fetch: fakeFetch().fetch });
-    expect(a).not.toBe(b);
+  it("sends a different x-opencode-session on the wire for two instances without a host session id", async () => {
+    const env = { OPENCODE_API_KEY: GO_KEY, AI_MODEL_FAST: "go:glm-5.3-flash" };
+    const one = fakeFetch("pong");
+    const two = fakeFetch("pong");
+    const a = createAi({ env, fetch: one.fetch });
+    const b = createAi({ env, fetch: two.fetch });
+    await generateText({
+      model: a.getModel("fast"),
+      prompt: "ping",
+      maxOutputTokens: outputBudget(50),
+    });
+    await generateText({
+      model: b.getModel("fast"),
+      prompt: "ping",
+      maxOutputTokens: outputBudget(50),
+    });
+
+    const sentA = one.calls[0]?.headers["x-opencode-session"];
+    const sentB = two.calls[0]?.headers["x-opencode-session"];
+    expect(sentA).toBeTruthy();
+    expect(sentB).toBeTruthy();
+    expect(sentA).not.toBe(sentB);
   });
 
   it("keeps a model id with colons intact on the wire", async () => {
@@ -235,7 +252,7 @@ describe("OpenCode Go transports", () => {
     const { fetch, calls } = fakeFetch("pong");
     const ai = createAi({
       env: {
-        OPENCODE_GO_API_KEY: GO_KEY,
+        OPENCODE_API_KEY: GO_KEY,
         AI_CUSTOM_BASE_URL: "https://llm.example.test/v1",
         AI_MODEL_FAST: "custom:local-model",
       },

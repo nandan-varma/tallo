@@ -8,7 +8,7 @@ export interface AiEnv {
   AI_MODEL_FAST?: string;
   /** `provider:model` for the `smart` role, e.g. `go-anthropic:claude-haiku-5-5`. */
   AI_MODEL_SMART?: string;
-  OPENCODE_GO_API_KEY?: string;
+  OPENCODE_API_KEY?: string;
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
