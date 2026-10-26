@@ -1,0 +1,309 @@
+import { describe, expect, it } from "vitest";
+import { search } from "../src/search.ts";
+import type { Verdict } from "../src/types.ts";
+import {
+  type Call,
+  candidate,
+  fakeJobs,
+  fakeModel,
+  JUDGE_REPLY,
+  PROFILE,
+  postingIds,
+  UNDERSTAND_REPLY,
+} from "./fakes.ts";
+
+// Stage-aware responder. `verdicts` drives triage; `judge` builds the judgment reply per job.
+function responder(opts: {
+  verdicts?: Record<string, Verdict>;
+  judge?: (call: Call) => string;
+  notes?: string;
+}) {
+  return (call: Call): string => {
+    switch (call.stage) {
+      case "understand":
+        return UNDERSTAND_REPLY;
+      case "triage":
+        return JSON.stringify({
+          decisions: postingIds(call.text).map((id) => ({
+            id,
+            verdict: opts.verdicts?.[id] ?? "maybe",
+            reason: `reason for ${id}`,
+          })),
+        });
+      case "notes":
+        return JSON.stringify({ notes: opts.notes ?? "notes" });
+      case "judge":
+        return opts.judge ? opts.judge(call) : JUDGE_REPLY();
+      default:
+        throw new Error(`unexpected stage ${call.stage}`);
+    }
+  };
+}
+
+function setup(respond: (call: Call) => string | Promise<string>) {
+  const calls: Call[] = [];
+  const models = { fast: fakeModel(calls, respond), smart: fakeModel(calls, respond) };
+  return { calls, models };
+}
+
+const stagesOf = (calls: Call[]) => calls.map((c) => c.stage);
+
+describe("search", () => {
+  it("returns an empty answer when recall finds nothing", async () => {
+    const { calls, models } = setup(responder({}));
+    const jobs = fakeJobs({ candidates: [] });
+
+    const result = await search({ query: "rust", profile: PROFILE, models, jobs });
+
+    expect(result.answer.items).toEqual([]);
+    expect(result.trace.recall.candidates).toBe(0);
+    expect(stagesOf(calls)).toEqual(["understand"]);
+    expect(jobs.descriptionCalls).toEqual([]);
+  });
+
+  it("never reads descriptions for obvious rejects", async () => {
+    const candidates = [candidate("a"), candidate("b"), candidate("c")];
+    const { calls, models } = setup(responder({ verdicts: { a: "no", b: "no", c: "no" } }));
+    const jobs = fakeJobs({ candidates, descriptions: { a: "x", b: "y", c: "z" } });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    expect(result.answer.items).toEqual([]);
+    expect(jobs.descriptionCalls).toEqual([]);
+    expect(calls.some((c) => c.stage === "judge" || c.stage === "notes")).toBe(false);
+    expect(result.trace.triage.no).toBe(3);
+  });
+
+  it("caps deep reads at deepReads and reads maybes in recall order", async () => {
+    const candidates = Array.from({ length: 30 }, (_, i) => candidate(`j${i}`));
+    const { calls, models } = setup(responder({}));
+    const jobs = fakeJobs({
+      candidates,
+      descriptions: Object.fromEntries(candidates.map((c) => [c.id, `Description of ${c.id}.`])),
+    });
+
+    const result = await search({
+      query: "backend",
+      profile: PROFILE,
+      models,
+      jobs,
+      options: { deepReads: 3, answerLimit: 10 },
+    });
+
+    expect(jobs.descriptionCalls).toEqual(["j0", "j1", "j2"]);
+    expect(calls.filter((c) => c.stage === "judge")).toHaveLength(3);
+    expect(result.trace.deep.reads).toBe(3);
+    expect(result.answer.items).toHaveLength(3);
+  });
+
+  it("passes the full description to the model unmodified", async () => {
+    const filler = "We build reliable backend services in TypeScript. ".repeat(100);
+    const description = `${filler}\nCompensation: $150,000 - $180,000 base. Minimum: 5 years of backend work.`;
+    expect(description.length).toBeGreaterThan(5000);
+    const { calls, models } = setup(responder({}));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: description } });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    const judge = calls.find((c) => c.stage === "judge");
+    expect(judge).toBeDefined();
+    const block = /<description>\n([\s\S]*?)\n<\/description>/.exec(judge?.text ?? "")?.[1];
+    expect(block).toBe(description);
+    expect(block?.length).toBe(description.length);
+    expect(block?.endsWith("5 years of backend work.")).toBe(true);
+    expect(result.trace.deep.descriptionChars).toBe(description.length);
+    expect(result.trace.deep.chunks).toBe(1);
+    expect(calls.some((c) => c.stage === "notes")).toBe(false);
+  });
+
+  it("reads an oversized description in consecutive parts and carries notes forward", async () => {
+    const description = Array.from(
+      { length: 40 },
+      (_, i) => `Line ${i}: requirement text ${"x".repeat(20)}`,
+    ).join("\n");
+    expect(description.length).toBeGreaterThan(1000);
+    const { calls, models } = setup(responder({ notes: "pay 150k seen" }));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: description } });
+
+    const result = await search({
+      query: "backend",
+      profile: PROFILE,
+      models,
+      jobs,
+      options: { descriptionChunkChars: 400 },
+    });
+
+    const notes = calls.filter((c) => c.stage === "notes");
+    const parts = notes.map(
+      (c) => /<part index="\d+" of="\d+">\n([\s\S]*?)\n<\/part>/.exec(c.text)?.[1] ?? "",
+    );
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.every((p) => p.length <= 400)).toBe(true);
+    expect(parts.join("")).toBe(description);
+    expect(notes.every((c) => c.text.includes(`of="${parts.length}"`))).toBe(true);
+    // Second and later parts see the notes produced so far.
+    expect(notes[1]?.text).toContain("<notes_so_far>pay 150k seen</notes_so_far>");
+    expect(result.trace.deep.chunks).toBe(parts.length);
+    expect(result.trace.deep.descriptionChars).toBe(description.length);
+    const judge = calls.find((c) => c.stage === "judge");
+    expect(judge?.text).toContain(`read in ${parts.length} consecutive parts`);
+  });
+
+  it("retries once with a larger budget when content is empty", async () => {
+    let first = true;
+    const calls: Call[] = [];
+    const respond = (call: Call) => {
+      if (call.stage === "understand" && first) {
+        first = false;
+        return "";
+      }
+      return responder({})(call);
+    };
+    const models = { fast: fakeModel(calls, respond), smart: fakeModel(calls, respond) };
+    const jobs = fakeJobs({ candidates: [] });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    const understand = calls.filter((c) => c.stage === "understand");
+    expect(understand).toHaveLength(2);
+    expect(understand[1]?.maxOutputTokens).toBe((understand[0]?.maxOutputTokens ?? 0) * 2);
+    expect(result.trace.retries).toBe(1);
+  });
+
+  it("fails when content is still empty after the retry", async () => {
+    const { models } = setup(() => "");
+    const jobs = fakeJobs({ candidates: [candidate("a")] });
+
+    await expect(search({ query: "backend", profile: PROFILE, models, jobs })).rejects.toThrow();
+  });
+
+  it("sets an explicit output budget on every model call", async () => {
+    const { calls, models } = setup(responder({ verdicts: { a: "strong" } }));
+    const jobs = fakeJobs({
+      candidates: [candidate("a"), candidate("b")],
+      descriptions: { b: "Pay: $100k" },
+    });
+
+    await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((c) => Number.isInteger(c.maxOutputTokens) && c.maxOutputTokens > 0)).toBe(
+      true,
+    );
+  });
+
+  it("answers strong rows without a deep read and keeps them ahead of maybes", async () => {
+    const candidates = [candidate("s1"), candidate("m1"), candidate("s2")];
+    const { models } = setup(responder({ verdicts: { s1: "strong", s2: "strong" } }));
+    const jobs = fakeJobs({ candidates, descriptions: { m1: "Pay: $90k" } });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    expect(jobs.descriptionCalls).toEqual(["m1"]);
+    expect(result.answer.items.map((i) => [i.id, i.verdict, i.rank])).toEqual([
+      ["s1", "strong", 1],
+      ["s2", "strong", 2],
+      ["m1", "maybe", 3],
+    ]);
+    expect(result.answer.items[0]?.fit).toBeNull();
+  });
+
+  it("orders deep-read maybes by fit and reports missing facts as unknowns", async () => {
+    const candidates = [candidate("low"), candidate("high", { pay: null, workMode: null })];
+    const { models } = setup(
+      responder({
+        judge: (call) =>
+          call.text.includes("Engineer low") ? JUDGE_REPLY({ fit: 40 }) : JUDGE_REPLY({ fit: 85 }),
+      }),
+    );
+    const jobs = fakeJobs({
+      candidates,
+      descriptions: { low: "Pay: $100k", high: "Requirements: Go." },
+    });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    expect(result.answer.items.map((i) => [i.id, i.fit])).toEqual([
+      ["high", 85],
+      ["low", 40],
+    ]);
+    const high = result.answer.items[0];
+    expect(high?.unknowns).toEqual(
+      expect.arrayContaining(["pay not listed", "work mode not listed"]),
+    );
+  });
+
+  it("keeps only evidence quotes that appear verbatim in the description or profile", async () => {
+    const { models } = setup(
+      responder({
+        judge: () =>
+          JSON.stringify({
+            fit: 80,
+            reason: "Pay is stated",
+            evidence: ["Pay: $150k base", "invented quote that is not in the text"],
+            unknowns: [],
+          }),
+      }),
+    );
+    const jobs = fakeJobs({
+      candidates: [candidate("a")],
+      descriptions: { a: "Pay: $150k base. Remote." },
+    });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    expect(result.answer.items[0]?.evidence).toEqual(["Pay: $150k base"]);
+    expect(result.trace.deep.droppedEvidence).toBe(1);
+  });
+
+  it("treats triage decisions it did not return as maybe", async () => {
+    const candidates = [candidate("a"), candidate("b")];
+    const calls: Call[] = [];
+    const respond = (call: Call) => {
+      if (call.stage === "triage") {
+        return JSON.stringify({ decisions: [{ id: "a", verdict: "strong", reason: "fits" }] });
+      }
+      return responder({})(call);
+    };
+    const models = { fast: fakeModel(calls, respond), smart: fakeModel(calls, respond) };
+    const jobs = fakeJobs({ candidates, descriptions: { b: "text" } });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    expect(result.trace.triage.defaulted).toBe(1);
+    expect(result.trace.triage.decisions).toEqual([
+      { id: "a", verdict: "strong" },
+      { id: "b", verdict: "maybe" },
+    ]);
+    expect(jobs.descriptionCalls).toEqual(["b"]);
+  });
+
+  it("splits triage into batches of triageBatchSize", async () => {
+    const candidates = Array.from({ length: 7 }, (_, i) => candidate(`t${i}`));
+    const { calls, models } = setup(
+      responder({ verdicts: Object.fromEntries(candidates.map((c) => [c.id, "no"])) }),
+    );
+    const jobs = fakeJobs({ candidates });
+
+    const result = await search({
+      query: "backend",
+      profile: PROFILE,
+      models,
+      jobs,
+      options: { triageBatchSize: 3 },
+    });
+
+    expect(calls.filter((c) => c.stage === "triage")).toHaveLength(3);
+    expect(result.trace.triage.batches).toBe(3);
+    expect(result.trace.triage.no).toBe(7);
+  });
+
+  it("rejects non-integer options", async () => {
+    const { models } = setup(responder({}));
+    const jobs = fakeJobs({ candidates: [] });
+
+    await expect(
+      search({ query: "x", profile: PROFILE, models, jobs, options: { deepReads: 1.5 } }),
+    ).rejects.toThrow(RangeError);
+  });
+});
