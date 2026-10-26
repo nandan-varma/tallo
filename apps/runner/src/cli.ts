@@ -150,6 +150,29 @@ program
   });
 
 program
+  .command("dedupe")
+  .description(
+    "Backfill duplicate keys for stored jobs, then regroup every posting (no refetching)",
+  )
+  .action(async () => {
+    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+    let total = 0;
+    for (;;) {
+      const { updated, more } = await api.dedupeBackfill();
+      total += updated;
+      log.info({ updated, total }, "keyed");
+      if (!more) break;
+    }
+    let after: string | undefined;
+    for (;;) {
+      const { keys, changed, next } = await api.dedupeRebuild(true, after);
+      log.info({ keys, changed }, "regrouped");
+      if (!next) break;
+      after = next;
+    }
+  });
+
+program
   .command("sources")
   .description("List configured sources, or the boards the server has marked dead")
   .option("-p, --platform <id>")

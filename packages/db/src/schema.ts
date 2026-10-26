@@ -108,9 +108,15 @@ export const jobs = sqliteTable(
     closedAt: integer("closed_at"),
     /** 1 when heuristics are confident the job is out of scope (non-US or non-tech). */
     hidden: integer().notNull().default(0),
+    /** Groups listings of one posting (catalog `dedupeKey`). NULL until backfilled. */
+    dedupeKey: text("dedupe_key"),
+    /** Canonical row of the open group (lowest id). NULL for canonical and ungrouped rows. */
+    dupOf: integer("dup_of"),
   },
   (t) => [
     uniqueIndex("jobs_source_posting_idx").on(t.sourceId, t.postingId),
+    index("jobs_dedupe_idx").on(t.dedupeKey).where(sql`${t.closedAt} IS NULL`),
+    index("jobs_dup_of_idx").on(t.dupOf).where(sql`${t.dupOf} IS NOT NULL`),
     index("jobs_feed_idx")
       .on(sql`${t.sortAt} desc`, sql`${t.id} desc`)
       .where(sql`${t.closedAt} IS NULL AND ${t.hidden} = 0`),

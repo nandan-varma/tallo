@@ -1,7 +1,7 @@
 import type { Facets } from "@tallo/contracts";
 import { STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
 import { facetCounts, jobs, runs, sources } from "./schema.ts";
@@ -60,15 +60,22 @@ const summary = {
   expMinYears: jobs.expMinYears,
   excerpt: jobs.excerpt,
   sortAt: jobs.sortAt,
+  /**
+   * Open listings of this posting, this row included (see `dup_of`). The outer id is spelled out:
+   * drizzle renders `${jobs.id}` unqualified, which the subquery's own `id` would shadow.
+   */
+  variants: sql<number>`(SELECT count(*) FROM jobs AS dup WHERE dup.dup_of = "jobs"."id" AND dup.closed_at IS NULL) + 1`,
 };
 
 /**
- * What a default search shows: open jobs, not heuristically hidden, from sources that listed
- * recently. Facet counts use the same predicate so every count matches its filter's results.
+ * What a default search shows: open canonical jobs (one per duplicate group, see `dup_of`), not
+ * heuristically hidden, from sources that listed recently. Facet counts use the same predicate so
+ * every count matches its filter's results.
  */
 export function visibleJobs(now: number, { all = false, includeStale = false } = {}): SQL[] {
   return [
     sql`${jobs.closedAt} IS NULL`,
+    sql`${jobs.dupOf} IS NULL`,
     ...(all ? [] : [sql`${jobs.hidden} = 0`]),
     ...(includeStale
       ? []
@@ -150,6 +157,29 @@ export async function listFacets(db: Db): Promise<Facets> {
 
 export async function getJob(db: Db, id: number) {
   return (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
+}
+
+/**
+ * Every open listing of the job's posting, canonical first: the job page shows each location
+ * and apply link. Includes the job itself.
+ */
+export async function listVariants(db: Db, job: { id: number; dupOf: number | null }) {
+  const canonical = job.dupOf ?? job.id;
+  return db
+    .select({
+      id: jobs.id,
+      url: jobs.url,
+      applyUrl: jobs.applyUrl,
+      locationText: jobs.locationText,
+      city: jobs.city,
+      region: jobs.region,
+      countryCode: jobs.countryCode,
+      workMode: jobs.workMode,
+      postedAt: jobs.postedAt,
+    })
+    .from(jobs)
+    .where(or(eq(jobs.id, canonical), and(eq(jobs.dupOf, canonical), isNull(jobs.closedAt))))
+    .orderBy(jobs.id);
 }
 
 export type Freshness = "fresh" | "stale" | "hidden";

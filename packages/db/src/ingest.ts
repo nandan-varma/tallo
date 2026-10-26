@@ -1,7 +1,13 @@
 import type { CreateRun, Finalize, FinalizeResult, JobFacts } from "@tallo/contracts";
-import { CLOSE_AFTER_ABSENT_RUNS, DEAD_AFTER_NOT_FOUND_RUNS, outOfScope } from "@tallo/contracts";
-import { and, eq, sql } from "drizzle-orm";
+import {
+  CLOSE_AFTER_ABSENT_RUNS,
+  DEAD_AFTER_NOT_FOUND_RUNS,
+  outOfScope,
+  STALE_HIDE_DAYS,
+} from "@tallo/contracts";
+import { and, eq, gt, gte, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
+import { alias } from "drizzle-orm/sqlite-core";
 import type { BlobStore } from "./blobs.ts";
 import { jdKey, rawKey } from "./blobs.ts";
 import type { Db } from "./db.ts";
@@ -227,10 +233,11 @@ export async function finalize(
       back.map((j) => j.id),
       CHUNK,
     )) {
+      // Reopening moves the row to another duplicate group: bump updated_at so the rebuild sees it.
       statements.push(
         db
           .update(jobs)
-          .set({ absentRuns: 0, closedAt: null })
+          .set({ absentRuns: 0, closedAt: null, updatedAt: now })
           .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
       );
     }
@@ -392,6 +399,7 @@ export async function reclassify(
   classify: Classifier,
   version: number,
   limit = 300,
+  now = nowSeconds(),
 ): Promise<{ updated: number; more: boolean }> {
   const stale = await db
     .select({
@@ -417,6 +425,8 @@ export async function reclassify(
             isTech: verdict.isTech,
             classifierVersion: verdict.version,
             hidden: outOfScope(verdict),
+            // A hidden change moves the row to another duplicate group: the rebuild must see it.
+            updatedAt: now,
           })
           .where(eq(jobs.id, row.id));
       }),
@@ -473,4 +483,182 @@ export async function rebuildFacets(
   }
   await batch(db, [db.delete(facetCounts), ...inserts]);
   return { values: rows.length };
+}
+
+/**
+ * Fills `dedupe_key` for rows stored before the key existed, from their stored company, title and
+ * jd_hash (no refetching). Does not regroup: run `rebuildDuplicates({ full: true })` afterwards.
+ */
+export async function backfillDedupeKeys(
+  db: Db,
+  keyOf: (row: { company: string; title: string; jdHash: string }) => Promise<string>,
+  limit = 300,
+): Promise<{ updated: number; more: boolean }> {
+  const pending = await db
+    .select({ id: jobs.id, company: jobs.company, title: jobs.title, jdHash: jobs.jdHash })
+    .from(jobs)
+    .where(isNull(jobs.dedupeKey))
+    .limit(limit + 1);
+  const page = pending.slice(0, limit);
+  if (page.length > 0) {
+    const statements = [];
+    for (const row of page) {
+      const dedupeKey = await keyOf(row);
+      statements.push(db.update(jobs).set({ dedupeKey }).where(eq(jobs.id, row.id)));
+    }
+    await batch(db, statements);
+  }
+  return { updated: page.length, more: pending.length > limit };
+}
+
+/** A rebuild regroups every key touched within this window. The hourly cron overlaps it. */
+const DEDUPE_WINDOW = 3 * 60 * 60;
+/** Keys per select: each key is 64 characters, so the ids travel as one bound JSON value. */
+const KEY_CHUNK = 300;
+const BATCH_STATEMENTS = 50;
+
+/**
+ * Keys whose group may have changed, after the cursor, ascending. Incremental mode finds:
+ * - rows updated or closed since the window (applyJobs, finalize, reclassify);
+ * - sources that crossed the stale threshold in the window (a time change with no write);
+ * - rows whose canonical closed, moved to another key, or was purged.
+ * Full mode pages over every open key.
+ */
+async function keysPage(
+  db: Db,
+  { now, full, after, limit }: { now: number; full: boolean; after: string; limit: number },
+): Promise<string[]> {
+  if (full) {
+    const rows = await db
+      .selectDistinct({ key: jobs.dedupeKey })
+      .from(jobs)
+      .where(and(isNull(jobs.closedAt), isNotNull(jobs.dedupeKey), gt(jobs.dedupeKey, after)))
+      .orderBy(jobs.dedupeKey)
+      .limit(limit);
+    return rows.flatMap((r) => (r.key === null ? [] : [r.key]));
+  }
+  const since = now - DEDUPE_WINDOW;
+  const staleBefore = now - STALE_HIDE_DAYS * 86400;
+  const target = alias(jobs, "target");
+  const found = await Promise.all([
+    db
+      .selectDistinct({ key: jobs.dedupeKey })
+      .from(jobs)
+      .where(
+        and(isNotNull(jobs.dedupeKey), or(gte(jobs.updatedAt, since), gte(jobs.closedAt, since))),
+      ),
+    db
+      .selectDistinct({ key: jobs.dedupeKey })
+      .from(jobs)
+      .innerJoin(sources, eq(sources.id, jobs.sourceId))
+      .where(
+        and(
+          isNull(jobs.closedAt),
+          isNotNull(jobs.dedupeKey),
+          sql`coalesce(${sources.lastListedAt}, 0) >= ${since - STALE_HIDE_DAYS * 86400}`,
+          sql`coalesce(${sources.lastListedAt}, 0) < ${staleBefore}`,
+        ),
+      ),
+    db
+      .selectDistinct({ key: jobs.dedupeKey })
+      .from(jobs)
+      .leftJoin(target, eq(target.id, jobs.dupOf))
+      .where(
+        and(
+          isNull(jobs.closedAt),
+          isNotNull(jobs.dupOf),
+          or(
+            isNull(target.id),
+            isNotNull(target.closedAt),
+            sql`${target.dedupeKey} IS NOT ${jobs.dedupeKey}`,
+          ),
+        ),
+      ),
+  ]);
+  const keys = new Set(found.flat().flatMap((r) => (r.key === null ? [] : [r.key])));
+  return [...keys]
+    .filter((key) => key > after)
+    .sort()
+    .slice(0, limit);
+}
+
+/**
+ * Recomputes `dup_of` for the given keys. A group is the open rows sharing a key, hidden flag and
+ * freshness (so a hidden or stale row never hides a visible one); its canonical is the lowest id.
+ * Writes only rows whose `dup_of` changes, as json_each id lists in batches of statements.
+ */
+async function regroup(db: Db, keys: string[], staleBefore: number): Promise<number> {
+  let changed = 0;
+  for (const part of chunks(keys, KEY_CHUNK)) {
+    const rows = await db
+      .select({
+        id: jobs.id,
+        key: jobs.dedupeKey,
+        hidden: jobs.hidden,
+        dupOf: jobs.dupOf,
+        stale: sql<number>`coalesce(${sources.lastListedAt}, 0) < ${staleBefore}`,
+      })
+      .from(jobs)
+      .leftJoin(sources, eq(sources.id, jobs.sourceId))
+      .where(and(isNull(jobs.closedAt), sql`${jobs.dedupeKey} IN ${jsonIds(part)}`))
+      .orderBy(jobs.id);
+
+    const groups = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const groupKey = `${row.key}|${row.hidden}|${row.stale}`;
+      const members = groups.get(groupKey) ?? [];
+      members.push(row);
+      groups.set(groupKey, members);
+    }
+
+    const statements: BatchItem<"sqlite">[] = [];
+    const unlink: number[] = [];
+    for (const members of groups.values()) {
+      const [canonical, ...others] = members;
+      if (!canonical) continue;
+      if (canonical.dupOf !== null) unlink.push(canonical.id);
+      const attach = others.filter((m) => m.dupOf !== canonical.id).map((m) => m.id);
+      if (attach.length > 0) {
+        changed += attach.length;
+        statements.push(
+          db
+            .update(jobs)
+            .set({ dupOf: canonical.id })
+            .where(sql`${jobs.id} IN ${jsonIds(attach)}`),
+        );
+      }
+    }
+    for (const ids of chunks(unlink, CHUNK)) {
+      statements.push(
+        db
+          .update(jobs)
+          .set({ dupOf: null })
+          .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
+      );
+    }
+    changed += unlink.length;
+    for (const page of chunks(statements, BATCH_STATEMENTS)) await batch(db, page);
+  }
+  return changed;
+}
+
+/**
+ * Regroups duplicates: the hourly cron runs it incrementally; `full` walks every key. Keys are
+ * processed `limit` at a time, so call again with `after = next` until `next` is null.
+ * Closed canonicals hand over to the next open row in their group on the next rebuild.
+ */
+export async function rebuildDuplicates(
+  db: Db,
+  now = nowSeconds(),
+  opts: { full?: boolean; after?: string; limit?: number } = {},
+): Promise<{ keys: number; changed: number; next: string | null }> {
+  const limit = opts.limit ?? 3000;
+  const keys = await keysPage(db, {
+    now,
+    full: opts.full ?? false,
+    after: opts.after ?? "",
+    limit,
+  });
+  const changed = await regroup(db, keys, now - STALE_HIDE_DAYS * 86400);
+  return { keys: keys.length, changed, next: keys.length === limit ? (keys.at(-1) ?? null) : null };
 }

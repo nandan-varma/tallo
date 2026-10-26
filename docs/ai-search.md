@@ -62,3 +62,19 @@ Logs never include content outside the CLI trace.
 
 `POST /v1/ai/ask` (read token, streamed `createAgentUIStreamResponse`), then a small chat island in
 `apps/web` (`useChat`; the one justified `client:*`). AI key is a Worker secret.
+
+## Duplicates (as built, #47)
+
+One posting listed once per location is one row per location. `jobs.dedupe_key` (catalog `dedupeKey`:
+normalized company, normalized title, `jd_hash`, versioned by `DEDUPE_VERSION`) groups them. `jobs.dup_of`
+is the canonical row's id (lowest open id) and NULL for canonical and ungrouped rows. Search, facets and
+recall read canonical rows only; `variants` counts a group and the job page lists every open location.
+- A group is open rows sharing a key, `hidden` flag and freshness. Splitting on the last two keeps a
+  hidden or stale canonical from hiding a visible duplicate.
+- `rebuildDuplicates` (ingest.ts, the only writer) runs in the hourly cron, after the purge and before the
+  facets. It regroups only keys touched in the last 3 hours (updated, closed, a source that crossed the stale
+  threshold, or a dangling `dup_of`). `POST /v1/admin/dedupe?full=true&after=…` walks every key.
+- Operator steps after the migration: `tallo dedupe` (backfills keys in pages, then a full regroup). Until the
+  full regroup runs, un-keyed rows stay visible as before, so nothing is hidden by a missing backfill.
+- Known trade-off: distinct requisitions with the same title, JD and city collapse into one card; the job
+  page still lists each one with its apply URL.
