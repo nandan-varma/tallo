@@ -134,3 +134,43 @@ describe("verifySource", () => {
     expect(report.unmapped).not.toContain("listing.title");
   });
 });
+
+describe("dead boards", () => {
+  const gone = () => greenhouse({ listing: () => new Response("", { status: 404 }) });
+  const sourceRow = async (app: ReturnType<typeof stack>["app"]) =>
+    (await read(app, "/v1/sources")).find((s: { id: string }) => s.id === source.id);
+
+  it("a 404 listing is reported as board-not-found, and three in a row mark it dead", async () => {
+    const { app, api } = stack();
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: greenhouse() });
+    for (let i = 0; i < 2; i++) {
+      const result = await syncSource(source, {
+        api,
+        log,
+        runnerId: "test",
+        version: "t",
+        fetch: gone(),
+      });
+      expect(result).toMatchObject({ listingComplete: false, boardNotFound: true });
+    }
+    expect(await sourceRow(app)).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    expect(await sourceRow(app)).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+    // The catalog is untouched: a dead board closes nothing.
+    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(2);
+  });
+
+  it("a 500 is a failed run, not a 404, and does not count toward dead", async () => {
+    const { app, api } = stack();
+    const broken = greenhouse({ listing: () => new Response("{}", { status: 500 }) });
+    const result = await syncSource(source, {
+      api,
+      log,
+      runnerId: "test",
+      version: "t",
+      fetch: broken,
+    });
+    expect(result.boardNotFound).toBe(false);
+    expect(await sourceRow(app)).toMatchObject({ status: "active", consecutiveFailures: 0 });
+  });
+});

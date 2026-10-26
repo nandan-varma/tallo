@@ -15,6 +15,12 @@ export const sources = sqliteTable("sources", {
   /** Last run that listed any postings, complete or not. Basis for staleness. */
   lastListedAt: integer("last_listed_at"),
   lastStatus: text("last_status"),
+  /** Consecutive runs whose listing 404'd. Any other outcome resets it to 0. */
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  /** `dead` boards are skipped by sync unless asked; a complete listing revives them. */
+  status: text({ enum: ["active", "dead"] })
+    .notNull()
+    .default("active"),
 });
 
 /** Bounded operational history: what ran where and when. Old rows are pruned. */
