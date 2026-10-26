@@ -1,6 +1,6 @@
 import type { AiEnv } from "@tallo/ai";
 import type { BlobStore } from "@tallo/db";
-import { pruneRuns, purgeClosed, rebuildFacets, schema } from "@tallo/db";
+import { pruneRuns, purgeClosed, rebuildDuplicates, rebuildFacets, schema } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
 import { modelsFromEnv } from "./ai.ts";
 import { createApp } from "./app.ts";
@@ -44,12 +44,14 @@ export default {
   fetch: (request, env, ctx) => appFor(env).fetch(request, env, ctx),
   /**
    * Hourly housekeeping: drop jobs closed for 30+ days and their orphaned description blobs,
-   * then refresh the facet counts (the search dropdowns read them).
+   * regroup duplicate postings, then refresh the facet counts (they count canonical rows only).
    */
   async scheduled(_event: ScheduledController, env: Env) {
     const { db, blobs } = deps(env);
     await purgeClosed(db, blobs);
     await pruneRuns(db, blobs);
+    let next: string | null = "";
+    while (next !== null) ({ next } = await rebuildDuplicates(db, undefined, { after: next }));
     await rebuildFacets(db);
   },
 } satisfies ExportedHandler<Env>;

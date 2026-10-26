@@ -48,6 +48,14 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
     finalize: (runId: string, body: Finalize) =>
       client.post(`v1/runs/${runId}/finalize`, { json: body }).json<FinalizeResult>(),
     reclassify: () => client.post("v1/admin/reclassify").json<{ updated: number; more: boolean }>(),
+    dedupeBackfill: (after: number) =>
+      client
+        .post("v1/admin/dedupe/backfill", { searchParams: { after } })
+        .json<{ updated: number; more: boolean; next: number }>(),
+    dedupeRebuild: (full: boolean, after?: string) =>
+      client
+        .post("v1/admin/dedupe", { searchParams: { full, ...(after ? { after } : {}) } })
+        .json<{ keys: number; changed: number; next: string | null }>(),
     sources: () => client.get("v1/sources").json<SourceState[]>(),
   };
 }

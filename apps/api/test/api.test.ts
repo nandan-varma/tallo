@@ -282,4 +282,70 @@ describe("api", () => {
     ).toBe(404);
     expect(await sha256("x")).toHaveLength(64);
   });
+
+  it("collapses one posting listed in two locations and serves every location", async () => {
+    const { call } = setup();
+    const runId = "run-dedupe-01";
+    expect(
+      (
+        await call("/v1/runs", INGEST, {
+          method: "POST",
+          json: { runId, source, runnerId: "mac", collectorVersion: "t", startedAt: now() },
+        })
+      ).status,
+    ).toBe(201);
+    const listing = (postingId: string, city: string, applyUrl: string) =>
+      prepareJob(
+        {
+          postingId,
+          title: "Software Engineer",
+          description: "Same text in both places.",
+          locations: [{ text: city, countryCode: "US", primary: true }],
+          compensation: [],
+          experience: [],
+          extras: {},
+          applyUrl,
+        },
+        source,
+        "a".repeat(64),
+      );
+    const [austin, denver] = await Promise.all([
+      listing("1", "Austin, TX", "https://x/1"),
+      listing("2", "Denver, CO", "https://x/2"),
+    ]);
+    await call(`/v1/blobs/jd/${austin.facts.jdHash}`, INGEST, { method: "PUT", body: austin.jd });
+    await call(`/v1/runs/${runId}/jobs`, INGEST, {
+      method: "POST",
+      json: { jobs: [austin.facts, denver.facts] },
+    });
+
+    // Ingest stores the key the runner computed; the rebuild groups the two rows.
+    expect(austin.facts.dedupeKey).toBe(denver.facts.dedupeKey);
+    expect((await call("/v1/admin/dedupe", null, { method: "POST" })).status).toBe(401);
+    expect(await (await call("/v1/admin/dedupe", INGEST, { method: "POST" })).json()).toEqual({
+      keys: 1,
+      changed: 1,
+      next: null,
+    });
+
+    type Variant = { id: number; applyUrl: string };
+    const search = (await (await call("/v1/jobs", READ)).json()) as {
+      jobs: { id: number; variants: number }[];
+    };
+    const hit = search.jobs[0];
+    expect(hit?.variants).toBe(2);
+    const page = (await (await call(`/v1/jobs/${hit?.id}`, READ)).json()) as {
+      variants: Variant[];
+    };
+    expect(page.variants.map((v) => v.applyUrl)).toEqual(["https://x/1", "https://x/2"]);
+    // The other listing's page shows the same group.
+    const sibling = page.variants[1]?.id;
+    const second = (await (await call(`/v1/jobs/${sibling}`, READ)).json()) as {
+      variants: Variant[];
+    };
+    expect(second.variants).toHaveLength(2);
+    expect(
+      await (await call("/v1/admin/dedupe/backfill?after=0", INGEST, { method: "POST" })).json(),
+    ).toEqual({ updated: 0, more: false, next: 0 });
+  });
 });
