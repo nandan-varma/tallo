@@ -45,15 +45,18 @@ defines the list the person sees; the web app runs that spec against the databas
 
 ## Web (`apps/web`)
 
-- `/`: `Assistant` island (`client:only`): `useChat<JobAgentMessage>` over `DefaultChatTransport('/api/chat')`; conversation in `sessionStorage`.
-  The list (`JobList`) runs `currentSearch(messages)` through `/api/search`; notes come from `notesById(messages)`.
-- Layout (desktop): chat | list | posting as three columns whose widths animate. Opening a job tucks the chat into a bubble (shared
-  `layoutId` orb) and slides the list left (400px) so you can click another job while you read; the bubble or Escape brings the chat
-  back. Mobile: Chat / Results tabs and a full-screen posting.
+- `/`: `Assistant` island (`client:only`): `useChat<JobAgentMessage>` over `DefaultChatTransport('/api/chat')`; the conversation is kept in
+  `sessionStorage`. Data fetching is TanStack Query (`queries.ts`): `useSearchPage` runs `currentSearch(messages)` through `/api/search` and
+  keeps the previous page on screen while the next loads (the list never blanks); `useJob` loads a posting once per visit.
+- Layout is CSS only: a `data-detail` / `data-tab` attribute on the container switches three columns (chat | results | posting) and flex
+  transitions animate it. One tree serves desktop and mobile (Tailwind `lg:` / `max-lg:` variants). Opening a job tucks the chat into a bubble
+  and slides the list left (400px) so you can click another job while you read; the bubble or Esc brings the chat back.
+- Pieces: `Assistant` (state and layout), `ChatPanel`/`Messages`/`Composer`, `JobList` (+ `JobRow`), `JobPage`, `queries.ts`, `hooks.ts`.
+  `lib/assistant.ts` derives everything beside the chat from the messages: `currentSearch`, `notesById`, `activitiesOf`.
 - `/profile`: paste a resume, build the profile with the model, edit it, save. Bookmarks stay in `localStorage` (`tallo:saved-roles`).
 - A posting shows the assistant's note (if any), the full description, facts, and the other locations of the same posting.
-- DOM tests (`apps/web/test/Assistant.test.tsx`, jsdom) mount the real tree with a finished conversation and exercise the list, opening
-  and switching postings, the bubble and mobile.
+- Tests: `Assistant.test.tsx` (jsdom) mounts the real tree with a finished conversation (list, open and switch postings, note, bubble, Esc,
+  mobile); `Assistant.stream.test.tsx` replays a recorded production turn (`fixtures/turn.sse`) through the real `useChat`.
 
 ## Models on OpenCode Go (measured 2026-10-26)
 
