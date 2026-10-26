@@ -66,7 +66,8 @@ export const getFacets = () => call<Facets>("/v1/facets", 300);
 export const getJob = (id: number) => call<JobDetail>(`/v1/jobs/${id}`, 300);
 
 /** Operational reads for the status page. Short TTL: collection state changes over hours, not seconds. */
-export const listSources = () => call<SourceRecord[]>("/v1/sources", 60).then((rows) => rows ?? []);
+export const listSources = () =>
+  call<SourceRecord[]>("/v1/sources/status", 60).then((rows) => rows ?? []);
 
 export const listAttentionRuns = (limit = 50) =>
   call<RunRecord[]>(`/v1/runs?attention=true&limit=${limit}`, 60).then((rows) => rows ?? []);

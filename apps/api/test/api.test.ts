@@ -190,6 +190,81 @@ describe("api", () => {
     });
   });
 
+  it("serves the slim status view of sources and filters run history", async () => {
+    const { call } = setup();
+    const board = (id: string) => ({ ...source, id, key: id.split(":")[1], company: id });
+    /** Starts and finalizes one run; `listingComplete` decides complete vs partial. */
+    const run = async (
+      n: number,
+      src: ReturnType<typeof board>,
+      finish: { listingComplete: boolean; issues?: { code: string; message: string }[] },
+    ) => {
+      const runId = `run-0000000${n}`;
+      await call("/v1/runs", INGEST, {
+        method: "POST",
+        json: { runId, source: src, runnerId: "mac", collectorVersion: "t", startedAt: now() - n },
+      });
+      await call(`/v1/runs/${runId}/finalize`, INGEST, {
+        method: "POST",
+        json: {
+          seenIds: [],
+          listingComplete: finish.listingComplete,
+          detailsComplete: true,
+          emptyIsAuthoritative: false,
+          requests: 1,
+          finishedAt: now(),
+          rawKey: null,
+          issues: finish.issues ?? [],
+        },
+      });
+    };
+    await run(1, board("greenhouse:acme"), { listingComplete: true });
+    await run(2, board("greenhouse:beta"), { listingComplete: false });
+    await run(3, board("greenhouse:gamma"), {
+      listingComplete: true,
+      issues: [{ code: "detail", message: "one posting failed" }],
+    });
+
+    expect((await call("/v1/sources/status", null)).status).toBe(401);
+    const status = (await (await call("/v1/sources/status", READ)).json()) as Record<
+      string,
+      unknown
+    >[];
+    expect(status.map((s) => s.id)).toEqual([
+      "greenhouse:acme",
+      "greenhouse:beta",
+      "greenhouse:gamma",
+    ]);
+    for (const row of status) {
+      expect(row).toHaveProperty("freshness");
+      expect(row).toHaveProperty("lastStatus");
+      expect(row).not.toHaveProperty("params");
+      expect(row).not.toHaveProperty("consecutiveFailures");
+    }
+    // The full record is unchanged: the runner's `sources --dead` reads status and failures.
+    const full = (await (await call("/v1/sources", READ)).json()) as Record<string, unknown>[];
+    expect(full[0]).toMatchObject({ id: "greenhouse:acme", status: "active", params: {} });
+    expect(full[0]).toHaveProperty("consecutiveFailures");
+
+    const runs = (await (await call("/v1/runs", READ)).json()) as { status: string }[];
+    // Newest first: run 1 started last.
+    expect(runs.map((r) => r.status)).toEqual(["complete", "partial", "complete"]);
+    const attention = (await (await call("/v1/runs?attention=true", READ)).json()) as {
+      sourceId: string;
+    }[];
+    expect(attention.map((r) => r.sourceId).sort()).toEqual([
+      "greenhouse:beta",
+      "greenhouse:gamma",
+    ]);
+    const limited = (await (await call("/v1/runs?limit=1", READ)).json()) as unknown[];
+    expect(limited).toHaveLength(1);
+    const reads = await call("/v1/runs", READ);
+    expect(reads.headers.get("cache-control")).toBe("private, max-age=30");
+    expect((await call("/v1/runs?limit=0", READ)).status).toBe(400);
+    expect((await call("/v1/runs?limit=201", READ)).status).toBe(400);
+    expect((await call("/v1/runs?attention=maybe", READ)).status).toBe(400);
+  });
+
   it("rejects malformed input and maps ingest conflicts to 409", async () => {
     const { call } = setup();
     expect((await call("/v1/runs", INGEST, { method: "POST", json: { runId: "x" } })).status).toBe(

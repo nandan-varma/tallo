@@ -100,8 +100,9 @@ export async function syncSource(
   } catch (error) {
     issues.push({ code: "http", message: error instanceof Error ? error.message : String(error) });
     log.warn({ source: source.id, error: String(error) }, "listing failed");
-    // A 404 means the board does not exist. Repeated 404s mark the source dead on the server.
-    const boardNotFound = error instanceof HttpError && error.status === 404;
+    // A 404 on the first request means the board does not exist; repeated ones mark it dead.
+    // A 404 later in pagination is a failed run on a board that exists, so it must not count.
+    const boardNotFound = error instanceof HttpError && error.status === 404 && requests === 1;
     return finish({ boardNotFound });
   }
 

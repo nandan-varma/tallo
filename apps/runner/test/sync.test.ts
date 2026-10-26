@@ -160,6 +160,41 @@ describe("dead boards", () => {
     expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(2);
   });
 
+  it("a 404 on a later page of a real board is a failed run, not board-not-found", async () => {
+    const { app, api } = stack();
+    // SmartRecruiters pages by 100: the board answers page one, then 404s on page two.
+    const page = (offset: number) =>
+      offset === 0
+        ? new Response(
+            JSON.stringify({
+              totalFound: 150,
+              content: Array.from({ length: 100 }, (_, i) => ({ id: `p${i}`, name: "Job" })),
+            }),
+          )
+        : new Response("", { status: 404 });
+    const paged: typeof fetch = async (input) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      return page(Number(url.searchParams.get("offset")));
+    };
+    const smart = {
+      id: "smartrecruiters:acme",
+      platform: "smartrecruiters",
+      key: "acme",
+      company: "Acme",
+      params: {},
+    };
+    const result = await syncSource(smart, {
+      api,
+      log,
+      runnerId: "test",
+      version: "t",
+      fetch: paged,
+    });
+    expect(result).toMatchObject({ listingComplete: false, boardNotFound: false });
+    const [row] = (await read(app, "/v1/sources")).filter((s: { id: string }) => s.id === smart.id);
+    expect(row).toMatchObject({ status: "active", consecutiveFailures: 0 });
+  });
+
   it("a 500 is a failed run, not a 404, and does not count toward dead", async () => {
     const { app, api } = stack();
     const broken = greenhouse({ listing: () => new Response("{}", { status: 500 }) });

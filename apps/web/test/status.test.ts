@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   attentionSources,
+  httpsUrl,
   type RunRecord,
   runCounts,
   type SourceRecord,
@@ -142,5 +143,16 @@ describe("runCounts", () => {
       "changed",
       "closed",
     ]);
+  });
+});
+
+describe("httpsUrl", () => {
+  it("keeps only absolute https URLs", () => {
+    expect(httpsUrl("https://boards.example.com/jobs/1")).toBe("https://boards.example.com/jobs/1");
+    expect(httpsUrl("http://example.com")).toBeUndefined();
+    expect(httpsUrl("javascript:alert(1)")).toBeUndefined();
+    expect(httpsUrl("/relative/path")).toBeUndefined();
+    expect(httpsUrl("")).toBeUndefined();
+    expect(httpsUrl(undefined)).toBeUndefined();
   });
 });

@@ -117,6 +117,17 @@ export function runCounts(run: RunRecord): { label: string; value: number }[] {
   return counts.filter((c): c is { label: string; value: number } => c.value !== null);
 }
 
+/** Returns the URL only when it is an absolute https URL; anything else (javascript:, relative) is dropped. */
+export function httpsUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const FRESHNESS_LABEL: Record<Freshness, string> = {
   fresh: "Fresh",
   stale: "Stale",
