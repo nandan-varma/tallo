@@ -87,9 +87,9 @@ describe("useResumeDoc", () => {
     const { result } = renderHook(() => useResumeDoc({ jobId: null, initial: null }));
     act(() => result.current.edit(rename("Before")));
     const after = { ...result.current.doc.resume, name: "After" };
-    act(() => result.current.applyAi(after, ["Renamed"]));
+    act(() => result.current.applyAi(after, ["Renamed"], "edit"));
     expect(result.current.doc.resume.name).toBe("After");
-    expect(result.current.review?.changes).toEqual(["Renamed"]);
+    expect(result.current.review).toMatchObject({ changes: ["Renamed"], kind: "edit" });
 
     act(() => result.current.undoAi());
     expect(result.current.doc.resume.name).toBe("Before");

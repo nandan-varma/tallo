@@ -83,6 +83,21 @@ location is known and non-US, else NULL. `is_tech` is 1 for tech titles/departme
 non-tech, else NULL. Only confident zeros hide a job; unknown stays visible. Retained raw packs let a
 corrected rule be replayed without refetching.
 
+### Personal layer
+
+`profiles` (resume text + profile markdown the assistant reads) and `resumes` (structured resume JSON, one row per
+user and posting; `job_id` 0 is the base resume, no foreign key so a copy outlives its posting). Neither is ever joined
+into catalog tables; `listResumes` looks up posting titles in a second query. v1 has one user (`DEFAULT_USER`).
+
+## Resume builder
+
+`/resume` (base) and `/resume/<posting id>` (tailored copy; `?tailor=1` tailors on arrival) are one React island,
+`ResumeWorkspace`: section editor, assistant panel, live PDF. Autosave is debounced, one write at a time
+(`useResumeDoc`). API: `GET/PUT/DELETE /v1/resume[?job=]`, `GET /v1/resumes`, and `POST /v1/resume/{import,tailor,edit}`
+(`packages/resume/ai`, one `generateText` + `Output.object` each; the posting's description is read from R2, never fetched
+from a user URL). The web `/api/resume*` routes only relay with a byte cap (`lib/proxy.ts`). Rendering lives in
+`apps/web/src/lib/resume` (`pdf.tsx` document, `layout.ts` densities and font-safe text, `render.ts` fitting).
+
 ## Search
 
 `GET /v1/jobs`: FTS prefix match plus filters, keyset pagination on `(sort_at, id)`, partial indexes on

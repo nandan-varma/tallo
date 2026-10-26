@@ -10,7 +10,7 @@ const PREVIEW_MS = 350;
  * The PDF for the resume as it is now. Redraws when typing pauses; the last good PDF stays on screen while
  * the next one is made, and an error leaves it there too, so the preview never blanks mid-edit.
  */
-export function usePreview(doc: ResumeDoc) {
+export function usePreview(doc: ResumeDoc, enabled = true) {
   const [rendered, setRendered] = useState<Rendered | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +18,10 @@ export function usePreview(doc: ResumeDoc) {
 
   useEffect(() => {
     const id = ++run.current;
+    if (!enabled) {
+      setBusy(false);
+      return;
+    }
     setBusy(true);
     const timer = setTimeout(async () => {
       try {
@@ -32,7 +36,7 @@ export function usePreview(doc: ResumeDoc) {
       }
     }, PREVIEW_MS);
     return () => clearTimeout(timer);
-  }, [doc]);
+  }, [doc, enabled]);
 
   return { rendered, busy, error };
 }

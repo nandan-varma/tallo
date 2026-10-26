@@ -16,6 +16,7 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
 | `packages/http`      | Outbound HTTP (ky + p-queue): retries, per-host limits, https/allowlist/SSRF guard, size caps.                  |
 | `packages/catalog`   | Pure normalization: HTML→text, locations, pay/experience extraction, US/tech heuristics, hashing, `prepareJob`. |
 | `packages/platforms` | One folder per ATS: `list` + optional `detail` + pure `map` + `fingerprint`. Registered in `src/index.ts`.      |
+| `packages/resume`    | Resume text rendering, the tailoring fact guard (`.`), and the import/tailor/edit AI calls (`./ai`).            |
 | `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` (the only write path), `queries.ts`, `BlobStore`.         |
 | `apps/api`           | Hono Worker: internal read API + ingest endpoints. Bearer tokens. D1 + R2.                                      |
 | `apps/web`           | Astro SSR UI (private, access-key cookie). Talks to the API via service binding.                                |

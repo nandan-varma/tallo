@@ -12,6 +12,8 @@ export const AUTOSAVE_MS = 900;
 export interface Review {
   previous: Resume;
   changes: string[];
+  /** Tailoring is held to the facts already in the resume; a free-form edit is not. */
+  kind: "tailor" | "edit";
 }
 
 /**
@@ -79,8 +81,8 @@ export function useResumeDoc({
 
   /** Puts an AI result in place and keeps what it replaced, for review and undo. */
   const applyAi = useCallback(
-    (resume: Resume, changes: string[]) => {
-      setReview({ previous: latest.current.resume, changes });
+    (resume: Resume, changes: string[], kind: Review["kind"]) => {
+      setReview({ previous: latest.current.resume, changes, kind });
       replace({ ...latest.current, resume });
     },
     [replace],

@@ -2,6 +2,16 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
+**D14. Resumes are structured data, drawn to PDF in the browser.** A `Resume` (zod, `contracts/resume.ts`) plus a `ResumeStyle`
+is the source of truth, stored as JSON in `resumes` (personal layer, keyed by user, `job_id` 0 = base, a posting id = the copy
+tailored to it). The PDF is made client-side by `@react-pdf/renderer`: PDF standard fonts, real text in reading order,
+and a density search (`DENSITIES`, binary search by page count) that picks the roomiest layout fitting the page limit, so
+fitting is code, not a prompt. pdf.js draws the preview (the same on phones) and reads an uploaded PDF's text on the device.
+Rejected: LaTeX/WASM (the reference app's route): a 324 MB TeX Live download, LaTeX errors to repair, and a long prompt to make
+a model keep to one page. AI never rewrites facts: `applyTailoring` takes employers, titles, dates and schools from the
+original and drops any bullet that states a number, or any skill, the resume never contained. Free-form edits are not
+held to that, so the UI says so and offers undo. Nothing the model writes is stored until the person edits or saves.
+
 **D13. The AI assistant builds the search; the database produces the list.** One streamed `ToolLoopAgent` with `search_jobs`, `read_job`
 (full text, never cut) and `explain_jobs` (validated notes). The shared contract is a search spec; the results list is the database's
 answer to the assistant's last `search_jobs`, so a model never writes list data and cannot hallucinate it. `packages/ai` maps a role to

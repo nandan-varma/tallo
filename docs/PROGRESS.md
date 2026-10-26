@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-10-26._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+_Last updated: 2026-10-26 (resume builder)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
 ## Done
 
@@ -20,11 +20,19 @@ _Last updated: 2026-10-26._ Stateless handoff: also read `gh issue list` and `gh
 - Deploy policy: deploy to prod right after each change (migrations first). Deploy from a clean worktree of origin/main, not from a
   checkout that background syncs import. Use `pnpm --filter @tallo/api run deploy` (plain `pnpm deploy` is another command).
 
+- **Resume builder (live 2026-10-26, D14)**: `/resume` and `/resume/<posting id>`. Structured resume editor, PDF drawn in the
+  browser (react-pdf; fits the page limit by choosing a density), pdf.js preview and PDF-to-text import, assistant
+  tailoring per posting (facts guarded in code) and free-form edits with undo. "Tailor resume" is on each posting.
+  Migration 0009 `resumes` applied. `/profile` can reuse the built resume as its source text.
+  Cleanup done with it: `pnpm check` works again (biome ignores `.claude/` worktrees; ~32 stale agent worktrees remain
+  there and can be removed with `git worktree remove` once their branches are confirmed merged), shared `requestJson` /
+  `forward` helpers replaced three copies of fetch+error handling, stale lint suppressions removed.
+
 ## Infra
 
 | Thing   | Id / location                                                                                                                                      |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0003 applied remotely                                                              |
+| D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0009 applied remotely                                                              |
 | R2      | `tallo-blobs`                                                                                                                                      |
 | Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, hourly cron at :17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                     |
 | Secrets | API: READ_TOKEN, INGEST_TOKEN. Web: READ_TOKEN, ACCESS_TOKEN. Local copies: `apps/runner/.env`, `~/.config/tallo/web-secrets.env` (both untracked) |

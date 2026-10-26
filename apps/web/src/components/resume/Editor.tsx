@@ -1,5 +1,6 @@
 import type { Resume, ResumeStyle } from "@tallo/contracts";
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   AddButton,
   AreaField,
@@ -438,15 +439,27 @@ export function Editor({
   );
 }
 
-/** Skills are typed as one comma-separated line; the list is rebuilt on every keystroke except mid-comma. */
+/**
+ * Skills are typed as one comma-separated line. The text being typed is kept here (a trailing comma has to
+ * survive the keystroke), and is replaced only when the list changes from outside, such as an undo.
+ */
 function SkillItems({ items, onChange }: { items: string[]; onChange: (items: string[]) => void }) {
+  const [draft, setDraft] = useState(items.join(", "));
+  useEffect(() => {
+    setDraft((current) =>
+      splitItems(current).join("\n") === items.join("\n") ? current : items.join(", "),
+    );
+  }, [items]);
   return (
     <TextField
-      label="Skills"
-      value={items.join(", ")}
+      label="Skills in this group"
+      value={draft}
       placeholder="TypeScript, Go, SQL"
       className="min-w-0 flex-1"
-      onChange={(value) => onChange(splitItems(value))}
+      onChange={(value) => {
+        setDraft(value);
+        onChange(splitItems(value));
+      }}
     />
   );
 }

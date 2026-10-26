@@ -174,9 +174,8 @@ export function ResumeWorkspace({
   const [started, setStarted] = useState(seed !== null);
   const [tab, setTab] = useState("edit");
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const preview = usePreview(doc);
-
   const empty = useMemo(() => isEmptyResume(doc.resume), [doc.resume]);
+  const preview = usePreview(doc, !empty);
   const style = doc.style;
   const setStyle = (patch: Partial<ResumeStyle>) =>
     edit((d) => ({ ...d, style: { ...d.style, ...patch } }));
@@ -286,8 +285,8 @@ export function ResumeWorkspace({
                 resume={doc.resume}
                 posting={posting}
                 autoTailor={autoTailor && !initial}
-                onApply={(result) => {
-                  applyAi(result.resume, result.changes);
+                onApply={(result, kind) => {
+                  applyAi(result.resume, result.changes, kind);
                   setTab("edit");
                 }}
               />

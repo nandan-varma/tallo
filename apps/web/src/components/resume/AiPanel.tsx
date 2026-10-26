@@ -34,7 +34,7 @@ export function AiPanel({
   posting: Posting | null;
   /** Tailor once on arrival (the "Tailor resume" button on a posting does this). */
   autoTailor: boolean;
-  onApply: (edit: ResumeEdit) => void;
+  onApply: (edit: ResumeEdit, kind: "tailor" | "edit") => void;
 }) {
   const [working, setWorking] = useState<"tailor" | "edit" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export function AiPanel({
     setError(null);
     try {
       const edit = await requestJson<ResumeEdit>(`/api/resume/${kind}`, { method: "POST", body });
-      onApply(edit);
+      onApply(edit, kind);
       if (kind === "edit") setInstruction("");
     } catch (e) {
       setError(messageOf(e));
