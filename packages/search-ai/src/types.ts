@@ -36,6 +36,7 @@ export type SearchOptions = {
   triageBatchSize?: number; // default 100
   descriptionChunkChars?: number; // default 24000: size of one consecutive part when a description is oversized
   maxDescriptionParts?: number; // default 8: above this many parts the search throws; it never truncates
+  maxModelCalls?: number; // default 100: hard ceiling on model calls per search, retries included; reaching it throws
 };
 
 export type SearchInput = {

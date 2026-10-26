@@ -199,6 +199,31 @@ describe("search", () => {
     expect(judge?.text).toContain("read in 3 consecutive parts");
   });
 
+  it("stops with a loud error instead of making a model call past maxModelCalls", async () => {
+    // understand (1), triage (2), judge (3): a ceiling of 2 must stop before the judge call.
+    const { calls, models } = setup(responder({}));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: "short" } });
+
+    await expect(
+      search({ query: "backend", profile: PROFILE, models, jobs, options: { maxModelCalls: 2 } }),
+    ).rejects.toThrow(/maxModelCalls/);
+    expect(stagesOf(calls)).toEqual(["understand", "triage"]);
+  });
+
+  it("completes when the ceiling exactly covers the calls it needs", async () => {
+    const { calls, models } = setup(responder({}));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: "short" } });
+
+    await search({
+      query: "backend",
+      profile: PROFILE,
+      models,
+      jobs,
+      options: { maxModelCalls: 3 },
+    });
+    expect(stagesOf(calls)).toEqual(["understand", "triage", "judge"]);
+  });
+
   it("throws instead of truncating when a description needs more than maxDescriptionParts", async () => {
     const description = "x ".repeat(500); // 1000 chars: 10 parts of 100
     const { calls, models } = setup(responder({}));

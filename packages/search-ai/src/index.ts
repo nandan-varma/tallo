@@ -1,3 +1,4 @@
+export { ModelCallLimitError } from "./call.ts";
 export { chunkText } from "./chunk.ts";
 export { search } from "./search.ts";
 export type {

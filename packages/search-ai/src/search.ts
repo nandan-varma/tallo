@@ -21,6 +21,7 @@ const DEFAULTS = {
   triageBatchSize: 100,
   descriptionChunkChars: 24_000,
   maxDescriptionParts: 8, // about 190k characters at the default part size
+  maxModelCalls: 100,
 };
 
 const MAX_RECALL_QUERIES = 12;
@@ -91,7 +92,7 @@ export async function search(input: SearchInput): Promise<SearchResult> {
   const options = resolveOptions(input.options);
   const { models, jobs, profile } = input;
   const query = input.query.trim();
-  const meter = newMeter();
+  const meter = newMeter(options.maxModelCalls);
 
   // 1. Understand (fast).
   const intent = await structured({

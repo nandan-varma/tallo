@@ -11,12 +11,18 @@ import type { Tokens } from "./types.ts";
 export type Meter = {
   tokens: { fast: Tokens; smart: Tokens };
   retries: number;
+  /** Model calls made so far, retries included. */
+  calls: number;
+  /** Hard ceiling: the next call past it throws instead of being made. */
+  maxCalls: number;
 };
 
-export function newMeter(): Meter {
+export function newMeter(maxCalls: number = Number.POSITIVE_INFINITY): Meter {
   return {
     tokens: { fast: { input: 0, output: 0 }, smart: { input: 0, output: 0 } },
     retries: 0,
+    calls: 0,
+    maxCalls,
   };
 }
 
@@ -39,6 +45,10 @@ export async function structured<S extends z.ZodType>(
 ): Promise<z.infer<S>> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const maxOutputTokens = call.maxOutputTokens * 2 ** attempt;
+    if (call.meter.calls >= call.meter.maxCalls) {
+      throw new ModelCallLimitError(call.meter.maxCalls);
+    }
+    call.meter.calls += 1;
     try {
       const result = await generateText({
         model: call.model,
@@ -66,6 +76,13 @@ export async function structured<S extends z.ZodType>(
     }
   }
   throw new Error("unreachable");
+}
+
+export class ModelCallLimitError extends Error {
+  constructor(limit: number) {
+    super(`Search stopped: the next model call would exceed maxModelCalls (${limit}).`);
+    this.name = "ModelCallLimitError";
+  }
 }
 
 function addUsage(
