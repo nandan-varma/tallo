@@ -6,6 +6,7 @@ import { Avatar, Verdict } from "@/components/assistant/ResultCard";
 import { JobFacts } from "@/components/JobFacts";
 import { JobMeta } from "@/components/JobMeta";
 import { Button } from "@/components/ui/button";
+import { Variants } from "@/components/Variants";
 import { markQuotes, type RankedMatch } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
 
@@ -231,6 +232,7 @@ export function Listing({
               <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_17rem]">
                 <Description text={job.description} quotes={quotes} />
                 <aside className="grid content-start gap-4 xl:order-last">
+                  <Variants variants={job.variants} currentId={job.id} />
                   <JobFacts facts={job.facts} />
                 </aside>
               </div>

@@ -7,7 +7,6 @@ import {
   getJob,
   listVariants,
   rebuildDuplicates,
-  rebuildFacets,
   reclassify,
   schema,
   searchJobs,
@@ -281,16 +280,6 @@ describe("duplicate groups", () => {
     await rebuild();
     expect(await dupOf(b)).toBe(a);
     expect(await visibleIds()).toEqual([a]);
-  });
-
-  it("keeps duplicates out of facet counts", async () => {
-    await row({ department: "Engineering" });
-    await row({ department: "Engineering" });
-    await rebuild();
-    await rebuildFacets(db, NOW);
-
-    const counts = await db.select().from(schema.facetCounts);
-    expect(counts.find((c) => c.facet === "department")?.count).toBe(1);
   });
 });
 

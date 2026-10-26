@@ -1,13 +1,9 @@
-import type { Facets } from "@tallo/contracts";
 import { STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
-import { facetCounts, jobs, runs, sources } from "./schema.ts";
-
-/** Most values kept per facet. Bounds the snapshot size and the dropdown length. */
-export const FACET_LIMIT = 100;
+import { jobs, runs, sources } from "./schema.ts";
 
 export const searchSchema = z.object({
   q: z.string().trim().max(200).optional(),
@@ -93,7 +89,7 @@ const summary = {
 
 /**
  * What a default search shows: open canonical jobs (one per duplicate group, see `dup_of`), not
- * heuristically hidden, from sources that listed recently. Facet counts use the same predicate so
+ * heuristically hidden, from sources that listed recently. The same predicate is used so
  * every count matches its filter's results.
  */
 export function visibleJobs(now: number, { all = false, includeStale = false } = {}): SQL[] {
@@ -156,36 +152,6 @@ export async function searchJobs(
     jobs: page,
     nextCursor: rows.length > input.limit && last ? `${last.sortAt}.${last.id}` : null,
   };
-}
-
-/**
- * Reads the precomputed facet snapshot: one small table scan, no `jobs` access. The table is
- * rebuilt by `rebuildFacets` (hourly cron), so counts can lag by up to an hour.
- */
-export async function listFacets(db: Db): Promise<Facets> {
-  const rows = await db
-    .select()
-    .from(facetCounts)
-    .orderBy(desc(facetCounts.count), facetCounts.value);
-  const facets: Facets = {
-    computedAt: null,
-    workMode: [],
-    department: [],
-    employmentType: [],
-    country: [],
-  };
-  for (const row of rows) {
-    facets.computedAt = Math.max(facets.computedAt ?? 0, row.computedAt);
-    if (
-      row.facet === "workMode" ||
-      row.facet === "department" ||
-      row.facet === "employmentType" ||
-      row.facet === "country"
-    ) {
-      facets[row.facet].push({ value: row.value, count: row.count });
-    }
-  }
-  return facets;
 }
 
 export async function getJob(db: Db, id: number) {

@@ -20,13 +20,11 @@ import {
   getProfile,
   IngestError,
   jdKey,
-  listFacets,
   listRuns,
   listSourceStatus,
   listSources,
   listVariants,
   rebuildDuplicates,
-  rebuildFacets,
   reclassify,
   runsSearchSchema,
   saveProfile,
@@ -176,12 +174,6 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   /** Slim per-source view for the status page; `/v1/sources` stays the full record for the runner. */
   app.get("/v1/sources/status", read, async (c) => c.json(await listSourceStatus(db)));
 
-  /** Precomputed counts for the filter dropdowns; a few rows read per request. */
-  app.get("/v1/facets", read, async (c) => {
-    c.header("cache-control", "private, max-age=300");
-    return c.json(await listFacets(db));
-  });
-
   app.get("/v1/runs", read, zValidator("query", runsSearchSchema), async (c) => {
     c.header("cache-control", "private, max-age=30");
     return c.json(await listRuns(db, c.req.valid("query")));
@@ -240,9 +232,6 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   app.post("/v1/runs/:id/finalize", write, zValidator("json", finalizeSchema), async (c) =>
     c.json(await finalize(db, c.req.param("id"), c.req.valid("json"))),
   );
-
-  /** Recount facets now instead of waiting for the hourly cron (e.g. right after a deploy). */
-  app.post("/v1/admin/facets/rebuild", write, async (c) => c.json(await rebuildFacets(db)));
 
   /**
    * Fill dedupe keys for rows stored before the key existed. Call with `after=<next>` until `more`

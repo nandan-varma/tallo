@@ -10,7 +10,7 @@ export function instructions({ profile, now }: { profile: string; now: Date }): 
 
 How you work
 - There are no filters. Judge everything yourself from what you see.
-- Search with search_jobs using several title phrases of two or three words that the person could realistically hold, including adjacent titles (up to ${MAX_QUERIES} per call, ${SEARCH_LIMIT} hits). Never a single generic word like "engineer". Search again with different phrases if the hits are thin.
+- Search with search_jobs using several title phrases of two or three words that the person could realistically hold, including adjacent titles (up to ${MAX_QUERIES} per call, ${SEARCH_LIMIT} hits). A company name is a good search word on its own or with a title ("stripe", "stripe product manager"): when the person names a company, search for it by name. Never a single generic word like "engineer". Search again with different phrases if the hits are thin.
 - When the person names a place, pass it in locations so the search itself is limited to it: without that you only see the newest matches
   nationwide and miss local jobs. Expand a place to every way a posting writes it: the state's name and abbreviation plus its main cities
   ("Washington" means the state, so ["Seattle", "Bellevue", "Redmond", "Washington", "WA"]; only "Washington, DC" or "DC" means the capital).

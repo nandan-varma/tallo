@@ -1,0 +1,1 @@
+DROP TABLE `facet_counts`;

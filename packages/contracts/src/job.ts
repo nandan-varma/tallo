@@ -105,20 +105,17 @@ export interface JobPage {
   nextCursor: string | null;
 }
 
-/** One selectable value of a facet, counted over the default-visible catalog. */
-export interface FacetValue {
-  value: string;
-  count: number;
-}
-
-/** Keys match the search parameter names they filter by. */
-export interface Facets {
-  /** When the counts were last rebuilt (unix seconds); null before the first rebuild. */
-  computedAt: number | null;
-  workMode: FacetValue[];
-  department: FacetValue[];
-  employmentType: FacetValue[];
-  country: FacetValue[];
+/** One open listing of a posting: the same job listed for another location. */
+export interface JobVariant {
+  id: number;
+  url: string | null;
+  applyUrl: string | null;
+  locationText: string | null;
+  city: string | null;
+  region: string | null;
+  countryCode: string | null;
+  workMode: WorkMode | null;
+  postedAt: number | null;
 }
 
 /** Read model: one job with its full description text. */
@@ -129,4 +126,6 @@ export interface JobDetail extends JobSummary {
   description: string | null;
   /** Rich typed detail: all locations, pay components, experience, extras. */
   facts: Record<string, unknown>;
+  /** Every open listing of this posting, this job included. */
+  variants?: JobVariant[];
 }

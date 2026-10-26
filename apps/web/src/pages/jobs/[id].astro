@@ -2,6 +2,7 @@
 import { JobFacts } from "@/components/JobFacts";
 import { Button } from "@/components/ui/button";
 import { JobMeta } from "@/components/JobMeta";
+import { Variants } from "@/components/Variants";
 import Base from "@/layouts/Base.astro";
 import { getJob } from "@/lib/api";
 const id = Number(Astro.params.id);
@@ -37,6 +38,7 @@ const link = job.applyUrl ?? job.url;
             </Button>
           )
         }
+        <Variants variants={job.variants} currentId={job.id} />
         <JobFacts facts={job.facts} />
       </aside>
     </div>

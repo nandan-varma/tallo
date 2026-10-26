@@ -131,21 +131,6 @@ export const jobs = sqliteTable(
 export type JobRow = typeof jobs.$inferSelect;
 
 /**
- * Precomputed facet counts over the default-visible catalog (see `rebuildFacets`). Derived data:
- * rebuilt wholesale in one batch, so readers always see one complete snapshot.
- */
-export const facetCounts = sqliteTable(
-  "facet_counts",
-  {
-    facet: text().notNull(),
-    value: text().notNull(),
-    count: integer().notNull(),
-    computedAt: integer("computed_at").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.facet, t.value] })],
-);
-
-/**
  * Personal layer (CLAUDE.md rule 5): the user's resume and the profile markdown generated from it, keyed by
  * user. Never joined into the shared catalog tables. Search results and chat are not stored anywhere.
  */
