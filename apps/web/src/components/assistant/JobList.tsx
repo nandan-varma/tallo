@@ -6,6 +6,7 @@ import { PAGE_SIZE, useSearchPage, useTracker } from "@/components/assistant/que
 import { StatusMenu } from "@/components/assistant/StatusMenu";
 import { Button } from "@/components/ui/button";
 import type { Note } from "@/lib/assistant";
+import { ago } from "@/lib/format";
 import { countByStatus, filterByStatus, STATUS_LABEL, type StatusFilter } from "@/lib/tracker";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +104,7 @@ function TrackerRows({ openId, onOpen }: { openId: string | null; onOpen: (id: s
                     <span className="block truncate text-[13px] text-muted-foreground">
                       {application.company}
                       {application.location ? ` · ${application.location}` : ""}
+                      {application.appliedAt ? ` · applied ${ago(application.appliedAt)}` : ""}
                     </span>
                     {application.note && (
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground italic">

@@ -71,7 +71,6 @@ export function ResumePdf({
     heading: {
       fontFamily: font.bold,
       fontSize: size * (modern ? 1.0 : 1.05),
-      letterSpacing: modern ? 1.2 : 0.8,
       textTransform: "uppercase",
       color: modern ? style.accent : "#111827",
       borderBottomWidth: modern ? 0 : 0.8,

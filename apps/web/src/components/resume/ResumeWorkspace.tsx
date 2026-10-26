@@ -20,6 +20,7 @@ import { Editor } from "@/components/resume/Editor";
 import { ImportPanel } from "@/components/resume/ImportPanel";
 import { LetterEditor } from "@/components/resume/LetterEditor";
 import { PdfPages, usePreview } from "@/components/resume/PdfPreview";
+import { ResumeChecks } from "@/components/resume/ResumeChecks";
 import { type SaveState, useResumeDoc } from "@/components/resume/useResumeDoc";
 import { Button } from "@/components/ui/button";
 import {
@@ -372,6 +373,7 @@ export function ResumeWorkspace({
                     </p>
                   </section>
                 )}
+                <ResumeChecks resume={doc.resume} />
                 <Editor
                   resume={doc.resume}
                   onResume={(change) => edit((d) => ({ ...d, resume: change(d.resume) }))}

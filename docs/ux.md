@@ -10,11 +10,21 @@ Three jobs, three places. Each job has one way to do it; nothing is offered twic
 
 Navigation is Jobs and Resume. Data status is a quiet link on the right. Old `/profile` and `/jobs/<id>` redirect.
 
+## What each place holds
+
+- **Jobs** (`/`): chat, results, tracker (the "Tracker" tab: every saved or applied role, filter by status, notes on the
+  posting), saved searches on the empty chat with "N new" since you last ran them. A posting offers Save/status, Tailor
+  resume, Apply, and a fit check against your resume.
+- **Resume** (`/resume`, `/resume/<posting>`): editor with checks, assistant, live PDF; a posting's copy also has the cover
+  letter tab. Theme (light/dark) is the toggle in the header and follows the system until you choose.
+
 ## Rules we hold to
 
 - **One home for each fact.** The resume is the only place the resume is edited; the assistant reads it directly (no
   generated profile). What a resume cannot say (target roles, pay, places, deal-breakers) is the "About you" sheet in the
   chat, where it is used.
+- **Status has one control**: the status menu is the only way to change where a role stands; clicking Apply moves a saved or
+  untracked role to applied, and never overrides a later status.
 - **A posting has one view**, the reading pane, and one address. Sharing, reloading and linking from the resume all use it.
 - **One way to ask the resume assistant**: tailor (for a posting's copy) or type an instruction. Every result is put in
   place with a "What changed" list and Undo, so there is no confirm step to forget.

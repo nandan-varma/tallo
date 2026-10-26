@@ -85,8 +85,9 @@ corrected rule be replayed without refetching.
 
 ### Personal layer
 
-`profiles` (resume text + profile markdown the assistant reads) and `resumes` (structured resume JSON, one row per
-user and posting; `job_id` 0 is the base resume, no foreign key so a copy outlives its posting). Neither is ever joined
+`profiles` (the person's free-text notes for the assistant), `applications` (the tracker; a snapshot of the posting is
+copied in because postings are purged after closing), `searches` (saved searches, `seen_at` drives "N new") and `resumes`
+(structured resume JSON, one row per user and posting; `job_id` 0 is the base resume, no foreign key so a copy outlives its posting). Neither is ever joined
 into catalog tables; `listResumes` looks up posting titles in a second query. v1 has one user (`DEFAULT_USER`).
 
 ## Resume builder
