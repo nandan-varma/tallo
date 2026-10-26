@@ -71,3 +71,21 @@ export const listSources = () =>
 
 export const listAttentionRuns = (limit = 50) =>
   call<RunRecord[]>(`/v1/runs?attention=true&limit=${limit}`, 60).then((rows) => rows ?? []);
+
+/**
+ * Runs one AI search on the API (POST, never cached). Returns the upstream response untouched so the
+ * proxy route can pass the status and body through. `signal` is the browser request's signal, so a
+ * cancelled search also cancels the upstream call.
+ */
+export function askJobs(body: string, signal?: AbortSignal): Promise<Response> {
+  const path = "/v1/ai/ask";
+  const init: RequestInit = {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.READ_TOKEN}`, "content-type": "application/json" },
+    body,
+    signal,
+  };
+  return env.API
+    ? env.API.fetch(new Request(`https://api.internal${path}`, init))
+    : fetch(`${env.API_URL}${path}`, init);
+}
