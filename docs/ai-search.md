@@ -62,8 +62,16 @@ Logs never include content outside the CLI trace.
 
 ## Surfaces
 
-`POST /v1/ai/ask` (read token, streamed `createAgentUIStreamResponse`), then a small chat island in
-`apps/web` (`useChat`; the one justified `client:*`). AI key is a Worker secret.
+The API endpoint `POST /v1/ai/ask` (read token; lands with #44, not on this branch) returns one JSON `{ answer, trace }` response. It is not
+streamed: the whole search (recall, triage, deep reads) finishes before the response is sent.
+
+`apps/web` proxies it at `POST /api/ai/ask` (same-origin, behind the access-key cookie). The proxy reads the
+body as JSON with a 32 KB cap: a non-JSON content-type gets 415, a body over the cap gets 413 (checked on the
+declared Content-Length and again on the bytes actually read), and invalid JSON or an out-of-range
+query/profile gets 400. The page's only `client:*` is `AskPanel`, a small React island that calls the proxy
+with `fetch` (no chat or streaming client). It owns cancel and a 180 s timeout via `AbortController`, and
+validates the response shape before rendering. The profile is kept in `localStorage` on the device only.
+The AI key is a Worker secret and never reaches the browser.
 
 ## Duplicates
 

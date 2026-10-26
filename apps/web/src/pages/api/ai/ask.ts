@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { askJobs } from "@/lib/api";
-import { parseAskBody } from "@/lib/ask";
+import { parseAskBody, readAskJson } from "@/lib/ask";
 
 const NO_STORE = { "cache-control": "private, no-store" };
 
@@ -8,17 +8,14 @@ const problem = (status: number, error: string) =>
   Response.json({ error }, { status, headers: NO_STORE });
 
 /**
- * Proxies one AI search to the API with the read token. The body is validated here and then
- * forwarded as-is; the profile is only ever sent on this request and is never stored server-side.
+ * Proxies one AI search to the API with the read token. The body is size-capped and content-type
+ * checked before it is parsed, then validated and forwarded as-is; the profile is only ever sent on
+ * this request and is never stored server-side.
  */
 export const POST: APIRoute = async ({ request }) => {
-  let value: unknown;
-  try {
-    value = await request.json();
-  } catch {
-    return problem(400, "The request body must be JSON.");
-  }
-  const body = parseAskBody(value);
+  const read = await readAskJson(request);
+  if (!read.ok) return problem(read.status, read.error);
+  const body = parseAskBody(read.value);
   if (!body) {
     return problem(400, "Enter a query of up to 500 characters; the profile is limited to 20,000.");
   }

@@ -7,10 +7,12 @@ import {
   errorDetail,
   formatElapsed,
   itemHref,
+  MAX_ASK_BODY_BYTES,
   MAX_PROFILE_CHARS,
   MAX_QUERY_CHARS,
   parseAskBody,
   parseAskResult,
+  readAskJson,
   readStoredProfile,
   runAsk,
   sortByRank,
@@ -87,6 +89,65 @@ describe("parseAskBody (proxy guard)", () => {
   it("rejects a non-string or overlong profile", () => {
     expect(parseAskBody({ query: "go", profile: 3 })).toBeNull();
     expect(parseAskBody({ query: "go", profile: "p".repeat(MAX_PROFILE_CHARS + 1) })).toBeNull();
+  });
+});
+
+describe("readAskJson (proxy body guard)", () => {
+  const json = { "content-type": "application/json" };
+  const post = (body: BodyInit, headers: HeadersInit = json) =>
+    new Request("https://tallo.test/api/ai/ask", { method: "POST", headers, body });
+
+  it("parses a valid JSON body, with or without a charset parameter", async () => {
+    expect(await readAskJson(post('{"query":"go"}'))).toEqual({ ok: true, value: { query: "go" } });
+    const withCharset = post('{"query":"go"}', {
+      "content-type": "application/json; charset=utf-8",
+    });
+    expect(await readAskJson(withCharset)).toEqual({ ok: true, value: { query: "go" } });
+  });
+
+  it("returns 415 for a non-JSON or missing content-type", async () => {
+    const text = post('{"query":"go"}', { "content-type": "text/plain" });
+    expect(await readAskJson(text)).toMatchObject({ ok: false, status: 415 });
+    const none = new Request("https://tallo.test/api/ai/ask", { method: "POST", body: "{}" });
+    expect(await readAskJson(none)).toMatchObject({ ok: false, status: 415 });
+  });
+
+  it("returns 413 when the declared Content-Length is over the cap", async () => {
+    const declared = post('{"query":"go"}', {
+      ...json,
+      "content-length": String(MAX_ASK_BODY_BYTES + 1),
+    });
+    expect(await readAskJson(declared)).toMatchObject({ ok: false, status: 413 });
+  });
+
+  it("returns 413 when the bytes exceed the cap even if the declared length is small", async () => {
+    const big = JSON.stringify({ query: "go", profile: "p".repeat(MAX_ASK_BODY_BYTES) });
+    expect(await readAskJson(post(big, { ...json, "content-length": "10" }))).toMatchObject({
+      ok: false,
+      status: 413,
+    });
+  });
+
+  it("returns 413 for an undeclared (streamed) body over the cap", async () => {
+    const chunk = new TextEncoder().encode("x".repeat(8 * 1024));
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(chunk);
+      },
+    });
+    const request = new Request("https://tallo.test/api/ai/ask", {
+      method: "POST",
+      headers: json,
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    expect(request.headers.get("content-length")).toBeNull();
+    expect(await readAskJson(request)).toMatchObject({ ok: false, status: 413 });
+  });
+
+  it("returns 400 for invalid JSON and for an empty body", async () => {
+    expect(await readAskJson(post("{nope"))).toMatchObject({ ok: false, status: 400 });
+    expect(await readAskJson(post(""))).toMatchObject({ ok: false, status: 400 });
   });
 });
 

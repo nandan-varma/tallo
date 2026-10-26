@@ -42,9 +42,9 @@ export function AskResultCard({ item }: { item: Item }) {
               Evidence
             </h3>
             <ul className="grid gap-1.5">
-              {item.evidence.map((quote) => (
+              {item.evidence.map((quote, index) => (
                 <li
-                  key={quote}
+                  key={`${index}:${quote}`}
                   className="border-l-2 border-border pl-3 text-sm leading-relaxed text-muted-foreground"
                 >
                   “{quote}”
@@ -60,8 +60,8 @@ export function AskResultCard({ item }: { item: Item }) {
               Unknown
             </h3>
             <ul className="list-inside list-disc text-sm text-muted-foreground">
-              {item.unknowns.map((unknown) => (
-                <li key={unknown}>{unknown}</li>
+              {item.unknowns.map((unknown, index) => (
+                <li key={`${index}:${unknown}`}>{unknown}</li>
               ))}
             </ul>
           </div>
