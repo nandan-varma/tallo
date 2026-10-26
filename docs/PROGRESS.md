@@ -61,6 +61,9 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
   After collection: resolve failed/partial boards, install launchd (`scripts/launchd/`), check storage,
   and record outcomes. Background work is active; no unattended code changes or deployments.
 
+- #10 facets: PR #34 (`status:in-review`). Adds migration 0004 `facet_counts`, hourly rebuild in cron, `/v1/facets`.
+  Needs the migration applied remotely and one `POST /v1/admin/facets/rebuild` after deploy.
+
 ## Merged this session
 
 PR #18 shared per-host limiter, #19 structured facts on the job page, #20 Oracle Cloud platform
