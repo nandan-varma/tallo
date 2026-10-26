@@ -92,19 +92,29 @@ every open location. Recall is design intent only: no recall code exists yet, an
 
 ### Rows read and written (estimates, production, Oct 2026)
 
-Inputs: about 470k open rows, about 400k distinct keys, 84k rows in 16k multi-row groups (measured on the raw
-key), about 68k rows that will carry `dup_of`. Changed postings per day are estimated at 1 to 3% of open rows
-(the runner's `diff` sends only new or changed postings). Estimates, not measurements; `EXPLAIN QUERY PLAN`
-confirms the index use.
+Inputs, read-only from production on Oct 26, 2026: 486,777 open rows (the count moves with syncs), 8,894
+sources (8,895 rows read by the `sources` scan), about 400k distinct keys, 84k rows in 16k multi-row groups
+(measured on the raw key), about 68k rows that will carry `dup_of`. Changed postings per day are estimated at 1
+to 3% of open rows (the runner's `diff` sends only new or changed postings).
 
-| Pass                                                                                    | Rows read                                                                       | Rows written                                          |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Hourly, before the index (full scan of `jobs`, plus every duplicate's canonical lookup) | about 0.6M per pass, about 15M per day                                          | regroup only                                          |
-| Hourly, with `jobs_updated_idx` (quiet hour)                                            | about 10k: the stale-source scan of `sources` (about 9k boards) plus the window | 0                                                     |
-| Hourly, with `jobs_updated_idx` (busy hour, a few thousand changed rows)                | about 15k to 25k                                                                | only rows whose `dup_of` changed                      |
-| Finalize regroup (per source, per sync)                                                 | the source's rows, about 0.47M per daily sync                                   | 0 in steady state                                     |
-| One-off `tallo dedupe`: backfill                                                        | about 0.47M (id cursor)                                                         | about 0.94M (row plus `jobs_dedupe_idx` entry)        |
-| One-off `tallo dedupe`: full regroup                                                    | about 0.87M (key index walk plus group rows)                                    | about 0.14M (68k rows plus `jobs_dup_of_idx` entries) |
+Measured: the `sources` scan (8,895 rows, `cf d1 query`). Plans: `EXPLAIN QUERY PLAN` on a local SQLite built
+from migrations 0000 to 0006 with 8,894 sources and about 476k open rows (synthetic data, with and without
+`ANALYZE`). Production has no dedupe columns until 0006 is applied, so the D1 plans cannot be read yet. Other
+figures are estimates.
+
+| Pass                                                                                          | Rows read                                                                               | Rows written                                          |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Hourly stale branch, before the fix (`jobs_dedupe_idx` walk, plus a `sources` lookup per row) | about 0.95M per pass, about 23M per day (about 0.48M index entries and as many lookups) | regroup only                                          |
+| Hourly, quiet hour (`sources` scan of 8,895 boards, measured, plus the window)                | about 9k: the scan, plus a few hundred window rows                                      | 0                                                     |
+| Hourly, busy hour (a few thousand changed rows)                                               | about 15k to 25k                                                                        | only rows whose `dup_of` changed                      |
+| Hourly window without `jobs_updated_idx` (full scan of `jobs`, estimate)                      | about 0.5M per pass                                                                     | regroup only                                          |
+| Finalize regroup (per source, per sync)                                                       | the source's rows, about 0.47M per daily sync                                           | 0 in steady state                                     |
+| One-off `tallo dedupe`: backfill                                                              | about 0.47M (id cursor)                                                                 | about 0.94M (row plus `jobs_dedupe_idx` entry)        |
+| One-off `tallo dedupe`: full regroup                                                          | about 0.87M (key index walk plus group rows)                                            | about 0.14M (68k rows plus `jobs_dup_of_idx` entries) |
+
+The stale-source branch is driven from `sources`: the crossed source ids (a scan of the small table), then their
+keys by `jobs_source_posting_idx`. A board crossing the threshold reads that board's rows once; the average is
+about 55 open rows per board. The old query joined `jobs` to `sources` and walked every open keyed row each hour.
 
 The old backfill query had no index on `dedupe_key IS NULL`, so every page scanned from the start of the table:
 about N²/600, roughly 370M rows read for 470k rows. The id cursor reads each row once.

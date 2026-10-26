@@ -14,6 +14,7 @@ import {
   searchSchema,
   startRun,
 } from "../src/index.ts";
+import { crossedKeys } from "../src/ingest.ts";
 import { testDb } from "../src/testing.ts";
 
 const DAY = 86400;
@@ -390,12 +391,46 @@ describe("incremental pass", () => {
     expect(await visibleIds()).toEqual([b]);
   });
 
+  it("regroups a source's keys when it goes stale, with no write to its rows", async () => {
+    const CROSSING = "crossing";
+    // Crossed the threshold 10 minutes before NOW (inside the window), so it was fresh an hour ago.
+    await db.insert(schema.sources).values({
+      id: CROSSING,
+      platform: "lever",
+      key: CROSSING,
+      company: "Acme",
+      companySlug: "acme",
+      params: {},
+      lastListedAt: NOW - STALE_HIDE_DAYS * DAY - 600,
+    });
+    const old = NOW - 10 * DAY;
+    const a = await row({ updatedAt: old });
+    const b = await row({ updatedAt: old, sourceId: CROSSING });
+    await rebuildDuplicates(db, NOW - 3600, { full: true });
+    expect(await dupOf(b)).toBe(a);
+
+    // Nothing was written in the window, so only the crossed source's keys can be regrouped.
+    await rebuild();
+    expect(await dupOf(b)).toBeUndefined();
+    expect(await visibleIds({ includeStale: true })).toEqual([a, b]);
+  });
+
   it("uses the updated_at index for the window and the dedupe index for the regroup", async () => {
     // Guards the hourly pass: a scan of jobs here reads every open row each hour.
     const details = await queryPlan(
       sql`SELECT DISTINCT dedupe_key FROM jobs WHERE dedupe_key IS NOT NULL AND updated_at >= ${NOW}`,
     );
     expect(details).toContain("jobs_updated_idx");
+    expect(details).not.toMatch(/SCAN jobs(?! USING)/);
+  });
+
+  it("finds crossed sources' keys through jobs_source_posting_idx, not a scan of jobs", async () => {
+    // Plans the function the hourly pass runs. A join from jobs to sources scanned every open keyed row.
+    const details = await queryPlan(
+      crossedKeys(db, NOW - 3 * 3600, NOW - STALE_HIDE_DAYS * DAY).getSQL(),
+    );
+    expect(details).toContain("jobs_source_posting_idx");
+    expect(details).not.toContain("jobs_dedupe_idx");
     expect(details).not.toMatch(/SCAN jobs(?! USING)/);
   });
 

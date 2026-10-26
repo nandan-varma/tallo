@@ -5,7 +5,7 @@ import {
   outOfScope,
   STALE_HIDE_DAYS,
 } from "@tallo/contracts";
-import { and, eq, gt, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { BlobStore } from "./blobs.ts";
@@ -549,10 +549,41 @@ const KEY_CHUNK = 300;
 const BATCH_STATEMENTS = 50;
 
 /**
+ * Keys of open rows whose source went stale in [since, now): last_listed_at in
+ * [since - STALE_HIDE_DAYS, staleBefore), where staleBefore = now - STALE_HIDE_DAYS.
+ * The crossed source ids come from `sources` (a small table); their rows are read by source_id
+ * through jobs_source_posting_idx, so the reads scale with the sources that changed, not with `jobs`.
+ */
+export function crossedKeys(db: Db, since: number, staleBefore: number) {
+  return db
+    .selectDistinct({ key: jobs.dedupeKey })
+    .from(jobs)
+    .where(
+      and(
+        isNull(jobs.closedAt),
+        isNotNull(jobs.dedupeKey),
+        inArray(
+          jobs.sourceId,
+          db
+            .select({ id: sources.id })
+            .from(sources)
+            .where(
+              and(
+                gte(sources.lastListedAt, since - STALE_HIDE_DAYS * 86400),
+                lt(sources.lastListedAt, staleBefore),
+              ),
+            ),
+        ),
+      ),
+    );
+}
+
+/**
  * Keys whose group may have changed, after the cursor, ascending. Incremental mode finds, each via
  * an index or a small table, never a scan of `jobs`:
  * - rows written in the window (applyJobs, finalize closure and reopen, reclassify): jobs_updated_idx;
- * - sources that crossed the stale threshold in the window (a time change with no write);
+ * - sources that crossed the stale threshold in the window (a time change with no write): the few
+ *   crossed source ids (a scan of `sources`, a small table), then their keys by jobs_source_posting_idx;
  * - open duplicates whose canonical was written in the window: it may have moved key, closed or
  *   been hidden, so the duplicate's own key is regrouped. A purged canonical cannot exist here: its
  *   group was handed over when it closed, 30 days before the purge.
@@ -579,18 +610,7 @@ async function keysPage(
       .selectDistinct({ key: jobs.dedupeKey })
       .from(jobs)
       .where(and(isNotNull(jobs.dedupeKey), gte(jobs.updatedAt, since))),
-    db
-      .selectDistinct({ key: jobs.dedupeKey })
-      .from(jobs)
-      .innerJoin(sources, eq(sources.id, jobs.sourceId))
-      .where(
-        and(
-          isNull(jobs.closedAt),
-          isNotNull(jobs.dedupeKey),
-          sql`coalesce(${sources.lastListedAt}, 0) >= ${since - STALE_HIDE_DAYS * 86400}`,
-          sql`coalesce(${sources.lastListedAt}, 0) < ${staleBefore}`,
-        ),
-      ),
+    crossedKeys(db, since, staleBefore),
     // Canonicals written in the window (the subquery, by index), then their open duplicates.
     db
       .selectDistinct({ key: jobs.dedupeKey })
