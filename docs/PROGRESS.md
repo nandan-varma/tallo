@@ -61,10 +61,17 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
   After collection: resolve failed/partial boards, install launchd (`scripts/launchd/`), check storage,
   and record outcomes. Background work is active; no unattended code changes or deployments.
 
-- #10 facets: PR #34 (`status:in-review`). Adds migration 0005 `facet_counts` (0004 is `dead_boards`), hourly rebuild in cron, `/v1/facets`.
-  Needs the migration applied remotely and one `POST /v1/admin/facets/rebuild` after deploy.
+- **Merged but not deployed** (PRs #32 dead boards, #33 `/status` page + `GET /v1/runs`, #34 facets). Remote D1 still
+  needs migrations 0004 `dead_boards` and 0005 `facet_counts` (in that order), then deploy API + web, then one
+  `POST /v1/admin/facets/rebuild`. Held until the sweep finishes or the user says go. After deploy, run
+  `EXPLAIN QUERY PLAN` on the facet rebuild to confirm it uses `jobs_feed_idx`.
+- Follow-ups from reviews (no issue yet): runner treats any 404 inside `platform.list` as board-not-found
+  (`apps/runner/src/sync.ts`); `/status` fetches all sources and renders `issue.url` without an https check; no HTTP
+  test for `GET /v1/runs`; runbook should mention `/status`, `/v1/runs` and that `sources --dead` uses the ingest token.
 
 ## Merged this session
+
+PR #32 dead boards (#3), #33 source status page (#11), #34 facets (#10).
 
 PR #18 shared per-host limiter, #19 structured facts on the job page, #20 Oracle Cloud platform
 (7 boards; the host-default guard refuses a wrong siteNumber; Tenet board dropped, see #21).
