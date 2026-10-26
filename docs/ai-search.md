@@ -46,10 +46,10 @@ can return empty content, so every call sets an explicit output budget and model
    most 12 variants. Measured on a local SQLite built from migrations 0000 to 0006, 100,000 synthetic jobs (80% of
    titles contain "engineer", 1% "Backend Engineer", 1% "Platform Engineer"):
 
-   | Variant                | FTS matches (rows read) | Before (3 pages, each sorting all matches) |
-   | ---------------------- | ----------------------- | ------------------------------------------ |
+   | Variant                 | FTS matches (rows read) | Before (3 pages, each sorting all matches) |
+   | ----------------------- | ----------------------- | ------------------------------------------ |
    | `"engineer"` (one word) | 80,000                  | up to 240,000 per query                    |
-   | `"backend" "engineer"` | 1,000                   | up to 3,000 per query                      |
+   | `"backend" "engineer"`  | 1,000                   | up to 3,000 per query                      |
 
    Production has the same shape (480k open rows, `engineer` in 154k titles, from the #54 review), so one common
    word costs about 154k rows per variant. Production was not measured with two-word titles. The worst ask is 12
@@ -60,7 +60,8 @@ can return empty content, so every call sets an explicit output budget and model
 
    **Model-call ceiling (`AI_MAX_MODEL_CALLS` = 150).** Worst default ask: 1 understand, 3 triage batches (300
    candidates at 100 per batch), and 15 deep reads of up to 8 parts, each read being 8 notes calls plus 1 judge:
-   1 + 3 + 15 x 9 = 139. The 11 spare calls cover retries. The old ceiling of 60 stopped an ask of 15 long reads.
+   1 + 3 + 15 x 9 = 139. The 139 excludes retries: each empty-content retry is one more call, so the 11 spare calls
+   cover 11 retries, and a worse ask stops with 422. The old ceiling of 60 stopped an ask of 15 long reads.
 
    Vector recall (#16) later, same `recall` port.
 3. **Triage** (fast, batches of ~100): per candidate `strong | maybe | no` from title, company, location and

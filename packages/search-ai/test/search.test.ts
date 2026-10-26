@@ -281,6 +281,26 @@ describe("search", () => {
     expect(result.trace.tokens.fast).toEqual({ input: 10, output: 14 });
   });
 
+  it("counts a retry toward maxModelCalls", async () => {
+    // understand is empty (call 1), its retry answers (call 2). Triage would be call 3: a ceiling of 2
+    // must stop before it. A retry that is not counted would let triage through.
+    let first = true;
+    const respond = (call: Call) => {
+      if (call.stage === "understand" && first) {
+        first = false;
+        return "";
+      }
+      return responder({})(call);
+    };
+    const { calls, models } = setup(respond);
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: "short" } });
+
+    await expect(
+      search({ query: "backend", profile: PROFILE, models, jobs, options: { maxModelCalls: 2 } }),
+    ).rejects.toThrow(/maxModelCalls/);
+    expect(stagesOf(calls)).toEqual(["understand", "understand"]);
+  });
+
   it("fails when content is still empty after the retry", async () => {
     const { models } = setup(() => "");
     const jobs = fakeJobs({ candidates: [candidate("a")] });

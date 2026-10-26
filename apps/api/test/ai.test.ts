@@ -374,6 +374,41 @@ describe("POST /v1/ai/ask", () => {
     expect(prompts.length).toBeLessThanOrEqual(AI_MAX_MODEL_CALLS);
   });
 
+  it("answers 422 with an error body when the model-call ceiling is exceeded", async () => {
+    // The worst default shape (15 reads of 8 parts) is 139 calls without retries. Each notes call here
+    // answers empty once, so its retry is a second call: 15 x (8 x 2 + 1) plus 2 exceeds 150. The ceiling
+    // must stop it with 422 and the {error} body, and no call may be made past it.
+    const seenNotes = new Set<string>();
+    const { call, db, blobs, prompts } = setup({
+      respond: (stage, text) => {
+        if (stage === "notes" && !seenNotes.has(text)) {
+          seenNotes.add(text);
+          return "";
+        }
+        return respondDefault(stage, text);
+      },
+    });
+    const description = "backend ".repeat(21_250); // 170k chars: 8 parts at the default 24k part size
+    for (let i = 0; i < 15; i++) {
+      await seedJob(db, blobs, {
+        postingId: String(200 + i),
+        description: `${description}${i}`,
+        title: `Backend Engineer ${i}`,
+      });
+    }
+
+    const res = await call("/v1/ai/ask", READ, {
+      method: "POST",
+      json: { query: "backend", deepReads: 15 },
+    });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      error: `Search stopped: the next model call would exceed maxModelCalls (${AI_MAX_MODEL_CALLS}).`,
+    });
+    // Retries count: the engine made exactly the ceiling's worth of calls, then stopped.
+    expect(prompts).toHaveLength(AI_MAX_MODEL_CALLS);
+  });
+
   it("returns 500 with no content when the engine throws", async () => {
     const logs: string[] = [];
     vi.spyOn(console, "error").mockImplementation((line: string) => void logs.push(String(line)));

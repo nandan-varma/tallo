@@ -185,6 +185,21 @@ describe("jobsPort.recall", () => {
     expect((await port.facts([String(canonical)])).has(String(canonical))).toBe(true);
   });
 
+  it("matches whole terms only: every term must match, and no term is a prefix", async () => {
+    const db = testDb();
+    const blobs = memoryBlobs();
+    await seed(db, blobs, { postingId: "1", title: "Backend Engineer" });
+    await seed(db, blobs, { postingId: "2", title: "Backend Manager" });
+    await seed(db, blobs, { postingId: "3", title: "Backendish Engineering Lead" });
+    const port = jobsPort(db, blobs);
+
+    // Every term is required (AND), not any of them.
+    const both = await port.recall(["backend engineer"], 300);
+    expect(both.map((c) => c.title)).toEqual(["Backend Engineer"]);
+    // A term is a whole token, not a prefix: "back" must not reach "Backend" (ftsQuery would add `*`).
+    expect(await port.recall(["back"], 300)).toEqual([]);
+  });
+
   it("treats FTS operator text in a variant as plain words (no syntax injection)", async () => {
     const db = testDb();
     const blobs = memoryBlobs();
