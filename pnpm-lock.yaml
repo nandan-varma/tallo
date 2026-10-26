@@ -202,6 +202,9 @@ importers:
       '@tallo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@tallo/resume':
+        specifier: workspace:*
+        version: link:../../packages/resume
       '@tallo/search-ai':
         specifier: workspace:*
         version: link:../../packages/search-ai
@@ -438,6 +441,18 @@ importers:
       p-queue:
         specifier: ^10.0.0
         version: 10.0.0
+
+  packages/resume:
+    dependencies:
+      '@tallo/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      ai:
+        specifier: 7.0.153
+        version: 7.0.153(zod@4.6.7)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/search-ai:
     dependencies:

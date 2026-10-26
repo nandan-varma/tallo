@@ -140,3 +140,19 @@ export const profiles = sqliteTable("profiles", {
   profile: text().notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
+
+/**
+ * Personal layer: the structured resume the user builds. One base copy (`job_id` 0) and one copy per posting
+ * it was tailored for. `job_id` is a plain number, not a foreign key: a copy outlives its posting being closed
+ * or purged. `doc` is the JSON of `ResumeDoc` (words and style), validated at the API edge.
+ */
+export const resumes = sqliteTable(
+  "resumes",
+  {
+    userId: text("user_id").notNull(),
+    jobId: integer("job_id").notNull().default(0),
+    doc: text({ mode: "json" }).$type<unknown>().notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.jobId] })],
+);

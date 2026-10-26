@@ -14,3 +14,5 @@ export function assistantModel(env: AiEnv): LanguageModel | null {
 export const CHAT_MAX_BODY_BYTES = 512 * 1024;
 export const PROFILE_MAX_RESUME_CHARS = 60_000;
 export const PROFILE_MAX_CHARS = 30_000;
+/** A resume plus its style is a few KB; a pasted resume is capped at 60k characters. */
+export const RESUME_MAX_BODY_BYTES = 256 * 1024;

@@ -7,3 +7,4 @@ export * from "./ingest.ts";
 export * from "./job.ts";
 export * from "./json.ts";
 export * from "./platform.ts";
+export * from "./resume.ts";

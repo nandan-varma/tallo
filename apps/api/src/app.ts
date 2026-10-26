@@ -4,23 +4,30 @@ import {
   blobCheckSchema,
   createRunSchema,
   diffSchema,
+  editResumeSchema,
   finalizeSchema,
   generateProfileSchema,
+  importResumeSchema,
   type JobLocation,
   jobsBatchSchema,
+  resumeDocSchema,
   saveProfileSchema,
   searchPageSchema,
+  tailorResumeSchema,
 } from "@tallo/contracts";
 import type { BlobStore, Db } from "@tallo/db";
 import {
   applyJobs,
   backfillDedupeKeys,
+  deleteResume,
   diff,
   finalize,
   getJob,
   getProfile,
+  getResume,
   IngestError,
   jdKey,
+  listResumes,
   listRuns,
   listSourceStatus,
   listSources,
@@ -29,21 +36,23 @@ import {
   reclassify,
   runsSearchSchema,
   saveProfile,
+  saveResume,
   schema,
   searchJobs,
   searchSchema,
   startRun,
   storeRawPack,
 } from "@tallo/db";
+import { editResume, importResume, tailorResume } from "@tallo/resume/ai";
 import { createJobAgent, generateProfile } from "@tallo/search-ai";
 import { createAgentUIStreamResponse, type LanguageModel } from "ai";
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
-import { CHAT_MAX_BODY_BYTES } from "./ai.ts";
+import { CHAT_MAX_BODY_BYTES, RESUME_MAX_BODY_BYTES } from "./ai.ts";
 import { jobsPort, searchPage } from "./jobs-port.ts";
 
 export interface Deps {
@@ -73,6 +82,11 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
 
   app.get("/health", (c) => c.json({ ok: true }));
 
+  const descriptionOf = async (jdHash: string) => {
+    const blob = await blobs.get(jdKey(jdHash));
+    return blob ? new TextDecoder().decode(await gunzip(blob)) : null;
+  };
+
   // ---- reads ----------------------------------------------------------------------------
   app.get("/v1/jobs", read, zValidator("query", searchSchema), async (c) => {
     c.header("cache-control", "private, max-age=30");
@@ -92,12 +106,11 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
     async (c) => {
       const job = await getJob(db, c.req.valid("param").id);
       if (!job) return c.json({ error: "Not found" }, 404);
-      const blob = await blobs.get(jdKey(job.jdHash));
       const { jdHash: _hash, sourceHash: _source, ...rest } = job;
       c.header("cache-control", "private, max-age=300");
       return c.json({
         ...rest,
-        description: blob ? new TextDecoder().decode(await gunzip(blob)) : null,
+        description: await descriptionOf(job.jdHash),
         variants: await listVariants(db, job),
       });
     },
@@ -175,6 +188,101 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
       return c.json({ error: "Could not generate the profile. Try again." }, 502);
     }
   });
+
+  // ---- resumes -----------------------------------------------------------------------------
+  // Personal layer too. `?job=<id>` addresses the copy tailored to a posting; without it, the base resume.
+  const resumeKey = zValidator(
+    "query",
+    z.object({ job: z.coerce.number().int().positive().optional() }),
+  );
+
+  app.get("/v1/resumes", read, async (c) => {
+    c.header("cache-control", "private, no-store");
+    return c.json(await listResumes(db));
+  });
+
+  app.get("/v1/resume", read, resumeKey, async (c) => {
+    c.header("cache-control", "private, no-store");
+    return c.json(await getResume(db, c.req.valid("query").job ?? null));
+  });
+
+  app.put(
+    "/v1/resume",
+    read,
+    resumeKey,
+    bodyLimit({
+      maxSize: RESUME_MAX_BODY_BYTES,
+      onError: (c) => c.json({ error: "Request too large" }, 413),
+    }),
+    zValidator("json", resumeDocSchema),
+    async (c) =>
+      c.json(await saveResume(db, c.req.valid("json"), c.req.valid("query").job ?? null)),
+  );
+
+  app.delete("/v1/resume", read, resumeKey, async (c) => {
+    const job = c.req.valid("query").job;
+    if (!job) return c.json({ error: "Only a tailored copy can be deleted." }, 400);
+    await deleteResume(db, job);
+    return c.body(null, 204);
+  });
+
+  /** Runs one resume model call; the browser gets a plain message, the logs get the error name only. */
+  const resumeAi = async <T>(
+    c: Context,
+    event: string,
+    run: (model: LanguageModel) => Promise<T>,
+  ): Promise<Response> => {
+    const llm = assistant();
+    if (!llm) return c.json(notConfigured, 503);
+    try {
+      const result = await run(llm);
+      c.header("cache-control", "private, no-store");
+      return c.json(result);
+    } catch (error) {
+      console.error(JSON.stringify({ event, error: errorName(error) }));
+      return c.json({ error: "The assistant could not do that. Try again." }, 502);
+    }
+  };
+
+  const bounded = bodyLimit({
+    maxSize: RESUME_MAX_BODY_BYTES,
+    onError: (c) => c.json({ error: "Request too large" }, 413),
+  });
+
+  app.post("/v1/resume/import", read, bounded, zValidator("json", importResumeSchema), (c) =>
+    resumeAi(c, "ai.resume.import.failed", async (model) => ({
+      resume: await importResume({
+        model,
+        text: c.req.valid("json").text,
+        abortSignal: c.req.raw.signal,
+      }),
+    })),
+  );
+
+  app.post("/v1/resume/edit", read, bounded, zValidator("json", editResumeSchema), (c) =>
+    resumeAi(c, "ai.resume.edit.failed", (model) =>
+      editResume({ model, ...c.req.valid("json"), abortSignal: c.req.raw.signal }),
+    ),
+  );
+
+  app.post(
+    "/v1/resume/tailor",
+    read,
+    bounded,
+    zValidator("json", tailorResumeSchema),
+    async (c) => {
+      const { jobId, resume } = c.req.valid("json");
+      const job = await getJob(db, jobId);
+      if (!job) return c.json({ error: "That posting is no longer listed." }, 404);
+      const description = await descriptionOf(job.jdHash);
+      if (!description)
+        return c.json({ error: "That posting has no description to tailor to." }, 422);
+      const posting = { title: job.title, company: job.company, description };
+      return resumeAi(c, "ai.resume.tailor.failed", (model) =>
+        tailorResume({ model, resume, posting, abortSignal: c.req.raw.signal }),
+      );
+    },
+  );
 
   app.get("/v1/sources", read, async (c) => c.json(await listSources(db)));
 

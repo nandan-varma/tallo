@@ -15,6 +15,7 @@
     "@tallo/catalog": "workspace:*",
     "@tallo/contracts": "workspace:*",
     "@tallo/db": "workspace:*",
+    "@tallo/resume": "workspace:*",
     "@tallo/search-ai": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",

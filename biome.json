@@ -8,6 +8,7 @@
       "!**/.astro",
       "!**/.wrangler",
       "!**/.cloudflare",
+      "!.claude",
       "!**/fixtures",
       "!sources",
       "!**/*.astro",

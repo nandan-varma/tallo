@@ -1,5 +1,5 @@
 import { gzip, prepareJob, sha256 } from "@tallo/catalog";
-import { memoryBlobs, schema } from "@tallo/db";
+import { memoryBlobs } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
