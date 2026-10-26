@@ -23,7 +23,6 @@ export default defineConfig({
       BLOBS: bindings.r2({
         name: "tallo-blobs",
       }),
-      AI_MODEL_FAST: bindings.text("go:deepseek-v4.1-flash"),
       AI_MODEL_SMART: bindings.text("go-anthropic:claude-haiku-5-5"),
     },
   },

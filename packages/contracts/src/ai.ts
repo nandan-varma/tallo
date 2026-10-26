@@ -1,11 +1,23 @@
 import { z } from "zod";
 
-/** Body of `POST /v1/ai/ask`. Stateless: nothing in it is stored. */
-export const askSchema = z.object({
-  query: z.string().trim().min(1).max(500),
-  /** Markdown profile the search fits jobs against. Optional; empty means no profile. */
-  profile: z.string().max(20_000).optional(),
-  /** Descriptions read in full, judged one job at a time. */
-  deepReads: z.number().int().min(0).max(15).optional(),
+const RESUME_MAX = 60_000;
+const PROFILE_MAX = 30_000;
+
+/** Body of `PUT /v1/profile`: the user's resume and the profile markdown they approved. */
+export const saveProfileSchema = z.object({
+  resume: z.string().max(RESUME_MAX),
+  profile: z.string().max(PROFILE_MAX),
 });
-export type AskInput = z.infer<typeof askSchema>;
+
+/** Body of `POST /v1/profile/generate`: resume text in, profile markdown out (nothing is stored). */
+export const generateProfileSchema = z.object({
+  resume: z.string().trim().min(20, "Paste your resume first.").max(RESUME_MAX),
+});
+
+/** `GET /v1/profile`. `null` until the first save. */
+export interface ProfileRecord {
+  resume: string;
+  profile: string;
+  /** Unix seconds. */
+  updatedAt: number;
+}

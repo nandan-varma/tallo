@@ -5,10 +5,8 @@ interface Props {
   title?: string;
 }
 const { title = "Jobs · Tallo" } = Astro.props;
-const savedView = Astro.url.searchParams.has("saved");
-const jobsActive = Astro.url.pathname === "/" && !savedView;
-const statusActive = Astro.url.pathname === "/status";
-const askActive = Astro.url.pathname === "/ask";
+const path = Astro.url.pathname;
+const current = (active: boolean) => (active ? "page" : undefined);
 ---
 <!doctype html>
 <html lang="en">
@@ -17,7 +15,7 @@ const askActive = Astro.url.pathname === "/ask";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#fafafa" />
-    <meta name="description" content="Search tech jobs, save roles, and apply directly with the company." />
+    <meta name="description" content="Find tech jobs by describing the role you want." />
     <title>{title}</title>
     <ClientRouter />
   </head>
@@ -26,10 +24,9 @@ const askActive = Astro.url.pathname === "/ask";
     <header class="site-header" transition:name="site-header">
       <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
       <nav aria-label="Main navigation" class="header-nav">
-        <a href="/" aria-current={jobsActive ? "page" : undefined}>Jobs</a>
-        <a href="/?saved=true" aria-current={savedView ? "page" : undefined}>Saved jobs</a>
-        <a href="/ask" aria-current={askActive ? "page" : undefined}>Ask</a>
-        <a href="/status" aria-current={statusActive ? "page" : undefined}>Status</a>
+        <a href="/" aria-current={current(path === "/")}>Assistant</a>
+        <a href="/profile" aria-current={current(path === "/profile")}>Profile</a>
+        <a href="/status" aria-current={current(path === "/status")}>Status</a>
       </nav>
     </header>
     <main id="main" transition:animate="fade"><slot /></main>

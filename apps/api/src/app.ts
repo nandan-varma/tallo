@@ -1,13 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { CLASSIFIER_VERSION, classify, dedupeKey, gunzip, sha256 } from "@tallo/catalog";
 import {
-  askSchema,
   blobCheckSchema,
   createRunSchema,
   diffSchema,
   finalizeSchema,
+  generateProfileSchema,
   type JobLocation,
   jobsBatchSchema,
+  saveProfileSchema,
 } from "@tallo/contracts";
 import type { BlobStore, Db } from "@tallo/db";
 import {
@@ -16,6 +17,7 @@ import {
   diff,
   finalize,
   getJob,
+  getProfile,
   IngestError,
   jdKey,
   listFacets,
@@ -27,20 +29,22 @@ import {
   rebuildFacets,
   reclassify,
   runsSearchSchema,
+  saveProfile,
   schema,
   searchJobs,
   searchSchema,
   startRun,
   storeRawPack,
 } from "@tallo/db";
-import { ModelCallLimitError, type Models, search } from "@tallo/search-ai";
+import { createJobAgent, generateProfile } from "@tallo/search-ai";
+import { createAgentUIStreamResponse, type LanguageModel } from "ai";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
-import { AI_MAX_BODY_BYTES, AI_MAX_MODEL_CALLS } from "./ai.ts";
+import { CHAT_MAX_BODY_BYTES } from "./ai.ts";
 import { jobsPort } from "./jobs-port.ts";
 
 export interface Deps {
@@ -48,15 +52,15 @@ export interface Deps {
   blobs: BlobStore;
   readToken: string;
   ingestToken: string;
-  /** Search models for `/v1/ai/ask`; null or absent when AI is not configured. Called per request. */
-  models?: () => Models | null;
+  /** The assistant's model; null or absent when AI is not configured. Called per request. */
+  model?: () => LanguageModel | null;
 }
 
 const MAX_BLOB_BYTES = 25 * 1024 * 1024;
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** Internal API. Reads need READ_TOKEN; writes need INGEST_TOKEN (which may also read). */
-export function createApp({ db, blobs, readToken, ingestToken, models }: Deps) {
+export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   const app = new Hono();
   const read = bearerAuth({ verifyToken: (t) => t === readToken || t === ingestToken });
   const write = bearerAuth({ token: ingestToken });
@@ -94,64 +98,78 @@ export function createApp({ db, blobs, readToken, ingestToken, models }: Deps) {
     },
   );
 
-  /**
-   * Stateless AI search. Nothing is stored: not the query, the profile, the answer or the trace.
-   * Logs carry counts and error names only.
-   */
+  // ---- assistant -------------------------------------------------------------------------
+  // The chat is stateless: the browser holds the conversation and sends it with every turn. Nothing the
+  // model writes is stored. Logs carry error names only, never content.
+  const assistant = (): LanguageModel | null => {
+    try {
+      return model?.() ?? null;
+    } catch (error) {
+      console.error(JSON.stringify({ event: "ai.misconfigured", error: errorName(error) }));
+      return null;
+    }
+  };
+  const notConfigured = {
+    error: "The assistant is not configured: set OPENCODE_API_KEY and AI_MODEL_SMART.",
+  };
+
   app.post(
-    "/v1/ai/ask",
+    "/v1/ai/chat",
     read,
     bodyLimit({
-      maxSize: AI_MAX_BODY_BYTES,
+      maxSize: CHAT_MAX_BODY_BYTES,
       onError: (c) => c.json({ error: "Request too large" }, 413),
     }),
-    zValidator("json", askSchema),
+    zValidator("json", z.object({ messages: z.array(z.unknown()).min(1).max(200) })),
     async (c) => {
-      const input = c.req.valid("json");
-      let engine: Models | null;
-      try {
-        engine = models?.() ?? null;
-      } catch (error) {
-        console.error(JSON.stringify({ event: "ai.ask.misconfigured", error: errorName(error) }));
-        engine = null;
-      }
-      if (!engine) {
-        return c.json(
-          {
-            error:
-              "AI search is not configured: set OPENCODE_API_KEY and AI_MODEL_FAST / AI_MODEL_SMART.",
-          },
-          503,
-        );
-      }
-      try {
-        const result = await search({
-          query: input.query,
-          profile: input.profile ?? "",
-          models: engine,
-          jobs: jobsPort(db, blobs),
-          options: { deepReads: input.deepReads, maxModelCalls: AI_MAX_MODEL_CALLS },
-        });
-        const { recall, answer, deep, tokens } = result.trace;
-        console.log(
-          JSON.stringify({
-            event: "ai.ask",
-            candidates: recall.candidates,
-            items: answer.items,
-            deepReads: deep.reads,
-            descriptionChars: deep.descriptionChars,
-            tokens,
-          }),
-        );
-        c.header("cache-control", "private, no-store");
-        return c.json(result);
-      } catch (error) {
-        if (error instanceof ModelCallLimitError) return c.json({ error: error.message }, 422);
-        console.error(JSON.stringify({ event: "ai.ask.failed", error: errorName(error) }));
-        return c.json({ error: "AI search failed" }, 500);
-      }
+      const llm = assistant();
+      if (!llm) return c.json(notConfigured, 503);
+      const profile = await getProfile(db);
+      const agent = createJobAgent({
+        model: llm,
+        jobs: jobsPort(db, blobs),
+        profile: profile?.profile ?? "",
+      });
+      return createAgentUIStreamResponse({
+        agent,
+        uiMessages: c.req.valid("json").messages,
+        abortSignal: c.req.raw.signal,
+        headers: { "cache-control": "private, no-store" },
+        onError: (error) => {
+          console.error(JSON.stringify({ event: "ai.chat.failed", error: errorName(error) }));
+          return "The assistant hit an error. Try again.";
+        },
+      });
     },
   );
+
+  // Personal layer: one profile per user, kept apart from the shared catalog (CLAUDE.md rule 5). v1 has one
+  // user and the web app holds only the read token, so the read token may save its own profile.
+  app.get("/v1/profile", read, async (c) => {
+    c.header("cache-control", "private, no-store");
+    return c.json(await getProfile(db));
+  });
+
+  app.put("/v1/profile", read, zValidator("json", saveProfileSchema), async (c) =>
+    c.json(await saveProfile(db, c.req.valid("json"))),
+  );
+
+  app.post("/v1/profile/generate", read, zValidator("json", generateProfileSchema), async (c) => {
+    const llm = assistant();
+    if (!llm) return c.json(notConfigured, 503);
+    try {
+      const profile = await generateProfile({
+        model: llm,
+        resume: c.req.valid("json").resume,
+        abortSignal: c.req.raw.signal,
+      });
+      c.header("cache-control", "private, no-store");
+      return c.json({ profile });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "ai.profile.failed", error: errorName(error) }));
+      return c.json({ error: "Could not generate the profile. Try again." }, 502);
+    }
+  });
 
   app.get("/v1/sources", read, async (c) => c.json(await listSources(db)));
 

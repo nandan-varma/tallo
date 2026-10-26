@@ -1,17 +1,19 @@
 import { gzip, sha256 } from "@tallo/catalog";
 import { jdKey, memoryBlobs, schema } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
-import { sql } from "drizzle-orm";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { jobsPort } from "../src/jobs-port.ts";
 
 const SOURCE = "greenhouse:acme";
 const now = () => Math.floor(Date.now() / 1000);
 
-/** Visible, open, canonical job rows by default; flags turn one into an invisible row. */
+type Db = ReturnType<typeof testDb>;
+type Blobs = ReturnType<typeof memoryBlobs>;
+
+/** One job row, visible by default; flags turn it into a row the site hides. */
 async function seed(
-  db: ReturnType<typeof testDb>,
-  blobs: ReturnType<typeof memoryBlobs>,
+  db: Db,
+  blobs: Blobs,
   args: {
     postingId: string;
     title: string;
@@ -19,6 +21,7 @@ async function seed(
     closed?: boolean;
     hidden?: boolean;
     dupOf?: number;
+    pay?: [number, number];
   },
 ): Promise<number> {
   const text = args.description ?? `${args.title} description`;
@@ -49,11 +52,15 @@ async function seed(
       jdHash,
       jdBytes: text.length,
       sourceHash: "b".repeat(64),
-      facts: {},
+      facts: { platform: "greenhouse" },
       sortAt: 1000 + Number(args.postingId),
       firstSeenAt: 1,
       updatedAt: 1,
       locationText: "Remote, US",
+      workMode: "remote",
+      salaryMinAnnual: args.pay?.[0] ?? null,
+      salaryMaxAnnual: args.pay?.[1] ?? null,
+      salaryCurrency: args.pay ? "USD" : null,
       closedAt: args.closed ? 2 : null,
       hidden: args.hidden ? 1 : 0,
       dupOf: args.dupOf ?? null,
@@ -62,153 +69,101 @@ async function seed(
   return row?.id ?? 0;
 }
 
-/**
- * 100k synthetic open jobs, built in SQL (one recursive insert, FTS triggers included). About 82%
- * have "engineer" in the title, so a single common word matches most of the table. 1% are
- * "Backend Engineer" and 1% "Platform Engineer".
- */
-async function seedCatalog(db: ReturnType<typeof testDb>, rows: number) {
-  await db
-    .insert(schema.sources)
-    .values({
-      id: SOURCE,
-      platform: "greenhouse",
-      key: "acme",
+function setup() {
+  const db = testDb();
+  const blobs = memoryBlobs();
+  return { db, blobs, port: jobsPort(db, blobs) };
+}
+
+describe("jobsPort.search", () => {
+  it("matches every term of a phrase, so a title phrase stays narrow", async () => {
+    const { db, blobs, port } = setup();
+    await seed(db, blobs, { postingId: "1", title: "Backend Engineer" });
+    await seed(db, blobs, { postingId: "2", title: "Frontend Engineer" });
+
+    const hits = await port.search(["backend engineer"], 40);
+
+    expect(hits.map((h) => h.title)).toEqual(["Backend Engineer"]);
+  });
+
+  it("returns compact hits with unknowns as null and pay as text", async () => {
+    const { db, blobs, port } = setup();
+    await seed(db, blobs, { postingId: "1", title: "Platform Engineer", pay: [150000, 180000] });
+    await seed(db, blobs, { postingId: "2", title: "Platform Engineer II" });
+
+    const hits = await port.search(["platform engineer"], 40);
+
+    const paid = hits.find((h) => h.title === "Platform Engineer");
+    const unpaid = hits.find((h) => h.title === "Platform Engineer II");
+    expect(paid).toMatchObject({
       company: "Acme",
-      companySlug: "acme",
-      params: {},
-      lastListedAt: now(),
-    })
-    .onConflictDoNothing();
-  await db.run(
-    sql.raw(`
-    WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${rows})
-    INSERT INTO jobs (source_id, posting_id, company, company_slug, title, classifier_version, excerpt,
-      jd_hash, jd_bytes, source_hash, facts, sort_at, first_seen_at, updated_at, location_text, hidden)
-    SELECT '${SOURCE}', 'p' || i, 'Acme', 'acme',
-      CASE WHEN i % 100 = 0 THEN 'Backend Engineer ' || i
-           WHEN i % 100 = 1 THEN 'Platform Engineer ' || i
-           WHEN i % 10 < 8 THEN 'Software Engineer ' || i
-           ELSE 'Data Analyst ' || i END,
-      1, 'x', 'h', 1, 'h', '{}', i, i, i, 'Remote, US', 0
-    FROM n
-  `),
-  );
-}
-
-async function countMatches(db: ReturnType<typeof testDb>, match: string): Promise<number> {
-  const rows = (await db.all(
-    sql`SELECT count(*) FROM jobs_fts WHERE jobs_fts MATCH ${match}`,
-  )) as unknown as unknown[];
-  const first = rows[0];
-  return Number(Array.isArray(first) ? first[0] : Object.values(first ?? {})[0]);
-}
-
-describe("jobsPort.recall", () => {
-  it("makes one bounded read per variant (at most 12), with no cursor paging", async () => {
-    const db = testDb();
-    const blobs = memoryBlobs();
-    await seed(db, blobs, { postingId: "1", title: "Backend Engineer" });
-    const select = vi.spyOn(db, "select");
-    const variants = Array.from({ length: 15 }, () => "backend engineer");
-
-    const port = jobsPort(db, blobs);
-    const pool = await port.recall(variants, 300);
-
-    // 15 variants in, 12 read: one select per variant, never a second page.
-    expect(select).toHaveBeenCalledTimes(12);
-    expect(pool.map((c) => c.title)).toEqual(["Backend Engineer"]);
-  });
-
-  it("returns at most 100 rows per variant, even for one common word", async () => {
-    const db = testDb();
-    const blobs = memoryBlobs();
-    await seedCatalog(db, 100_000);
-    const select = vi.spyOn(db, "select");
-
-    const pool = await jobsPort(db, blobs).recall(["engineer"], 300);
-
-    expect(select).toHaveBeenCalledTimes(1);
-    expect(pool.length).toBe(100);
-  });
-
-  it("is selective: a title phrase matches far fewer rows than a common word", async () => {
-    const db = testDb();
-    const blobs = memoryBlobs();
-    await seedCatalog(db, 100_000);
-
-    // The rows a recall variant sorts are its FTS matches. Exact terms with AND keep them narrow.
-    const common = await countMatches(db, '"engineer"');
-    const title = await countMatches(db, '"backend" "engineer"');
-    expect(common).toBeGreaterThan(70_000);
-    expect(title).toBe(1_000);
-    expect(title * 50).toBeLessThan(common);
-
-    // The port reads one page of the title matches: the first 100 by sortAt, all of them titles.
-    const pool = await jobsPort(db, blobs).recall(["backend engineer"], 300);
-    expect(title).toBeGreaterThan(100);
-    expect(pool.length).toBe(100);
-    expect(pool.every((c) => c.title.startsWith("Backend Engineer"))).toBe(true);
-  });
-
-  it("never returns a duplicate (dup_of set), closed or hidden row", async () => {
-    const db = testDb();
-    const blobs = memoryBlobs();
-    const canonical = await seed(db, blobs, { postingId: "1", title: "Backend Engineer" });
-    const dup = await seed(db, blobs, {
-      postingId: "2",
-      title: "Backend Engineer",
-      dupOf: canonical,
+      workMode: "remote",
+      pay: "USD 150000-180000 per year",
     });
-    const closed = await seed(db, blobs, {
-      postingId: "3",
-      title: "Backend Engineer",
-      closed: true,
-    });
-    const hidden = await seed(db, blobs, {
-      postingId: "4",
-      title: "Backend Engineer",
-      hidden: true,
-    });
-
-    const port = jobsPort(db, blobs);
-    const pool = await port.recall(["backend engineer"], 300);
-    expect(pool.map((c) => c.id)).toEqual([String(canonical)]);
-    expect(pool.map((c) => c.id)).not.toContain(String(dup));
-
-    // Facts and descriptions use the same predicate: ids that are not visible return nothing.
-    for (const id of [dup, closed, hidden]) {
-      expect((await port.facts([String(id)])).size).toBe(0);
-      expect(await port.description(String(id))).toBeNull();
-    }
-    expect(await port.description(String(canonical))).toBe("Backend Engineer description");
-    expect((await port.facts([String(canonical)])).has(String(canonical))).toBe(true);
+    expect(unpaid?.pay).toBeNull();
+    expect(unpaid?.department).toBeNull();
   });
 
-  it("matches whole terms only: every term must match, and no term is a prefix", async () => {
-    const db = testDb();
-    const blobs = memoryBlobs();
-    await seed(db, blobs, { postingId: "1", title: "Backend Engineer" });
-    await seed(db, blobs, { postingId: "2", title: "Backend Manager" });
-    await seed(db, blobs, { postingId: "3", title: "Backendish Engineering Lead" });
-    const port = jobsPort(db, blobs);
+  it("merges phrases round-robin, once per job, and stops at the limit", async () => {
+    const { db, blobs, port } = setup();
+    for (let i = 1; i <= 5; i++)
+      await seed(db, blobs, { postingId: `${i}`, title: `Backend Engineer ${i}` });
+    for (let i = 6; i <= 10; i++)
+      await seed(db, blobs, { postingId: `${i}`, title: `Platform Engineer ${i}` });
 
-    // Every term is required (AND), not any of them.
-    const both = await port.recall(["backend engineer"], 300);
-    expect(both.map((c) => c.title)).toEqual(["Backend Engineer"]);
-    // A term is a whole token, not a prefix: "back" must not reach "Backend" (ftsQuery would add `*`).
-    expect(await port.recall(["back"], 300)).toEqual([]);
-  });
-
-  it("treats FTS operator text in a variant as plain words (no syntax injection)", async () => {
-    const db = testDb();
-    const blobs = memoryBlobs();
-    await seed(db, blobs, { postingId: "1", title: "Backend Engineer" });
-
-    const pool = await jobsPort(db, blobs).recall(
-      ['backend" OR title:"x', "NEAR(backend engineer)", "*", '"', "backend engineer*"],
-      300,
+    const hits = await port.search(
+      ["backend engineer", "platform engineer", "backend engineer"],
+      4,
     );
-    expect(pool.map((c) => c.title)).toEqual(["Backend Engineer"]);
+
+    expect(hits).toHaveLength(4);
+    expect(new Set(hits.map((h) => h.id)).size).toBe(4);
+    // Both phrases are represented even though the first alone could fill the limit.
+    expect(hits.some((h) => h.title.startsWith("Backend"))).toBe(true);
+    expect(hits.some((h) => h.title.startsWith("Platform"))).toBe(true);
+  });
+
+  it("never returns closed, hidden or duplicate rows", async () => {
+    const { db, blobs, port } = setup();
+    const keep = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    await seed(db, blobs, { postingId: "2", title: "Data Engineer", closed: true });
+    await seed(db, blobs, { postingId: "3", title: "Data Engineer", hidden: true });
+    await seed(db, blobs, { postingId: "4", title: "Data Engineer", dupOf: keep });
+
+    const hits = await port.search(["data engineer"], 40);
+
+    expect(hits.map((h) => h.id)).toEqual([String(keep)]);
+  });
+
+  it("skips phrases with no searchable word", async () => {
+    const { db, blobs, port } = setup();
+    await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    expect(await port.search(['"" ** ()', "data engineer"], 40)).toHaveLength(1);
+    expect(await port.search(["--"], 40)).toEqual([]);
+  });
+});
+
+describe("jobsPort.read", () => {
+  it("returns the full description, never truncated, with the apply link and facts", async () => {
+    const { db, blobs, port } = setup();
+    const description = `${"Intro paragraph. ".repeat(3_000)}\nPay: $200,000.\nMinimum 6 years of Go.`;
+    const id = await seed(db, blobs, { postingId: "1", title: "Staff Engineer", description });
+
+    const job = await port.read(String(id));
+
+    expect(job?.description).toBe(description);
+    expect(job?.description?.length).toBeGreaterThan(50_000);
+    expect(job?.facts).toEqual({ platform: "greenhouse" });
+    expect(job?.title).toBe("Staff Engineer");
+  });
+
+  it("refuses ids the site hides, and ids that are not ids", async () => {
+    const { db, blobs, port } = setup();
+    const closed = await seed(db, blobs, { postingId: "1", title: "A", closed: true });
+    const hidden = await seed(db, blobs, { postingId: "2", title: "B", hidden: true });
+    const dup = await seed(db, blobs, { postingId: "3", title: "C", dupOf: closed });
+
+    for (const id of [closed, hidden, dup, 9999]) expect(await port.read(String(id))).toBeNull();
+    for (const id of ["abc", "-1", "1.5", ""]) expect(await port.read(id)).toBeNull();
   });
 });

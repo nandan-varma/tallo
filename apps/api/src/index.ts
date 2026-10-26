@@ -2,7 +2,7 @@ import type { AiEnv } from "@tallo/ai";
 import type { BlobStore } from "@tallo/db";
 import { pruneRuns, purgeClosed, rebuildDuplicates, rebuildFacets, schema } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
-import { modelsFromEnv } from "./ai.ts";
+import { assistantModel } from "./ai.ts";
 import { createApp } from "./app.ts";
 
 export interface Env extends AiEnv {
@@ -27,7 +27,7 @@ const deps = (env: Env) => ({
   blobs: r2(env.BLOBS),
   readToken: env.READ_TOKEN,
   ingestToken: env.INGEST_TOKEN,
-  models: () => modelsFromEnv(env),
+  model: () => assistantModel(env),
 });
 
 // The env object is stable for the life of an isolate, so build the app once per env.

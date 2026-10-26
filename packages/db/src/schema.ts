@@ -144,3 +144,14 @@ export const facetCounts = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.facet, t.value] })],
 );
+
+/**
+ * Personal layer (CLAUDE.md rule 5): the user's resume and the profile markdown generated from it, keyed by
+ * user. Never joined into the shared catalog tables. Search results and chat are not stored anywhere.
+ */
+export const profiles = sqliteTable("profiles", {
+  userId: text("user_id").primaryKey(),
+  resume: text().notNull(),
+  profile: text().notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});

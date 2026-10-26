@@ -1,22 +1,11 @@
 ---
-import { JobExplorer } from "@/components/JobExplorer";
+import { Assistant } from "@/components/assistant/Assistant";
 import Base from "@/layouts/Base.astro";
-import { getFacets, searchJobs } from "@/lib/api";
+import { getProfile } from "@/lib/api";
 
-const params = Astro.url.searchParams;
-const query = new URLSearchParams([...params].filter(([, value]) => value !== ""));
-// Facets are optional: a failed or missing /v1/facets must not take the search page down with it.
-const [{ jobs, nextCursor }, facets] = await Promise.all([
-  params.get("saved") === "true" ? { jobs: [], nextCursor: null } : searchJobs(query),
-  getFacets().catch(() => undefined),
-]);
+// A missing profile only changes the empty state, so a failed read must not take the page down.
+const profile = await getProfile().catch(() => null);
 ---
-<Base>
-  <JobExplorer
-    client:load
-    jobs={jobs}
-    nextCursor={nextCursor}
-    values={Object.fromEntries(params)}
-    facets={facets ?? undefined}
-  />
+<Base title="Tallo">
+  <Assistant client:only="react" hasProfile={Boolean(profile?.profile.trim())} />
 </Base>

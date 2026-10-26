@@ -2,10 +2,10 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
-**D13. AI search is an engine package plus a provider package, stateless, nothing generated is stored.**
-`packages/ai` maps roles (`fast`/`smart`) to any AI SDK provider via a registry (OpenCode Go by default);
-`packages/search-ai` runs understand -> recall -> triage -> deep -> answer behind a `JobsPort`. Filters are not
-trusted; unknown stays unknown. Resume and edited profile are stored per user, outputs are not. See `ai-search.md`.
+**D13. The AI assistant is one tool-using agent, streamed, stateless.** `ToolLoopAgent` with `search_jobs`, `read_job` (full text,
+never cut) and `show_jobs`; UI is rendered from typed tool parts; filters are gone. `packages/ai` maps a role to any AI SDK provider;
+`packages/search-ai` has no database imports (`JobsPort`). Resume and edited profile are stored per user; chats and rankings are not.
+The earlier staged JSON pipeline was dropped: it fought the SDK and took 128 s. See `ai-search.md`.
 
 **D12. Libraries over hand-rolled machinery.** ky + p-queue (HTTP), html-to-text + entities, i18n-iso-countries,
 safe-stable-stringify, Hono, Drizzle, commander, pino. Effect was considered for runner orchestration and skipped:

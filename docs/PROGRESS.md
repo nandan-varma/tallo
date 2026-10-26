@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+_Last updated: 2026-10-26._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
 ## Done
 
@@ -12,6 +12,13 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
   from stored facts with no refetching. Re-run it after any rule change (bump `CLASSIFIER_VERSION`).
 - Workflow: stateless GitHub-native process (`docs/workflow.md`), roles in `.claude/agents/`, review checklist.
 - Sources seeded from the legacy registry: ~8.9k boards.
+- **AI assistant (live 2026-10-26)**: `/` is a chat (left) with ranked results (right); the old filter UI and `/ask` are gone. One streamed
+  tool-using agent (`packages/search-ai`, models via `packages/ai`, default Claude Haiku 5.5 on OpenCode Go), `POST /v1/ai/chat`,
+  `/profile` page (resume -> profile.md, stored per user in `profiles`), full descriptions never truncated. See `docs/ai-search.md`.
+  `OPENCODE_API_KEY` is a Worker secret on `tallo-api`; `AI_MODEL_SMART` is a plain var.
+- Duplicates collapsed (`dedupe_key`, `dup_of`): 508k open rows, 78k collapsed; `last_listed_at` now advances at finalize.
+- Deploy policy: deploy to prod right after each change (migrations first). Deploy from a clean worktree of origin/main, not from a
+  checkout that background syncs import. Use `pnpm --filter @tallo/api run deploy` (plain `pnpm deploy` is another command).
 
 ## Infra
 
@@ -24,6 +31,9 @@ _Last updated: 2026-10-23._ Stateless handoff: also read `gh issue list` and `gh
 | Zone    | nandan.fyi (Cloudflare). `tallo-assets.nandan.fyi` not used yet                                                                                    |
 
 ## In flight
+
+- Background syncs (one process per platform, logs `~/Library/Logs/tallo-sync-*.log`) were started 2026-10-26; check they finished,
+  then install the daily launchd job (#1).
 
 - Web workspace redesign: compact neutral shadcn UI, responsive job list and reading pane,
   Astro view transitions, Motion interactions, animated save feedback, browser-local saved roles,
