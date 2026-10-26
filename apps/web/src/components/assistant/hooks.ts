@@ -1,57 +1,6 @@
 import type { JobDetail, JobSummary } from "@tallo/contracts";
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { readSavedJobs } from "@/lib/saved-jobs";
-
-/** Below this width the layout is one pane at a time instead of chat beside results. */
-export const DESKTOP_MIN_WIDTH = 1024;
-
-const subscribeDesktop = (notify: () => void) => {
-  const query = matchMedia(`(min-width: ${DESKTOP_MIN_WIDTH}px)`);
-  query.addEventListener("change", notify);
-  return () => query.removeEventListener("change", notify);
-};
-
-export const useIsDesktop = () =>
-  useSyncExternalStore(
-    subscribeDesktop,
-    () => matchMedia(`(min-width: ${DESKTOP_MIN_WIDTH}px)`).matches,
-    () => true,
-  );
-
-/** Chat column width: a third of the screen, kept between a readable minimum and a calm maximum. */
-export function useChatWidth() {
-  const [width, setWidth] = useState(() => chatWidthFor(innerWidth));
-  useEffect(() => {
-    const onResize = () => setWidth(chatWidthFor(innerWidth));
-    addEventListener("resize", onResize);
-    return () => removeEventListener("resize", onResize);
-  }, []);
-  return width;
-}
-const chatWidthFor = (viewport: number) =>
-  Math.min(480, Math.max(360, Math.round(viewport * 0.34)));
-
-/** The element's width in pixels, kept current. 0 until it is first measured (before the first paint). */
-export function useElementWidth(ref: RefObject<HTMLElement | null>) {
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setWidth(el.clientWidth);
-    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [ref]);
-  return width;
-}
 
 /**
  * Keeps a scroller pinned to the bottom while content grows, unless the person scrolled up to read.

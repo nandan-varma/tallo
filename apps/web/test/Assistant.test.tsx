@@ -192,7 +192,8 @@ describe("Assistant (mobile)", () => {
 
   it("shows the list on its own tab and opens a posting full screen", async () => {
     await mount();
-    fireEvent.click(await screen.findByRole("tab", { name: "Results" }));
+    const views = await screen.findByRole("tablist", { name: "View" });
+    fireEvent.click(within(views).getByRole("tab", { name: "Results" }));
     const list = await screen.findByRole("list", { name: "Search results" });
 
     fireEvent.click(within(list).getByText("Platform Engineer"));

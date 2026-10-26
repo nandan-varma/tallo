@@ -1,53 +1,14 @@
-import type { JobDetail, JobSummary } from "@tallo/contracts";
+import type { JobSummary } from "@tallo/contracts";
 import { ArrowLeft, ArrowUpRight, Bookmark, ExternalLink, Quote, RotateCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
 import { summaryOf } from "@/components/assistant/hooks";
 import { Avatar } from "@/components/assistant/JobRow";
+import { useJob } from "@/components/assistant/queries";
 import { JobFacts } from "@/components/JobFacts";
 import { JobMeta } from "@/components/JobMeta";
 import { Button } from "@/components/ui/button";
 import { Variants } from "@/components/Variants";
 import type { Note } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
-
-const cache = new Map<string, JobDetail>();
-
-type Load = { state: "loading" } | { state: "error" } | { state: "ready"; job: JobDetail };
-
-/** One job's detail, kept for the visit so going back and forth never refetches. */
-function useJob(id: string) {
-  const [load, setLoad] = useState<Load>(() => {
-    const hit = cache.get(id);
-    return hit ? { state: "ready", job: hit } : { state: "loading" };
-  });
-  const [attempt, setAttempt] = useState(0);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt re-runs the fetch for Retry
-  useEffect(() => {
-    const cached = cache.get(id);
-    if (cached) {
-      setLoad({ state: "ready", job: cached });
-      return;
-    }
-    setLoad({ state: "loading" });
-    const controller = new AbortController();
-    fetch(`/api/jobs/${id}.json`, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(String(response.status));
-        return response.json() as Promise<JobDetail>;
-      })
-      .then((job) => {
-        cache.set(id, job);
-        setLoad({ state: "ready", job });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setLoad({ state: "error" });
-      });
-    return () => controller.abort();
-  }, [id, attempt]);
-
-  return { load, retry: useCallback(() => setAttempt((n) => n + 1), []) };
-}
 
 function Skeleton() {
   return (
@@ -86,21 +47,21 @@ function AssistantNote({ note }: { note: Note }) {
 }
 
 /** One posting, exactly as stored: the description is never cut. */
-export function Listing({
+export function JobPage({
   id,
   note,
   saved,
   onToggleSave,
-  onBack,
+  onClose,
 }: {
   id: string;
   note?: Note;
   saved: boolean;
   onToggleSave: (job: JobSummary) => void;
-  onBack: () => void;
+  onClose: () => void;
 }) {
-  const { load, retry } = useJob(id);
-  const job = load.state === "ready" ? load.job : null;
+  const query = useJob(id);
+  const job = query.data;
   const link = job?.applyUrl ?? job?.url ?? null;
 
   return (
@@ -110,11 +71,11 @@ export function Listing({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={onBack}
+          onClick={onClose}
           className="-ml-1.5 gap-1.5"
         >
           <ArrowLeft aria-hidden />
-          Chat
+          Back
         </Button>
         <span className="flex-1" />
         {job && (
@@ -148,8 +109,8 @@ export function Listing({
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <article className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-8">
-          {load.state === "loading" && <Skeleton />}
-          {load.state === "error" && (
+          {query.isPending && <Skeleton />}
+          {query.isError && (
             <div className="py-20 text-center">
               <p className="text-sm font-medium">Couldn't load this posting.</p>
               <Button
@@ -157,7 +118,7 @@ export function Listing({
                 variant="outline"
                 size="sm"
                 className="mt-3 gap-1.5"
-                onClick={retry}
+                onClick={() => query.refetch()}
               >
                 <RotateCw aria-hidden />
                 Try again

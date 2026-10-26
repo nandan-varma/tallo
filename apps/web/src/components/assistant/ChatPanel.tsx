@@ -1,6 +1,5 @@
 import type { JobAgentMessage, JobHit } from "@tallo/search-ai";
 import { FileUser, RotateCcw } from "lucide-react";
-import { motion } from "motion/react";
 import { type RefObject, useMemo } from "react";
 import { Composer } from "@/components/assistant/Composer";
 import { useStickToBottom } from "@/components/assistant/hooks";
@@ -67,7 +66,6 @@ export function ChatPanel({
   status,
   error,
   hasProfile,
-  showOrb,
   inputRef,
   onSend,
   onStop,
@@ -80,8 +78,6 @@ export function ChatPanel({
   status: "submitted" | "streaming" | "ready" | "error";
   error: Error | undefined;
   hasProfile: boolean;
-  /** The orb travels to the floating bubble when the chat tucks away, so it only lives here while open. */
-  showOrb: boolean;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   onSend: (text: string) => void;
   onStop: () => void;
@@ -96,13 +92,7 @@ export function ChatPanel({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-2.5 border-b px-4">
-        {showOrb ? (
-          <motion.span layoutId="orb">
-            <Orb className="size-7" busy={busy} />
-          </motion.span>
-        ) : (
-          <span className="size-7" />
-        )}
+        <Orb className="size-7" busy={busy} />
         <span className="flex-1 truncate text-sm font-medium">{last ? last : "Assistant"}</span>
         {messages.length > 0 && (
           <button
