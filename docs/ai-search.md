@@ -45,7 +45,7 @@ can return empty content, so every call sets an explicit output budget and model
 
 Rule: when the input is already known (e.g. one job's requirements) use one `generateText` with
 `Output.object`; use the agent loop only for open-ended retrieval. Budgets (`stopWhen`, `maxOutputTokens`,
-deep-read cap) are enforced in `prepareStep`, not by prompt.
+deep-read count) are enforced in `prepareStep`, not by prompt.
 
 ## Profile
 
@@ -78,7 +78,9 @@ every open location. Recall is design intent only: no recall code exists yet, an
   (`jobs_updated_idx`), the open duplicates of canonicals written in it, and the keys of sources that crossed
   the stale threshold. Closure and reopen bump `updated_at`, so they are in the window.
 - **Freshness lag, stated honestly.** A sync's finalize regroups the keys its own rows were written under, so
-  a canonical that closes, reopens or changes `hidden` in a sync takes effect at that finalize. Changes that
+  a canonical that closes, reopens or changes `hidden` in a sync takes effect at that finalize. A stale source
+  that lists again (its `last_listed_at` advances, so its rows un-hide) regroups every key it has, at that
+  finalize. Changes that
   never finalize wait for the hourly cron: a stale source crossing `STALE_HIDE_DAYS`, reclassify, and a run
   that never finished. Worst case is one hour (the cron interval) during which a visible duplicate can stay
   hidden behind a closed, hidden or stale canonical. Nothing is hidden for longer, and no job is closed by it.

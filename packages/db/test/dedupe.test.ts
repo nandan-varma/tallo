@@ -391,6 +391,53 @@ describe("incremental pass", () => {
     expect(await visibleIds()).toEqual([b]);
   });
 
+  it("regroups a stale source's keys when its finalize brings it back, with no rebuild and no row write", async () => {
+    // STALE is hidden (its last_listed_at is past STALE_HIDE_DAYS), so its canonical a and duplicate c
+    // form a group of their own and b (fresh source) is visible alone.
+    const old = NOW - 10 * DAY;
+    const a = await row({ sourceId: STALE, updatedAt: old });
+    const c = await row({ sourceId: STALE, updatedAt: old });
+    const b = await row({ updatedAt: old });
+    await rebuild({ full: true });
+    expect(await dupOf(c)).toBe(a);
+    expect(await visibleIds()).toEqual([b]);
+
+    // STALE lists again, with a and c still present. Nothing about the rows changes, so no row is written
+    // in the window: the finalize regroup has no key to visit unless the source's own keys are regrouped.
+    await startRun(
+      db,
+      {
+        runId: "run-recover-01",
+        source: { id: STALE, platform: "lever", key: STALE, company: "Acme", params: {} },
+        runnerId: "test",
+        collectorVersion: "1",
+        startedAt: NOW - 100,
+      },
+      NOW - 100,
+    );
+    await finalize(
+      db,
+      "run-recover-01",
+      {
+        seenIds: [`p${a}`, `p${c}`],
+        listingComplete: true,
+        detailsComplete: true,
+        emptyIsAuthoritative: false,
+        requests: 1,
+        finishedAt: NOW,
+        rawKey: null,
+        issues: [],
+        boardNotFound: false,
+      },
+      NOW,
+    );
+
+    // The source is fresh now: one group, canonical a (lowest id). b must be linked without a rebuild.
+    expect(await dupOf(b)).toBe(a);
+    expect(await dupOf(c)).toBe(a);
+    expect(await visibleIds()).toEqual([a]);
+  });
+
   it("regroups a source's keys when it goes stale, with no write to its rows", async () => {
     const CROSSING = "crossing";
     // Crossed the threshold 10 minutes before NOW (inside the window), so it was fresh an hour ago.

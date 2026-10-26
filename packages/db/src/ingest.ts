@@ -206,6 +206,13 @@ export async function finalize(
       reopened: current.reopened ?? 0,
     };
   }
+  // Read before the batch advances last_listed_at: a stale source that lists again un-hides its rows.
+  const [before] = await db
+    .select({ lastListedAt: sources.lastListedAt })
+    .from(sources)
+    .where(eq(sources.id, current.sourceId))
+    .limit(1);
+  const wasStale = (before?.lastListedAt ?? 0) < now - STALE_HIDE_DAYS * 86400;
   const closureApplied =
     fin.listingComplete && (fin.seenIds.length > 0 || fin.emptyIsAuthoritative);
   let closed = 0;
@@ -259,6 +266,8 @@ export async function finalize(
     }
   }
   const status = fin.listingComplete ? "complete" : "partial";
+  // A listing that returned (complete, or any postings seen) counts for freshness; a failed one does not.
+  const listed = fin.listingComplete || fin.seenIds.length > 0;
   // Board health. A complete listing revives a dead board; a 404 counts toward dead; any other
   // outcome breaks the streak, so only consecutive 404s can mark a board dead.
   const health = fin.listingComplete
@@ -285,20 +294,28 @@ export async function finalize(
       .where(eq(runs.id, runId)),
     db
       .update(sources)
-      .set({ lastStatus: status, ...health })
+      .set({ lastStatus: status, ...health, ...(listed ? { lastListedAt: now } : {}) })
       .where(eq(sources.id, current.sourceId)),
   );
   await batch(db, statements);
-  await regroupWritten(db, current.sourceId, now);
+  // A listing that brings a stale source back changes every group its rows belong to, not only the
+  // rows written in this run, so all of the source's keys are regrouped.
+  await regroupSource(db, current.sourceId, now, listed && wasStale);
   return { status, closureApplied, closed, reopened };
 }
 
 /**
- * Regroups the keys of the rows this source wrote in the window, so its closures, reopens and hidden
- * flags take effect at finalize instead of at the next hourly pass. Reads the source's rows written
- * in the window (the run just wrote them) and writes only rows whose `dup_of` changes.
+ * Regroups the keys this source's finalize can change, so its closures, reopens, hidden flags and
+ * freshness take effect now instead of at the next hourly pass. Normally that is the keys of the rows
+ * written in the window (the run just wrote them). When the source comes back from stale, it is every
+ * key the source has. Writes only rows whose `dup_of` changes.
  */
-async function regroupWritten(db: Db, sourceId: string, now: number): Promise<number> {
+async function regroupSource(
+  db: Db,
+  sourceId: string,
+  now: number,
+  recovered: boolean,
+): Promise<number> {
   const rows = await db
     .selectDistinct({ key: jobs.dedupeKey })
     .from(jobs)
@@ -306,7 +323,7 @@ async function regroupWritten(db: Db, sourceId: string, now: number): Promise<nu
       and(
         eq(jobs.sourceId, sourceId),
         isNotNull(jobs.dedupeKey),
-        gte(jobs.updatedAt, now - DEDUPE_WINDOW),
+        recovered ? undefined : gte(jobs.updatedAt, now - DEDUPE_WINDOW),
       ),
     );
   const keys = rows.flatMap((r) => (r.key === null ? [] : [r.key]));
