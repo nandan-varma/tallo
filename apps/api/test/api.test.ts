@@ -1,5 +1,5 @@
 import { gzip, prepareJob, sha256 } from "@tallo/catalog";
-import { memoryBlobs } from "@tallo/db";
+import { memoryBlobs, schema } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
@@ -28,7 +28,7 @@ function setup() {
       },
       ...(init.json ? { body: JSON.stringify(init.json) } : {}),
     });
-  return { call };
+  return { call, db };
 }
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -142,6 +142,52 @@ describe("api", () => {
     });
     expect(detail).not.toHaveProperty("jdHash");
     expect((await call("/v1/jobs/999", READ)).status).toBe(404);
+  });
+
+  it("serves precomputed facets behind the read token and rebuilds them on admin request", async () => {
+    const { call, db } = setup();
+    expect((await call("/v1/facets", null)).status).toBe(401);
+    expect((await call("/v1/admin/facets/rebuild", READ, { method: "POST" })).status).toBe(401);
+    expect(await (await call("/v1/facets", READ)).json()).toMatchObject({
+      computedAt: null,
+      department: [],
+    });
+
+    await db
+      .insert(schema.sources)
+      .values({ ...source, companySlug: "acme", lastListedAt: now(), params: {} });
+    await db.insert(schema.jobs).values({
+      sourceId: source.id,
+      postingId: "7",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      classifierVersion: 1,
+      excerpt: "x",
+      jdHash: "a".repeat(64),
+      jdBytes: 1,
+      sourceHash: "b".repeat(64),
+      facts: {},
+      sortAt: 1,
+      firstSeenAt: 1,
+      updatedAt: 1,
+      department: "Engineering",
+      employmentType: "full_time",
+      workMode: "remote",
+      countryCode: "US",
+    });
+
+    expect(
+      await (await call("/v1/admin/facets/rebuild", INGEST, { method: "POST" })).json(),
+    ).toEqual({ values: 4 });
+    const facets = await call("/v1/facets", READ);
+    expect(facets.headers.get("cache-control")).toBe("private, max-age=300");
+    expect(await facets.json()).toMatchObject({
+      department: [{ value: "Engineering", count: 1 }],
+      employmentType: [{ value: "full_time", count: 1 }],
+      workMode: [{ value: "remote", count: 1 }],
+      country: [{ value: "US", count: 1 }],
+    });
   });
 
   it("rejects malformed input and maps ingest conflicts to 409", async () => {

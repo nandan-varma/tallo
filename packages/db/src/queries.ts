@@ -1,9 +1,13 @@
+import type { Facets } from "@tallo/contracts";
 import { STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
-import { jobs, runs, sources } from "./schema.ts";
+import { facetCounts, jobs, runs, sources } from "./schema.ts";
+
+/** Most values kept per facet. Bounds the snapshot size and the dropdown length. */
+export const FACET_LIMIT = 100;
 
 export const searchSchema = z.object({
   q: z.string().trim().max(200).optional(),
@@ -58,14 +62,26 @@ const summary = {
   sortAt: jobs.sortAt,
 };
 
+/**
+ * What a default search shows: open jobs, not heuristically hidden, from sources that listed
+ * recently. Facet counts use the same predicate so every count matches its filter's results.
+ */
+export function visibleJobs(now: number, { all = false, includeStale = false } = {}): SQL[] {
+  return [
+    sql`${jobs.closedAt} IS NULL`,
+    ...(all ? [] : [sql`${jobs.hidden} = 0`]),
+    ...(includeStale
+      ? []
+      : [
+          sql`NOT EXISTS (SELECT 1 FROM sources WHERE sources.id = ${jobs.sourceId} AND coalesce(sources.last_listed_at, 0) < ${now - STALE_HIDE_DAYS * 86400})`,
+        ]),
+  ];
+}
+
 export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.now() / 1000)) {
   const match = input.q ? ftsQuery(input.q) : undefined;
   const where: (SQL | undefined)[] = [
-    sql`${jobs.closedAt} IS NULL`,
-    input.all ? undefined : sql`${jobs.hidden} = 0`,
-    input.includeStale
-      ? undefined
-      : sql`NOT EXISTS (SELECT 1 FROM sources WHERE sources.id = ${jobs.sourceId} AND coalesce(sources.last_listed_at, 0) < ${now - STALE_HIDE_DAYS * 86400})`,
+    ...visibleJobs(now, input),
     match
       ? sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`
       : undefined,
@@ -100,6 +116,36 @@ export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.no
     jobs: page,
     nextCursor: rows.length > input.limit && last ? `${last.sortAt}.${last.id}` : null,
   };
+}
+
+/**
+ * Reads the precomputed facet snapshot: one small table scan, no `jobs` access. The table is
+ * rebuilt by `rebuildFacets` (hourly cron), so counts can lag by up to an hour.
+ */
+export async function listFacets(db: Db): Promise<Facets> {
+  const rows = await db
+    .select()
+    .from(facetCounts)
+    .orderBy(desc(facetCounts.count), facetCounts.value);
+  const facets: Facets = {
+    computedAt: null,
+    workMode: [],
+    department: [],
+    employmentType: [],
+    country: [],
+  };
+  for (const row of rows) {
+    facets.computedAt = Math.max(facets.computedAt ?? 0, row.computedAt);
+    if (
+      row.facet === "workMode" ||
+      row.facet === "department" ||
+      row.facet === "employmentType" ||
+      row.facet === "country"
+    ) {
+      facets[row.facet].push({ value: row.value, count: row.count });
+    }
+  }
+  return facets;
 }
 
 export async function getJob(db: Db, id: number) {

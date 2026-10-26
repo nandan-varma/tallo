@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { JobDetail, JobPage } from "@tallo/contracts";
+import type { Facets, JobDetail, JobPage } from "@tallo/contracts";
 import type { RunRecord, SourceRecord } from "@/lib/status";
 
 const inFlight = new Map<string, Promise<unknown>>();
@@ -55,6 +55,12 @@ function canonicalQuery(query: URLSearchParams) {
 
 export const searchJobs = (query: URLSearchParams) =>
   call<JobPage>(`/v1/jobs?${canonicalQuery(query)}`, 30) as Promise<JobPage>;
+
+/**
+ * Facet counts are rebuilt hourly by the API cron, so a few minutes of edge caching is fine.
+ * Resolves to null on 404 (no facets endpoint); callers must handle it.
+ */
+export const getFacets = () => call<Facets>("/v1/facets", 300);
 
 /** Detail descriptions change only when the source job changes, so a longer TTL is safe. */
 export const getJob = (id: number) => call<JobDetail>(`/v1/jobs/${id}`, 300);

@@ -6,7 +6,8 @@ import type { BlobStore } from "./blobs.ts";
 import { jdKey, rawKey } from "./blobs.ts";
 import type { Db } from "./db.ts";
 import { batch, CHUNK, chunks } from "./db.ts";
-import { jobs, runs, sources } from "./schema.ts";
+import { FACET_LIMIT, visibleJobs } from "./queries.ts";
+import { facetCounts, jobs, runs, sources } from "./schema.ts";
 
 export class IngestError extends Error {
   readonly status: 404 | 409;
@@ -422,4 +423,51 @@ export async function reclassify(
     );
   }
   return { updated: page.length, more: stale.length > limit };
+}
+
+const FACET_KEYS = ["workMode", "department", "employmentType", "country"] as const;
+
+/**
+ * Recounts facets over the default-visible catalog and replaces the snapshot in one batch, so
+ * readers see either the old or the new counts. Reads: one scan of visible jobs (grouped in
+ * SQL, aggregated here) plus one `sources` lookup per visible job for the staleness check.
+ * Run hourly by the cron; the snapshot is at most that old.
+ */
+export async function rebuildFacets(
+  db: Db,
+  now = nowSeconds(),
+  limit = FACET_LIMIT,
+): Promise<{ values: number }> {
+  const groups = await db
+    .select({
+      workMode: jobs.workMode,
+      department: jobs.department,
+      employmentType: jobs.employmentType,
+      country: jobs.countryCode,
+      count: sql<number>`count(*)`,
+    })
+    .from(jobs)
+    .where(and(...visibleJobs(now)))
+    .groupBy(jobs.workMode, jobs.department, jobs.employmentType, jobs.countryCode);
+
+  // Each job falls in exactly one group, so summing groups per value gives the facet count.
+  const rows: { facet: string; value: string; count: number }[] = [];
+  for (const facet of FACET_KEYS) {
+    const totals = new Map<string, number>();
+    for (const group of groups) {
+      const value = group[facet];
+      if (value !== null) totals.set(value, (totals.get(value) ?? 0) + group.count);
+    }
+    const top = [...totals].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit);
+    for (const [value, count] of top) rows.push({ facet, value, count });
+  }
+
+  // One bound parameter carries every row (json_each), so the size never hits the bind limit.
+  await batch(db, [
+    db.delete(facetCounts),
+    db.run(
+      sql`INSERT INTO facet_counts (facet, value, count, computed_at) SELECT json_extract(j.value, '$.facet'), json_extract(j.value, '$.value'), json_extract(j.value, '$.count'), ${now} FROM json_each(${JSON.stringify(rows)}) AS j`,
+    ),
+  ]);
+  return { values: rows.length };
 }

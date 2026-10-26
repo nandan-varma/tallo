@@ -105,6 +105,22 @@ export interface JobPage {
   nextCursor: string | null;
 }
 
+/** One selectable value of a facet, counted over the default-visible catalog. */
+export interface FacetValue {
+  value: string;
+  count: number;
+}
+
+/** Keys match the search parameter names they filter by. */
+export interface Facets {
+  /** When the counts were last rebuilt (unix seconds); null before the first rebuild. */
+  computedAt: number | null;
+  workMode: FacetValue[];
+  department: FacetValue[];
+  employmentType: FacetValue[];
+  country: FacetValue[];
+}
+
 /** Read model: one job with its full description text. */
 export interface JobDetail extends JobSummary {
   team: string | null;

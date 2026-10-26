@@ -31,6 +31,7 @@ const finish = (runId: string, over: Partial<Parameters<typeof finalize>[2]>) =>
     finishedAt: T + 10,
     rawKey: null,
     issues: [],
+    boardNotFound: false,
     ...over,
   });
 
