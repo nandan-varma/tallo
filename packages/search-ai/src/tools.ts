@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { JobsPort } from "./jobs.ts";
 
 export const SEARCH_LIMIT = 40;
-export const MAX_NOTES = 12;
+const MAX_NOTES = 12;
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
 

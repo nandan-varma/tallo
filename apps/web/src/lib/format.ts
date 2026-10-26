@@ -1,5 +1,8 @@
 import type { JobLocation, JobSummary, Money, PayInterval, Quantity } from "@tallo/contracts";
 
+/** Plain en-US digits for counts. */
+export const number = new Intl.NumberFormat("en-US");
+
 const money = (n: number, currency: string | null) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -17,10 +20,14 @@ export function salary(
   return `${money(min, c)} – ${money(max, c)} / yr`;
 }
 
+/** Relative age in coarse units ("just now", "5m ago", "3d ago", "2mo ago"). Null when unknown. */
 export function ago(epochSeconds: number | null, now = Date.now() / 1000): string | null {
   if (epochSeconds === null) return null;
-  const days = Math.floor((now - epochSeconds) / 86400);
-  if (days < 1) return "today";
+  const seconds = Math.max(0, now - epochSeconds);
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  const days = Math.floor(seconds / 86400);
   if (days < 30) return `${days}d ago`;
   return `${Math.floor(days / 30)}mo ago`;
 }
@@ -35,7 +42,7 @@ export const sortLocations = (locations: JobLocation[]): JobLocation[] =>
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** True when `term` appears in `text` as a whole word, not as a fragment of a longer word. */
-export function mentions(text: string, term: string, caseInsensitive: boolean): boolean {
+function mentions(text: string, term: string, caseInsensitive: boolean): boolean {
   const word = "[\\p{L}\\p{N}]";
   const pattern = new RegExp(
     `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(?!${word})`,
@@ -122,7 +129,7 @@ export const KIND_LABEL: Record<Quantity["kind"], string> = {
 };
 
 /** "team_size" -> "Team size". */
-export const extraLabel = (key: string): string => {
+const extraLabel = (key: string): string => {
   const words = key
     .replace(/[_-]+/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")

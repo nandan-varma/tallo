@@ -15,7 +15,7 @@ export interface SourceRecord {
   freshness: Freshness;
 }
 
-export interface RunIssue {
+interface RunIssue {
   code: string;
   message: string;
   url?: string;
@@ -45,17 +45,6 @@ export interface SourceSummary {
   hidden: number;
   /** Latest run of any source, or null when nothing has run. */
   lastCollectedAt: number | null;
-}
-
-const nowSeconds = () => Math.floor(Date.now() / 1000);
-
-/** Relative age in coarse units. Callers handle null (unknown) themselves. */
-export function since(epochSeconds: number, now = nowSeconds()): string {
-  const seconds = Math.max(0, now - epochSeconds);
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 export function summarizeSources(sources: SourceRecord[]): SourceSummary {

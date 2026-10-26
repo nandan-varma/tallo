@@ -12,9 +12,9 @@ export const STATUS_LABEL: Record<ApplicationStatus, string> = {
 /** Badge colors, from quiet (saved) to loud (offer); rejected is muted again. */
 export const STATUS_TONE: Record<ApplicationStatus, string> = {
   saved: "bg-muted text-muted-foreground",
-  applied: "bg-sky-100 text-sky-800",
-  interviewing: "bg-amber-100 text-amber-800",
-  offer: "bg-emerald-100 text-emerald-800",
+  applied: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
+  interviewing: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  offer: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
   rejected: "bg-muted text-muted-foreground line-through",
 };
 

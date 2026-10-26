@@ -74,6 +74,7 @@ export type ResumeStyle = z.infer<typeof resumeStyleSchema>;
 export const resumeDocSchema = z.object({
   resume: resumeSchema,
   style: resumeStyleSchema.default(() => resumeStyleSchema.parse({})),
+  coverLetter: z.string().max(6000).default(""),
 });
 export type ResumeDoc = z.infer<typeof resumeDocSchema>;
 
@@ -113,6 +114,15 @@ export const editResumeSchema = z.object({
   instruction: z.string().trim().min(3, "Say what to change.").max(1_000),
 });
 
+/** How well a resume fits a posting. Quotes are checked against both texts before they reach the person. */
+export const fitSchema = z.object({
+  verdict: z.enum(["strong", "good", "stretch", "weak"]),
+  summary: z.string(),
+  matches: z.array(z.object({ requirement: z.string(), evidence: z.string() })),
+  gaps: z.array(z.object({ requirement: z.string(), advice: z.string() })),
+});
+export type Fit = z.infer<typeof fitSchema>;
+
 /** What the AI endpoints answer: the new resume plus a short list of what changed, for the person to review. */
 export interface ResumeEdit {
   resume: Resume;
@@ -137,4 +147,5 @@ export const emptyResume = (): Resume => ({
 export const defaultResumeDoc = (): ResumeDoc => ({
   resume: emptyResume(),
   style: resumeStyleSchema.parse({}),
+  coverLetter: "",
 });

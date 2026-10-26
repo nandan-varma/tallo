@@ -4,7 +4,7 @@ import { sha256 } from "./hash.ts";
  * Bump when normalization changes, then backfill and run a full dedupe rebuild (keys are
  * recomputed from stored company, title and jd_hash, so no refetching is needed).
  */
-export const DEDUPE_VERSION = 1;
+const DEDUPE_VERSION = 1;
 
 /** Trailing legal-entity words that do not distinguish an employer ("Acme, Inc." is "Acme"). */
 const LEGAL_SUFFIX = new Set([

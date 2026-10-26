@@ -11,7 +11,7 @@ import { gzip, sha256, stableStringify } from "./hash.ts";
 import { detectWorkMode } from "./location.ts";
 import { excerpt } from "./text.ts";
 
-export interface PreparedJob {
+interface PreparedJob {
   facts: JobFacts;
   /** Gzipped description text, addressed by `facts.jdHash`. */
   jd: Uint8Array;

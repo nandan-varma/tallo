@@ -15,7 +15,7 @@ export class HttpError extends Error {
   }
 }
 
-export interface HostLimiterOptions {
+interface HostLimiterOptions {
   /** Concurrent in-flight requests per host. */
   perHostConcurrency?: number;
   /** Minimum gap between request starts per host. */
@@ -46,7 +46,7 @@ export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter
   };
 }
 
-export interface HttpOptions {
+interface HttpOptions {
   fetch?: typeof fetch;
   userAgent?: string;
   timeoutMs?: number;

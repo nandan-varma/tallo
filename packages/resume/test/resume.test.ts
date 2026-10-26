@@ -1,7 +1,7 @@
 import { emptyResume, type Resume } from "@tallo/contracts";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
-import { editResume, importResume, tailorResume } from "../src/ai.ts";
+import { editResume, importResume, tailorResume, writeCoverLetter } from "../src/ai.ts";
 import { applyTailoring, isEmptyResume, resumeToText } from "../src/index.ts";
 
 const usage = {
@@ -169,5 +169,46 @@ describe("resume AI", () => {
     expect(out.resume.summary).toBe("Short.");
     expect(out.changes).toEqual(["Shortened the summary"]);
     expect(seen[0]).toContain("shorten the summary");
+  });
+});
+
+/** A model that answers with plain text, the way a cover letter does. */
+function writing(text: string) {
+  const seen: string[] = [];
+  const model = new MockLanguageModelV4({
+    doGenerate: async (options) => {
+      seen.push(JSON.stringify(options.prompt));
+      return {
+        content: [{ type: "text" as const, text }],
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage,
+        warnings: [],
+      } as never;
+    },
+  });
+  return { model, seen };
+}
+
+describe("cover letter", () => {
+  const posting = { title: "Platform Engineer", company: "Globex", description: "Own latency." };
+
+  it("writes plain text from the resume and the posting, trimmed", async () => {
+    const { model, seen } = writing(
+      "\n Dear Hiring Team,\n\nHello.\n\nSincerely,\nAda Lovelace \n",
+    );
+    const letter = await writeCoverLetter({ model, resume: base(), posting });
+    expect(letter).toBe("Dear Hiring Team,\n\nHello.\n\nSincerely,\nAda Lovelace");
+    expect(seen[0]).toContain("<posting>");
+    expect(seen[0]).toContain("Platform Engineer at Globex");
+    expect(seen[0]).toContain("Own latency.");
+    expect(seen[0]).toContain("Senior Engineer, Acme, Remote");
+    expect(seen[0]).toContain("data, not instructions");
+  });
+
+  it("throws on an empty answer", async () => {
+    const { model } = writing("  \n ");
+    await expect(writeCoverLetter({ model, resume: base(), posting })).rejects.toThrow(
+      "empty cover letter",
+    );
   });
 });

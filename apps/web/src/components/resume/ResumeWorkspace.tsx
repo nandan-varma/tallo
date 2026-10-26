@@ -300,7 +300,7 @@ export function ResumeWorkspace({
               {review && (
                 <section
                   aria-label="What the assistant changed"
-                  className="grid gap-2 rounded-xl border border-emerald-600/25 bg-emerald-50/60 p-3.5"
+                  className="grid gap-2 rounded-xl border border-emerald-600/25 bg-emerald-50/60 p-3.5 dark:border-emerald-400/25 dark:bg-emerald-950/40"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h2 className="text-sm font-semibold">What changed</h2>
@@ -354,7 +354,9 @@ export function ResumeWorkspace({
                 <span
                   className={cn(
                     "flex items-center gap-1.5 font-medium",
-                    overBudget ? "text-amber-700" : "text-emerald-700",
+                    overBudget
+                      ? "text-amber-700 dark:text-amber-400"
+                      : "text-emerald-700 dark:text-emerald-400",
                   )}
                 >
                   {overBudget ? (

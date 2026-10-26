@@ -43,7 +43,13 @@ import {
   storeRawPack,
 } from "@tallo/db";
 import { resumeToText } from "@tallo/resume";
-import { editResume, importResume, tailorResume } from "@tallo/resume/ai";
+import {
+  editResume,
+  fitCheck,
+  importResume,
+  tailorResume,
+  writeCoverLetter,
+} from "@tallo/resume/ai";
 import { createJobAgent } from "@tallo/search-ai";
 import { createAgentUIStreamResponse, type LanguageModel } from "ai";
 import { eq } from "drizzle-orm";
@@ -280,6 +286,38 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
       );
     },
   );
+
+  app.post(
+    "/v1/resume/cover-letter",
+    read,
+    bounded,
+    zValidator("json", tailorResumeSchema),
+    async (c) => {
+      const { jobId, resume } = c.req.valid("json");
+      const job = await getJob(db, jobId);
+      if (!job) return c.json({ error: "That posting is no longer listed." }, 404);
+      const description = await descriptionOf(job.jdHash);
+      if (!description)
+        return c.json({ error: "That posting has no description to write a letter for." }, 422);
+      const posting = { title: job.title, company: job.company, description };
+      return resumeAi(c, "ai.resume.cover-letter.failed", async (model) => ({
+        letter: await writeCoverLetter({ model, resume, posting, abortSignal: c.req.raw.signal }),
+      }));
+    },
+  );
+
+  app.post("/v1/resume/fit", read, bounded, zValidator("json", tailorResumeSchema), async (c) => {
+    const { jobId, resume } = c.req.valid("json");
+    const job = await getJob(db, jobId);
+    if (!job) return c.json({ error: "That posting is no longer listed." }, 404);
+    const description = await descriptionOf(job.jdHash);
+    if (!description)
+      return c.json({ error: "That posting has no description to check against." }, 422);
+    const posting = { title: job.title, company: job.company, description };
+    return resumeAi(c, "ai.resume.fit.failed", (model) =>
+      fitCheck({ model, resume, posting, abortSignal: c.req.raw.signal }),
+    );
+  });
 
   app.get("/v1/sources", read, async (c) => c.json(await listSources(db)));
 

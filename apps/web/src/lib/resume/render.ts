@@ -1,4 +1,8 @@
 import type { ResumeDoc } from "@tallo/contracts";
+
+/** What the PDF is drawn from: the words and the style. The cover letter is not part of the resume file. */
+export type Drawn = Pick<ResumeDoc, "resume" | "style">;
+
 import { createElement } from "react";
 import { DENSITIES, type Density, pageCount } from "@/lib/resume/layout";
 
@@ -11,7 +15,7 @@ export interface Rendered {
 }
 
 /** Index of the density in `DENSITIES` to render with. */
-async function renderAt(doc: ResumeDoc, density: Density) {
+async function renderAt(doc: Drawn, density: Density) {
   // Loaded on first use: the editor shows before the PDF engine finishes downloading.
   const [{ pdf, Font }, { ResumePdf }] = await Promise.all([
     import("@react-pdf/renderer"),
@@ -28,7 +32,7 @@ async function renderAt(doc: ResumeDoc, density: Density) {
  * Renders the resume at the roomiest density that fits the page budget. Pages only grow as density gets
  * tighter, so the answer is found by binary search over `DENSITIES`: about three renders, not six.
  */
-export async function renderResume(doc: ResumeDoc, render = renderAt): Promise<Rendered> {
+export async function renderResume(doc: Drawn, render = renderAt): Promise<Rendered> {
   const budget = doc.style.pages;
   let low = 0;
   let high = DENSITIES.length - 1;

@@ -18,7 +18,7 @@ function StateIcon({ item }: { item: Activity }) {
     return <Loader2 className="size-3.5 animate-spin" aria-label="In progress" />;
   if (item.state === "error")
     return <TriangleAlert className="size-3.5 text-destructive" aria-label="Failed" />;
-  return <Check className="size-3.5 text-emerald-600" aria-label="Done" />;
+  return <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-label="Done" />;
 }
 
 function Timeline({ items }: { items: Activity[] }) {
@@ -86,7 +86,7 @@ function Activities({ items, live }: { items: Activity[]; live: boolean }) {
   return (
     <details className="group min-w-0 overflow-hidden rounded-xl border bg-muted/40 text-[13px]">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-muted-foreground select-none marker:hidden">
-        <Check className="size-3.5 text-emerald-600" aria-hidden />
+        <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden />
         <span className="flex-1 truncate">{summary(items)}</span>
         <ArrowRight className="size-3 transition-transform group-open:rotate-90" aria-hidden />
       </summary>

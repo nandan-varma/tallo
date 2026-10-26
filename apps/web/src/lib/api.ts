@@ -66,16 +66,16 @@ export const listSources = () =>
 export const listAttentionRuns = (limit = 50) =>
   call<RunRecord[]>(`/v1/runs?attention=true&limit=${limit}`, 60).then((rows) => rows ?? []);
 
-/** A saved resume (the base one, or the copy tailored to `jobId`). Personal data: never cached. */
-export async function getResume(jobId: number | null = null): Promise<ResumeRecord | null> {
-  const path = jobId ? `/v1/resume?job=${jobId}` : "/v1/resume";
+/** Personal data read straight from the API (never cached). Any non-2xx throws. */
+async function own<T>(path: string): Promise<T> {
   const response = await upstream(path);
   if (!response.ok) throw new Error(`API ${response.status} for ${path}`);
-  return (await response.json()) as ResumeRecord | null;
+  return (await response.json()) as T;
 }
 
-export async function listResumes(): Promise<ResumeSummary[]> {
-  const response = await upstream("/v1/resumes");
-  if (!response.ok) throw new Error(`API ${response.status} for /v1/resumes`);
-  return (await response.json()) as ResumeSummary[];
+/** A saved resume (the base one, or the copy tailored to `jobId`). */
+export function getResume(jobId: number | null = null): Promise<ResumeRecord | null> {
+  return own<ResumeRecord | null>(jobId ? `/v1/resume?job=${jobId}` : "/v1/resume");
 }
+
+export const listResumes = () => own<ResumeSummary[]>("/v1/resumes");

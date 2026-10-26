@@ -9,7 +9,7 @@ export interface SourceState {
   lastCompleteRunAt: number | null;
 }
 
-export interface DueOptions {
+interface DueOptions {
   platform?: string;
   source?: string;
   includeDead?: boolean;

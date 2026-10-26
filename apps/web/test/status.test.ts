@@ -5,7 +5,6 @@ import {
   type RunRecord,
   runCounts,
   type SourceRecord,
-  since,
   summarizeByPlatform,
   summarizeSources,
 } from "../src/lib/status.ts";
@@ -24,16 +23,6 @@ const source = (over: Partial<SourceRecord> = {}): SourceRecord => ({
   lastStatus: "complete",
   freshness: "fresh",
   ...over,
-});
-
-describe("since", () => {
-  it("uses coarse units and never shows negative ages", () => {
-    expect(since(NOW - 10, NOW)).toBe("just now");
-    expect(since(NOW - 5 * 60, NOW)).toBe("5m ago");
-    expect(since(NOW - 3 * 3600 - 59, NOW)).toBe("3h ago");
-    expect(since(NOW - 2 * DAY, NOW)).toBe("2d ago");
-    expect(since(NOW + 500, NOW)).toBe("just now");
-  });
 });
 
 describe("summarizeSources", () => {

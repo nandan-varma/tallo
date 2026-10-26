@@ -35,7 +35,7 @@ function leafPaths(value: Json | undefined, path = "", out = new Set<string>()):
   return out;
 }
 
-export interface Verification {
+interface Verification {
   source: string;
   listed: number;
   complete: boolean;

@@ -418,7 +418,7 @@ export async function pruneRuns(
   return { packs: obsolete.length, runs: expired.length };
 }
 
-export type Classifier = (row: {
+type Classifier = (row: {
   title: string;
   department: string | null;
   team: string | null;

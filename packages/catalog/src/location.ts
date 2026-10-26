@@ -112,7 +112,7 @@ const REMOTE = /\b(remote|work from home|wfh|telecommute|distributed|anywhere)\b
 const HYBRID = /\bhybrid\b/i;
 const ONSITE = /\b(on[- ]?site|in[- ]office|in[- ]person)\b/i;
 
-export function countryCodeFor(name: string | undefined): string | undefined {
+function countryCodeFor(name: string | undefined): string | undefined {
   if (!name) return undefined;
   const key = name.trim().toLowerCase().replace(/\.$/, "");
   if (ALIASES[key]) return ALIASES[key];

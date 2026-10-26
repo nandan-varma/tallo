@@ -52,8 +52,7 @@ source; no leases or queues until a second runner exists.
 **D2. Link out, never repost.** Every job carries the employer's apply URL; full description text is stored for
 search, enrichment and (later) resume tailoring.
 
-**D1. Clean start.** New repo, no legacy code or data. Source configs were seeded from the legacy registry's slugs
-(`scripts/import-legacy-sites.mjs`, one-off).
+**D1. Clean start.** New repo, no legacy code or data. Source configs were seeded from the legacy registry's slugs.
 
 ## Open / deferred
 

@@ -8,7 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { type SourceRecord, since } from "@/lib/status";
+import { ago } from "@/lib/format";
+import type { SourceRecord } from "@/lib/status";
 
 /** Sources that need attention. Unrecorded times render as a dash, never as an invented value. */
 export function SourceHealthTable({ sources, now }: { sources: SourceRecord[]; now: number }) {
@@ -32,9 +33,9 @@ export function SourceHealthTable({ sources, now }: { sources: SourceRecord[]; n
                 {source.platform} · {source.key}
               </div>
             </TableCell>
-            <TableCell>{source.lastRunAt === null ? "—" : since(source.lastRunAt, now)}</TableCell>
+            <TableCell>{source.lastRunAt === null ? "—" : ago(source.lastRunAt, now)}</TableCell>
             <TableCell>
-              {source.lastCompleteRunAt === null ? "—" : since(source.lastCompleteRunAt, now)}
+              {source.lastCompleteRunAt === null ? "—" : ago(source.lastCompleteRunAt, now)}
             </TableCell>
             <TableCell>
               <FreshnessBadge freshness={source.freshness} />

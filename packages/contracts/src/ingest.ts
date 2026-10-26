@@ -60,10 +60,8 @@ export type CreateRun = z.infer<typeof createRunSchema>;
 export const diffSchema = z.object({
   postings: z.array(z.object({ id: z.string().min(1).max(512), hash: hex64 })).max(50000),
 });
-export type DiffRequest = z.infer<typeof diffSchema>;
 
 export const jobsBatchSchema = z.object({ jobs: z.array(jobFactsSchema).min(1).max(200) });
-export type JobsBatch = z.infer<typeof jobsBatchSchema>;
 
 export const blobCheckSchema = z.object({ hashes: z.array(hex64).max(1000) });
 

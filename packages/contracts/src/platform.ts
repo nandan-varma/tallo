@@ -23,7 +23,7 @@ export interface RawPosting {
   detail?: Json;
 }
 
-export type IssueCode = "http" | "schema" | "pagination" | "budget" | "detail";
+type IssueCode = "http" | "schema" | "pagination" | "budget" | "detail";
 
 export interface Issue {
   code: IssueCode;

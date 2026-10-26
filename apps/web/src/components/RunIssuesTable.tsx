@@ -7,7 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { httpsUrl, type RunRecord, runCounts, since } from "@/lib/status";
+import { ago } from "@/lib/format";
+import { httpsUrl, type RunRecord, runCounts } from "@/lib/status";
 
 const MAX_ISSUES_SHOWN = 3;
 
@@ -45,9 +46,7 @@ export function RunIssuesTable({
                 <Badge variant={run.status === "partial" ? "destructive" : "outline"}>
                   {run.status}
                 </Badge>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {since(run.startedAt, now)}
-                </div>
+                <div className="mt-1 text-xs text-muted-foreground">{ago(run.startedAt, now)}</div>
               </TableCell>
               <TableCell className="align-top text-xs text-muted-foreground">
                 {runCounts(run)

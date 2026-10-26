@@ -44,7 +44,7 @@ export function Locations({ locations }: { locations: JobLocation[] }) {
   );
 }
 
-export function PayBands({ bands }: { bands: Money[] }) {
+function PayBands({ bands }: { bands: Money[] }) {
   return (
     <ul className="grid gap-1.5 text-sm">
       {bands.map((band, i) => (
@@ -57,7 +57,7 @@ export function PayBands({ bands }: { bands: Money[] }) {
   );
 }
 
-export function Requirements({ items }: { items: Quantity[] }) {
+function Requirements({ items }: { items: Quantity[] }) {
   return (
     <ul className="grid gap-1.5 text-sm">
       {items.map((item, i) => (

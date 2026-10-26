@@ -14,7 +14,7 @@ import PQueue from "p-queue";
 import type { Logger } from "pino";
 import type { Api } from "./api.ts";
 
-export interface SyncOptions {
+interface SyncOptions {
   api: Api;
   runnerId: string;
   version: string;

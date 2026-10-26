@@ -132,3 +132,72 @@ describe("resume routes", () => {
     expect(failed.status).toBe(502);
   });
 });
+
+/** A model that answers with plain text (the cover letter), not JSON. */
+function writing(text: string) {
+  const prompts: string[] = [];
+  const model = new MockLanguageModelV4({
+    doGenerate: async (options) => {
+      prompts.push(JSON.stringify(options.prompt));
+      return {
+        content: [{ type: "text" as const, text }],
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage,
+        warnings: [],
+      } as never;
+    },
+  });
+  return { model, prompts };
+}
+
+describe("cover letter and fit routes", () => {
+  it("writes a cover letter for a posting's stored description", async () => {
+    const { model, prompts } = writing("Dear Hiring Team,\n\nSincerely,\nAda");
+    const { app, db, blobs } = build(model);
+    await seedJob(db, blobs);
+
+    const response = await send(app, "/v1/resume/cover-letter", "POST", {
+      jobId: 1,
+      resume: resume(),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ letter: "Dear Hiring Team,\n\nSincerely,\nAda" });
+    expect(prompts[0]).toContain("Senior Backend Engineer");
+    expect(prompts[0]).toContain("Pay: $200,000.");
+  });
+
+  it("checks the fit against a posting and returns the guarded answer", async () => {
+    const { model, prompts } = answering({
+      verdict: "stretch",
+      summary: "Strong on APIs. Backend scale is not shown.",
+      matches: [
+        { requirement: "Pay: $200,000.", evidence: "Built APIs." },
+        { requirement: "Pay: $200,000.", evidence: "Ran a team of forty." },
+      ],
+      gaps: [{ requirement: "Senior Backend Engineer", advice: "Not covered in your resume." }],
+    });
+    const { app, db, blobs } = build(model);
+    await seedJob(db, blobs);
+
+    const response = await send(app, "/v1/resume/fit", "POST", { jobId: 1, resume: resume() });
+    expect(response.status).toBe(200);
+    const out = (await response.json()) as { verdict: string; matches: unknown[]; gaps: unknown[] };
+    expect(out.verdict).toBe("stretch");
+    expect(out.matches).toEqual([{ requirement: "Pay: $200,000.", evidence: "Built APIs." }]);
+    expect(out.gaps).toHaveLength(1);
+    expect(prompts[0]).toContain("Senior Backend Engineer");
+  });
+
+  it("answers 404 for an unknown posting and 503 without a model", async () => {
+    for (const path of ["/v1/resume/cover-letter", "/v1/resume/fit"]) {
+      const missing = build(writing("x").model);
+      expect((await send(missing.app, path, "POST", { jobId: 99, resume: resume() })).status).toBe(
+        404,
+      );
+
+      const none = build(null);
+      await seedJob(none.db, none.blobs);
+      expect((await send(none.app, path, "POST", { jobId: 1, resume: resume() })).status).toBe(503);
+    }
+  });
+});

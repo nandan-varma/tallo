@@ -30,7 +30,7 @@ export const searchSchema = z.object({
 export type Search = z.infer<typeof searchSchema>;
 
 /** Safe FTS5 expression: every term must match, the last as a prefix. */
-export function ftsQuery(q: string): string | undefined {
+function ftsQuery(q: string): string | undefined {
   const terms = q.toLowerCase().match(/[\p{L}\p{N}]+/gu);
   return terms?.map((t, i) => `"${t}"${i === terms.length - 1 ? "*" : ""}`).join(" ");
 }
@@ -223,7 +223,7 @@ export const runsSearchSchema = z.object({
     .transform((v) => v === "true")
     .optional(),
 });
-export type RunsSearch = z.infer<typeof runsSearchSchema>;
+type RunsSearch = z.infer<typeof runsSearchSchema>;
 
 /** Operational run history, newest first. Raw pack keys stay internal. */
 export async function listRuns(db: Db, input: RunsSearch) {

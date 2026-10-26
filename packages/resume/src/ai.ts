@@ -31,6 +31,14 @@ const EDIT_SYSTEM = `You edit a resume as the person asks.
 Apply the instruction and change nothing else. Never invent facts the resume or the instruction does not give. Keep the structure and all unrelated text exactly as it is.
 "changes" is a short list of what you did, one plain sentence each. ${DATA_NOTE}`;
 
+const COVER_SYSTEM = `You write a cover letter from one resume to one job posting.
+Rules:
+- Three short paragraphs, under 250 words in total. First person. Plain text: no markdown, no bullet points, no headings, no placeholders such as [Name] or [Company].
+- Start with "Dear Hiring Team," and end with "Sincerely," on its own line, followed by the candidate's name exactly as the resume gives it.
+- Name the company and the role.
+- Use only facts the resume states. Never invent employers, skills, numbers, achievements or motivations. Do not claim a reason for wanting the job that the resume does not give.
+${DATA_NOTE}`;
+
 const tailoringSchema = z.object({
   headline: z.string(),
   summary: z.string(),
@@ -119,3 +127,32 @@ export async function editResume({
     changes: output.changes.filter(Boolean).slice(0, 12),
   };
 }
+
+/** A plain-text cover letter from the resume to one posting. The person edits it before it is saved. */
+export async function writeCoverLetter({
+  model,
+  resume,
+  posting,
+  abortSignal,
+}: CallOptions & {
+  resume: Resume;
+  posting: { title: string; company: string; description: string };
+}): Promise<string> {
+  const description = posting.description.slice(0, MAX_POSTING_CHARS);
+  const { text } = await generateText({
+    model,
+    system: COVER_SYSTEM,
+    prompt: [
+      tag("posting", `${posting.title} at ${posting.company}\n\n${description}`),
+      tag("resume", resumeToText(resume)),
+    ].join("\n\n"),
+    reasoning: "none",
+    maxOutputTokens: 2_000,
+    abortSignal,
+  });
+  const letter = text.trim();
+  if (!letter) throw new Error("The model returned an empty cover letter.");
+  return letter;
+}
+
+export { fitCheck } from "./fit.ts";

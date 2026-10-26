@@ -12,7 +12,7 @@ import { requestJson } from "@/lib/client";
 
 export const PAGE_SIZE = 20;
 
-export type SearchPage = { hits: JobHit[]; nextCursor: string | null };
+type SearchPage = { hits: JobHit[]; nextCursor: string | null };
 
 /**
  * One page of the database's answer to the assistant's search. The previous page stays on screen while the

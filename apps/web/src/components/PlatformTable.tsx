@@ -6,9 +6,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { type PlatformSummary, since } from "@/lib/status";
-
-const numberFormat = new Intl.NumberFormat("en-US");
+import { ago, number } from "@/lib/format";
+import type { PlatformSummary } from "@/lib/status";
 
 /** Collection time and freshness split per ATS. Unrecorded times render as a dash. */
 export function PlatformTable({ platforms, now }: { platforms: PlatformSummary[]; now: number }) {
@@ -30,23 +29,15 @@ export function PlatformTable({ platforms, now }: { platforms: PlatformSummary[]
           <TableRow key={row.platform}>
             <TableCell className="font-medium">{row.platform}</TableCell>
             <TableCell>
-              {row.lastCollectedAt === null ? "—" : since(row.lastCollectedAt, now)}
+              {row.lastCollectedAt === null ? "—" : ago(row.lastCollectedAt, now)}
             </TableCell>
+            <TableCell className="text-right tabular-nums">{number.format(row.total)}</TableCell>
             <TableCell className="text-right tabular-nums">
-              {numberFormat.format(row.total)}
+              {number.format(row.neverCollected)}
             </TableCell>
-            <TableCell className="text-right tabular-nums">
-              {numberFormat.format(row.neverCollected)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-              {numberFormat.format(row.fresh)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-              {numberFormat.format(row.stale)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-              {numberFormat.format(row.hidden)}
-            </TableCell>
+            <TableCell className="text-right tabular-nums">{number.format(row.fresh)}</TableCell>
+            <TableCell className="text-right tabular-nums">{number.format(row.stale)}</TableCell>
+            <TableCell className="text-right tabular-nums">{number.format(row.hidden)}</TableCell>
           </TableRow>
         ))}
       </TableBody>

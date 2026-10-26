@@ -1,4 +1,4 @@
-export type JsonBodyRead =
+type JsonBodyRead =
   | { ok: true; value: unknown }
   | { ok: false; status: 400 | 413 | 415; error: string };
 
