@@ -276,6 +276,9 @@ importers:
       '@tallo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@tallo/search-ai':
+        specifier: workspace:*
+        version: link:../../packages/search-ai
       astro:
         specifier: ^7.4.2
         version: 7.4.2(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)

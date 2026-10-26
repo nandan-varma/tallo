@@ -8,6 +8,7 @@ const { title = "Jobs · Tallo" } = Astro.props;
 const savedView = Astro.url.searchParams.has("saved");
 const jobsActive = Astro.url.pathname === "/" && !savedView;
 const statusActive = Astro.url.pathname === "/status";
+const askActive = Astro.url.pathname === "/ask";
 ---
 <!doctype html>
 <html lang="en">
@@ -27,6 +28,7 @@ const statusActive = Astro.url.pathname === "/status";
       <nav aria-label="Main navigation" class="header-nav">
         <a href="/" aria-current={jobsActive ? "page" : undefined}>Jobs</a>
         <a href="/?saved=true" aria-current={savedView ? "page" : undefined}>Saved jobs</a>
+        <a href="/ask" aria-current={askActive ? "page" : undefined}>Ask</a>
         <a href="/status" aria-current={statusActive ? "page" : undefined}>Status</a>
       </nav>
     </header>
