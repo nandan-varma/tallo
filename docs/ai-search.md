@@ -37,7 +37,7 @@ defines the list the person sees; the web app runs that spec against the databas
 ## API (`apps/api`)
 
 - `POST /v1/ai/chat`: `{messages}` (the whole conversation) in, `createAgentUIStreamResponse` out; loads the saved profile each turn.
-- `POST /v1/jobs/search`: a page of the database's answer to a search spec (no model). `GET/PUT /v1/profile`, `POST /v1/profile/generate`.
+- `POST /v1/jobs/search`: a page of the database's answer to a search spec (no model). `GET/PUT /v1/profile` (the person's free-text notes). The agent's profile is the built resume as text plus those notes; nothing is generated.
 - `jobs-port.ts`: `search` runs one exact-term (ANDed, quoted) FTS query per phrase, merged round-robin; named places are part of the MATCH
   (`location_text : (...)`, `ftsLocations`), so local jobs are not crowded out by newer ones elsewhere. `searchPage` ORs the phrases
   and pages by keyset cursor. Everything goes through `visibleJobs` (open, canonical, not hidden, fresh source).
@@ -53,7 +53,7 @@ defines the list the person sees; the web app runs that spec against the databas
   and slides the list left (400px) so you can click another job while you read; the bubble or Esc brings the chat back.
 - Pieces: `Assistant` (state and layout), `ChatPanel`/`Messages`/`Composer`, `JobList` (+ `JobRow`), `JobPage`, `queries.ts`, `hooks.ts`.
   `lib/assistant.ts` derives everything beside the chat from the messages: `currentSearch`, `notesById`, `activitiesOf`.
-- `/profile`: paste a resume, build the profile with the model, edit it, save. Bookmarks stay in `localStorage` (`tallo:saved-roles`).
+- "About you" sheet in the chat: the notes the resume leaves out (roles, pay, places, deal-breakers). The resume has its own page. Bookmarks stay in `localStorage` (`tallo:saved-roles`).
 - A posting shows the assistant's note (if any), the full description, facts, and the other locations of the same posting.
 - Tests: `Assistant.test.tsx` (jsdom) mounts the real tree with a finished conversation (list, open and switch postings, note, bubble, Esc,
   mobile); `Assistant.stream.test.tsx` replays a recorded production turn (`fixtures/turn.sse`) through the real `useChat`.

@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const transport = new DefaultChatTransport({ api: "/api/chat" });
 const STORAGE_KEY = "tallo.chat.v1";
 
-/** The conversation survives navigating to Profile and back. It lives in this tab only; the server keeps nothing. */
+/** The conversation survives navigating to Resume and back. It lives in this tab only; the server keeps nothing. */
 function restore(): JobAgentMessage[] {
   try {
     const value: unknown = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "[]");
@@ -37,7 +37,7 @@ const pane = {
     "min-w-0 flex-[0_0_0px] overflow-hidden bg-background transition-[flex,opacity,translate] duration-300 ease-out lg:group-data-[detail=true]/layout:flex-[1_1_0px] max-lg:fixed max-lg:inset-x-0 max-lg:top-14 max-lg:bottom-0 max-lg:z-30 max-lg:flex-none max-lg:translate-y-6 max-lg:opacity-0 max-sm:top-[3.25rem] max-lg:group-data-[detail=true]/layout:translate-y-0 max-lg:group-data-[detail=true]/layout:opacity-100",
 } as const;
 
-function Workspace({ hasProfile }: { hasProfile: boolean }) {
+function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: string | null }) {
   const { messages, sendMessage, status, error, stop, regenerate, setMessages } =
     useChat<JobAgentMessage>({
       transport,
@@ -46,9 +46,9 @@ function Workspace({ hasProfile }: { hasProfile: boolean }) {
   const { saved, isSaved, toggle } = useSavedJobs();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialJob);
   // Kept after the posting closes, so its column can finish sliding shut with the content still in it.
-  const [shownId, setShownId] = useState<string | null>(null);
+  const [shownId, setShownId] = useState<string | null>(initialJob);
   const [tab, setTab] = useState<"chat" | "results">("chat");
   const [view, setView] = useState<ListView>("results");
 
@@ -65,6 +65,14 @@ function Workspace({ hasProfile }: { hasProfile: boolean }) {
       // Storage full or blocked: the chat still works for this visit.
     }
   }, [messages, status]);
+
+  // The open posting is in the address (`/?job=123`), so it can be shared, reloaded and linked from the resume.
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (openId) url.searchParams.set("job", openId);
+    else url.searchParams.delete("job");
+    if (url.href !== location.href) history.replaceState(history.state, "", url);
+  }, [openId]);
 
   const open = useCallback((id: string) => {
     setOpenId(id);
@@ -149,7 +157,7 @@ function Workspace({ hasProfile }: { hasProfile: boolean }) {
             hits={hits}
             status={status}
             error={error}
-            hasProfile={hasProfile}
+            hasResume={hasResume}
             inputRef={inputRef}
             onSend={send}
             onStop={() => void stop()}
@@ -203,7 +211,14 @@ function Workspace({ hasProfile }: { hasProfile: boolean }) {
   );
 }
 
-export function Assistant({ hasProfile }: { hasProfile: boolean }) {
+export function Assistant({
+  hasResume,
+  initialJob = null,
+}: {
+  hasResume: boolean;
+  /** A posting to open on arrival, from `?job=`. */
+  initialJob?: string | null;
+}) {
   const [client] = useState(
     () =>
       new QueryClient({
@@ -212,7 +227,7 @@ export function Assistant({ hasProfile }: { hasProfile: boolean }) {
   );
   return (
     <QueryClientProvider client={client}>
-      <Workspace hasProfile={hasProfile} />
+      <Workspace hasResume={hasResume} initialJob={initialJob} />
     </QueryClientProvider>
   );
 }

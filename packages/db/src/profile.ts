@@ -27,17 +27,21 @@ export async function getProfile(db: Db, userId = DEFAULT_USER): Promise<Profile
 /** Personal data lives outside the catalog write path (`ingest.ts`), so it has its own writer. */
 export async function saveProfile(
   db: Db,
-  input: { resume: string; profile: string },
+  input: { profile: string },
   userId = DEFAULT_USER,
   now = Math.floor(Date.now() / 1000),
 ): Promise<Profile> {
-  const values = { userId, resume: input.resume, profile: input.profile, updatedAt: now };
+  // `resume` is the legacy pasted text: new rows start empty and updates leave it alone.
   await db
     .insert(profiles)
-    .values(values)
+    .values({ userId, resume: "", profile: input.profile, updatedAt: now })
     .onConflictDoUpdate({
       target: profiles.userId,
-      set: { resume: values.resume, profile: values.profile, updatedAt: now },
+      set: { profile: input.profile, updatedAt: now },
     });
-  return { resume: values.resume, profile: values.profile, updatedAt: now };
+  return {
+    resume: (await getProfile(db, userId))?.resume ?? "",
+    profile: input.profile,
+    updatedAt: now,
+  };
 }

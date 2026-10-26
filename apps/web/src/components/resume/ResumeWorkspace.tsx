@@ -2,17 +2,21 @@ import type { ResumeRecord, ResumeStyle, ResumeSummary } from "@tallo/contracts"
 import { isEmptyResume } from "@tallo/resume";
 import {
   AlertTriangle,
+  ArrowLeft,
+  ArrowUpRight,
   Check,
   ChevronDown,
   Download,
   FilePlus2,
   Loader2,
+  SlidersHorizontal,
   Trash2,
   Undo2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AiPanel, type Posting } from "@/components/resume/AiPanel";
-import { Editor, SECTIONS } from "@/components/resume/Editor";
+import { DesignPanel } from "@/components/resume/DesignPanel";
+import { Editor } from "@/components/resume/Editor";
 import { ImportPanel } from "@/components/resume/ImportPanel";
 import { PdfPages, usePreview } from "@/components/resume/PdfPreview";
 import { type SaveState, useResumeDoc } from "@/components/resume/useResumeDoc";
@@ -25,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { messageOf, requestJson } from "@/lib/client";
 import { cn } from "@/lib/utils";
@@ -62,6 +67,11 @@ function SaveStatus({
     );
   }
   const saving = state !== "saved";
+  const label = saving
+    ? "Saving…"
+    : savedAt
+      ? `Saved ${new Date(savedAt * 1000).toLocaleTimeString("en-US", { timeStyle: "short" })}`
+      : "Not saved yet";
   return (
     <span className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
       {saving ? (
@@ -69,15 +79,12 @@ function SaveStatus({
       ) : (
         <Check className="size-3.5" aria-hidden />
       )}
-      {saving
-        ? "Saving…"
-        : savedAt
-          ? `Saved ${new Date(savedAt * 1000).toLocaleTimeString("en-US", { timeStyle: "short" })}`
-          : "Not saved yet"}
+      <span className="max-md:sr-only">{label}</span>
     </span>
   );
 }
 
+/** Every resume, one menu: the base resume, each tailored copy, and (for a copy) deleting it. */
 function Switcher({
   copies,
   posting,
@@ -89,19 +96,18 @@ function Switcher({
 }) {
   const [confirm, setConfirm] = useState(false);
   const tailored = copies.filter((copy) => copy.jobId !== null);
-  const label = posting ? `${posting.company}` : "Base resume";
   return (
     <DropdownMenu onOpenChange={() => setConfirm(false)}>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="max-w-[16rem] gap-1.5">
-          <span className="truncate">{label}</span>
+        <Button variant="outline" className="min-w-0 max-w-[14rem] gap-1.5">
+          <span className="truncate">{posting ? posting.company : "Your resume"}</span>
           <ChevronDown aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80" align="start">
         <DropdownMenuLabel>Resumes</DropdownMenuLabel>
         <DropdownMenuItem asChild>
-          <a href="/resume">Base resume</a>
+          <a href="/resume">Your resume</a>
         </DropdownMenuItem>
         {tailored.length > 0 && <DropdownMenuSeparator />}
         {tailored.map((copy) => (
@@ -137,14 +143,15 @@ function Switcher({
 
 /**
  * The resume workspace: editor on the left, the PDF as it will print on the right (tabs on a phone). The
- * words are saved as you type; the PDF is drawn here in the browser, so what you see is the file you download.
+ * words save as you type; the PDF is drawn here in the browser, so what you see is the file you download.
+ * For a copy made for a posting, the toolbar finishes the job: download, then Apply.
  */
 export function ResumeWorkspace({
   initial,
   base,
   posting,
   copies,
-  profileText,
+  earlierText,
   autoTailor,
 }: {
   initial: ResumeRecord | null;
@@ -152,7 +159,7 @@ export function ResumeWorkspace({
   base: ResumeRecord | null;
   posting: Posting | null;
   copies: ResumeSummary[];
-  profileText: string;
+  earlierText: string;
   autoTailor: boolean;
 }) {
   const jobId = posting?.id ?? null;
@@ -173,7 +180,9 @@ export function ResumeWorkspace({
   } = useResumeDoc({ jobId, initial: seed });
   const [started, setStarted] = useState(seed !== null);
   const [tab, setTab] = useState("edit");
+  const [designOpen, setDesignOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const empty = useMemo(() => isEmptyResume(doc.resume), [doc.resume]);
   const preview = usePreview(doc, !empty);
   const style = doc.style;
@@ -183,7 +192,7 @@ export function ResumeWorkspace({
   if (empty && !started) {
     return (
       <ImportPanel
-        profileText={profileText}
+        earlierText={earlierText}
         onBlank={() => setStarted(true)}
         onImported={(resume) => {
           replace({ ...doc, resume });
@@ -219,20 +228,47 @@ export function ResumeWorkspace({
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col max-sm:h-[calc(100dvh-3.25rem)]">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b bg-card px-3 sm:px-5">
-        <Switcher copies={copies} posting={posting} onDelete={remove} />
-        <SaveStatus state={state} savedAt={savedAt} error={error} onRetry={retry} />
-        <span className="flex-1" />
         {posting && (
-          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-            <a href={`/jobs/${posting.id}`} target="_blank" rel="noopener noreferrer">
-              View posting
+          <Button asChild variant="ghost" size="sm" className="-ml-1.5 gap-1">
+            <a href={`/?job=${posting.id}`} aria-label="Back to the role">
+              <ArrowLeft aria-hidden />
+              <span className="max-md:sr-only">Role</span>
             </a>
           </Button>
         )}
-        <Button type="button" size="sm" onClick={download} disabled={!rendered} className="gap-1.5">
+        <Switcher copies={copies} posting={posting} onDelete={remove} />
+        <SaveStatus state={state} savedAt={savedAt} error={error} onRetry={retry} />
+        <span className="flex-1" />
+        <Popover open={designOpen} onOpenChange={setDesignOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-1.5" aria-label="Design">
+              <SlidersHorizontal aria-hidden />
+              <span className="max-md:sr-only">Design</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80">
+            <DesignPanel style={style} onStyle={setStyle} />
+          </PopoverContent>
+        </Popover>
+        <Button
+          type="button"
+          size="sm"
+          variant={posting?.applyUrl ? "outline" : "default"}
+          onClick={download}
+          disabled={!rendered}
+          className="gap-1.5"
+        >
           <Download aria-hidden />
           <span className="max-sm:sr-only">Download PDF</span>
         </Button>
+        {posting?.applyUrl && (
+          <Button asChild size="sm" className="gap-1">
+            <a href={posting.applyUrl} target="_blank" rel="noopener noreferrer">
+              <span className="max-sm:sr-only">Apply</span>
+              <ArrowUpRight aria-hidden />
+            </a>
+          </Button>
+        )}
       </div>
       {deleteError && (
         <p className="border-b bg-destructive/5 px-5 py-2 text-xs text-destructive" role="alert">
@@ -253,37 +289,11 @@ export function ResumeWorkspace({
               tab === "preview" && "max-lg:hidden",
             )}
           >
-            <nav
-              aria-label="Resume sections"
-              className="sticky top-0 z-10 flex gap-1 overflow-x-auto border-b bg-background/90 px-3 py-2 backdrop-blur sm:px-5"
-            >
-              {SECTIONS.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() =>
-                    document
-                      .getElementById(section.id)
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }
-                  className="shrink-0 rounded-full px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {section.label}
-                </button>
-              ))}
-            </nav>
-
-            <div className="mx-auto grid max-w-2xl gap-7 px-3 py-5 sm:px-5">
-              {posting && !initial && (
-                <p className="rounded-xl border bg-muted/40 px-3.5 py-3 text-sm text-muted-foreground">
-                  This is a new copy for{" "}
-                  <strong className="text-foreground">{posting.title}</strong> at {posting.company},
-                  started from your base resume. It is saved when you change something.
-                </p>
-              )}
+            <div className="mx-auto grid max-w-2xl gap-2.5 px-3 py-4 sm:px-5">
               <AiPanel
                 resume={doc.resume}
                 posting={posting}
+                fresh={posting !== null && !initial && state === "saved"}
                 autoTailor={autoTailor && !initial}
                 onApply={(result, kind) => {
                   applyAi(result.resume, result.changes, kind);
@@ -323,16 +333,15 @@ export function ResumeWorkspace({
                     <p className="text-[13px] text-muted-foreground">Updated.</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Read it over: the assistant rewords and reorders, and never adds employers,
-                    dates, skills or numbers you didn’t have.
+                    {review.kind === "tailor"
+                      ? "Tailoring only rewords and reorders: employers, titles, dates, schools, skills and numbers stay as you wrote them. Read it over."
+                      : "Read it over before you send it anywhere. An edit can add what you asked for."}
                   </p>
                 </section>
               )}
               <Editor
                 resume={doc.resume}
-                style={style}
                 onResume={(change) => edit((d) => ({ ...d, resume: change(d.resume) }))}
-                onStyle={setStyle}
               />
             </div>
           </div>
@@ -361,21 +370,18 @@ export function ResumeWorkspace({
                     : `${rendered.pages} ${rendered.pages === 1 ? "page" : "pages"}`}
                 </span>
               )}
-              {overBudget && style.pages === 1 && (
+              {overBudget && (
                 <button
                   type="button"
-                  onClick={() => setStyle({ pages: 2 })}
+                  onClick={() => setDesignOpen(true)}
                   className="underline underline-offset-2"
                 >
-                  Allow 2 pages
+                  {style.pages === 1 ? "Change the page limit" : "Trim something to fit"}
                 </button>
-              )}
-              {overBudget && style.pages === 2 && (
-                <span className="text-muted-foreground">Trim something to fit.</span>
               )}
               {rendered && !overBudget && rendered.density.font < 10 && (
                 <span className="text-muted-foreground">
-                  Set small to fit ({rendered.density.font} pt).
+                  Set small to fit ({rendered.density.font} pt)
                 </span>
               )}
               <span className="flex-1" />

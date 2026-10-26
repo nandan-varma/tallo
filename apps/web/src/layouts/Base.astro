@@ -24,11 +24,10 @@ const current = (active: boolean) => (active ? "page" : undefined);
     <header class="site-header" transition:name="site-header">
       <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
       <nav aria-label="Main navigation" class="header-nav">
-        <a href="/" aria-current={current(path === "/")}>Assistant</a>
+        <a href="/" aria-current={current(path === "/")}>Jobs</a>
         <a href="/resume" aria-current={current(path.startsWith("/resume"))}>Resume</a>
-        <a href="/profile" aria-current={current(path === "/profile")}>Profile</a>
-        <a href="/status" aria-current={current(path === "/status")}>Status</a>
       </nav>
+      <a href="/status" class="header-status" aria-current={current(path === "/status")}>Data status</a>
     </header>
     <main id="main" transition:animate="fade"><slot /></main>
   </body>

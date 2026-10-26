@@ -14,7 +14,7 @@ _Last updated: 2026-10-26 (resume builder)._ Stateless handoff: also read `gh is
 - Sources seeded from the legacy registry: ~8.9k boards.
 - **AI assistant (live 2026-10-26)**: `/` is a chat (left) beside a results list that is the database's answer to the assistant's search (it never writes the list; notes are validated); the old filter UI and `/ask` are gone. One streamed
   tool-using agent (`packages/search-ai`, models via `packages/ai`, default Claude Haiku 5.5 on OpenCode Go), `POST /v1/ai/chat`,
-  `/profile` page (resume -> profile.md, stored per user in `profiles`), full descriptions never truncated. See `docs/ai-search.md`.
+  profile = the built resume plus the person's notes (see UX below), full descriptions never truncated. See `docs/ai-search.md`.
   `OPENCODE_API_KEY` is a Worker secret on `tallo-api`; `AI_MODEL_SMART` is a plain var.
 - Duplicates collapsed (`dedupe_key`, `dup_of`): 508k open rows, 78k collapsed; `last_listed_at` now advances at finalize.
 - Deploy policy: deploy to prod right after each change (migrations first). Deploy from a clean worktree of origin/main, not from a
@@ -23,7 +23,7 @@ _Last updated: 2026-10-26 (resume builder)._ Stateless handoff: also read `gh is
 - **Resume builder (live 2026-10-26, D14)**: `/resume` and `/resume/<posting id>`. Structured resume editor, PDF drawn in the
   browser (react-pdf; fits the page limit by choosing a density), pdf.js preview and PDF-to-text import, assistant
   tailoring per posting (facts guarded in code) and free-form edits with undo. "Tailor resume" is on each posting.
-  Migration 0009 `resumes` applied. `/profile` can reuse the built resume as its source text.
+  Migration 0009 `resumes` applied.
   Cleanup done with it: `pnpm check` works again (biome ignores `.claude/` worktrees; ~32 stale agent worktrees remain
   there and can be removed with `git worktree remove` once their branches are confirmed merged), shared `requestJson` /
   `forward` helpers replaced three copies of fetch+error handling, stale lint suppressions removed.

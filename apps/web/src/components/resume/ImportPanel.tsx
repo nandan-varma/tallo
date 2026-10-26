@@ -15,16 +15,16 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
  * person checks it in the editor next.
  */
 export function ImportPanel({
-  profileText,
+  earlierText,
   onImported,
   onBlank,
 }: {
-  /** The resume text saved on the Profile page, offered as a starting point. */
-  profileText: string;
+  /** Resume text pasted on the old Profile page, if any: it starts in the paste box. */
+  earlierText: string;
   onImported: (resume: Resume) => void;
   onBlank: () => void;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(earlierText);
   const [step, setStep] = useState<"reading" | "structuring" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
@@ -152,16 +152,6 @@ export function ImportPanel({
             <FileText aria-hidden />
             Build from this text
           </Button>
-          {profileText && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => structure(profileText)}
-            >
-              Use my profile’s resume
-            </Button>
-          )}
         </div>
       </div>
 

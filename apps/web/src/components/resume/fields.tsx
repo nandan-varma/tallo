@@ -71,28 +71,33 @@ export function AreaField({
   );
 }
 
-/** A named block of the editor. `id` is the anchor the section bar scrolls to. */
+/**
+ * A named block of the editor, folded away with its header. A native disclosure: keyboard and screen-reader
+ * behavior come with the element. `summary` is the one-line state of the block when it is closed ("3 roles").
+ */
 export function Section({
-  id,
   title,
-  hint,
+  summary,
+  defaultOpen = false,
   children,
 }: {
-  id: string;
   title: string;
-  hint?: string;
+  summary?: string;
+  defaultOpen?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="grid scroll-mt-14 gap-3" aria-labelledby={`${id}-title`}>
-      <div>
-        <h2 id={`${id}-title`} className="text-sm font-semibold tracking-tight">
-          {title}
-        </h2>
-        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      </div>
-      {children}
-    </section>
+    <details open={defaultOpen} className="group/section rounded-xl border bg-card">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-3 select-none [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          className="size-4 shrink-0 text-muted-foreground transition-transform group-open/section:rotate-90"
+          aria-hidden
+        />
+        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+        {summary && <span className="truncate text-xs text-muted-foreground">{summary}</span>}
+      </summary>
+      <div className="grid gap-3 border-t px-3.5 py-3.5">{children}</div>
+    </details>
   );
 }
 

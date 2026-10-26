@@ -131,8 +131,8 @@ export const jobs = sqliteTable(
 export type JobRow = typeof jobs.$inferSelect;
 
 /**
- * Personal layer (CLAUDE.md rule 5): the user's resume and the profile markdown generated from it, keyed by
- * user. Never joined into the shared catalog tables. Search results and chat are not stored anywhere.
+ * Personal layer (CLAUDE.md rule 5): free-text notes the person gives the assistant (`profile`), keyed by user.
+ * `resume` is legacy pasted text from before the resume builder and is no longer written. Never joined into the shared catalog tables. Search results and chat are not stored anywhere.
  */
 export const profiles = sqliteTable("profiles", {
   userId: text("user_id").primaryKey(),

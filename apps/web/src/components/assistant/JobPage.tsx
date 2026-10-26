@@ -1,16 +1,8 @@
 import type { JobSummary } from "@tallo/contracts";
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  Bookmark,
-  ExternalLink,
-  FileText,
-  Quote,
-  RotateCw,
-} from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bookmark, FileText, Quote, RotateCw } from "lucide-react";
 import { summaryOf } from "@/components/assistant/hooks";
 import { Avatar } from "@/components/assistant/JobRow";
-import { useJob } from "@/components/assistant/queries";
+import { useJob, useResumeCopies } from "@/components/assistant/queries";
 import { JobFacts } from "@/components/JobFacts";
 import { JobMeta } from "@/components/JobMeta";
 import { Button } from "@/components/ui/button";
@@ -71,6 +63,8 @@ export function JobPage({
   const query = useJob(id);
   const job = query.data;
   const link = job?.applyUrl ?? job?.url ?? null;
+  const copies = useResumeCopies();
+  const hasCopy = copies.data?.some((copy) => copy.jobId === Number(id)) ?? false;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -98,15 +92,10 @@ export function JobPage({
             >
               <Bookmark className={cn(saved && "fill-current")} />
             </Button>
-            <Button asChild variant="ghost" size="icon" aria-label="Open the standalone page">
-              <a href={`/jobs/${job.id}`} target="_blank" rel="noopener noreferrer">
-                <ExternalLink />
-              </a>
-            </Button>
             <Button asChild variant="outline" size="sm" className="gap-1.5">
-              <a href={`/resume/${job.id}?tailor=1`}>
+              <a href={hasCopy ? `/resume/${job.id}` : `/resume/${job.id}?tailor=1`}>
                 <FileText aria-hidden />
-                <span className="max-sm:sr-only">Tailor resume</span>
+                <span className="max-sm:sr-only">{hasCopy ? "Your resume" : "Tailor resume"}</span>
               </a>
             </Button>
             {link && (

@@ -1,4 +1,4 @@
-import type { Resume, ResumeStyle } from "@tallo/contracts";
+import type { Resume } from "@tallo/contracts";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -11,22 +11,11 @@ import {
 } from "@/components/resume/fields";
 import { Button } from "@/components/ui/button";
 import { blank, move, removeAt, replaceAt, splitItems } from "@/lib/resume/edit";
-import { cn } from "@/lib/utils";
-
-export const SECTIONS = [
-  { id: "contact", label: "Contact" },
-  { id: "summary", label: "Summary" },
-  { id: "experience", label: "Experience" },
-  { id: "projects", label: "Projects" },
-  { id: "education", label: "Education" },
-  { id: "skills", label: "Skills" },
-  { id: "extras", label: "More" },
-  { id: "design", label: "Design" },
-] as const;
-
-const ACCENTS = ["#1f2937", "#1d4ed8", "#0f766e", "#b45309", "#be123c", "#6d28d9"];
 
 type Update<K extends keyof Resume> = (items: Resume[K]) => void;
+
+/** "3 roles", "1 role", or nothing for an empty list. */
+const count = (n: number, noun: string) => (n === 0 ? "" : `${n} ${noun}${n === 1 ? "" : "s"}`);
 
 /** `a · b` for the folded header of an entry; empty parts are skipped. */
 const join = (...parts: string[]) => parts.filter(Boolean).join(" · ");
@@ -100,14 +89,10 @@ function Dates({
 
 export function Editor({
   resume,
-  style,
   onResume,
-  onStyle,
 }: {
   resume: Resume;
-  style: ResumeStyle;
   onResume: (change: (resume: Resume) => Resume) => void;
-  onStyle: (patch: Partial<ResumeStyle>) => void;
 }) {
   const field = <K extends keyof Resume>(key: K) => ({
     value: resume[key] as string,
@@ -119,8 +104,8 @@ export function Editor({
       onResume((r) => ({ ...r, [key]: items }));
 
   return (
-    <div className="grid gap-9">
-      <Section id="contact" title="Contact">
+    <div className="grid gap-2.5">
+      <Section title="Contact" summary={resume.name} defaultOpen>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label="Full name" autoComplete="name" {...field("name")} />
           <TextField
@@ -178,19 +163,11 @@ export function Editor({
         </div>
       </Section>
 
-      <Section
-        id="summary"
-        title="Summary"
-        hint="Two or three sentences. Leave it empty to leave it out."
-      >
+      <Section title="Summary" summary={resume.summary ? "" : "optional"}>
         <AreaField label="Summary" rows={3} {...field("summary")} />
       </Section>
 
-      <Section
-        id="experience"
-        title="Experience"
-        hint="Most recent first. Press Enter to add a bullet."
-      >
+      <Section title="Experience" summary={count(resume.experience.length, "role")} defaultOpen>
         <Entries
           items={resume.experience}
           onChange={list("experience")}
@@ -230,7 +207,7 @@ export function Editor({
         </Entries>
       </Section>
 
-      <Section id="projects" title="Projects">
+      <Section title="Projects" summary={count(resume.projects.length, "project")}>
         <Entries
           items={resume.projects}
           onChange={list("projects")}
@@ -264,7 +241,7 @@ export function Editor({
         </Entries>
       </Section>
 
-      <Section id="education" title="Education">
+      <Section title="Education" summary={count(resume.education.length, "school")}>
         <Entries
           items={resume.education}
           onChange={list("education")}
@@ -305,7 +282,7 @@ export function Editor({
         </Entries>
       </Section>
 
-      <Section id="skills" title="Skills" hint="Separate skills with commas.">
+      <Section title="Skills" summary={count(resume.skills.length, "group")}>
         <div className="grid gap-2.5">
           {resume.skills.map((group, index) => (
             <div
@@ -345,11 +322,7 @@ export function Editor({
         </div>
       </Section>
 
-      <Section
-        id="extras"
-        title="More sections"
-        hint="Certifications, awards, publications, volunteering."
-      >
+      <Section title="More sections" summary={count(resume.extras.length, "section")}>
         <Entries
           items={resume.extras}
           onChange={list("extras")}
@@ -375,65 +348,6 @@ export function Editor({
             </>
           )}
         </Entries>
-      </Section>
-
-      <Section
-        id="design"
-        title="Design"
-        hint="Applies to the PDF. The layout shrinks to fit the page limit."
-      >
-        <div className="grid gap-4">
-          <Choice
-            label="Template"
-            value={style.template}
-            options={[
-              { value: "classic", label: "Classic", hint: "Serif, centered" },
-              { value: "modern", label: "Modern", hint: "Sans, accent color" },
-            ]}
-            onChange={(template) => onStyle({ template })}
-          />
-          <Choice
-            label="Paper"
-            value={style.paper}
-            options={[
-              { value: "letter", label: "US Letter" },
-              { value: "a4", label: "A4" },
-            ]}
-            onChange={(paper) => onStyle({ paper })}
-          />
-          <Choice
-            label="Page limit"
-            value={String(style.pages)}
-            options={[
-              { value: "1", label: "1 page" },
-              { value: "2", label: "2 pages" },
-            ]}
-            onChange={(pages) => onStyle({ pages: Number(pages) })}
-          />
-          {style.template === "modern" && (
-            <div className="grid gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Accent</span>
-              <div className="flex gap-2" role="radiogroup" aria-label="Accent color">
-                {ACCENTS.map((color) => (
-                  // biome-ignore lint/a11y/useSemanticElements: a swatch button inside a radiogroup
-                  <button
-                    key={color}
-                    type="button"
-                    role="radio"
-                    aria-checked={style.accent === color}
-                    aria-label={color}
-                    onClick={() => onStyle({ accent: color })}
-                    className={cn(
-                      "size-7 rounded-full border-2 border-background ring-1 ring-border transition-shadow",
-                      style.accent === color && "ring-2 ring-foreground",
-                    )}
-                    style={{ background: color }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       </Section>
     </div>
   );
@@ -461,44 +375,5 @@ function SkillItems({ items, onChange }: { items: string[]; onChange: (items: st
         onChange(splitItems(value));
       }}
     />
-  );
-}
-
-function Choice<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string; hint?: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="grid gap-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
-        {options.map((option) => (
-          // biome-ignore lint/a11y/useSemanticElements: a segmented button inside a radiogroup
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={value === option.value}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "rounded-lg border px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted",
-              value === option.value && "border-foreground bg-muted font-medium",
-            )}
-          >
-            {option.label}
-            {option.hint && (
-              <span className="block text-xs font-normal text-muted-foreground">{option.hint}</span>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }

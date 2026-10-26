@@ -1,30 +1,25 @@
 import type { JobAgentMessage, JobHit } from "@tallo/search-ai";
 import { FileUser, RotateCcw } from "lucide-react";
 import { type RefObject, useMemo } from "react";
+import { AboutSheet } from "@/components/assistant/AboutSheet";
 import { Composer } from "@/components/assistant/Composer";
 import { useStickToBottom } from "@/components/assistant/hooks";
 import { Messages } from "@/components/assistant/Messages";
 import { Orb } from "@/components/assistant/Orb";
 import { lastUserText } from "@/lib/assistant";
 
-const WITH_PROFILE = [
-  "Best matches for my profile",
+const WITH_RESUME = [
+  "Best matches for my resume",
   "Remote roles that fit me and pay well",
   "Roles one step up from my current level",
 ];
-const WITHOUT_PROFILE = [
+const WITHOUT_RESUME = [
   "Senior backend roles, remote in the US",
   "Staff engineers at AI companies",
   "Entry-level data roles in Boston",
 ];
 
-function EmptyState({
-  hasProfile,
-  onPick,
-}: {
-  hasProfile: boolean;
-  onPick: (text: string) => void;
-}) {
+function EmptyState({ hasResume, onPick }: { hasResume: boolean; onPick: (text: string) => void }) {
   return (
     <div className="flex min-h-full flex-col justify-center px-5 py-10">
       <h1 className="text-xl font-semibold tracking-tight">What are you looking for?</h1>
@@ -33,7 +28,7 @@ function EmptyState({
         matter, and rank them by fit.
       </p>
       <div className="mt-5 grid gap-2">
-        {(hasProfile ? WITH_PROFILE : WITHOUT_PROFILE).map((suggestion) => (
+        {(hasResume ? WITH_RESUME : WITHOUT_RESUME).map((suggestion) => (
           <button
             key={suggestion}
             type="button"
@@ -44,15 +39,15 @@ function EmptyState({
           </button>
         ))}
       </div>
-      {!hasProfile && (
+      {!hasResume && (
         <a
-          href="/profile"
+          href="/resume"
           className="mt-5 flex items-start gap-2.5 rounded-xl bg-muted/60 px-3.5 py-3 text-[13px] text-muted-foreground transition-colors hover:bg-muted"
         >
           <FileUser className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
-            <span className="font-medium text-foreground">Add your resume</span> on the Profile page
-            and I'll rank matches against your experience.
+            <span className="font-medium text-foreground">Add your resume</span> and I’ll rank
+            matches against your experience.
           </span>
         </a>
       )}
@@ -65,7 +60,7 @@ export function ChatPanel({
   hits,
   status,
   error,
-  hasProfile,
+  hasResume,
   inputRef,
   onSend,
   onStop,
@@ -77,7 +72,7 @@ export function ChatPanel({
   hits: Map<string, JobHit>;
   status: "submitted" | "streaming" | "ready" | "error";
   error: Error | undefined;
-  hasProfile: boolean;
+  hasResume: boolean;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   onSend: (text: string) => void;
   onStop: () => void;
@@ -94,6 +89,7 @@ export function ChatPanel({
       <header className="flex h-12 shrink-0 items-center gap-2.5 border-b px-4">
         <Orb className="size-7" busy={busy} />
         <span className="flex-1 truncate text-sm font-medium">{last ? last : "Assistant"}</span>
+        <AboutSheet hasResume={hasResume} />
         {messages.length > 0 && (
           <button
             type="button"
@@ -112,7 +108,7 @@ export function ChatPanel({
         className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       >
         {messages.length === 0 ? (
-          <EmptyState hasProfile={hasProfile} onPick={onSend} />
+          <EmptyState hasResume={hasResume} onPick={onSend} />
         ) : (
           <Messages
             messages={messages}

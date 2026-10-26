@@ -1,11 +1,13 @@
 ---
 import { Assistant } from "@/components/assistant/Assistant";
 import Base from "@/layouts/Base.astro";
-import { getProfile } from "@/lib/api";
+import { getResume } from "@/lib/api";
 
-// A missing profile only changes the empty state, so a failed read must not take the page down.
-const profile = await getProfile().catch(() => null);
+// A missing resume only changes the empty state, so a failed read must not take the page down.
+const resume = await getResume().catch(() => null);
+const job = Astro.url.searchParams.get("job");
+const initialJob = job && /^\d+$/.test(job) ? job : null;
 ---
 <Base title="Tallo">
-  <Assistant client:only="react" hasProfile={Boolean(profile?.profile.trim())} />
+  <Assistant client:only="react" hasResume={resume !== null} initialJob={initialJob} />
 </Base>

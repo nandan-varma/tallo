@@ -3,6 +3,7 @@ import { defaultResumeDoc, type Resume } from "@tallo/contracts";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
+import { DesignPanel } from "@/components/resume/DesignPanel";
 import { Editor } from "@/components/resume/Editor";
 
 afterEach(cleanup);
@@ -16,7 +17,6 @@ function Harness({ start, onChange }: { start?: Partial<Resume>; onChange?: (r: 
   return (
     <Editor
       resume={doc.resume}
-      style={doc.style}
       onResume={(change) =>
         setDoc((d) => {
           const resume = change(d.resume);
@@ -24,7 +24,6 @@ function Harness({ start, onChange }: { start?: Partial<Resume>; onChange?: (r: 
           return { ...d, resume };
         })
       }
-      onStyle={(patch) => setDoc((d) => ({ ...d, style: { ...d.style, ...patch } }))}
     />
   );
 }
@@ -88,11 +87,35 @@ describe("resume editor", () => {
     expect(latest?.experience.map((j) => j.company)).toEqual(["Acme"]);
   });
 
+  it("shows what each folded section holds", () => {
+    render(<Harness start={{ experience: [role], skills: [{ label: "L", items: ["Go"] }] }} />);
+    expect(screen.getByText("1 role")).toBeTruthy();
+    expect(screen.getByText("1 group")).toBeTruthy();
+  });
+});
+
+describe("design panel", () => {
   it("offers an accent color only for the modern template", () => {
-    render(<Harness />);
+    function Panel() {
+      const [style, setStyle] = useState(defaultResumeDoc().style);
+      return (
+        <DesignPanel style={style} onStyle={(patch) => setStyle((s) => ({ ...s, ...patch }))} />
+      );
+    }
+    render(<Panel />);
     expect(screen.queryByRole("radiogroup", { name: "Accent color" })).toBeNull();
     const template = screen.getByRole("radiogroup", { name: "Template" });
     fireEvent.click(within(template).getByRole("radio", { name: /Modern/ }));
     expect(screen.getByRole("radiogroup", { name: "Accent color" })).toBeTruthy();
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "Page limit" })).getByRole("radio", {
+        name: "2 pages",
+      }),
+    );
+    expect(
+      within(screen.getByRole("radiogroup", { name: "Page limit" }))
+        .getByRole("radio", { name: "2 pages" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
   });
 });

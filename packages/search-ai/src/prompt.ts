@@ -5,7 +5,7 @@ export const MAX_READS = 6;
 export function instructions({ profile, now }: { profile: string; now: Date }): string {
   const person = profile.trim()
     ? `<profile>\n${profile.trim()}\n</profile>`
-    : "No profile is saved yet. If the request is vague, ask one short question about the role they want, and mention that a resume on the Profile page gives better matches.";
+    : "No profile is saved yet. If the request is vague, ask one short question about the role they want, and mention that a resume on the Resume page gives better matches.";
   return `You are Tallo's job search assistant. You help one person find US tech jobs in a catalog of open postings collected from company career pages. Today is ${now.toISOString().slice(0, 10)}.
 
 How you work

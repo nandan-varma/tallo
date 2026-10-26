@@ -82,6 +82,8 @@ const detail = (id: number) => ({
   variants: [],
 });
 
+let copies: { jobId: number | null }[] = [];
+
 function stubBrowser(desktop: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: desktop && query.includes("min-width"),
@@ -103,6 +105,7 @@ function stubBrowser(desktop: boolean) {
       if (url === "/api/search") {
         return Response.json({ hits: DB_HITS, nextCursor: null });
       }
+      if (url === "/api/resumes") return Response.json(copies);
       const job = /\/api\/jobs\/(\d+)\.json/.exec(url)?.[1];
       if (job) return Response.json(detail(Number(job)));
       throw new Error(`unexpected fetch ${url} ${init?.method ?? "GET"}`);
@@ -110,14 +113,16 @@ function stubBrowser(desktop: boolean) {
   );
 }
 
-async function mount() {
+async function mount(initialJob: string | null = null) {
   const { Assistant } = await import("../src/components/assistant/Assistant.tsx");
-  return render(<Assistant hasProfile={false} />);
+  return render(<Assistant hasResume={false} initialJob={initialJob} />);
 }
 
 beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
+  copies = [];
+  history.replaceState(null, "", "/");
 });
 afterEach(() => {
   cleanup();
@@ -172,6 +177,33 @@ describe("Assistant (desktop)", () => {
       expect(screen.queryByRole("button", { name: "Open the assistant" })).toBeNull(),
     );
     expect(screen.getByLabelText("Message the assistant")).toBeTruthy();
+  });
+
+  it("keeps the open posting in the address, and opens one from the address", async () => {
+    const view = await mount();
+    const list = await screen.findByRole("list", { name: "Search results" });
+    fireEvent.click(within(list).getByText("Data Engineer"));
+    await screen.findByRole("heading", { level: 1, name: "Data Engineer" });
+    expect(location.search).toBe("?job=1");
+
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await waitFor(() => expect(location.search).toBe(""));
+
+    view.unmount();
+    await mount("3");
+    expect(await screen.findByRole("heading", { level: 1, name: "Backend Engineer" })).toBeTruthy();
+  });
+
+  it("offers to tailor the resume for a posting, or to open the copy that exists", async () => {
+    const view = await mount("1");
+    const tailor = await screen.findByRole("link", { name: "Tailor resume" });
+    expect(tailor.getAttribute("href")).toBe("/resume/1?tailor=1");
+
+    view.unmount();
+    copies = [{ jobId: 1 }];
+    await mount("1");
+    const open = await screen.findByRole("link", { name: "Your resume" });
+    expect(open.getAttribute("href")).toBe("/resume/1");
   });
 
   it("closes the posting with Escape", async () => {

@@ -46,7 +46,7 @@ const props = {
   base: null,
   posting: null,
   copies: [],
-  profileText: "",
+  earlierText: "",
   autoTailor: false,
 };
 
@@ -71,11 +71,11 @@ describe("ResumeWorkspace", () => {
     expect(screen.getByRole("button", { name: /Download PDF/ })).toBeTruthy();
   });
 
-  it("offers the profile's resume text as a starting point only when there is one", () => {
-    const { rerender } = render(<ResumeWorkspace {...props} />);
-    expect(screen.queryByRole("button", { name: "Use my profile’s resume" })).toBeNull();
-    rerender(<ResumeWorkspace {...props} profileText={"Jane Roe, engineer. ".repeat(3)} />);
-    expect(screen.getByRole("button", { name: "Use my profile’s resume" })).toBeTruthy();
+  it("puts resume text saved before the builder into the paste box", () => {
+    render(<ResumeWorkspace {...props} earlierText="Jane Roe, engineer at Acme since 2019." />);
+    expect((screen.getByLabelText("Or paste the text") as HTMLTextAreaElement).value).toContain(
+      "Jane Roe",
+    );
   });
 
   it("shows the saved resume, starts a posting's copy from the base, and tailors on request", async () => {
@@ -92,14 +92,25 @@ describe("ResumeWorkspace", () => {
         {...props}
         initial={null}
         base={base}
-        posting={{ id: 5, title: "Platform Engineer", company: "Globex" }}
+        posting={{
+          id: 5,
+          title: "Platform Engineer",
+          company: "Globex",
+          applyUrl: "https://globex.example/apply",
+        }}
       />,
     );
 
     expect((screen.getByLabelText("Full name") as HTMLInputElement).value).toBe("Jane Roe");
-    expect(screen.getByText(/This is a new copy for/)).toBeTruthy();
+    expect(screen.getByText(/started from your base resume/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Apply/ }).getAttribute("href")).toBe(
+      "https://globex.example/apply",
+    );
+    expect(screen.getByRole("link", { name: "Back to the role" }).getAttribute("href")).toBe(
+      "/?job=5",
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: /Tailor to Platform Engineer at Globex/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Tailor" }));
     await waitFor(() => expect(screen.getByText("Named the target role")).toBeTruthy());
     expect((screen.getByLabelText("Headline") as HTMLInputElement).value).toBe("Platform Engineer");
     const sent = JSON.parse(String(fetchMock.mock.calls[0]?.[1].body));
@@ -118,7 +129,12 @@ describe("ResumeWorkspace", () => {
       <ResumeWorkspace
         {...props}
         base={record("Jane Roe")}
-        posting={{ id: 5, title: "Platform Engineer", company: "Globex" }}
+        posting={{
+          id: 5,
+          title: "Platform Engineer",
+          company: "Globex",
+          applyUrl: "https://globex.example/apply",
+        }}
         autoTailor
       />,
     );

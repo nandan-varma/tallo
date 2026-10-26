@@ -73,7 +73,7 @@ afterEach(() => {
 describe("a real recorded turn through the real useChat", () => {
   it("fills the list when the search finishes and never empties it again", async () => {
     const { Assistant } = await import("../src/components/assistant/Assistant.tsx");
-    render(<Assistant hasProfile={false} />);
+    render(<Assistant hasResume={false} />);
     const box = await screen.findByLabelText("Message the assistant");
     fireEvent.change(box, { target: { value: "entry-level data roles in Washington" } });
     fireEvent.keyDown(box, { key: "Enter" });

@@ -1,4 +1,5 @@
-import { saveProfile } from "@tallo/db";
+import { defaultResumeDoc } from "@tallo/contracts";
+import { saveProfile, saveResume } from "@tallo/db";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
@@ -112,12 +113,17 @@ describe("POST /v1/ai/chat", () => {
     expect(body).toContain("Found one role.");
   });
 
-  it("gives the agent the saved profile, and says so when there is none", async () => {
-    const withProfile = scripted([{ text: "ok" }]);
-    const a = build(withProfile.model);
-    await saveProfile(a.db, { resume: "r", profile: "# Summary\nRustacean, 9 years." });
+  it("gives the agent the built resume and the person's notes, and says so when there is none", async () => {
+    const seen = scripted([{ text: "ok" }]);
+    const a = build(seen.model);
+    const doc = defaultResumeDoc();
+    doc.resume.name = "Ada Lovelace";
+    doc.resume.summary = "Rustacean, 9 years.";
+    await saveResume(a.db, doc);
+    await saveProfile(a.db, { profile: "Remote only." });
     await (await chat(a.app, "hi")).text();
-    expect(withProfile.prompts[0]).toContain("Rustacean, 9 years.");
+    expect(seen.prompts[0]).toContain("Rustacean, 9 years.");
+    expect(seen.prompts[0]).toContain("Remote only.");
 
     const without = scripted([{ text: "ok" }]);
     const b = build(without.model);
@@ -163,66 +169,32 @@ describe("POST /v1/jobs/search", () => {
 });
 
 describe("profile routes", () => {
-  it("is null until saved, then round-trips", async () => {
+  it("is null until saved, then round-trips and overwrites", async () => {
     const { app } = build(null);
     const empty = await app.request("/v1/profile", { headers: auth });
     expect(await empty.json()).toBeNull();
 
-    const put = await app.request("/v1/profile", {
-      method: "PUT",
-      headers: auth,
-      body: JSON.stringify({ resume: "my resume", profile: "# Summary" }),
-    });
-    expect(put.status).toBe(200);
+    const put = (profile: string) =>
+      app.request("/v1/profile", {
+        method: "PUT",
+        headers: auth,
+        body: JSON.stringify({ profile }),
+      });
+    expect((await put("Remote only.")).status).toBe(200);
+    expect((await put("Remote or Boston.")).status).toBe(200);
     const got = (await (await app.request("/v1/profile", { headers: auth })).json()) as {
-      resume: string;
       profile: string;
     };
-    expect(got).toMatchObject({ resume: "my resume", profile: "# Summary" });
+    expect(got.profile).toBe("Remote or Boston.");
   });
 
-  it("rejects an oversized profile", async () => {
+  it("rejects oversized notes", async () => {
     const { app } = build(null);
     const response = await app.request("/v1/profile", {
       method: "PUT",
       headers: auth,
-      body: JSON.stringify({ resume: "r", profile: "x".repeat(30_001) }),
+      body: JSON.stringify({ profile: "x".repeat(30_001) }),
     });
     expect(response.status).toBe(400);
-  });
-
-  it("generates profile markdown from a resume without storing it", async () => {
-    const { model, prompts } = scripted([{ text: "unused" }]);
-    const { app } = build(model);
-    const resume = "Senior backend engineer with eight years of TypeScript and Postgres.";
-
-    const response = await app.request("/v1/profile/generate", {
-      method: "POST",
-      headers: auth,
-      body: JSON.stringify({ resume }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ profile: "# Summary\nBackend engineer." });
-    expect(prompts[0]).toContain("eight years of TypeScript");
-    expect(await (await app.request("/v1/profile", { headers: auth })).json()).toBeNull();
-  });
-
-  it("asks for a real resume, and answers 503 without a model", async () => {
-    const { app } = build(scripted([{ text: "x" }]).model);
-    const short = await app.request("/v1/profile/generate", {
-      method: "POST",
-      headers: auth,
-      body: JSON.stringify({ resume: "hi" }),
-    });
-    expect(short.status).toBe(400);
-
-    const none = build(null).app;
-    const response = await none.request("/v1/profile/generate", {
-      method: "POST",
-      headers: auth,
-      body: JSON.stringify({ resume: "A".repeat(50) }),
-    });
-    expect(response.status).toBe(503);
   });
 });

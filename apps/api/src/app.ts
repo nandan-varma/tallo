@@ -6,7 +6,6 @@ import {
   diffSchema,
   editResumeSchema,
   finalizeSchema,
-  generateProfileSchema,
   importResumeSchema,
   type JobLocation,
   jobsBatchSchema,
@@ -43,8 +42,9 @@ import {
   startRun,
   storeRawPack,
 } from "@tallo/db";
+import { resumeToText } from "@tallo/resume";
 import { editResume, importResume, tailorResume } from "@tallo/resume/ai";
-import { createJobAgent, generateProfile } from "@tallo/search-ai";
+import { createJobAgent } from "@tallo/search-ai";
 import { createAgentUIStreamResponse, type LanguageModel } from "ai";
 import { eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
@@ -119,6 +119,18 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   // ---- assistant -------------------------------------------------------------------------
   // The chat is stateless: the browser holds the conversation and sends it with every turn. Nothing the
   // model writes is stored. Logs carry error names only, never content.
+  /** What the assistant knows about the person: the resume they built, then their own notes. */
+  const aboutPerson = async () => {
+    const [resume, notes] = await Promise.all([getResume(db), getProfile(db)]);
+    const text = resume ? resumeToText(resume.doc.resume) : "";
+    return [
+      text && `# Resume\n${text}`,
+      notes?.profile.trim() && `# Their notes\n${notes.profile.trim()}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  };
+
   const assistant = (): LanguageModel | null => {
     try {
       return model?.() ?? null;
@@ -142,11 +154,10 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
     async (c) => {
       const llm = assistant();
       if (!llm) return c.json(notConfigured, 503);
-      const profile = await getProfile(db);
       const agent = createJobAgent({
         model: llm,
         jobs: jobsPort(db, blobs),
-        profile: profile?.profile ?? "",
+        profile: await aboutPerson(),
       });
       return createAgentUIStreamResponse({
         agent,
@@ -171,23 +182,6 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   app.put("/v1/profile", read, zValidator("json", saveProfileSchema), async (c) =>
     c.json(await saveProfile(db, c.req.valid("json"))),
   );
-
-  app.post("/v1/profile/generate", read, zValidator("json", generateProfileSchema), async (c) => {
-    const llm = assistant();
-    if (!llm) return c.json(notConfigured, 503);
-    try {
-      const profile = await generateProfile({
-        model: llm,
-        resume: c.req.valid("json").resume,
-        abortSignal: c.req.raw.signal,
-      });
-      c.header("cache-control", "private, no-store");
-      return c.json({ profile });
-    } catch (error) {
-      console.error(JSON.stringify({ event: "ai.profile.failed", error: errorName(error) }));
-      return c.json({ error: "Could not generate the profile. Try again." }, 502);
-    }
-  });
 
   // ---- resumes -----------------------------------------------------------------------------
   // Personal layer too. `?job=<id>` addresses the copy tailored to a posting; without it, the base resume.
