@@ -2,10 +2,11 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
-**D13. The AI assistant is one tool-using agent, streamed, stateless.** `ToolLoopAgent` with `search_jobs`, `read_job` (full text,
-never cut) and `show_jobs`; UI is rendered from typed tool parts; filters are gone. `packages/ai` maps a role to any AI SDK provider;
-`packages/search-ai` has no database imports (`JobsPort`). Resume and edited profile are stored per user; chats and rankings are not.
-The earlier staged JSON pipeline was dropped: it fought the SDK and took 128 s. See `ai-search.md`.
+**D13. The AI assistant builds the search; the database produces the list.** One streamed `ToolLoopAgent` with `search_jobs`, `read_job`
+(full text, never cut) and `explain_jobs` (validated notes). The shared contract is a search spec; the results list is the database's
+answer to the assistant's last `search_jobs`, so a model never writes list data and cannot hallucinate it. `packages/ai` maps a role to
+any AI SDK provider; `packages/search-ai` has no database imports (`JobsPort`). Resume and edited profile are stored per user; chats are
+not. See `ai-search.md`.
 
 **D12. Libraries over hand-rolled machinery.** ky + p-queue (HTTP), html-to-text + entities, i18n-iso-countries,
 safe-stable-stringify, Hono, Drizzle, commander, pino. Effect was considered for runner orchestration and skipped:

@@ -12,7 +12,7 @@ _Last updated: 2026-10-26._ Stateless handoff: also read `gh issue list` and `gh
   from stored facts with no refetching. Re-run it after any rule change (bump `CLASSIFIER_VERSION`).
 - Workflow: stateless GitHub-native process (`docs/workflow.md`), roles in `.claude/agents/`, review checklist.
 - Sources seeded from the legacy registry: ~8.9k boards.
-- **AI assistant (live 2026-10-26)**: `/` is a chat (left) with ranked results (right); the old filter UI and `/ask` are gone. One streamed
+- **AI assistant (live 2026-10-26)**: `/` is a chat (left) beside a results list that is the database's answer to the assistant's search (it never writes the list; notes are validated); the old filter UI and `/ask` are gone. One streamed
   tool-using agent (`packages/search-ai`, models via `packages/ai`, default Claude Haiku 5.5 on OpenCode Go), `POST /v1/ai/chat`,
   `/profile` page (resume -> profile.md, stored per user in `profiles`), full descriptions never truncated. See `docs/ai-search.md`.
   `OPENCODE_API_KEY` is a Worker secret on `tallo-api`; `AI_MODEL_SMART` is a plain var.
