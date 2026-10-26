@@ -45,7 +45,7 @@ can return empty content, so every call sets an explicit output budget and model
 
 Rule: when the input is already known (e.g. one job's requirements) use one `generateText` with
 `Output.object`; use the agent loop only for open-ended retrieval. Budgets (`stopWhen`, `maxOutputTokens`,
-deep-read cap) are enforced in `prepareStep`, not by prompt.
+deep-read count) are enforced in `prepareStep`, not by prompt.
 
 ## Profile
 
@@ -64,3 +64,11 @@ Logs never include content outside the CLI trace.
 
 `POST /v1/ai/ask` (read token, streamed `createAgentUIStreamResponse`), then a small chat island in
 `apps/web` (`useChat`; the one justified `client:*`). AI key is a Worker secret.
+
+## Duplicates
+
+A posting listed for several locations, or the same job on two boards, is many rows with one description.
+Rows are never deleted (collectors stay lossless). `jobs.dedupe_key` = hash(normalized company, normalized title,
+`jd_hash`); `jobs.dup_of` points non-canonical open rows at the canonical one (lowest open id in the group).
+Search, facets and recall read canonical rows only (`dup_of IS NULL`) and carry the variant count/locations,
+so the engine and the UI never see a job twice. `dup_of` is recomputed by a rebuild (cron + admin endpoint).
