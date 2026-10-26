@@ -34,6 +34,7 @@ function Timeline({ items }: { items: Activity[] }) {
             <span className="min-w-0 flex-1">
               <span
                 className={cn(
+                  "[overflow-wrap:anywhere]",
                   item.state === "running" ? "text-foreground" : "text-muted-foreground",
                 )}
               >
