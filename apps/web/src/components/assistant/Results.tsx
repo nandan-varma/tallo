@@ -45,7 +45,7 @@ function Considering({ hits }: { hits: JobHit[] }) {
       <p className="mb-2 text-xs font-medium text-muted-foreground">
         Considering {hits.length.toLocaleString("en-US")} roles
       </p>
-      <ul className="grid gap-px overflow-hidden rounded-xl border bg-border">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-px overflow-hidden rounded-xl border bg-border">
         {hits.slice(0, 6).map((hit, i) => (
           <motion.li
             key={hit.id}
@@ -79,7 +79,7 @@ function SavedList({ saved, onOpen }: { saved: JobSummary[]; onOpen: (id: string
     );
   }
   return (
-    <ul className="grid gap-3">
+    <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">
       {[...saved].reverse().map((job) => (
         <li key={job.id}>
           <button
@@ -130,7 +130,7 @@ export function Results({
   const ranking_ = ranking.state === "ranking";
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-6">
         <h2 className="text-sm font-medium">
           {view === "saved" ? "Saved roles" : "Best matches"}
@@ -166,12 +166,12 @@ export function Results({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
         <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
           {view === "saved" ? (
             <SavedList saved={saved} onOpen={onOpen} />
           ) : ranking.matches.length > 0 ? (
-            <ol className="grid gap-3" aria-label="Ranked matches">
+            <ol className="grid grid-cols-[minmax(0,1fr)] gap-3" aria-label="Ranked matches">
               <AnimatePresence initial={false}>
                 {ranking.matches.map((match) => (
                   <ResultCard
@@ -186,14 +186,14 @@ export function Results({
               </AnimatePresence>
             </ol>
           ) : busy && candidates.length > 0 ? (
-            <div className="grid gap-4">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
               <Considering hits={candidates} />
-              <ul className="grid gap-3">
+              <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">
                 <SkeletonCard />
               </ul>
             </div>
           ) : busy ? (
-            <ul className="grid gap-3" aria-label="Searching">
+            <ul className="grid grid-cols-[minmax(0,1fr)] gap-3" aria-label="Searching">
               <SkeletonCard />
               <SkeletonCard />
               <SkeletonCard />

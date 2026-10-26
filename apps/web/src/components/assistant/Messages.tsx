@@ -77,13 +77,13 @@ function Activities({ items, live }: { items: Activity[]; live: boolean }) {
   if (items.length === 0) return null;
   if (live || items.some((i) => i.state === "running")) {
     return (
-      <div className="rounded-xl border bg-muted/40 px-3 py-2.5">
+      <div className="min-w-0 overflow-hidden rounded-xl border bg-muted/40 px-3 py-2.5">
         <Timeline items={items} />
       </div>
     );
   }
   return (
-    <details className="group rounded-xl border bg-muted/40 text-[13px]">
+    <details className="group min-w-0 overflow-hidden rounded-xl border bg-muted/40 text-[13px]">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-muted-foreground select-none marker:hidden">
         <Check className="size-3.5 text-emerald-600" aria-hidden />
         <span className="flex-1 truncate">{summary(items)}</span>
@@ -133,7 +133,11 @@ function AssistantMessage({
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2.5">
       <Activities items={items} live={live} />
-      {text && <p className="text-sm leading-relaxed whitespace-pre-wrap">{text}</p>}
+      {text && (
+        <p className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
+          {text}
+        </p>
+      )}
       {live && !text && items.length === 0 && <Typing />}
       {ranked && onShowMatches && (
         <button
@@ -176,7 +180,10 @@ export function Messages({
       aria-relevant="additions text"
     >
       {messages.map((message) => (
-        <li key={message.id} className={cn(message.role === "user" && "flex justify-end")}>
+        <li
+          key={message.id}
+          className={cn("min-w-0", message.role === "user" && "flex justify-end")}
+        >
           {message.role === "user" ? (
             <p className="max-w-[88%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap text-primary-foreground">
               {textOf(message)}

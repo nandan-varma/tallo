@@ -35,7 +35,7 @@ export function Composer({
 
   return (
     <form
-      className="border-t bg-card p-3"
+      className="min-w-0 border-t bg-card p-3"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
@@ -51,7 +51,7 @@ export function Composer({
           maxLength={2000}
           placeholder={placeholder}
           aria-label="Message the assistant"
-          className="field-sizing-content max-h-40 min-h-7 flex-1 resize-none bg-transparent py-1 text-sm leading-6 outline-none placeholder:text-muted-foreground"
+          className="field-sizing-content max-h-40 min-h-7 w-0 min-w-0 flex-1 resize-none bg-transparent py-1 text-sm leading-6 outline-none placeholder:text-muted-foreground"
         />
         {busy ? (
           <button

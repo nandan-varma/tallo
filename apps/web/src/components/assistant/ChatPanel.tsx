@@ -94,7 +94,7 @@ export function ChatPanel({
   const last = useMemo(() => lastUserText(messages), [messages]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-2.5 border-b px-4">
         {showOrb ? (
           <motion.span layoutId="orb">
@@ -119,7 +119,7 @@ export function ChatPanel({
       <div
         ref={ref}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       >
         {messages.length === 0 ? (
           <EmptyState hasProfile={hasProfile} onPick={onSend} />

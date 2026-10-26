@@ -162,11 +162,11 @@ export function Assistant({ hasProfile }: { hasProfile: boolean }) {
               <motion.aside
                 initial={false}
                 animate={{ width: chatOpen ? chatWidth : 0, opacity: chatOpen ? 1 : 0 }}
-                className="shrink-0 overflow-hidden border-r bg-card"
+                className="relative shrink-0 overflow-hidden border-r bg-card"
                 aria-label="Chat"
                 inert={!chatOpen}
               >
-                <div style={{ width: chatWidth }} className="h-full">
+                <div style={{ width: chatWidth }} className="absolute inset-y-0 left-0">
                   {chat}
                 </div>
               </motion.aside>
@@ -224,7 +224,9 @@ export function Assistant({ hasProfile }: { hasProfile: boolean }) {
                   </button>
                 ))}
               </div>
-              <div className="min-h-0 flex-1">{mobileTab === "chat" ? chat : results}</div>
+              <div className="relative min-h-0 flex-1">
+                <div className="absolute inset-0">{mobileTab === "chat" ? chat : results}</div>
+              </div>
               <AnimatePresence>
                 {listingId && (
                   <motion.div
