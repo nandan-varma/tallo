@@ -134,7 +134,8 @@ describe("Assistant (desktop)", () => {
     expect(within(list).getByText("Closest to your platform background.")).toBeTruthy();
     // The search the list ran is exactly what the assistant asked for.
     const call = vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/search");
-    expect(JSON.parse(String((call?.[1] as RequestInit).body))).toMatchObject({
+    expect(call).toBeDefined();
+    expect(JSON.parse(String((call?.[1] as RequestInit | undefined)?.body))).toMatchObject({
       queries: ["data engineer"],
       locations: ["Seattle", "WA"],
     });
