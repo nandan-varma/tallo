@@ -32,6 +32,8 @@ export const jobFactsSchema = z.object({
   expMaxYears: z.number().nonnegative().nullable(),
   excerpt: z.string().max(400),
   jdHash: hex64,
+  /** Groups listings of one posting (see catalog `dedupeKey`). Optional until every runner sends it. */
+  dedupeKey: hex64.nullish(),
   jdBytes: z.number().int().nonnegative(),
   /** Fingerprint of the source listing + platform version; equal means no write is needed. */
   sourceHash: hex64,

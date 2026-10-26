@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { CLASSIFIER_VERSION, classify, gunzip, sha256 } from "@tallo/catalog";
+import { CLASSIFIER_VERSION, classify, dedupeKey, gunzip, sha256 } from "@tallo/catalog";
 import {
   blobCheckSchema,
   createRunSchema,
@@ -11,6 +11,7 @@ import {
 import type { BlobStore, Db } from "@tallo/db";
 import {
   applyJobs,
+  backfillDedupeKeys,
   diff,
   finalize,
   getJob,
@@ -20,6 +21,8 @@ import {
   listRuns,
   listSourceStatus,
   listSources,
+  listVariants,
+  rebuildDuplicates,
   rebuildFacets,
   reclassify,
   runsSearchSchema,
@@ -79,6 +82,7 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
       return c.json({
         ...rest,
         description: blob ? new TextDecoder().decode(await gunzip(blob)) : null,
+        variants: await listVariants(db, job),
       });
     },
   );
@@ -155,6 +159,46 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
 
   /** Recount facets now instead of waiting for the hourly cron (e.g. right after a deploy). */
   app.post("/v1/admin/facets/rebuild", write, async (c) => c.json(await rebuildFacets(db)));
+
+  /**
+   * Fill dedupe keys for rows stored before the key existed. Call with `after=<next>` until `more`
+   * is false.
+   */
+  app.post(
+    "/v1/admin/dedupe/backfill",
+    write,
+    zValidator("query", z.object({ after: z.coerce.number().int().min(0).optional() })),
+    async (c) =>
+      c.json(
+        await backfillDedupeKeys(db, (row) => dedupeKey(row), {
+          after: c.req.valid("query").after ?? 0,
+        }),
+      ),
+  );
+
+  /**
+   * Regroup duplicates now (`full` walks every key; the cron does the incremental pass). Call with
+   * `after=<next>` until `next` is null.
+   */
+  app.post(
+    "/v1/admin/dedupe",
+    write,
+    zValidator(
+      "query",
+      z.object({
+        full: z
+          .enum(["true", "false"])
+          .transform((v) => v === "true")
+          .optional(),
+        after: z.string().max(64).optional(),
+        limit: z.coerce.number().int().min(1).max(5000).optional(),
+      }),
+    ),
+    async (c) => {
+      const { full, after, limit } = c.req.valid("query");
+      return c.json(await rebuildDuplicates(db, undefined, { full, after, limit }));
+    },
+  );
 
   /** Upgrade heuristic flags after a rule change, from stored facts. Call until `more` is false. */
   app.post("/v1/admin/reclassify", write, async (c) =>

@@ -1,5 +1,6 @@
 import type { JobFacts, MappedJob, SourceConfig } from "@tallo/contracts";
 import { classify } from "./classify.ts";
+import { dedupeKey } from "./dedupe.ts";
 import {
   annualizeBase,
   extractCompensation,
@@ -84,8 +85,15 @@ export async function prepareJob(
     experience,
     extras,
   };
+  const jdHash = await sha256(text);
   return {
-    facts: { ...columns, jdHash: await sha256(text), sourceHash, facts },
+    facts: {
+      ...columns,
+      jdHash,
+      dedupeKey: await dedupeKey({ company: source.company, title: job.title, jdHash }),
+      sourceHash,
+      facts,
+    },
     jd: await gzip(text),
   };
 }
