@@ -1,3 +1,4 @@
+import type { Facets, FacetValue } from "@tallo/contracts";
 import { ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,24 @@ function FilterSelect({
   );
 }
 
-export function JobFilters({ values }: { values: Record<string, string> }) {
+/** Dropdown choices from the precomputed facet counts; the current value stays selectable. */
+function facetOptions(anyLabel: string, list: FacetValue[] | undefined): [string, string][] {
+  return [
+    ["any", anyLabel],
+    ...(list ?? []).map((item): [string, string] => [
+      item.value,
+      `${item.value} (${item.count.toLocaleString("en-US")})`,
+    ]),
+  ];
+}
+
+export function JobFilters({
+  values,
+  facets,
+}: {
+  values: Record<string, string>;
+  facets?: Facets;
+}) {
   const id = useId();
   const [workMode, setWorkMode] = useState(values.workMode || "any");
   return (
@@ -108,6 +126,20 @@ export function JobFilters({ values }: { values: Record<string, string> }) {
           ["200000", "$200,000+"],
         ]}
       />
+      <FilterSelect
+        name="department"
+        customLabel={(value) => value}
+        label="Department"
+        initialValue={values.department ?? ""}
+        options={facetOptions("Any department", facets?.department)}
+      />
+      <FilterSelect
+        name="employmentType"
+        customLabel={(value) => value}
+        label="Employment type"
+        initialValue={values.employmentType ?? ""}
+        options={facetOptions("Any type", facets?.employmentType)}
+      />
       <details
         className="group"
         open={Boolean(values.country || values.maxExperience || values.all)}
@@ -117,16 +149,13 @@ export function JobFilters({ values }: { values: Record<string, string> }) {
           <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
         </summary>
         <div className="mt-4 grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor={`${id}-country`}>Country code</Label>
-            <Input
-              id={`${id}-country`}
-              name="country"
-              maxLength={2}
-              placeholder="US"
-              defaultValue={values.country ?? ""}
-            />
-          </div>
+          <FilterSelect
+            name="country"
+            customLabel={(value) => value}
+            label="Country"
+            initialValue={values.country ?? ""}
+            options={facetOptions("Any country", facets?.country)}
+          />
           <div className="grid gap-2">
             <Label htmlFor={`${id}-experience`}>Maximum experience</Label>
             <Input

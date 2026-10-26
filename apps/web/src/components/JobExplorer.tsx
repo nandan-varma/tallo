@@ -1,5 +1,5 @@
 import { CheckIcon } from "@animateicons/react/lucide";
-import type { JobDetail, JobSummary } from "@tallo/contracts";
+import type { Facets, JobDetail, JobSummary } from "@tallo/contracts";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -38,15 +38,26 @@ import { ago, salary } from "@/lib/format";
 import { readSavedJobs } from "@/lib/saved-jobs";
 
 const savedStorageKey = "tallo:saved-roles";
-const filterKeys = ["workMode", "postedWithinDays", "country", "salaryMin", "maxExperience", "all"];
+const filterKeys = [
+  "workMode",
+  "postedWithinDays",
+  "country",
+  "department",
+  "employmentType",
+  "salaryMin",
+  "maxExperience",
+  "all",
+];
 export function JobExplorer({
   jobs,
   nextCursor,
   values,
+  facets,
 }: {
   jobs: JobSummary[];
   nextCursor: string | null;
   values: Record<string, string>;
+  facets: Facets;
 }) {
   const [selected, setSelected] = useState<JobSummary | null>(
     values.saved === "true" ? null : (jobs[0] ?? null),
@@ -183,7 +194,7 @@ export function JobExplorer({
                 </Button>
               )}
             </div>
-            <JobFilters values={values} />
+            <JobFilters values={values} facets={facets} />
           </aside>
         )}
         <div className="job-content">
@@ -446,7 +457,7 @@ export function JobExplorer({
             </SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
-            <JobFilters values={values} />
+            <JobFilters values={values} facets={facets} />
           </div>
         </SheetContent>
       </Sheet>

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { JobDetail, JobPage } from "@tallo/contracts";
+import type { Facets, JobDetail, JobPage } from "@tallo/contracts";
 
 const inFlight = new Map<string, Promise<unknown>>();
 // Cloudflare exposes a default edge cache in addition to the standard CacheStorage API.
@@ -54,6 +54,9 @@ function canonicalQuery(query: URLSearchParams) {
 
 export const searchJobs = (query: URLSearchParams) =>
   call<JobPage>(`/v1/jobs?${canonicalQuery(query)}`, 30) as Promise<JobPage>;
+
+/** Facet counts are rebuilt hourly by the API cron, so a few minutes of edge caching is fine. */
+export const getFacets = () => call<Facets>("/v1/facets", 300) as Promise<Facets>;
 
 /** Detail descriptions change only when the source job changes, so a longer TTL is safe. */
 export const getJob = (id: number) => call<JobDetail>(`/v1/jobs/${id}`, 300);

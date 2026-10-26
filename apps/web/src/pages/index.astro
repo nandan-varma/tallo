@@ -1,13 +1,14 @@
 ---
 import { JobExplorer } from "@/components/JobExplorer";
 import Base from "@/layouts/Base.astro";
-import { searchJobs } from "@/lib/api";
+import { getFacets, searchJobs } from "@/lib/api";
 
 const params = Astro.url.searchParams;
 const query = new URLSearchParams([...params].filter(([, value]) => value !== ""));
-const { jobs, nextCursor } = params.get("saved") === "true"
-  ? { jobs: [], nextCursor: null }
-  : await searchJobs(query);
+const [{ jobs, nextCursor }, facets] = await Promise.all([
+  params.get("saved") === "true" ? { jobs: [], nextCursor: null } : searchJobs(query),
+  getFacets(),
+]);
 ---
 <Base>
   <JobExplorer
@@ -15,5 +16,6 @@ const { jobs, nextCursor } = params.get("saved") === "true"
     jobs={jobs}
     nextCursor={nextCursor}
     values={Object.fromEntries(params)}
+    facets={facets}
   />
 </Base>
