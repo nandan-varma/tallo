@@ -425,6 +425,8 @@ export async function reclassify(
   return { updated: page.length, more: stale.length > limit };
 }
 
+// 4 columns per row: 20 rows is 80 bound parameters.
+const FACET_INSERT_CHUNK = 20;
 const FACET_KEYS = ["workMode", "department", "employmentType", "country"] as const;
 
 /**
@@ -462,12 +464,13 @@ export async function rebuildFacets(
     for (const [value, count] of top) rows.push({ facet, value, count });
   }
 
-  // One bound parameter carries every row (json_each), so the size never hits the bind limit.
-  await batch(db, [
-    db.delete(facetCounts),
-    db.run(
-      sql`INSERT INTO facet_counts (facet, value, count, computed_at) SELECT json_extract(j.value, '$.facet'), json_extract(j.value, '$.value'), json_extract(j.value, '$.count'), ${now} FROM json_each(${JSON.stringify(rows)}) AS j`,
-    ),
-  ]);
+  // db.run() cannot sit inside a D1 batch, so insert in chunks that stay under the ~100 bind limit.
+  const computedAt = now;
+  const inserts = [];
+  for (let i = 0; i < rows.length; i += FACET_INSERT_CHUNK) {
+    const chunk = rows.slice(i, i + FACET_INSERT_CHUNK).map((row) => ({ ...row, computedAt }));
+    inserts.push(db.insert(facetCounts).values(chunk));
+  }
+  await batch(db, [db.delete(facetCounts), ...inserts]);
   return { values: rows.length };
 }
