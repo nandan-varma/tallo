@@ -250,6 +250,8 @@ export async function finalize(
     }
   }
   const status = fin.listingComplete ? "complete" : "partial";
+  // A listing that returned (complete, or any postings seen) counts for freshness; a failed one does not.
+  const listed = fin.listingComplete || fin.seenIds.length > 0;
   // Board health. A complete listing revives a dead board; a 404 counts toward dead; any other
   // outcome breaks the streak, so only consecutive 404s can mark a board dead.
   const health = fin.listingComplete
@@ -276,7 +278,7 @@ export async function finalize(
       .where(eq(runs.id, runId)),
     db
       .update(sources)
-      .set({ lastStatus: status, ...health })
+      .set({ lastStatus: status, ...health, ...(listed ? { lastListedAt: now } : {}) })
       .where(eq(sources.id, current.sourceId)),
   );
   await batch(db, statements);
