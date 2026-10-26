@@ -25,10 +25,13 @@ export function stageOf(text: string): string {
   return /\[search-ai:(\w+)\]/.exec(text)?.[1] ?? "unknown";
 }
 
-export function reply(text: string) {
+// A reply the provider cut off at maxOutputTokens (finish "length").
+export type Truncated = { truncated: string };
+
+export function reply(text: string, finish: "stop" | "length" = "stop") {
   return {
     content: [{ type: "text" as const, text }],
-    finishReason: { unified: "stop" as const, raw: undefined },
+    finishReason: { unified: finish, raw: undefined },
     usage: {
       inputTokens: { total: 5, noCache: 5, cacheRead: undefined, cacheWrite: undefined },
       outputTokens: { total: 7, text: 7, reasoning: undefined },
@@ -40,7 +43,7 @@ export function reply(text: string) {
 // A fake model that records every call and answers with `respond`.
 export function fakeModel(
   calls: Call[],
-  respond: (call: Call) => string | Promise<string>,
+  respond: (call: Call) => string | Truncated | Promise<string | Truncated>,
 ): MockLanguageModelV4 {
   return new MockLanguageModelV4({
     doGenerate: async (options) => {
@@ -51,7 +54,8 @@ export function fakeModel(
         text,
       };
       calls.push(call);
-      return reply(await respond(call));
+      const out = await respond(call);
+      return typeof out === "string" ? reply(out) : reply(out.truncated, "length");
     },
   });
 }

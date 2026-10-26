@@ -1,5 +1,6 @@
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   createAi,
   MIN_OUTPUT_TOKENS,
@@ -154,6 +155,25 @@ describe("OpenCode Go transports", () => {
     expect(call?.headers.authorization).toBe(`Bearer ${GO_KEY}`);
     expect(call?.body.model).toBe("glm-5.3-flash");
     expect(call?.body.max_tokens).toBe(outputBudget(200));
+  });
+
+  it("go chat: Output.object sends a json_schema response_format, not json_object", async () => {
+    const { fetch, calls } = fakeFetch('{"titles":["backend engineer"]}');
+    const ai = createAi({
+      env: { OPENCODE_API_KEY: GO_KEY, AI_MODEL_FAST: "go:deepseek-v4.1-flash" },
+      fetch,
+    });
+    const result = await generateText({
+      model: ai.getModel("fast"),
+      prompt: "ping",
+      maxOutputTokens: outputBudget(200),
+      output: Output.object({ schema: z.object({ titles: z.array(z.string()) }) }),
+    });
+
+    expect(result.output).toEqual({ titles: ["backend engineer"] });
+    const format = calls[0]?.body.response_format as { type?: string; json_schema?: unknown };
+    expect(format?.type).toBe("json_schema");
+    expect(format?.json_schema).toBeDefined();
   });
 
   it("anthropic protocol: posts to /anthropic/v1/messages", async () => {

@@ -26,6 +26,9 @@ const DEFAULTS = {
 
 const MAX_RECALL_QUERIES = 12;
 
+// Triage batches in flight at once.
+const TRIAGE_CONCURRENCY = 4;
+
 // Output budgets. Every call sets one explicitly; a retry doubles it once.
 const BUDGET = {
   understand: 2_000,
@@ -121,29 +124,38 @@ export async function search(input: SearchInput): Promise<SearchResult> {
   // 3. Triage (fast, batches).
   const verdicts = new Map<string, Verdict>();
   const reasons = new Map<string, string>();
-  for (const batch of batches(pool, options.triageBatchSize)) {
-    trace.triage.batches += 1;
-    const decided = await structured({
-      role: "fast",
-      model: models.fast,
-      schema: Triage,
-      system: TRIAGE_SYSTEM,
-      prompt: `<profile>\n${profile}\n</profile>\n<intent>${JSON.stringify(intent)}</intent>\n<postings>${JSON.stringify(
-        batch.map(forTriage),
-      )}</postings>`,
-      maxOutputTokens: BUDGET.triage,
-      meter,
+  const triageBatches = [...batches(pool, options.triageBatchSize)];
+  // Batches are independent calls: run them in small waves, then apply results in recall order.
+  for (let i = 0; i < triageBatches.length; i += TRIAGE_CONCURRENCY) {
+    const wave = triageBatches.slice(i, i + TRIAGE_CONCURRENCY);
+    trace.triage.batches += wave.length;
+    const results = await Promise.all(
+      wave.map((batch) =>
+        structured({
+          role: "fast",
+          model: models.fast,
+          schema: Triage,
+          system: TRIAGE_SYSTEM,
+          prompt: `<profile>\n${profile}\n</profile>\n<intent>${JSON.stringify(intent)}</intent>\n<postings>${JSON.stringify(
+            batch.map(forTriage),
+          )}</postings>`,
+          maxOutputTokens: BUDGET.triage,
+          meter,
+        }),
+      ),
+    );
+    wave.forEach((batch, index) => {
+      const byId = new Map(results[index]?.decisions.map((d) => [d.id, d]));
+      for (const candidate of batch) {
+        const decision = byId.get(candidate.id);
+        const verdict: Verdict = decision?.verdict ?? "maybe";
+        if (!decision) trace.triage.defaulted += 1;
+        verdicts.set(candidate.id, verdict);
+        reasons.set(candidate.id, decision?.reason ?? "Not decided by triage; kept as maybe.");
+        trace.triage.decisions.push({ id: candidate.id, verdict });
+        trace.triage[verdict] += 1;
+      }
     });
-    const byId = new Map(decided.decisions.map((d) => [d.id, d]));
-    for (const candidate of batch) {
-      const decision = byId.get(candidate.id);
-      const verdict: Verdict = decision?.verdict ?? "maybe";
-      if (!decision) trace.triage.defaulted += 1;
-      verdicts.set(candidate.id, verdict);
-      reasons.set(candidate.id, decision?.reason ?? "Not decided by triage; kept as maybe.");
-      trace.triage.decisions.push({ id: candidate.id, verdict });
-      trace.triage[verdict] += 1;
-    }
   }
 
   // Which rows reach the answer. Strong rows fill the cut first, in recall order, without a deep read.

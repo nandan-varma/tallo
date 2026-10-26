@@ -158,3 +158,14 @@ about 55 open rows per board. The old query joined `jobs` to `sources` and walke
 
 The old backfill query had no index on `dedupe_key IS NULL`, so every page scanned from the start of the table:
 about N²/600, roughly 370M rows read for 470k rows. The id cursor reads each row once.
+
+## Structured output on OpenCode Go (measured 2026-10-26)
+
+`Output.object` needs the provider to send `response_format: json_schema`; for OpenAI-compatible providers that is
+`supportsStructuredOutputs: true` (set for `go`). The gateway forwards it, but not every model honours it. With the
+flag on: `deepseek-v4.1-flash`, `qwen3.8-flash`, `kimi-k3` and `mimo-v2.6-flash` return objects; `glm-5.3`,
+`glm-5.3-flash`, `glm-5.2` and `minimax-m3.1-flash` answer in prose (NoObjectGenerated); `deepseek-v4-pro` rejects the
+format (400). Claude Haiku 5.5 over `go-anthropic` works. Defaults: fast `go:deepseek-v4.1-flash`, smart
+`go-anthropic:claude-haiku-5-5`. Re-test a model before using it for a role. A reply cut off at `maxOutputTokens`
+(finish `length`) is retried once with a doubled budget. First live run (3 deep reads): 169 s, recall 300 candidates,
+one triage batch of 100 came back undecided (defaulted to maybe): open item.

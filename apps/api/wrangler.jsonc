@@ -17,7 +17,7 @@
   ],
   "r2_buckets": [{ "binding": "BLOBS", "bucket_name": "tallo-blobs" }],
   "vars": {
-    "AI_MODEL_FAST": "go:glm-5.3-flash",
+    "AI_MODEL_FAST": "go:deepseek-v4.1-flash",
     "AI_MODEL_SMART": "go-anthropic:claude-haiku-5-5"
   }
 }

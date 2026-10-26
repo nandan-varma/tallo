@@ -51,6 +51,8 @@ export function createAi({ env, sessionId = crypto.randomUUID(), fetch }: AiOpti
       apiKey,
       headers,
       fetch: goFetch,
+      // Sends response_format json_schema, which Output.object needs. Without it chat models answer in prose.
+      supportsStructuredOutputs: true,
     });
     providers["go-anthropic"] = createAnthropic({
       baseURL: `${GO_BASE_URL}/anthropic/v1`,

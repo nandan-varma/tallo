@@ -9,6 +9,7 @@ import {
   JUDGE_REPLY,
   PROFILE,
   postingIds,
+  type Truncated,
   UNDERSTAND_REPLY,
 } from "./fakes.ts";
 
@@ -40,7 +41,7 @@ function responder(opts: {
   };
 }
 
-function setup(respond: (call: Call) => string | Promise<string>) {
+function setup(respond: (call: Call) => string | Truncated | Promise<string | Truncated>) {
   const calls: Call[] = [];
   const models = { fast: fakeModel(calls, respond), smart: fakeModel(calls, respond) };
   return { calls, models };
@@ -299,6 +300,26 @@ describe("search", () => {
       search({ query: "backend", profile: PROFILE, models, jobs, options: { maxModelCalls: 2 } }),
     ).rejects.toThrow(/maxModelCalls/);
     expect(stagesOf(calls)).toEqual(["understand", "understand"]);
+  });
+
+  it("retries with a doubled budget when the JSON is cut off at maxOutputTokens", async () => {
+    let first = true;
+    const respond = (call: Call) => {
+      if (call.stage === "triage" && first) {
+        first = false;
+        return { truncated: '{"decisions":[{"id":"a","verdict":"str' };
+      }
+      return responder({ verdicts: { a: "strong" } })(call);
+    };
+    const { calls, models } = setup(respond);
+    const jobs = fakeJobs({ candidates: [candidate("a")] });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    const triage = calls.filter((c) => c.stage === "triage");
+    expect(triage).toHaveLength(2);
+    expect(triage[1]?.maxOutputTokens).toBe((triage[0]?.maxOutputTokens ?? 0) * 2);
+    expect(result.trace.triage.strong).toBe(1);
   });
 
   it("fails when content is still empty after the retry", async () => {

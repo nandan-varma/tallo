@@ -95,8 +95,11 @@ function addUsage(
   tokens.output += usage.outputTokens ?? 0;
 }
 
+// Retriable with a bigger budget: nothing came back, or the JSON was cut off at maxOutputTokens (finish "length").
 function isEmptyContent(error: unknown): boolean {
   if (NoOutputGeneratedError.isInstance(error)) return true;
-  if (NoObjectGeneratedError.isInstance(error)) return (error.text ?? "").trim() === "";
+  if (NoObjectGeneratedError.isInstance(error)) {
+    return (error.text ?? "").trim() === "" || error.finishReason === "length";
+  }
   return false;
 }
