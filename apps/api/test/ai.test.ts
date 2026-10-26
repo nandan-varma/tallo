@@ -4,7 +4,7 @@ import { testDb } from "@tallo/db/testing";
 import type { LanguageModel } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { modelsFromEnv } from "../src/ai.ts";
+import { AI_MAX_MODEL_CALLS, modelsFromEnv } from "../src/ai.ts";
 import { createApp } from "../src/app.ts";
 
 const READ = "read-token";
@@ -124,7 +124,13 @@ function setup(options: { models?: () => Engine | null; respond?: typeof respond
 async function seedJob(
   db: ReturnType<typeof testDb>,
   blobs: ReturnType<typeof memoryBlobs>,
-  args: { postingId: string; description: string; closed?: boolean; title?: string },
+  args: {
+    postingId: string;
+    description: string;
+    closed?: boolean;
+    title?: string;
+    dupOf?: number;
+  },
 ): Promise<number> {
   const text = args.description;
   const jdHash = await sha256(text);
@@ -156,6 +162,7 @@ async function seedJob(
       countryCode: "US",
       locationText: "Remote, US",
       closedAt: args.closed ? 2 : null,
+      dupOf: args.dupOf ?? null,
       salaryMinAnnual: 150000,
       salaryMaxAnnual: 180000,
       salaryCurrency: "USD",
@@ -325,10 +332,31 @@ describe("POST /v1/ai/ask", () => {
     expect(triage).not.toContain("backend b");
   });
 
-  it("stops at the model-call ceiling (60) with a 422 and no content", async () => {
-    // understand (1) + triage (1 batch) + 15 deep reads of 50k descriptions (3 parts + judge = 4 each) = 62.
+  it("never passes a duplicate (dup_of set) row to the engine", async () => {
     const { call, db, blobs, prompts } = setup();
-    const description = "backend ".repeat(6_250); // 50k chars: 3 parts at the default 24k part size
+    const canonical = await seedJob(db, blobs, { postingId: "1", description: "backend a" });
+    await seedJob(db, blobs, {
+      postingId: "2",
+      description: "backend duplicate text",
+      dupOf: canonical,
+    });
+
+    const res = await call("/v1/ai/ask", READ, { method: "POST", json: { query: "backend" } });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as { trace: { recall: { candidates: number } } };
+    expect(result.trace.recall.candidates).toBe(1);
+    const triage = prompts.find((p) => p.stage === "triage")?.text ?? "";
+    expect(triage).toContain(`"id":"${canonical}"`);
+    expect(triage).not.toContain("duplicate text");
+    // The engine never asks for a description of the duplicate either.
+    expect(prompts.some((p) => p.text.includes("duplicate text"))).toBe(false);
+  });
+
+  it("fits the worst default ask under the model-call ceiling (150)", async () => {
+    // understand (1) + triage (1 batch) + 15 deep reads of 170k descriptions (8 parts + judge = 9 each)
+    // = 137 calls. The old ceiling of 60 stopped this ask; the 150 ceiling runs it to the end.
+    const { call, db, blobs, prompts } = setup();
+    const description = "backend ".repeat(21_250); // 170k chars: 8 parts at the default 24k part size
     for (let i = 0; i < 15; i++) {
       await seedJob(db, blobs, {
         postingId: String(100 + i),
@@ -340,11 +368,10 @@ describe("POST /v1/ai/ask", () => {
       method: "POST",
       json: { query: "backend", deepReads: 15 },
     });
-    expect(res.status).toBe(422);
-    expect(await res.json()).toEqual({
-      error: expect.stringContaining("maxModelCalls (60)"),
-    });
-    expect(prompts.length).toBe(60);
+    expect(res.status).toBe(200);
+    expect(AI_MAX_MODEL_CALLS).toBe(150);
+    expect(prompts.length).toBe(1 + 1 + 15 * 9);
+    expect(prompts.length).toBeLessThanOrEqual(AI_MAX_MODEL_CALLS);
   });
 
   it("returns 500 with no content when the engine throws", async () => {

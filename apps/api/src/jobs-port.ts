@@ -1,37 +1,36 @@
 import { gunzip } from "@tallo/catalog";
 import type { BlobStore, Db } from "@tallo/db";
-import { ftsQuery, getJob, jdKey, schema, searchJobs } from "@tallo/db";
+import { ftsAllTerms, jdKey, schema, searchJobs, visibleJobs } from "@tallo/db";
 import type { Candidate, Facts, JobsPort } from "@tallo/search-ai";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
-/** Per recall query: pages read at most, so one broad title cannot scan the whole catalog. */
-const MAX_PAGES_PER_QUERY = 3;
-const PAGE_SIZE = 100;
+/** Query variants read per ask at most. The engine already caps at 12; this is the port's own bound. */
+const MAX_VARIANTS = 12;
+/** One read per variant, sorted by sortAt and cut to this many. No cursor paging. */
+const PER_VARIANT_LIMIT = 100;
 /** Search text is capped where the visible search box caps it. */
 const MAX_QUERY_CHARS = 200;
 
 /**
- * The search engine's JobsPort over D1 and R2. Reads go through the same visibility predicate as
- * the public search (open, not hidden, fresh source), so the engine never sees a job the site hides.
- * Descriptions are the full gunzipped text: never truncated.
+ * The search engine's JobsPort over D1 and R2. Every read goes through the same visibility predicate
+ * as the public search (open, canonical, not hidden, fresh source), so the engine never sees a job the
+ * site hides, not even by id. Descriptions are the full gunzipped text: never truncated.
  */
 export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
   return {
     async recall(queries, limit) {
       const seen = new Map<number, Candidate>();
       const now = Math.floor(Date.now() / 1000);
-      for (const raw of queries) {
+      for (const raw of queries.slice(0, MAX_VARIANTS)) {
+        if (seen.size >= limit) break;
         const q = raw.slice(0, MAX_QUERY_CHARS);
-        // A query with no word characters would match every visible job; skip it instead.
-        if (!ftsQuery(q)) continue;
-        let cursor: string | undefined;
-        for (let page = 0; page < MAX_PAGES_PER_QUERY && seen.size < limit; page++) {
-          const result = await searchJobs(db, { q, limit: PAGE_SIZE, cursor }, now);
-          for (const row of result.jobs) {
-            if (!seen.has(row.id) && seen.size < limit) seen.set(row.id, toCandidate(row));
-          }
-          if (!result.nextCursor) break;
-          cursor = result.nextCursor;
+        // A variant with no word characters has no expression to match; skip it.
+        const match = ftsAllTerms(q);
+        if (!match) continue;
+        // One bounded read per variant: FTS matches are sorted by sortAt, so cost grows with matches.
+        const { jobs } = await searchJobs(db, { q, limit: PER_VARIANT_LIMIT }, now, match);
+        for (const row of jobs) {
+          if (!seen.has(row.id) && seen.size < limit) seen.set(row.id, toCandidate(row));
         }
       }
       return [...seen.values()];
@@ -39,6 +38,7 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
 
     async facts(ids) {
       const out = new Map<string, Facts>();
+      const now = Math.floor(Date.now() / 1000);
       const numeric = ids.map(Number).filter((n) => Number.isInteger(n) && n > 0);
       for (let i = 0; i < numeric.length; i += 50) {
         const rows = await db
@@ -54,7 +54,7 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
             expMaxYears: schema.jobs.expMaxYears,
           })
           .from(schema.jobs)
-          .where(inArray(schema.jobs.id, numeric.slice(i, i + 50)));
+          .where(and(inArray(schema.jobs.id, numeric.slice(i, i + 50)), ...visibleJobs(now)));
         for (const row of rows) {
           out.set(String(row.id), {
             department: row.department,
@@ -72,9 +72,16 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
     },
 
     async description(id) {
-      const job = await getJob(db, Number(id));
-      if (!job) return null;
-      const blob = await blobs.get(jdKey(job.jdHash));
+      const n = Number(id);
+      if (!Number.isInteger(n) || n <= 0) return null;
+      const now = Math.floor(Date.now() / 1000);
+      const [row] = await db
+        .select({ jdHash: schema.jobs.jdHash })
+        .from(schema.jobs)
+        .where(and(eq(schema.jobs.id, n), ...visibleJobs(now)))
+        .limit(1);
+      if (!row) return null;
+      const blob = await blobs.get(jdKey(row.jdHash));
       return blob ? new TextDecoder().decode(await gunzip(blob)) : null;
     },
   };

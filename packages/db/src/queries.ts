@@ -39,6 +39,15 @@ export function ftsQuery(q: string): string | undefined {
   return terms?.map((t, i) => `"${t}"${i === terms.length - 1 ? "*" : ""}`).join(" ");
 }
 
+/**
+ * Safe FTS5 expression for recall: every term must match as a whole token (AND, no prefix), so a
+ * title variant like "backend engineer" stays narrow. Quoting drops every FTS operator character.
+ */
+export function ftsAllTerms(q: string): string | undefined {
+  const terms = q.toLowerCase().match(/[\p{L}\p{N}]+/gu);
+  return terms?.map((t) => `"${t}"`).join(" ");
+}
+
 const summary = {
   id: jobs.id,
   title: jobs.title,
@@ -85,8 +94,17 @@ export function visibleJobs(now: number, { all = false, includeStale = false } =
   ];
 }
 
-export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.now() / 1000)) {
-  const match = input.q ? ftsQuery(input.q) : undefined;
+/**
+ * `fts` is a ready MATCH expression (see `ftsAllTerms`); when omitted, `input.q` becomes `ftsQuery`.
+ * Recall passes its own expression so it can use exact terms while the public search keeps prefixes.
+ */
+export async function searchJobs(
+  db: Db,
+  input: Search,
+  now = Math.floor(Date.now() / 1000),
+  fts?: string,
+) {
+  const match = fts ?? (input.q ? ftsQuery(input.q) : undefined);
   const where: (SQL | undefined)[] = [
     ...visibleJobs(now, input),
     match
