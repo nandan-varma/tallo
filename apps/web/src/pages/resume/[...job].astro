@@ -1,7 +1,7 @@
 ---
 import { ResumeWorkspace } from "@/components/resume/ResumeWorkspace";
 import Base from "@/layouts/Base.astro";
-import { getJob, getProfile, getResume, listResumes } from "@/lib/api";
+import { getJob, getResume, listResumes } from "@/lib/api";
 
 // /resume is your resume; /resume/<posting id> is the copy tailored to that posting.
 const param = Astro.params.job;
@@ -12,11 +12,10 @@ const job = jobId ? await getJob(jobId).catch(() => null) : null;
 if (jobId && !job) return Astro.redirect("/resume");
 
 // The resume is personal data: a failed read must fail loudly, not look like an empty resume that gets overwritten.
-const [initial, base, copies, notes] = await Promise.all([
+const [initial, base, copies] = await Promise.all([
   getResume(jobId),
   jobId ? getResume() : null,
   listResumes(),
-  getProfile().catch(() => null),
 ]);
 const posting = job
   ? { id: job.id, title: job.title, company: job.company, applyUrl: job.applyUrl ?? job.url ?? null }
@@ -29,7 +28,6 @@ const posting = job
     base={base ?? initial}
     posting={posting}
     copies={copies}
-    earlierText={notes?.resume ?? ""}
     autoTailor={Astro.url.searchParams.get("tailor") === "1"}
   />
 </Base>

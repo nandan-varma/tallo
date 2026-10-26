@@ -151,7 +151,6 @@ export function ResumeWorkspace({
   base,
   posting,
   copies,
-  earlierText,
   autoTailor,
 }: {
   initial: ResumeRecord | null;
@@ -159,7 +158,6 @@ export function ResumeWorkspace({
   base: ResumeRecord | null;
   posting: Posting | null;
   copies: ResumeSummary[];
-  earlierText: string;
   autoTailor: boolean;
 }) {
   const jobId = posting?.id ?? null;
@@ -192,7 +190,6 @@ export function ResumeWorkspace({
   if (empty && !started) {
     return (
       <ImportPanel
-        earlierText={earlierText}
         onBlank={() => setStarted(true)}
         onImported={(resume) => {
           replace({ ...doc, resume });

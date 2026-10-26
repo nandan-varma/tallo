@@ -19,9 +19,7 @@ export async function getResume(
     .where(and(eq(resumes.userId, userId), eq(resumes.jobId, keyOf(jobId))))
     .limit(1);
   if (!row) return null;
-  // A stored doc that no longer parses (the schema moved on) is treated as absent, not as a crash.
-  const parsed = resumeDocSchema.safeParse(row.doc);
-  return parsed.success ? { jobId, doc: parsed.data, updatedAt: row.updatedAt } : null;
+  return { jobId, doc: resumeDocSchema.parse(row.doc), updatedAt: row.updatedAt };
 }
 
 /** Personal data lives outside the catalog write path (`ingest.ts`), so it has its own writer. */

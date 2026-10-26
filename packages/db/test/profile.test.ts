@@ -8,10 +8,10 @@ describe("profile", () => {
     expect(await getProfile(db)).toBeNull();
 
     await saveProfile(db, { profile: "# p1" }, "me", 100);
-    expect(await getProfile(db)).toEqual({ resume: "", profile: "# p1", updatedAt: 100 });
+    expect(await getProfile(db)).toEqual({ profile: "# p1", updatedAt: 100 });
 
     await saveProfile(db, { profile: "# p2" }, "me", 200);
-    expect(await getProfile(db)).toEqual({ resume: "", profile: "# p2", updatedAt: 200 });
+    expect(await getProfile(db)).toEqual({ profile: "# p2", updatedAt: 200 });
   });
 
   it("keeps users apart", async () => {

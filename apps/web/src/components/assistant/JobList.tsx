@@ -1,13 +1,15 @@
-import type { JobSummary, SearchSpec } from "@tallo/contracts";
+import { APPLICATION_STATUSES, type ApplicationStatus, type SearchSpec } from "@tallo/contracts";
 import { Bookmark, ChevronLeft, ChevronRight, RotateCw, SearchX } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, JobRow } from "@/components/assistant/JobRow";
-import { PAGE_SIZE, useSearchPage } from "@/components/assistant/queries";
+import { PAGE_SIZE, useSearchPage, useTracker } from "@/components/assistant/queries";
+import { StatusMenu } from "@/components/assistant/StatusMenu";
 import { Button } from "@/components/ui/button";
 import type { Note } from "@/lib/assistant";
+import { countByStatus, filterByStatus, STATUS_LABEL, type StatusFilter } from "@/lib/tracker";
 import { cn } from "@/lib/utils";
 
-export type ListView = "results" | "saved";
+export type ListView = "results" | "tracker";
 
 function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
@@ -37,48 +39,102 @@ function Skeleton() {
   );
 }
 
-function SavedRows({
-  saved,
-  openId,
-  onOpen,
-}: {
-  saved: JobSummary[];
-  openId: string | null;
-  onOpen: (id: string) => void;
-}) {
-  if (saved.length === 0) {
+/** Every role the person saved or applied to, filtered by status, with the status one tap away. */
+function TrackerRows({ openId, onOpen }: { openId: string | null; onOpen: (id: string) => void }) {
+  const tracker = useTracker();
+  const [filter, setFilter] = useState<StatusFilter>("all");
+  const counts = countByStatus(tracker.applications);
+  const shown = filterByStatus(tracker.applications, filter);
+
+  if (tracker.loading) return <Skeleton />;
+  if (tracker.applications.length === 0) {
     return (
-      <Empty title="Nothing saved yet">Open a role and tap the bookmark to keep it here.</Empty>
+      <Empty title="Nothing tracked yet">
+        Save a role, or apply to one, and it is kept here with its status and your notes.
+      </Empty>
     );
   }
   return (
-    <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
-      {[...saved].reverse().map((job) => {
-        const id = String(job.id);
-        return (
-          <li key={id}>
-            <button
-              type="button"
-              onClick={() => onOpen(id)}
-              aria-current={id === openId ? "true" : undefined}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-xl border bg-card p-3.5 text-left shadow-xs transition-all hover:border-foreground/30 hover:shadow-sm",
-                id === openId && "border-foreground/50 bg-muted/40",
-              )}
-            >
-              <Avatar name={job.company} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{job.title}</span>
-                <span className="block truncate text-[13px] text-muted-foreground">
-                  {job.company}
-                  {job.locationText ? ` · ${job.locationText}` : ""}
-                </span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="grid gap-3">
+      <fieldset className="m-0 flex min-w-0 flex-wrap gap-1.5 border-0 p-0">
+        <legend className="sr-only">Filter by status</legend>
+        {(["all", ...APPLICATION_STATUSES] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={filter === option}
+            onClick={() => setFilter(option)}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-xs transition-colors",
+              filter === option
+                ? "border-foreground bg-foreground text-background"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            {option === "all" ? "All" : STATUS_LABEL[option]} {counts[option]}
+          </button>
+        ))}
+      </fieldset>
+      {shown.length === 0 ? (
+        <Empty title={`Nothing ${STATUS_LABEL[filter as ApplicationStatus].toLowerCase()}`} />
+      ) : (
+        <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5" aria-label="Tracked roles">
+          {shown.map((application) => {
+            const id = String(application.jobId);
+            return (
+              <li
+                key={id}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl border bg-card pr-2 shadow-xs transition-all hover:border-foreground/30 hover:shadow-sm",
+                  id === openId && "border-foreground/50 bg-muted/40",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpen(id)}
+                  aria-current={id === openId ? "true" : undefined}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-3.5 text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  <Avatar name={application.company} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {application.title}
+                    </span>
+                    <span className="block truncate text-[13px] text-muted-foreground">
+                      {application.company}
+                      {application.location ? ` · ${application.location}` : ""}
+                    </span>
+                    {application.note && (
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground italic">
+                        {application.note}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                <StatusMenu
+                  status={application.status}
+                  size="xs"
+                  onSet={(status) =>
+                    tracker.set(
+                      {
+                        id: application.jobId,
+                        title: application.title,
+                        company: application.company,
+                        locationText: application.location,
+                        applyUrl: application.applyUrl,
+                        url: null,
+                      },
+                      status,
+                    )
+                  }
+                  onRemove={() => tracker.remove(application.jobId)}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -90,7 +146,6 @@ function SavedRows({
 export function JobList({
   spec,
   notes,
-  saved,
   view,
   onView,
   openId,
@@ -100,7 +155,6 @@ export function JobList({
 }: {
   spec: SearchSpec | null;
   notes: Map<string, Note>;
-  saved: JobSummary[];
   view: ListView;
   onView: (view: ListView) => void;
   openId: string | null;
@@ -126,12 +180,12 @@ export function JobList({
 
   const hits = query.data?.hits ?? [];
   const nextCursor = query.data?.nextCursor ?? null;
-  const savedIds = new Set(saved.map((job) => String(job.id)));
+  const tracker = useTracker();
   const go = (next: (string | undefined)[]) => setStack({ key: searchKey, cursors: next });
 
   let body: ReactNode;
-  if (view === "saved") {
-    body = <SavedRows saved={saved} openId={openId} onOpen={onOpen} />;
+  if (view === "tracker") {
+    body = <TrackerRows openId={openId} onOpen={onOpen} />;
   } else if (!spec) {
     body = working ? (
       <Skeleton />
@@ -180,7 +234,7 @@ export function JobList({
             key={hit.id}
             hit={hit}
             note={notes.get(hit.id)}
-            saved={savedIds.has(hit.id)}
+            status={tracker.of(Number(hit.id))?.status}
             active={hit.id === openId}
             onOpen={onOpen}
           />
@@ -196,14 +250,14 @@ export function JobList({
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4">
         <h2 className="truncate text-sm font-medium">
-          {view === "saved" ? "Saved roles" : "Results"}
+          {view === "tracker" ? "Tracker" : "Results"}
         </h2>
         <div
           role="tablist"
           aria-label="List"
           className="flex rounded-lg bg-muted p-0.5 text-[13px]"
         >
-          {(["results", "saved"] as const).map((tab) => (
+          {(["results", "tracker"] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -217,8 +271,10 @@ export function JobList({
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {tab === "saved" && <Bookmark className="size-3" aria-hidden />}
-              {tab === "results" ? "Results" : `Saved${saved.length ? ` ${saved.length}` : ""}`}
+              {tab === "tracker" && <Bookmark className="size-3" aria-hidden />}
+              {tab === "results"
+                ? "Results"
+                : `Tracker${tracker.applications.length ? ` ${tracker.applications.length}` : ""}`}
             </button>
           ))}
         </div>

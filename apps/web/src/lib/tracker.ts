@@ -1,0 +1,41 @@
+import type { Application, ApplicationStatus } from "@tallo/contracts";
+import { APPLICATION_STATUSES } from "@tallo/contracts";
+
+export const STATUS_LABEL: Record<ApplicationStatus, string> = {
+  saved: "Saved",
+  applied: "Applied",
+  interviewing: "Interviewing",
+  offer: "Offer",
+  rejected: "Rejected",
+};
+
+/** Badge colors, from quiet (saved) to loud (offer); rejected is muted again. */
+export const STATUS_TONE: Record<ApplicationStatus, string> = {
+  saved: "bg-muted text-muted-foreground",
+  applied: "bg-sky-100 text-sky-800",
+  interviewing: "bg-amber-100 text-amber-800",
+  offer: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-muted text-muted-foreground line-through",
+};
+
+export type StatusFilter = ApplicationStatus | "all";
+
+/** How many roles are in each status, plus `all`. Every status is present, so the filter bar never jumps. */
+export function countByStatus(applications: Application[]): Record<StatusFilter, number> {
+  const counts = { all: applications.length } as Record<StatusFilter, number>;
+  for (const status of APPLICATION_STATUSES) {
+    counts[status] = applications.filter((application) => application.status === status).length;
+  }
+  return counts;
+}
+
+export function filterByStatus(applications: Application[], filter: StatusFilter): Application[] {
+  return filter === "all"
+    ? applications
+    : applications.filter((application) => application.status === filter);
+}
+
+/** What clicking "Apply" means for the tracker: a role not yet applied to is now applied to. */
+export function afterApplyClick(current: ApplicationStatus | undefined): ApplicationStatus | null {
+  return current === undefined || current === "saved" ? "applied" : null;
+}

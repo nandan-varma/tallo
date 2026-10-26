@@ -45,10 +45,4 @@ describe("resume", () => {
     await deleteResume(db, 7);
     expect((await listResumes(db)).map((item) => item.jobId)).toEqual([null]);
   });
-
-  it("treats a stored doc that no longer parses as absent", async () => {
-    const db = testDb();
-    await saveResume(db, { resume: { name: 5 } } as never, null, "me", 1);
-    expect(await getResume(db)).toBeNull();
-  });
 });

@@ -53,6 +53,7 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { CHAT_MAX_BODY_BYTES, RESUME_MAX_BODY_BYTES } from "./ai.ts";
+import { applicationRoutes } from "./applications.ts";
 import { jobsPort, searchPage } from "./jobs-port.ts";
 
 export interface Deps {
@@ -182,6 +183,8 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   app.put("/v1/profile", read, zValidator("json", saveProfileSchema), async (c) =>
     c.json(await saveProfile(db, c.req.valid("json"))),
   );
+
+  app.route("/", applicationRoutes({ db, read }));
 
   // ---- resumes -----------------------------------------------------------------------------
   // Personal layer too. `?job=<id>` addresses the copy tailored to a posting; without it, the base resume.

@@ -1,6 +1,13 @@
-import type { JobDetail, ProfileRecord, ResumeSummary, SearchSpec } from "@tallo/contracts";
+import type {
+  Application,
+  ApplicationStatus,
+  JobDetail,
+  ProfileRecord,
+  ResumeSummary,
+  SearchSpec,
+} from "@tallo/contracts";
 import type { JobHit } from "@tallo/search-ai";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { requestJson } from "@/lib/client";
 
 export const PAGE_SIZE = 20;
@@ -52,4 +59,96 @@ export function useAbout(enabled: boolean) {
     staleTime: 0,
     queryFn: ({ signal }) => requestJson<ProfileRecord | null>("/api/profile", { signal }),
   });
+}
+
+export interface Trackable {
+  id: number;
+  title: string;
+  company: string;
+  locationText: string | null;
+  applyUrl: string | null;
+  url: string | null;
+}
+
+const APPLICATIONS = ["applications"];
+
+/**
+ * The tracker: every role the person saved or applied to. Changes show at once and are rolled back if the
+ * server refuses them, so a status never looks set when it is not.
+ */
+export function useTracker() {
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: APPLICATIONS,
+    staleTime: 30_000,
+    queryFn: ({ signal }) => requestJson<Application[]>("/api/applications", { signal }),
+  });
+  const applications = query.data ?? [];
+
+  const change = useMutation({
+    mutationFn: ({
+      job,
+      status,
+      note,
+    }: {
+      job: Trackable;
+      status: ApplicationStatus;
+      note?: string;
+    }) =>
+      requestJson<Application>(`/api/applications/${job.id}`, {
+        method: "PUT",
+        body: { status, note },
+      }),
+    onMutate: async ({ job, status, note }) => {
+      await client.cancelQueries({ queryKey: APPLICATIONS });
+      const before = client.getQueryData<Application[]>(APPLICATIONS) ?? [];
+      const now = Math.floor(Date.now() / 1000);
+      const existing = before.find((application) => application.jobId === job.id);
+      const next: Application = {
+        jobId: job.id,
+        status,
+        note: note ?? existing?.note ?? "",
+        title: job.title,
+        company: job.company,
+        location: job.locationText,
+        applyUrl: job.applyUrl ?? job.url,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        appliedAt: existing?.appliedAt ?? (status === "applied" ? now : null),
+      };
+      client.setQueryData<Application[]>(APPLICATIONS, [
+        next,
+        ...before.filter((application) => application.jobId !== job.id),
+      ]);
+      return { before };
+    },
+    onError: (_error, _vars, context) => client.setQueryData(APPLICATIONS, context?.before),
+    onSettled: () => client.invalidateQueries({ queryKey: APPLICATIONS }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (jobId: number) =>
+      requestJson<null>(`/api/applications/${jobId}`, { method: "DELETE" }),
+    onMutate: async (jobId) => {
+      await client.cancelQueries({ queryKey: APPLICATIONS });
+      const before = client.getQueryData<Application[]>(APPLICATIONS) ?? [];
+      client.setQueryData<Application[]>(
+        APPLICATIONS,
+        before.filter((application) => application.jobId !== jobId),
+      );
+      return { before };
+    },
+    onError: (_error, _vars, context) => client.setQueryData(APPLICATIONS, context?.before),
+    onSettled: () => client.invalidateQueries({ queryKey: APPLICATIONS }),
+  });
+
+  return {
+    applications,
+    loading: query.isPending,
+    failed: change.isError || remove.isError,
+    of: (jobId: number) => applications.find((application) => application.jobId === jobId),
+    set: (job: Trackable, status: ApplicationStatus, note?: string) =>
+      change.mutate({ job, status, note }),
+    remove: (jobId: number) => remove.mutate(jobId),
+  };
 }

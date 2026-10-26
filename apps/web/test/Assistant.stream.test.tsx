@@ -62,7 +62,9 @@ beforeEach(() => {
   Element.prototype.scrollTo = vi.fn() as never;
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => Response.json({ hits: HITS, nextCursor: null })),
+    vi.fn(async (url: string) =>
+      Response.json(url === "/api/applications" ? [] : { hits: HITS, nextCursor: null }),
+    ),
   );
 });
 afterEach(() => {

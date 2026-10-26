@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatPanel } from "@/components/assistant/ChatPanel";
-import { useSavedJobs } from "@/components/assistant/hooks";
 import { JobList, type ListView } from "@/components/assistant/JobList";
 import { JobPage } from "@/components/assistant/JobPage";
 import { Orb } from "@/components/assistant/Orb";
@@ -43,7 +42,6 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
       transport,
       messages: useMemo(restore, []),
     });
-  const { saved, isSaved, toggle } = useSavedJobs();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [openId, setOpenId] = useState<string | null>(initialJob);
@@ -172,7 +170,6 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
         <JobList
           spec={spec}
           notes={notes}
-          saved={saved}
           view={view}
           onView={setView}
           openId={openId}
@@ -185,14 +182,7 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
       <section aria-label="Posting" inert={!detail} className={pane.posting}>
         <div className="h-full w-[calc(100vw-400px)] max-lg:w-full">
           {shownId && (
-            <JobPage
-              key={shownId}
-              id={shownId}
-              note={notes.get(shownId)}
-              saved={isSaved(Number(shownId))}
-              onToggleSave={toggle}
-              onClose={close}
-            />
+            <JobPage key={shownId} id={shownId} note={notes.get(shownId)} onClose={close} />
           )}
         </div>
       </section>

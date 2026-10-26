@@ -1,14 +1,15 @@
-import type { JobSummary } from "@tallo/contracts";
-import { ArrowLeft, ArrowUpRight, Bookmark, FileText, Quote, RotateCw } from "lucide-react";
-import { summaryOf } from "@/components/assistant/hooks";
+import { ArrowLeft, ArrowUpRight, FileText, Quote, RotateCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/assistant/JobRow";
-import { useJob, useResumeCopies } from "@/components/assistant/queries";
+import { useJob, useResumeCopies, useTracker } from "@/components/assistant/queries";
+import { StatusMenu } from "@/components/assistant/StatusMenu";
 import { JobFacts } from "@/components/JobFacts";
 import { JobMeta } from "@/components/JobMeta";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Variants } from "@/components/Variants";
 import type { Note } from "@/lib/assistant";
-import { cn } from "@/lib/utils";
+import { afterApplyClick } from "@/lib/tracker";
 
 function Skeleton() {
   return (
@@ -46,24 +47,39 @@ function AssistantNote({ note }: { note: Note }) {
   );
 }
 
+/** The person's own note on a tracked role, saved when the box loses focus. */
+function YourNote({ saved, onSave }: { saved: string; onSave: (text: string) => void }) {
+  const [text, setText] = useState(saved);
+  useEffect(() => setText(saved), [saved]);
+  return (
+    <section aria-label="Your note" className="grid gap-1.5">
+      <label
+        htmlFor="your-note"
+        className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase"
+      >
+        Your note
+      </label>
+      <Textarea
+        id="your-note"
+        value={text}
+        maxLength={2000}
+        placeholder="Who you spoke to, what to ask, when to follow up…"
+        className="min-h-16 text-sm"
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => text !== saved && onSave(text)}
+      />
+    </section>
+  );
+}
+
 /** One posting, exactly as stored: the description is never cut. */
-export function JobPage({
-  id,
-  note,
-  saved,
-  onToggleSave,
-  onClose,
-}: {
-  id: string;
-  note?: Note;
-  saved: boolean;
-  onToggleSave: (job: JobSummary) => void;
-  onClose: () => void;
-}) {
+export function JobPage({ id, note, onClose }: { id: string; note?: Note; onClose: () => void }) {
   const query = useJob(id);
   const job = query.data;
   const link = job?.applyUrl ?? job?.url ?? null;
   const copies = useResumeCopies();
+  const tracker = useTracker();
+  const tracked = tracker.of(Number(id));
   const hasCopy = copies.data?.some((copy) => copy.jobId === Number(id)) ?? false;
 
   return (
@@ -82,16 +98,11 @@ export function JobPage({
         <span className="flex-1" />
         {job && (
           <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => onToggleSave(summaryOf(job))}
-              aria-pressed={saved}
-              aria-label={saved ? "Remove from saved" : "Save this role"}
-            >
-              <Bookmark className={cn(saved && "fill-current")} />
-            </Button>
+            <StatusMenu
+              status={tracked?.status}
+              onSet={(status) => tracker.set(job, status)}
+              onRemove={() => tracker.remove(job.id)}
+            />
             <Button asChild variant="outline" size="sm" className="gap-1.5">
               <a href={hasCopy ? `/resume/${job.id}` : `/resume/${job.id}?tailor=1`}>
                 <FileText aria-hidden />
@@ -100,7 +111,15 @@ export function JobPage({
             </Button>
             {link && (
               <Button asChild size="sm" className="ml-1 gap-1">
-                <a href={link} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    const next = afterApplyClick(tracked?.status);
+                    if (next) tracker.set(job, next);
+                  }}
+                >
                   Apply
                   <ArrowUpRight aria-hidden />
                 </a>
@@ -140,6 +159,13 @@ export function JobPage({
                 </h1>
                 <JobMeta job={job} extended />
               </header>
+              {tracked && (
+                <YourNote
+                  key={tracked.jobId}
+                  saved={tracked.note}
+                  onSave={(text) => tracker.set(job, tracked.status, text)}
+                />
+              )}
               {note && <AssistantNote note={note} />}
               <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 @3xl:grid-cols-[minmax(0,1fr)_20rem] @6xl:grid-cols-[minmax(0,1fr)_24rem] @6xl:gap-12">
                 <div className="max-w-[110ch] text-[15px] leading-[1.8] whitespace-pre-wrap text-foreground/80 [overflow-wrap:anywhere]">

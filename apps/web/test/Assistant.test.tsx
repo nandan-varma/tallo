@@ -83,6 +83,7 @@ const detail = (id: number) => ({
 });
 
 let copies: { jobId: number | null }[] = [];
+let tracked: unknown[] = [];
 
 function stubBrowser(desktop: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -106,6 +107,7 @@ function stubBrowser(desktop: boolean) {
         return Response.json({ hits: DB_HITS, nextCursor: null });
       }
       if (url === "/api/resumes") return Response.json(copies);
+      if (url === "/api/applications") return Response.json(tracked);
       const job = /\/api\/jobs\/(\d+)\.json/.exec(url)?.[1];
       if (job) return Response.json(detail(Number(job)));
       throw new Error(`unexpected fetch ${url} ${init?.method ?? "GET"}`);
@@ -122,6 +124,7 @@ beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   copies = [];
+  tracked = [];
   history.replaceState(null, "", "/");
 });
 afterEach(() => {

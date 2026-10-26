@@ -1,5 +1,0 @@
----
-// A posting is read in the assistant's reading pane, which has an address of its own.
-const id = Astro.params.id ?? "";
-return Astro.redirect(/^\d+$/.test(id) ? `/?job=${id}` : "/", 301);
----

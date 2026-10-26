@@ -46,7 +46,6 @@ const props = {
   base: null,
   posting: null,
   copies: [],
-  earlierText: "",
   autoTailor: false,
 };
 
@@ -69,13 +68,6 @@ describe("ResumeWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Begin with a blank resume" }));
     expect(screen.getByLabelText("Full name")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Download PDF/ })).toBeTruthy();
-  });
-
-  it("puts resume text saved before the builder into the paste box", () => {
-    render(<ResumeWorkspace {...props} earlierText="Jane Roe, engineer at Acme since 2019." />);
-    expect((screen.getByLabelText("Or paste the text") as HTMLTextAreaElement).value).toContain(
-      "Jane Roe",
-    );
   });
 
   it("shows the saved resume, starts a posting's copy from the base, and tailors on request", async () => {

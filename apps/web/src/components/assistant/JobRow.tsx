@@ -1,6 +1,8 @@
+import type { ApplicationStatus } from "@tallo/contracts";
 import type { JobHit } from "@tallo/search-ai";
 import { Banknote, Clock3, MapPin, Quote } from "lucide-react";
 import { type Note, payLabel, postedLabel } from "@/lib/assistant";
+import { STATUS_LABEL, STATUS_TONE } from "@/lib/tracker";
 import { cn } from "@/lib/utils";
 
 export function Avatar({ name, className }: { name: string; className?: string }) {
@@ -24,13 +26,13 @@ export function Avatar({ name, className }: { name: string; className?: string }
 export function JobRow({
   hit,
   note,
-  saved,
+  status,
   active,
   onOpen,
 }: {
   hit: JobHit;
   note?: Note;
-  saved: boolean;
+  status?: ApplicationStatus;
   active: boolean;
   onOpen: (id: string) => void;
 }) {
@@ -52,8 +54,15 @@ export function JobRow({
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-x-2">
               <span className="text-sm leading-snug font-semibold tracking-tight">{hit.title}</span>
-              {saved && (
-                <span className="text-[11px] font-medium text-muted-foreground">Saved</span>
+              {status && (
+                <span
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[11px] font-medium",
+                    STATUS_TONE[status],
+                  )}
+                >
+                  {STATUS_LABEL[status]}
+                </span>
               )}
             </span>
             <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">

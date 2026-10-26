@@ -15,16 +15,13 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
  * person checks it in the editor next.
  */
 export function ImportPanel({
-  earlierText,
   onImported,
   onBlank,
 }: {
-  /** Resume text pasted on the old Profile page, if any: it starts in the paste box. */
-  earlierText: string;
   onImported: (resume: Resume) => void;
   onBlank: () => void;
 }) {
-  const [text, setText] = useState(earlierText);
+  const [text, setText] = useState("");
   const [step, setStep] = useState<"reading" | "structuring" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);

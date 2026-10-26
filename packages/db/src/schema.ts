@@ -131,12 +131,10 @@ export const jobs = sqliteTable(
 export type JobRow = typeof jobs.$inferSelect;
 
 /**
- * Personal layer (CLAUDE.md rule 5): free-text notes the person gives the assistant (`profile`), keyed by user.
- * `resume` is legacy pasted text from before the resume builder and is no longer written. Never joined into the shared catalog tables. Search results and chat are not stored anywhere.
+ * Personal layer (CLAUDE.md rule 5): free-text notes the person gives the assistant (`profile`), keyed by user. Never joined into the shared catalog tables. Search results and chat are not stored anywhere.
  */
 export const profiles = sqliteTable("profiles", {
   userId: text("user_id").primaryKey(),
-  resume: text().notNull(),
   profile: text().notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -153,6 +151,29 @@ export const resumes = sqliteTable(
     jobId: integer("job_id").notNull().default(0),
     doc: text({ mode: "json" }).$type<unknown>().notNull(),
     updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.jobId] })],
+);
+
+/**
+ * Personal layer: the application tracker, one row per posting the person has saved or applied to, keyed by user.
+ * `job_id` is a plain number, not a foreign key: the tracker outlives the posting being closed or purged, so the
+ * title, company, place and apply address are copied in when the role is first tracked.
+ */
+export const applications = sqliteTable(
+  "applications",
+  {
+    userId: text("user_id").notNull(),
+    jobId: integer("job_id").notNull(),
+    status: text().notNull(),
+    note: text().notNull().default(""),
+    title: text().notNull(),
+    company: text().notNull(),
+    location: text(),
+    applyUrl: text("apply_url"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    appliedAt: integer("applied_at"),
   },
   (t) => [primaryKey({ columns: [t.userId, t.jobId] })],
 );

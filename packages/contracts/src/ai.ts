@@ -13,8 +13,6 @@ export const saveProfileSchema = z.object({
 /** `GET /v1/profile`. `null` until the first save. */
 export interface ProfileRecord {
   profile: string;
-  /** Resume text pasted before the builder existed. Only offered as a starting point for an import. */
-  resume: string;
   /** Unix seconds. */
   updatedAt: number;
 }

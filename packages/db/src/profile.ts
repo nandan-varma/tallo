@@ -3,7 +3,6 @@ import type { Db } from "./db.ts";
 import { profiles } from "./schema.ts";
 
 export interface Profile {
-  resume: string;
   profile: string;
   updatedAt: number;
 }
@@ -13,11 +12,7 @@ export const DEFAULT_USER = "me";
 
 export async function getProfile(db: Db, userId = DEFAULT_USER): Promise<Profile | null> {
   const [row] = await db
-    .select({
-      resume: profiles.resume,
-      profile: profiles.profile,
-      updatedAt: profiles.updatedAt,
-    })
+    .select({ profile: profiles.profile, updatedAt: profiles.updatedAt })
     .from(profiles)
     .where(eq(profiles.userId, userId))
     .limit(1);
@@ -31,17 +26,12 @@ export async function saveProfile(
   userId = DEFAULT_USER,
   now = Math.floor(Date.now() / 1000),
 ): Promise<Profile> {
-  // `resume` is the legacy pasted text: new rows start empty and updates leave it alone.
   await db
     .insert(profiles)
-    .values({ userId, resume: "", profile: input.profile, updatedAt: now })
+    .values({ userId, profile: input.profile, updatedAt: now })
     .onConflictDoUpdate({
       target: profiles.userId,
       set: { profile: input.profile, updatedAt: now },
     });
-  return {
-    resume: (await getProfile(db, userId))?.resume ?? "",
-    profile: input.profile,
-    updatedAt: now,
-  };
+  return { profile: input.profile, updatedAt: now };
 }
