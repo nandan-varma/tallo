@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ed39c72f-06ba-4269-ac8a-77718a1cdb4e",
+  "id": "8742238f-6b8c-459c-9b0e-fa4bddf64e06",
   "prevId": "34f4c36d-9800-4c80-92aa-1735d03d6b5d",
   "tables": {
     "facet_counts": {
@@ -367,6 +367,13 @@
           ],
           "isUnique": false,
           "where": "\"jobs\".\"dup_of\" IS NOT NULL"
+        },
+        "jobs_updated_idx": {
+          "name": "jobs_updated_idx",
+          "columns": [
+            "updated_at"
+          ],
+          "isUnique": false
         },
         "jobs_feed_idx": {
           "name": "jobs_feed_idx",

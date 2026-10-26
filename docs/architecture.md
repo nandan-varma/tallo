@@ -102,3 +102,20 @@ jobs per hour (24 rebuilds a day). Confirm with the D1 dashboard after the first
 
 Workers Paid $5 + domain; D1 and R2 stay inside included allowances. AI enrichment is the real cost risk
 and is opt-in (see decisions).
+
+### D1 rows read and written: duplicate groups (estimates)
+
+Open rows about 470k (production, Oct 2026). Estimates; the method and assumptions are in `docs/ai-search.md`.
+
+| Work                                             | Rows read                              | Rows written                                     |
+| ------------------------------------------------ | -------------------------------------- | ------------------------------------------------ |
+| Hourly regroup, quiet hour (`jobs_updated_idx`)  | about 10k                              | 0                                                |
+| Hourly regroup, busy hour                        | about 15k to 25k                       | rows whose `dup_of` changed                      |
+| Hourly regroup, before this index (full scan)    | about 0.6M per pass, about 15M per day | regroup only                                     |
+| Finalize regroup, per daily sync (source's rows) | about 0.47M per day                    | 0 in steady state                                |
+| One-off backfill (`tallo dedupe`, id cursor)     | about 0.47M                            | about 0.94M (row and index entry)                |
+| One-off full regroup (`tallo dedupe`)            | about 0.87M                            | about 0.14M (about 68k rows, plus index entries) |
+
+The index `jobs_updated_idx` costs one index entry per changed posting and saves roughly 14M reads per day.
+D1 writes are the scarcer allowance, so the index is cheap on writes too: writes scale with changed postings,
+not with the catalog. The one-off backfill is about 0.94M writes, roughly 2% of the monthly included writes.

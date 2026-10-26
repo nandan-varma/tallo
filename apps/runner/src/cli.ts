@@ -157,9 +157,11 @@ program
   .action(async () => {
     const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
     let total = 0;
+    let cursor = 0;
     for (;;) {
-      const { updated, more } = await api.dedupeBackfill();
+      const { updated, more, next } = await api.dedupeBackfill(cursor);
       total += updated;
+      cursor = next;
       log.info({ updated, total }, "keyed");
       if (!more) break;
     }

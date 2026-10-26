@@ -160,8 +160,9 @@ export async function getJob(db: Db, id: number) {
 }
 
 /**
- * Every open listing of the job's posting, canonical first: the job page shows each location
- * and apply link. Includes the job itself.
+ * Every open listing of the job's posting, lowest id first: the job page shows each location and
+ * apply link. Closed listings are never listed, the canonical included. Includes the job itself
+ * when it is open.
  */
 export async function listVariants(db: Db, job: { id: number; dupOf: number | null }) {
   const canonical = job.dupOf ?? job.id;
@@ -178,7 +179,7 @@ export async function listVariants(db: Db, job: { id: number; dupOf: number | nu
       postedAt: jobs.postedAt,
     })
     .from(jobs)
-    .where(or(eq(jobs.id, canonical), and(eq(jobs.dupOf, canonical), isNull(jobs.closedAt))))
+    .where(and(isNull(jobs.closedAt), or(eq(jobs.id, canonical), eq(jobs.dupOf, canonical))))
     .orderBy(jobs.id);
 }
 

@@ -1,5 +1,5 @@
 import { STALE_HIDE_DAYS } from "@tallo/contracts";
-import { eq } from "drizzle-orm";
+import { eq, isNull, type SQL, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   backfillDedupeKeys,
@@ -118,6 +118,21 @@ describe("duplicate groups", () => {
       [a, "Austin, TX", "https://x/a"],
       [b, "Denver, CO", "https://x/b"],
     ]);
+  });
+
+  it("lists only open listings on the job page, the canonical included", async () => {
+    const a = await row({ locationText: "Austin, TX" });
+    const b = await row({ locationText: "Denver, CO" });
+    const c = await row({ locationText: "Boise, ID" });
+    await rebuild();
+    await db
+      .update(schema.jobs)
+      .set({ closedAt: NOW, updatedAt: NOW })
+      .where(eq(schema.jobs.id, a));
+
+    const variants = await listVariants(db, (await getJob(db, c))!);
+    expect(variants.map((v) => v.id)).toEqual([b, c]);
+    expect(await listVariants(db, (await getJob(db, b))!)).toHaveLength(2);
   });
 
   it("hands over to the next open row when the canonical closes", async () => {
@@ -287,12 +302,116 @@ describe("backfill", () => {
     const c = await row({ dedupeKey: null });
     const keyOf = async (r: { title: string }) => `${r.title}`.padEnd(64, "x");
 
-    expect(await backfillDedupeKeys(db, keyOf, 2)).toEqual({ updated: 2, more: true });
-    expect(await backfillDedupeKeys(db, keyOf, 2)).toEqual({ updated: 1, more: false });
+    const first = await backfillDedupeKeys(db, keyOf, { limit: 2 });
+    expect(first).toEqual({ updated: 2, more: true, next: b });
+    const second = await backfillDedupeKeys(db, keyOf, { after: first.next, limit: 2 });
+    expect(second).toEqual({ updated: 1, more: false, next: c });
     expect((await getJob(db, c))?.dedupeKey).toBe("Software Engineer".padEnd(64, "x"));
 
     await rebuild({ full: true });
     expect(await dupOf(b)).toBe(a);
     expect(await dupOf(c)).toBe(a);
+  });
+
+  it("does not rescan keyed rows: pages by id, so each call reads only what it fills", async () => {
+    const keyed = await row({ dedupeKey: "k".repeat(64) });
+    const unkeyed = await row({ dedupeKey: null });
+    const keyOf = async () => "z".repeat(64);
+    // The keyed row sits below the cursor, so the next page starts at the unkeyed one.
+    expect(await backfillDedupeKeys(db, keyOf, { after: keyed, limit: 1 })).toEqual({
+      updated: 1,
+      more: false,
+      next: unkeyed,
+    });
+  });
+
+  it("fills a page larger than one batch (120 rows span three batches of 50 statements)", async () => {
+    for (let i = 0; i < 120; i++) await row({ dedupeKey: null });
+    const page = await backfillDedupeKeys(db, async () => "q".repeat(64), { limit: 120 });
+    expect(page).toMatchObject({ updated: 120, more: false });
+    const left = await db
+      .select({ id: schema.jobs.id })
+      .from(schema.jobs)
+      .where(isNull(schema.jobs.dedupeKey));
+    expect(left).toEqual([]);
+  });
+});
+
+/** The planner's detail lines for a query. The proxy returns rows as arrays; detail is the last column. */
+async function queryPlan(query: SQL): Promise<string> {
+  const rows = await db.all<unknown[]>(sql`EXPLAIN QUERY PLAN ${query}`);
+  return rows.map((r) => String(r.at(-1))).join("\n");
+}
+
+describe("incremental pass", () => {
+  beforeEach(sources);
+
+  it("sees a canonical that finalize closes: its duplicates are visible after the next pass", async () => {
+    const old = NOW - 10 * DAY;
+    const a = await row({ updatedAt: old, absentRuns: 1 });
+    const b = await row({ updatedAt: old });
+    await rebuild({ full: true });
+    expect(await dupOf(b)).toBe(a);
+
+    // A complete listing without a, on its second absence: finalize closes it.
+    await startRun(
+      db,
+      {
+        runId: "run-close-01",
+        source: { id: FRESH, platform: "lever", key: FRESH, company: "Acme", params: {} },
+        runnerId: "test",
+        collectorVersion: "1",
+        startedAt: NOW - 100,
+      },
+      NOW - 100,
+    );
+    await finalize(
+      db,
+      "run-close-01",
+      {
+        seenIds: [`p${b}`],
+        listingComplete: true,
+        detailsComplete: true,
+        emptyIsAuthoritative: false,
+        requests: 1,
+        finishedAt: NOW,
+        rawKey: null,
+        issues: [],
+        boardNotFound: false,
+      },
+      NOW,
+    );
+    expect((await getJob(db, a))?.closedAt).toBe(NOW);
+
+    // No rebuild: the sync's finalize regroups what it wrote, so b is visible at once.
+    expect(await dupOf(b)).toBeUndefined();
+    expect(await visibleIds()).toEqual([b]);
+    await rebuild();
+    expect(await visibleIds()).toEqual([b]);
+  });
+
+  it("uses the updated_at index for the window and the dedupe index for the regroup", async () => {
+    // Guards the hourly pass: a scan of jobs here reads every open row each hour.
+    const details = await queryPlan(
+      sql`SELECT DISTINCT dedupe_key FROM jobs WHERE dedupe_key IS NOT NULL AND updated_at >= ${NOW}`,
+    );
+    expect(details).toContain("jobs_updated_idx");
+    expect(details).not.toMatch(/SCAN jobs(?! USING)/);
+  });
+
+  it("finds a changed canonical's duplicates through dup_of without scanning jobs", async () => {
+    const details = await queryPlan(
+      sql`SELECT DISTINCT dedupe_key FROM jobs WHERE dup_of IS NOT NULL AND closed_at IS NULL AND dedupe_key IS NOT NULL AND dup_of IN (SELECT canonicals.id FROM jobs AS canonicals WHERE canonicals.updated_at >= ${NOW})`,
+    );
+    expect(details).toContain("jobs_updated_idx");
+    expect(details).toContain("jobs_dup_of_idx");
+    expect(details).not.toMatch(/SCAN/);
+  });
+
+  it("backfill reads by primary key, not a scan", async () => {
+    const details = await queryPlan(
+      sql`SELECT id FROM jobs WHERE id > ${0} AND dedupe_key IS NULL ORDER BY id LIMIT 301`,
+    );
+    expect(details).not.toMatch(/SCAN jobs(?! USING)/);
   });
 });

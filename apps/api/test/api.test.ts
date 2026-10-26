@@ -345,7 +345,7 @@ describe("api", () => {
     };
     expect(second.variants).toHaveLength(2);
     expect(
-      await (await call("/v1/admin/dedupe/backfill", INGEST, { method: "POST" })).json(),
-    ).toEqual({ updated: 0, more: false });
+      await (await call("/v1/admin/dedupe/backfill?after=0", INGEST, { method: "POST" })).json(),
+    ).toEqual({ updated: 0, more: false, next: 0 });
   });
 });

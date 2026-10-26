@@ -5,7 +5,7 @@ import {
   outOfScope,
   STALE_HIDE_DAYS,
 } from "@tallo/contracts";
-import { and, eq, gt, gte, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { BlobStore } from "./blobs.ts";
@@ -251,6 +251,8 @@ export async function finalize(
           .set({
             absentRuns: sql`${jobs.absentRuns} + 1`,
             closedAt: sql`CASE WHEN ${jobs.absentRuns} + 1 >= ${CLOSE_AFTER_ABSENT_RUNS} THEN ${now} END`,
+            // A closing canonical hands its group over: bump updated_at so the rebuild sees it.
+            updatedAt: now,
           })
           .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
       );
@@ -287,7 +289,28 @@ export async function finalize(
       .where(eq(sources.id, current.sourceId)),
   );
   await batch(db, statements);
+  await regroupWritten(db, current.sourceId, now);
   return { status, closureApplied, closed, reopened };
+}
+
+/**
+ * Regroups the keys of the rows this source wrote in the window, so its closures, reopens and hidden
+ * flags take effect at finalize instead of at the next hourly pass. Reads the source's rows written
+ * in the window (the run just wrote them) and writes only rows whose `dup_of` changes.
+ */
+async function regroupWritten(db: Db, sourceId: string, now: number): Promise<number> {
+  const rows = await db
+    .selectDistinct({ key: jobs.dedupeKey })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.sourceId, sourceId),
+        isNotNull(jobs.dedupeKey),
+        gte(jobs.updatedAt, now - DEDUPE_WINDOW),
+      ),
+    );
+  const keys = rows.flatMap((r) => (r.key === null ? [] : [r.key]));
+  return regroup(db, keys, now - STALE_HIDE_DAYS * 86400);
 }
 
 /** Delete jobs closed for over `days`, then any JD blob no remaining job references. */
@@ -487,41 +510,52 @@ export async function rebuildFacets(
 
 /**
  * Fills `dedupe_key` for rows stored before the key existed, from their stored company, title and
- * jd_hash (no refetching). Does not regroup: run `rebuildDuplicates({ full: true })` afterwards.
+ * jd_hash (no refetching). Pages by id (`after` = the last id of the previous page), so each call
+ * reads only the rows it fills. Does not regroup: run `rebuildDuplicates({ full: true })` afterwards.
  */
 export async function backfillDedupeKeys(
   db: Db,
   keyOf: (row: { company: string; title: string; jdHash: string }) => Promise<string>,
-  limit = 300,
-): Promise<{ updated: number; more: boolean }> {
+  { after = 0, limit = 300 }: { after?: number; limit?: number } = {},
+): Promise<{ updated: number; more: boolean; next: number }> {
   const pending = await db
     .select({ id: jobs.id, company: jobs.company, title: jobs.title, jdHash: jobs.jdHash })
     .from(jobs)
-    .where(isNull(jobs.dedupeKey))
+    .where(and(gt(jobs.id, after), isNull(jobs.dedupeKey)))
+    .orderBy(jobs.id)
     .limit(limit + 1);
   const page = pending.slice(0, limit);
-  if (page.length > 0) {
-    const statements = [];
-    for (const row of page) {
-      const dedupeKey = await keyOf(row);
-      statements.push(db.update(jobs).set({ dedupeKey }).where(eq(jobs.id, row.id)));
-    }
-    await batch(db, statements);
+  const statements = [];
+  for (const row of page) {
+    const dedupeKey = await keyOf(row);
+    statements.push(db.update(jobs).set({ dedupeKey }).where(eq(jobs.id, row.id)));
   }
-  return { updated: page.length, more: pending.length > limit };
+  for (const part of chunks(statements, BATCH_STATEMENTS)) await batch(db, part);
+  return {
+    updated: page.length,
+    more: pending.length > limit,
+    next: page.at(-1)?.id ?? after,
+  };
 }
 
 /** A rebuild regroups every key touched within this window. The hourly cron overlaps it. */
 const DEDUPE_WINDOW = 3 * 60 * 60;
 /** Keys per select: each key is 64 characters, so the ids travel as one bound JSON value. */
 const KEY_CHUNK = 300;
+/**
+ * Statements per batch. D1 documents no batch-size cap (its limits are per statement), so this is
+ * a budget choice: each batch stays one short transaction well inside the 30 s query limit.
+ */
 const BATCH_STATEMENTS = 50;
 
 /**
- * Keys whose group may have changed, after the cursor, ascending. Incremental mode finds:
- * - rows updated or closed since the window (applyJobs, finalize, reclassify);
+ * Keys whose group may have changed, after the cursor, ascending. Incremental mode finds, each via
+ * an index or a small table, never a scan of `jobs`:
+ * - rows written in the window (applyJobs, finalize closure and reopen, reclassify): jobs_updated_idx;
  * - sources that crossed the stale threshold in the window (a time change with no write);
- * - rows whose canonical closed, moved to another key, or was purged.
+ * - open duplicates whose canonical was written in the window: it may have moved key, closed or
+ *   been hidden, so the duplicate's own key is regrouped. A purged canonical cannot exist here: its
+ *   group was handed over when it closed, 30 days before the purge.
  * Full mode pages over every open key.
  */
 async function keysPage(
@@ -539,14 +573,12 @@ async function keysPage(
   }
   const since = now - DEDUPE_WINDOW;
   const staleBefore = now - STALE_HIDE_DAYS * 86400;
-  const target = alias(jobs, "target");
+  const canonicals = alias(jobs, "canonicals");
   const found = await Promise.all([
     db
       .selectDistinct({ key: jobs.dedupeKey })
       .from(jobs)
-      .where(
-        and(isNotNull(jobs.dedupeKey), or(gte(jobs.updatedAt, since), gte(jobs.closedAt, since))),
-      ),
+      .where(and(isNotNull(jobs.dedupeKey), gte(jobs.updatedAt, since))),
     db
       .selectDistinct({ key: jobs.dedupeKey })
       .from(jobs)
@@ -559,18 +591,21 @@ async function keysPage(
           sql`coalesce(${sources.lastListedAt}, 0) < ${staleBefore}`,
         ),
       ),
+    // Canonicals written in the window (the subquery, by index), then their open duplicates.
     db
       .selectDistinct({ key: jobs.dedupeKey })
       .from(jobs)
-      .leftJoin(target, eq(target.id, jobs.dupOf))
       .where(
         and(
-          isNull(jobs.closedAt),
           isNotNull(jobs.dupOf),
-          or(
-            isNull(target.id),
-            isNotNull(target.closedAt),
-            sql`${target.dedupeKey} IS NOT ${jobs.dedupeKey}`,
+          isNull(jobs.closedAt),
+          isNotNull(jobs.dedupeKey),
+          inArray(
+            jobs.dupOf,
+            db
+              .select({ id: canonicals.id })
+              .from(canonicals)
+              .where(gte(canonicals.updatedAt, since)),
           ),
         ),
       ),
@@ -645,7 +680,8 @@ async function regroup(db: Db, keys: string[], staleBefore: number): Promise<num
 /**
  * Regroups duplicates: the hourly cron runs it incrementally; `full` walks every key. Keys are
  * processed `limit` at a time, so call again with `after = next` until `next` is null.
- * Closed canonicals hand over to the next open row in their group on the next rebuild.
+ * A canonical that closes in a sync hands over at that run's finalize; changes that never finalize
+ * (stale sources, reclassify, a run that never finished) wait for the hourly pass.
  */
 export async function rebuildDuplicates(
   db: Db,

@@ -58,9 +58,12 @@ describe("syncSource end to end", () => {
     expect(result).toMatchObject({ listingComplete: true, detailsComplete: true, changed: 2 });
     expect(blobs.keys().filter((k) => k.startsWith("jd/")).length).toBeGreaterThan(0);
     expect(blobs.keys().some((k) => k.startsWith("raw/greenhouse:stripe/"))).toBe(true);
+    // The fixture's two listings are one posting in two locations (same title and JD): one card,
+    // both listings kept as variants.
     const { jobs } = await read(app, "/v1/jobs?all=true");
-    expect(jobs).toHaveLength(2);
+    expect(jobs).toHaveLength(1);
     const detail = await read(app, `/v1/jobs/${jobs[0].id}`);
+    expect(detail.variants).toHaveLength(2);
     expect(detail.description.length).toBeGreaterThan(100);
     expect(detail.company).toBe("Stripe");
   });
@@ -99,7 +102,7 @@ describe("syncSource end to end", () => {
       });
       expect(failed.listingComplete).toBe(false);
     }
-    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(2);
+    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(1);
     const [row] = await read(app, "/v1/sources");
     expect(row).toMatchObject({ id: source.id, lastStatus: "partial" });
   });
@@ -157,7 +160,7 @@ describe("dead boards", () => {
     await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
     expect(await sourceRow(app)).toMatchObject({ status: "dead", consecutiveFailures: 3 });
     // The catalog is untouched: a dead board closes nothing.
-    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(2);
+    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(1);
   });
 
   it("a 404 on a later page of a real board is a failed run, not board-not-found", async () => {

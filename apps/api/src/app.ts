@@ -160,9 +160,20 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
   /** Recount facets now instead of waiting for the hourly cron (e.g. right after a deploy). */
   app.post("/v1/admin/facets/rebuild", write, async (c) => c.json(await rebuildFacets(db)));
 
-  /** Fill dedupe keys for rows stored before the key existed. Call until `more` is false. */
-  app.post("/v1/admin/dedupe/backfill", write, async (c) =>
-    c.json(await backfillDedupeKeys(db, (row) => dedupeKey(row))),
+  /**
+   * Fill dedupe keys for rows stored before the key existed. Call with `after=<next>` until `more`
+   * is false.
+   */
+  app.post(
+    "/v1/admin/dedupe/backfill",
+    write,
+    zValidator("query", z.object({ after: z.coerce.number().int().min(0).optional() })),
+    async (c) =>
+      c.json(
+        await backfillDedupeKeys(db, (row) => dedupeKey(row), {
+          after: c.req.valid("query").after ?? 0,
+        }),
+      ),
   );
 
   /**
