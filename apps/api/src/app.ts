@@ -17,9 +17,11 @@ import {
   IngestError,
   jdKey,
   listFacets,
+  listRuns,
   listSources,
   rebuildFacets,
   reclassify,
+  runsSearchSchema,
   schema,
   searchJobs,
   searchSchema,
@@ -86,6 +88,11 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
   app.get("/v1/facets", read, async (c) => {
     c.header("cache-control", "private, max-age=300");
     return c.json(await listFacets(db));
+  });
+
+  app.get("/v1/runs", read, zValidator("query", runsSearchSchema), async (c) => {
+    c.header("cache-control", "private, max-age=30");
+    return c.json(await listRuns(db, c.req.valid("query")));
   });
 
   // ---- ingest (runner) ------------------------------------------------------------------

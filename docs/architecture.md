@@ -63,7 +63,7 @@ what ran where and when. Failures finalize the run as `partial`; nothing is infe
 
 ## Data model (D1, `packages/db/src/schema.ts`)
 
-- `sources`: configured boards + last run status.
+- `sources`: configured boards + last run status, consecutive 404 count and `active`/`dead` status.
 - `runs`: bounded operational history.
 - `jobs`: hot narrow row: identity (`source_id`, `posting_id`), display facts, typed filters (country, work mode,
   department, pay annualized, experience years), tri-state `is_us`/`is_tech`, `hidden` (confident out-of-scope),

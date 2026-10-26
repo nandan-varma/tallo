@@ -1,5 +1,5 @@
 import type { CreateRun, Finalize, FinalizeResult, JobFacts } from "@tallo/contracts";
-import { CLOSE_AFTER_ABSENT_RUNS, outOfScope } from "@tallo/contracts";
+import { CLOSE_AFTER_ABSENT_RUNS, DEAD_AFTER_NOT_FOUND_RUNS, outOfScope } from "@tallo/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { BlobStore } from "./blobs.ts";
@@ -250,6 +250,16 @@ export async function finalize(
     }
   }
   const status = fin.listingComplete ? "complete" : "partial";
+  // Board health. A complete listing revives a dead board; a 404 counts toward dead; any other
+  // outcome breaks the streak, so only consecutive 404s can mark a board dead.
+  const health = fin.listingComplete
+    ? { consecutiveFailures: 0, status: "active" as const, lastCompleteRunAt: now }
+    : fin.boardNotFound
+      ? {
+          consecutiveFailures: sql`${sources.consecutiveFailures} + 1`,
+          status: sql`CASE WHEN ${sources.consecutiveFailures} + 1 >= ${DEAD_AFTER_NOT_FOUND_RUNS} THEN 'dead' ELSE ${sources.status} END`,
+        }
+      : { consecutiveFailures: 0 };
   statements.push(
     db
       .update(runs)
@@ -266,7 +276,7 @@ export async function finalize(
       .where(eq(runs.id, runId)),
     db
       .update(sources)
-      .set({ lastStatus: status, ...(fin.listingComplete ? { lastCompleteRunAt: now } : {}) })
+      .set({ lastStatus: status, ...health })
       .where(eq(sources.id, current.sourceId)),
   );
   await batch(db, statements);

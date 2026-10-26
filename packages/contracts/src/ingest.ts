@@ -82,6 +82,8 @@ export const finalizeSchema = z.object({
   finishedAt: epoch,
   rawKey: z.string().max(300).nullable(),
   issues: z.array(issueSchema).max(50),
+  /** The listing failed because the board does not exist (HTTP 404). Counts toward dead. */
+  boardNotFound: z.boolean().default(false),
 });
 export type Finalize = z.infer<typeof finalizeSchema>;
 
@@ -93,6 +95,9 @@ export interface FinalizeResult {
 }
 
 export const CLOSE_AFTER_ABSENT_RUNS = 2;
+
+/** A board that 404s this many runs in a row is marked dead and skipped by sync. */
+export const DEAD_AFTER_NOT_FOUND_RUNS = 3;
 
 /** A source with no successful listing for this long is flagged, then hidden from search. */
 export const STALE_FLAG_DAYS = 7;

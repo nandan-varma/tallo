@@ -53,6 +53,7 @@ const fin = (seenIds: string[], over = {}) => ({
   finishedAt: 1,
   rawKey: null,
   issues: [],
+  boardNotFound: false,
   ...over,
 });
 const start = async (now = T + 1000) => {
@@ -268,6 +269,54 @@ describe("staleness", () => {
     await finalize(db, failed, fin([], { listingComplete: false }), T + 2000 + 20 * 86400);
     expect((await listSources(db, T + 1000 + 5 * 86400))[0]?.freshness).toBe("fresh");
     expect((await listSources(db, T + 1000 + 20 * 86400))[0]?.freshness).toBe("hidden");
+  });
+});
+
+describe("board health", () => {
+  const health = async () => (await listSources(db)).find((s) => s.id === source.id);
+  /** A run that fails its listing. `notFound` is the HTTP 404 signal from the runner. */
+  const failed = async (now: number, notFound: boolean) => {
+    const run = await start(now);
+    return finalize(db, run, fin([], { listingComplete: false, boardNotFound: notFound }), now);
+  };
+
+  it("marks a board dead after consecutive 404 runs, and says so in the source row", async () => {
+    await failed(T + 1000, true);
+    await failed(T + 2000, true);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await failed(T + 3000, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("a failure that is not a 404 breaks the streak and never marks dead", async () => {
+    await failed(T + 1000, true);
+    await failed(T + 2000, true);
+    await failed(T + 3000, false);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
+    await failed(T + 4000, true);
+    await failed(T + 5000, true);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
+  });
+
+  it("a complete listing revives a dead board", async () => {
+    for (let i = 1; i <= 3; i++) await failed(T + i * 1000, true);
+    expect(await health()).toMatchObject({ status: "dead" });
+    const run = await start(T + 4000);
+    await finalize(db, run, fin([]), T + 4000);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
+  });
+
+  it("a complete run never counts as a 404 even if the flag is set", async () => {
+    const run = await start(T + 1000);
+    await finalize(db, run, fin([], { boardNotFound: true }), T + 1000);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
+  });
+
+  it("counts each run once: finalize is idempotent", async () => {
+    const run = await start(T + 1000);
+    await finalize(db, run, fin([], { listingComplete: false, boardNotFound: true }), T + 1000);
+    await finalize(db, run, fin([], { listingComplete: false, boardNotFound: true }), T + 1000);
+    expect(await health()).toMatchObject({ consecutiveFailures: 1 });
   });
 });
 

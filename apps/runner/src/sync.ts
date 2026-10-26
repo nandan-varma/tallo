@@ -8,7 +8,7 @@ import type {
   RawPosting,
   SourceConfig,
 } from "@tallo/contracts";
-import { createHttp, type HostLimiter } from "@tallo/http";
+import { createHttp, type HostLimiter, HttpError } from "@tallo/http";
 import { platformFor } from "@tallo/platforms";
 import PQueue from "p-queue";
 import type { Logger } from "pino";
@@ -73,6 +73,7 @@ export async function syncSource(
       finishedAt: now(),
       rawKey: null,
       issues: issues.slice(0, 50),
+      boardNotFound: false,
       ...rest,
     };
     await api.finalize(runId, body);
@@ -99,7 +100,9 @@ export async function syncSource(
   } catch (error) {
     issues.push({ code: "http", message: error instanceof Error ? error.message : String(error) });
     log.warn({ source: source.id, error: String(error) }, "listing failed");
-    return finish({});
+    // A 404 means the board does not exist. Repeated 404s mark the source dead on the server.
+    const boardNotFound = error instanceof HttpError && error.status === 404;
+    return finish({ boardNotFound });
   }
 
   // 2. Which postings are new or changed? The fingerprint ignores volatile fields.

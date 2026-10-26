@@ -6,6 +6,7 @@ import { Command, InvalidArgumentError } from "commander";
 import PQueue from "p-queue";
 import pino from "pino";
 import { createApi } from "./api.ts";
+import { deadSources, dueSources, formatDead } from "./due.ts";
 import { loadSources } from "./sources.ts";
 import { syncSource } from "./sync.ts";
 import { verifySource } from "./verify.ts";
@@ -79,6 +80,7 @@ program
     "min gap between request starts per host (env TALLO_HOST_INTERVAL_MS, default 0)",
     numberFlag("--host-interval-ms", 0),
   )
+  .option("--include-dead", "also sync boards marked dead after repeated 404s")
   .action(async (opts) => {
     // Validate all knobs before any network call (api.sources, startRun).
     const concurrency = opts.concurrency as number;
@@ -86,17 +88,14 @@ program
     const hostIntervalMs =
       (opts.hostIntervalMs as number | undefined) ?? envNumber("TALLO_HOST_INTERVAL_MS", 0, 0);
     const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
-    const done = new Map((await api.sources()).map((s) => [s.id, s.lastCompleteRunAt ?? 0]));
-    const cutoff = Date.now() / 1000 - opts.staleHours * 3600;
-    let due = loadSources(SOURCES_DIR)
-      .filter(
-        (s) =>
-          (!opts.platform || s.platform === opts.platform) &&
-          (!opts.source || s.id === opts.source),
-      )
-      .filter((s) => opts.source || (done.get(s.id) ?? 0) < cutoff)
-      .sort((a, b) => (done.get(a.id) ?? 0) - (done.get(b.id) ?? 0));
-    if (opts.limit) due = due.slice(0, opts.limit);
+    const state = new Map((await api.sources()).map((s) => [s.id, s]));
+    const due = dueSources(loadSources(SOURCES_DIR), state, {
+      ...(opts.platform ? { platform: opts.platform as string } : {}),
+      ...(opts.source ? { source: opts.source as string } : {}),
+      includeDead: Boolean(opts.includeDead),
+      cutoff: Date.now() / 1000 - opts.staleHours * 3600,
+      ...(opts.limit ? { limit: opts.limit as number } : {}),
+    });
     log.info({ due: due.length }, "starting sync");
     const limiter = createHostLimiter({
       perHostConcurrency: perHost,
@@ -152,9 +151,18 @@ program
 
 program
   .command("sources")
-  .description("List configured sources")
+  .description("List configured sources, or the boards the server has marked dead")
   .option("-p, --platform <id>")
-  .action((opts) => {
+  .option("--dead", "list dead boards (from the server) instead of configured sources")
+  .action(async (opts) => {
+    if (opts.dead) {
+      const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+      const dead = deadSources(await api.sources()).filter(
+        (s) => !opts.platform || s.id.startsWith(`${opts.platform}:`),
+      );
+      console.log(formatDead(dead));
+      return;
+    }
     const sources = loadSources(SOURCES_DIR).filter(
       (s) => !opts.platform || s.platform === opts.platform,
     );

@@ -1,10 +1,10 @@
 import type { Facets } from "@tallo/contracts";
 import { STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
-import { facetCounts, jobs, sources } from "./schema.ts";
+import { facetCounts, jobs, runs, sources } from "./schema.ts";
 
 /** Most values kept per facet. Bounds the snapshot size and the dropdown length. */
 export const FACET_LIMIT = 100;
@@ -165,4 +165,39 @@ export const freshness = (
 export async function listSources(db: Db, now = Math.floor(Date.now() / 1000)) {
   const rows = await db.select().from(sources).orderBy(sources.id);
   return rows.map((source) => ({ ...source, freshness: freshness(source.lastListedAt, now) }));
+}
+
+export const runsSearchSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** Only runs that ended partial or reported issues: the ones an operator needs to see. */
+  attention: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
+});
+export type RunsSearch = z.infer<typeof runsSearchSchema>;
+
+/** Operational run history, newest first. Raw pack keys stay internal. */
+export async function listRuns(db: Db, input: RunsSearch) {
+  const where = input.attention
+    ? or(eq(runs.status, "partial"), sql`json_array_length(${runs.issues}) > 0`)
+    : undefined;
+  return db
+    .select({
+      id: runs.id,
+      sourceId: runs.sourceId,
+      runnerId: runs.runnerId,
+      startedAt: runs.startedAt,
+      finishedAt: runs.finishedAt,
+      status: runs.status,
+      seen: runs.seen,
+      added: runs.added,
+      changed: runs.changed,
+      closed: runs.closed,
+      issues: runs.issues,
+    })
+    .from(runs)
+    .where(where)
+    .orderBy(desc(runs.startedAt))
+    .limit(input.limit);
 }
