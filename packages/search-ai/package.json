@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "ai": "^7.0.154",
+    "ai": "7.0.153",
     "zod": "^4.6.7"
   }
 }

@@ -20,6 +20,7 @@ const DEFAULTS = {
   deepReads: 10,
   triageBatchSize: 100,
   descriptionChunkChars: 24_000,
+  maxDescriptionParts: 8, // about 190k characters at the default part size
 };
 
 const MAX_RECALL_QUERIES = 12;
@@ -162,6 +163,7 @@ export async function search(input: SearchInput): Promise<SearchResult> {
       candidate: { ...candidate, facts: { ...candidate.facts, ...factsById.get(candidate.id) } },
       description,
       chunkChars: options.descriptionChunkChars,
+      maxParts: options.maxDescriptionParts,
       trace,
     });
     scored.push({ candidate, judgment: judged.judgment, evidence: judged.evidence });
@@ -206,8 +208,10 @@ function resolveOptions(given: SearchOptions | undefined): Required<SearchOption
       throw new RangeError(`${key} must be a non-negative integer`);
   }
   if (resolved.triageBatchSize < 1) throw new RangeError("triageBatchSize must be at least 1");
-  if (resolved.descriptionChunkChars < 1)
-    throw new RangeError("descriptionChunkChars must be at least 1");
+  if (resolved.descriptionChunkChars < 2)
+    throw new RangeError("descriptionChunkChars must be at least 2");
+  if (resolved.maxDescriptionParts < 1)
+    throw new RangeError("maxDescriptionParts must be at least 1");
   return resolved;
 }
 
@@ -268,9 +272,10 @@ async function judgeDeep(args: {
   candidate: Candidate;
   description: string | null;
   chunkChars: number;
+  maxParts: number;
   trace: Trace;
 }): Promise<{ judgment: Judgment; evidence: string[] }> {
-  const { models, meter, profile, candidate, description, chunkChars, trace } = args;
+  const { models, meter, profile, candidate, description, chunkChars, maxParts, trace } = args;
   const header = `<profile>\n${profile}\n</profile>\n<job>${JSON.stringify({
     id: candidate.id,
     title: candidate.title,
@@ -289,6 +294,13 @@ async function judgeDeep(args: {
   } else {
     trace.deep.descriptionChars += description.length;
     const parts = chunkText(description, chunkChars);
+    // Loud, never silent: a description above the cap fails the search rather than losing its tail.
+    if (parts.length > maxParts) {
+      throw new Error(
+        `Job ${candidate.id} description is ${description.length} chars, ${parts.length} parts of ${chunkChars}; ` +
+          `maxDescriptionParts is ${maxParts}. Refusing to truncate.`,
+      );
+    }
     trace.deep.chunks += parts.length;
     if (parts.length <= 1) {
       material = `<description>\n${description}\n</description>`;

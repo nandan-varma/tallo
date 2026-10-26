@@ -47,15 +47,18 @@ export async function structured<S extends z.ZodType>(
         maxOutputTokens,
         output: Output.object({ schema: call.schema }),
       });
-      const tokens = call.meter.tokens[call.role];
-      tokens.input += result.usage.inputTokens ?? 0;
-      tokens.output += result.usage.outputTokens ?? 0;
+      addUsage(call.meter, call.role, result.usage);
       if (result.output === undefined || result.output === null) {
         throw new NoOutputGeneratedError();
       }
       return result.output as z.infer<S>;
     } catch (error) {
       if (attempt === 0 && isEmptyContent(error)) {
+        // The failed attempt was billed too. generateText throws before returning a result, so the
+        // provider usage travels on the error (NoObjectGeneratedError carries it; NoOutputGeneratedError does not).
+        if (NoObjectGeneratedError.isInstance(error) && error.usage) {
+          addUsage(call.meter, call.role, error.usage);
+        }
         call.meter.retries += 1;
         continue;
       }
@@ -63,6 +66,16 @@ export async function structured<S extends z.ZodType>(
     }
   }
   throw new Error("unreachable");
+}
+
+function addUsage(
+  meter: Meter,
+  role: Role,
+  usage: { inputTokens?: number; outputTokens?: number },
+) {
+  const tokens = meter.tokens[role];
+  tokens.input += usage.inputTokens ?? 0;
+  tokens.output += usage.outputTokens ?? 0;
 }
 
 function isEmptyContent(error: unknown): boolean {

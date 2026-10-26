@@ -149,6 +149,90 @@ describe("search", () => {
     expect(judge?.text).toContain(`read in ${parts.length} consecutive parts`);
   });
 
+  it("passes a 20k description to the judge whole, end marker included", async () => {
+    const marker = "END-MARKER-20K";
+    const line = "Build reliable backend services in TypeScript on AWS, with on-call habits. ";
+    const description = `${line.repeat(Math.ceil(20_000 / line.length)).slice(0, 20_000 - marker.length)}${marker}`;
+    expect(description.length).toBe(20_000);
+    const { calls, models } = setup(responder({}));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: description } });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    const judge = calls.find((c) => c.stage === "judge");
+    const block = /<description>\n([\s\S]*?)\n<\/description>/.exec(judge?.text ?? "")?.[1];
+    expect(block?.length).toBe(20_000);
+    expect(block).toBe(description);
+    expect(block?.endsWith(marker)).toBe(true);
+    expect(result.trace.deep.descriptionChars).toBe(20_000);
+    expect(result.trace.deep.chunks).toBe(1);
+    expect(calls.some((c) => c.stage === "notes")).toBe(false);
+  });
+
+  it("reads a 60k description in every part at the default chunk size and loses nothing", async () => {
+    const marker = "END-MARKER-60K";
+    const rows: string[] = [];
+    let length = 0;
+    for (let i = 0; length < 60_000; i++) {
+      const row = `Line ${i}: we ship backend services in TypeScript and Postgres, on call weekly.`;
+      rows.push(row);
+      length += row.length + 1;
+    }
+    const description = `${rows.join("\n")}\n${marker}`;
+    expect(description.length).toBeGreaterThan(60_000);
+    const { calls, models } = setup(responder({ notes: "notes so far" }));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: description } });
+
+    const result = await search({ query: "backend", profile: PROFILE, models, jobs });
+
+    const notes = calls.filter((c) => c.stage === "notes");
+    const parts = notes.map(
+      (c) => /<part index="\d+" of="\d+">\n([\s\S]*?)\n<\/part>/.exec(c.text)?.[1] ?? "",
+    );
+    expect(parts.length).toBe(3);
+    expect(parts.join("")).toBe(description);
+    expect(parts.at(-1)?.endsWith(marker)).toBe(true);
+    expect(notes.every((c) => c.text.includes(`of="3"`))).toBe(true);
+    expect(result.trace.deep.chunks).toBe(3);
+    expect(result.trace.deep.descriptionChars).toBe(description.length);
+    const judge = calls.find((c) => c.stage === "judge");
+    expect(judge?.text).toContain("read in 3 consecutive parts");
+  });
+
+  it("throws instead of truncating when a description needs more than maxDescriptionParts", async () => {
+    const description = "x ".repeat(500); // 1000 chars: 10 parts of 100
+    const { calls, models } = setup(responder({}));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: description } });
+
+    await expect(
+      search({
+        query: "backend",
+        profile: PROFILE,
+        models,
+        jobs,
+        options: { descriptionChunkChars: 100, maxDescriptionParts: 9 },
+      }),
+    ).rejects.toThrow(/maxDescriptionParts/);
+    expect(calls.some((c) => c.stage === "notes" || c.stage === "judge")).toBe(false);
+  });
+
+  it("reads a description that needs exactly maxDescriptionParts parts", async () => {
+    const description = "x ".repeat(500);
+    const { calls, models } = setup(responder({ notes: "n" }));
+    const jobs = fakeJobs({ candidates: [candidate("a")], descriptions: { a: description } });
+
+    const result = await search({
+      query: "backend",
+      profile: PROFILE,
+      models,
+      jobs,
+      options: { descriptionChunkChars: 100, maxDescriptionParts: 10 },
+    });
+
+    expect(calls.filter((c) => c.stage === "notes")).toHaveLength(10);
+    expect(result.trace.deep.chunks).toBe(10);
+  });
+
   it("retries once with a larger budget when content is empty", async () => {
     let first = true;
     const calls: Call[] = [];
@@ -168,6 +252,8 @@ describe("search", () => {
     expect(understand).toHaveLength(2);
     expect(understand[1]?.maxOutputTokens).toBe((understand[0]?.maxOutputTokens ?? 0) * 2);
     expect(result.trace.retries).toBe(1);
+    // The empty attempt was still billed: both attempts (5 in, 7 out each) are in the trace.
+    expect(result.trace.tokens.fast).toEqual({ input: 10, output: 14 });
   });
 
   it("fails when content is still empty after the retry", async () => {
