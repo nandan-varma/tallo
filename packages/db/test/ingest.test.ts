@@ -270,6 +270,40 @@ describe("staleness", () => {
     expect((await listSources(db, T + 1000 + 5 * 86400))[0]?.freshness).toBe("fresh");
     expect((await listSources(db, T + 1000 + 20 * 86400))[0]?.freshness).toBe("hidden");
   });
+
+  it("a complete run with unchanged postings (no facts sent) makes a stale source visible again", async () => {
+    const day = 86400;
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1")], "a".repeat(64), T + 1000);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const later = T + 1000 + 20 * day;
+    // Every posting is unchanged, so the runner calls finalize without applyJobs.
+    const second = await start(later);
+    await finalize(db, second, fin(["1"]), later);
+    expect((await listSources(db, later))[0]?.freshness).toBe("fresh");
+    expect((await searchJobs(db, { limit: 10 }, later)).jobs).toHaveLength(1);
+  });
+
+  it("a partial run that listed postings advances the listing time", async () => {
+    const day = 86400;
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1")], "a".repeat(64), T + 1000);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const later = T + 1000 + 20 * day;
+    const partial = await start(later);
+    await finalize(db, partial, fin(["1"], { listingComplete: false }), later);
+    expect((await listSources(db, later))[0]?.freshness).toBe("fresh");
+  });
+
+  it("a failed run that listed nothing does not advance the listing time", async () => {
+    const day = 86400;
+    const first = await start(T + 1000);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const failed = T + 1000 + 20 * day;
+    const run = await start(failed);
+    await finalize(db, run, fin([], { listingComplete: false }), failed);
+    expect((await listSources(db, failed))[0]?.freshness).toBe("hidden");
+  });
 });
 
 describe("board health", () => {
