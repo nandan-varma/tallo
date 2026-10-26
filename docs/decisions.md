@@ -2,6 +2,11 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
+**D13. AI search is an engine package plus a provider package, stateless, nothing generated is stored.**
+`packages/ai` maps roles (`fast`/`smart`) to any AI SDK provider via a registry (OpenCode Go by default);
+`packages/search-ai` runs understand -> recall -> triage -> deep -> answer behind a `JobsPort`. Filters are not
+trusted; unknown stays unknown. Resume and edited profile are stored per user, outputs are not. See `ai-search.md`.
+
 **D12. Libraries over hand-rolled machinery.** ky + p-queue (HTTP), html-to-text + entities, i18n-iso-countries,
 safe-stable-stringify, Hono, Drizzle, commander, pino. Effect was considered for runner orchestration and skipped:
 the flow is linear, so its cost (style, learning curve) outweighs the benefit. Revisit if orchestration grows.
@@ -41,6 +46,6 @@ search, enrichment and (later) resume tailoring.
 
 ## Open / deferred
 
-- AI enrichment: table + interface only when first needed; Vercel AI SDK for bring-your-own-provider keys. Heuristics first.
+- AI enrichment: table + interface only when first needed. AI search design is in `ai-search.md` (D13).
 - Public API, SEO, accounts, personal layer: v2. Closed-job history: not planned.
 - Cloud runners: when needed, same ingest protocol, plus per-host rate limits that span runners.
