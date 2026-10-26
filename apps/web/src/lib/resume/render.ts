@@ -1,4 +1,4 @@
-import type { ResumeDoc } from "@tallo/contracts";
+import type { Resume, ResumeDoc, ResumeStyle } from "@tallo/contracts";
 
 /** What the PDF is drawn from: the words and the style. The cover letter is not part of the resume file. */
 export type Drawn = Pick<ResumeDoc, "resume" | "style">;
@@ -25,6 +25,21 @@ async function renderAt(doc: Drawn, density: Density) {
   Font.registerHyphenationCallback((word) => [word]);
   const instance = pdf(createElement(ResumePdf, { resume: doc.resume, style: doc.style, density }));
   const blob = await instance.toBlob();
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+/** The cover letter as a PDF, in the resume's style. Loaded on first use, like the resume. */
+export async function renderLetter(
+  resume: Resume,
+  style: ResumeStyle,
+  letter: string,
+): Promise<Uint8Array> {
+  const [{ pdf, Font }, { LetterPdf }] = await Promise.all([
+    import("@react-pdf/renderer"),
+    import("@/lib/resume/letter"),
+  ]);
+  Font.registerHyphenationCallback((word) => [word]);
+  const blob = await pdf(createElement(LetterPdf, { resume, style, letter })).toBlob();
   return new Uint8Array(await blob.arrayBuffer());
 }
 

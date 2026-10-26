@@ -61,6 +61,7 @@ import { z } from "zod";
 import { CHAT_MAX_BODY_BYTES, RESUME_MAX_BODY_BYTES } from "./ai.ts";
 import { applicationRoutes } from "./applications.ts";
 import { jobsPort, searchPage } from "./jobs-port.ts";
+import { searchRoutes } from "./searches.ts";
 
 export interface Deps {
   db: Db;
@@ -191,6 +192,7 @@ export function createApp({ db, blobs, readToken, ingestToken, model }: Deps) {
   );
 
   app.route("/", applicationRoutes({ db, read }));
+  app.route("/", searchRoutes({ db, read }));
 
   // ---- resumes -----------------------------------------------------------------------------
   // Personal layer too. `?job=<id>` addresses the copy tailored to a posting; without it, the base resume.

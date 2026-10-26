@@ -18,6 +18,7 @@ import { AiPanel, type Posting } from "@/components/resume/AiPanel";
 import { DesignPanel } from "@/components/resume/DesignPanel";
 import { Editor } from "@/components/resume/Editor";
 import { ImportPanel } from "@/components/resume/ImportPanel";
+import { LetterEditor } from "@/components/resume/LetterEditor";
 import { PdfPages, usePreview } from "@/components/resume/PdfPreview";
 import { type SaveState, useResumeDoc } from "@/components/resume/useResumeDoc";
 import { Button } from "@/components/ui/button";
@@ -32,13 +33,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { messageOf, requestJson } from "@/lib/client";
+import { slug } from "@/lib/resume/layout";
 import { cn } from "@/lib/utils";
-
-const slug = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 
 function SaveStatus({
   state,
@@ -178,6 +174,8 @@ export function ResumeWorkspace({
   } = useResumeDoc({ jobId, initial: seed });
   const [started, setStarted] = useState(seed !== null);
   const [tab, setTab] = useState("edit");
+  /** A posting's copy has two documents to write: the resume, and the cover letter that goes with it. */
+  const [part, setPart] = useState<"resume" | "letter">("resume");
   const [designOpen, setDesignOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -286,61 +284,100 @@ export function ResumeWorkspace({
               tab === "preview" && "max-lg:hidden",
             )}
           >
-            <div className="mx-auto grid max-w-2xl gap-2.5 px-3 py-4 sm:px-5">
-              <AiPanel
-                resume={doc.resume}
-                posting={posting}
-                fresh={posting !== null && !initial && state === "saved"}
-                autoTailor={autoTailor && !initial}
-                onApply={(result, kind) => {
-                  applyAi(result.resume, result.changes, kind);
-                  setTab("edit");
-                }}
-              />
-              {review && (
-                <section
-                  aria-label="What the assistant changed"
-                  className="grid gap-2 rounded-xl border border-emerald-600/25 bg-emerald-50/60 p-3.5 dark:border-emerald-400/25 dark:bg-emerald-950/40"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-sm font-semibold">What changed</h2>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={undoAi}
-                        className="gap-1"
-                      >
-                        <Undo2 aria-hidden />
-                        Undo
-                      </Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={dismissReview}>
-                        Keep
-                      </Button>
+            {posting && (
+              <div
+                role="tablist"
+                aria-label="Document"
+                className="sticky top-0 z-10 border-b bg-card/90 px-3 py-2 backdrop-blur sm:px-5"
+              >
+                <div className="mx-auto flex max-w-2xl gap-1 rounded-lg bg-muted p-1 text-[13px]">
+                  {(["resume", "letter"] as const).map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      role="tab"
+                      aria-selected={part === name}
+                      onClick={() => setPart(name)}
+                      className={cn(
+                        "flex-1 rounded-md py-1 font-medium transition-colors",
+                        part === name
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {name === "resume" ? "Resume" : "Cover letter"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {posting && part === "letter" ? (
+              <div className="mx-auto grid max-w-2xl gap-2.5 px-3 py-4 sm:px-5">
+                <LetterEditor
+                  letter={doc.coverLetter}
+                  posting={posting}
+                  resume={doc.resume}
+                  style={doc.style}
+                  onChange={(letter) => edit((d) => ({ ...d, coverLetter: letter }))}
+                />
+              </div>
+            ) : (
+              <div className="mx-auto grid max-w-2xl gap-2.5 px-3 py-4 sm:px-5">
+                <AiPanel
+                  resume={doc.resume}
+                  posting={posting}
+                  fresh={posting !== null && !initial && state === "saved"}
+                  autoTailor={autoTailor && !initial}
+                  onApply={(result, kind) => {
+                    applyAi(result.resume, result.changes, kind);
+                    setTab("edit");
+                  }}
+                />
+                {review && (
+                  <section
+                    aria-label="What the assistant changed"
+                    className="grid gap-2 rounded-xl border border-emerald-600/25 bg-emerald-50/60 p-3.5 dark:border-emerald-400/25 dark:bg-emerald-950/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold">What changed</h2>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={undoAi}
+                          className="gap-1"
+                        >
+                          <Undo2 aria-hidden />
+                          Undo
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={dismissReview}>
+                          Keep
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  {review.changes.length > 0 ? (
-                    <ul className="grid list-disc gap-1 pl-4 text-[13px] leading-snug">
-                      {review.changes.map((change) => (
-                        <li key={change}>{change}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-[13px] text-muted-foreground">Updated.</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {review.kind === "tailor"
-                      ? "Tailoring only rewords and reorders: employers, titles, dates, schools, skills and numbers stay as you wrote them. Read it over."
-                      : "Read it over before you send it anywhere. An edit can add what you asked for."}
-                  </p>
-                </section>
-              )}
-              <Editor
-                resume={doc.resume}
-                onResume={(change) => edit((d) => ({ ...d, resume: change(d.resume) }))}
-              />
-            </div>
+                    {review.changes.length > 0 ? (
+                      <ul className="grid list-disc gap-1 pl-4 text-[13px] leading-snug">
+                        {review.changes.map((change) => (
+                          <li key={change}>{change}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[13px] text-muted-foreground">Updated.</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {review.kind === "tailor"
+                        ? "Tailoring only rewords and reorders: employers, titles, dates, schools, skills and numbers stay as you wrote them. Read it over."
+                        : "Read it over before you send it anywhere. An edit can add what you asked for."}
+                    </p>
+                  </section>
+                )}
+                <Editor
+                  resume={doc.resume}
+                  onResume={(change) => edit((d) => ({ ...d, resume: change(d.resume) }))}
+                />
+              </div>
+            )}
           </div>
 
           <div

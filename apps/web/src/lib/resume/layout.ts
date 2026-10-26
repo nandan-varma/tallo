@@ -73,6 +73,13 @@ export function safeText(text: string): string {
   return out;
 }
 
+/** A file-name fragment: "Acme Corp" becomes "acme-corp". */
+export const slug = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
 const PAGES = /\/Type\s*\/Pages\b[^>]*?\/Count\s+(\d+)/;
 
 /** Page count of a PDF written by pdfkit, whose page tree dictionary is stored uncompressed. */

@@ -63,7 +63,11 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) =>
-      Response.json(url === "/api/applications" ? [] : { hits: HITS, nextCursor: null }),
+      Response.json(
+        url === "/api/applications" || url === "/api/searches"
+          ? []
+          : { hits: HITS, nextCursor: null },
+      ),
     ),
   );
 });

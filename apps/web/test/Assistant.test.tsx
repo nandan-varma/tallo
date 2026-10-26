@@ -44,9 +44,11 @@ const conversation = [
   },
 ];
 
+let chatMessages: unknown[] = conversation;
+
 vi.mock("@ai-sdk/react", () => ({
   useChat: () => ({
-    messages: conversation,
+    messages: chatMessages,
     status: "ready",
     error: undefined,
     sendMessage: vi.fn(),
@@ -84,6 +86,7 @@ const detail = (id: number) => ({
 
 let copies: { jobId: number | null }[] = [];
 let tracked: unknown[] = [];
+let saved: unknown[] = [];
 
 function stubBrowser(desktop: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -108,11 +111,18 @@ function stubBrowser(desktop: boolean) {
       }
       if (url === "/api/resumes") return Response.json(copies);
       if (url === "/api/applications") return Response.json(tracked);
+      if (url === "/api/searches" && init?.method === "GET") return Response.json(saved);
+      if (url.startsWith("/api/searches")) return Response.json({});
       const job = /\/api\/jobs\/(\d+)\.json/.exec(url)?.[1];
       if (job) return Response.json(detail(Number(job)));
       throw new Error(`unexpected fetch ${url} ${init?.method ?? "GET"}`);
     }),
   );
+}
+
+async function mountEmpty() {
+  chatMessages = [];
+  return mount();
 }
 
 async function mount(initialJob: string | null = null) {
@@ -125,6 +135,8 @@ beforeEach(() => {
   localStorage.clear();
   copies = [];
   tracked = [];
+  saved = [];
+  chatMessages = conversation;
   history.replaceState(null, "", "/");
 });
 afterEach(() => {
@@ -207,6 +219,52 @@ describe("Assistant (desktop)", () => {
     await mount("1");
     const open = await screen.findByRole("link", { name: "Your resume" });
     expect(open.getAttribute("href")).toBe("/resume/1");
+  });
+
+  it("saves the search on screen, and lists saved searches with what is new", async () => {
+    await mount();
+    await screen.findByRole("list", { name: "Search results" });
+    fireEvent.click(screen.getByRole("button", { name: "Save this search" }));
+    await waitFor(() => {
+      const post = vi
+        .mocked(fetch)
+        .mock.calls.find(([url, init]) => url === "/api/searches" && init?.method === "POST");
+      expect(JSON.parse(String((post?.[1] as RequestInit | undefined)?.body))).toEqual({
+        name: "Data Engineer · Seattle",
+        spec: { queries: ["data engineer"], locations: ["Seattle", "WA"] },
+      });
+    });
+  });
+
+  it("opens a saved search from the empty chat and marks it seen", async () => {
+    saved = [
+      {
+        id: 4,
+        name: "Backend · Boston",
+        spec: { queries: ["backend engineer"], locations: ["Boston"] },
+        createdAt: 1,
+        seenAt: 1,
+        newCount: 3,
+        newCapped: false,
+      },
+    ];
+    await mountEmpty();
+    const card = await screen.findByRole("button", { name: /^Backend · Boston/ });
+    expect(within(card).getByText("3 new")).toBeTruthy();
+    fireEvent.click(card);
+    await waitFor(() => {
+      const seen = vi
+        .mocked(fetch)
+        .mock.calls.find(
+          ([url, init]) => url === "/api/searches/4/seen" && init?.method === "POST",
+        );
+      expect(seen).toBeDefined();
+    });
+    const search = vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/search");
+    expect(JSON.parse(String((search?.[1] as RequestInit | undefined)?.body))).toMatchObject({
+      queries: ["backend engineer"],
+      locations: ["Boston"],
+    });
   });
 
   it("closes the posting with Escape", async () => {

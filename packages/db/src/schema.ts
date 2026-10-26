@@ -1,3 +1,4 @@
+import type { SearchSpec } from "@tallo/contracts";
 import { sql } from "drizzle-orm";
 import {
   index,
@@ -176,4 +177,21 @@ export const applications = sqliteTable(
     appliedAt: integer("applied_at"),
   },
   (t) => [primaryKey({ columns: [t.userId, t.jobId] })],
+);
+
+/**
+ * Personal layer: a saved search (the title phrases and places the assistant built), keyed by user. `spec` is the
+ * JSON of `SearchSpec`. `seen_at` is when the person last ran it; roles posted after that count as new.
+ */
+export const searches = sqliteTable(
+  "searches",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    userId: text("user_id").notNull(),
+    name: text().notNull(),
+    spec: text({ mode: "json" }).$type<SearchSpec>().notNull(),
+    createdAt: integer("created_at").notNull(),
+    seenAt: integer("seen_at").notNull(),
+  },
+  (t) => [index("searches_user_idx").on(t.userId)],
 );

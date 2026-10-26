@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowUpRight, FileText, Quote, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import { FitCard } from "@/components/assistant/fit";
 import { Avatar } from "@/components/assistant/JobRow";
 import { useJob, useResumeCopies, useTracker } from "@/components/assistant/queries";
 import { StatusMenu } from "@/components/assistant/StatusMenu";
@@ -172,6 +173,7 @@ export function JobPage({ id, note, onClose }: { id: string; note?: Note; onClos
                   {job.description ?? "The full description is on the company's website."}
                 </div>
                 <aside className="grid content-start gap-4 @3xl:sticky @3xl:top-4">
+                  <FitCard key={job.id} jobId={job.id} />
                   <Variants variants={job.variants} currentId={job.id} />
                   <JobFacts facts={job.facts} />
                 </aside>

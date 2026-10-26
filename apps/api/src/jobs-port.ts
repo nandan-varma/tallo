@@ -110,18 +110,32 @@ function payText(row: Pick<Row, "salaryMinAnnual" | "salaryMaxAnnual" | "salaryC
  * so a page is one indexed lookup however many phrases there are.
  */
 export async function searchPage(db: Db, input: SearchSpec & { cursor?: string; limit: number }) {
-  const phrases = input.queries
+  const { jobs, nextCursor } = await newestFor(db, input, {
+    limit: input.limit,
+    cursor: input.cursor,
+  });
+  return { hits: jobs.map(toHit), nextCursor };
+}
+
+/** The FTS MATCH for a spec: any title phrase (OR), ANDed with the places. Undefined when no phrase has a word. */
+function specMatch(spec: SearchSpec): string | undefined {
+  const phrases = spec.queries
     .slice(0, MAX_QUERIES)
     .map((q) => ftsAllTerms(q.slice(0, MAX_QUERY_CHARS)))
     .filter((expression): expression is string => Boolean(expression))
     .map((expression) => `(${expression})`);
-  if (phrases.length === 0) return { hits: [] as JobHit[], nextCursor: null };
-  const match = withPlace(phrases.join(" OR "), ftsLocations(input.locations ?? []));
-  const { jobs, nextCursor } = await searchJobs(
-    db,
-    { limit: input.limit, cursor: input.cursor },
-    Math.floor(Date.now() / 1000),
-    match,
-  );
-  return { hits: jobs.map(toHit), nextCursor };
+  if (phrases.length === 0) return undefined;
+  return withPlace(phrases.join(" OR "), ftsLocations(spec.locations ?? []));
+}
+
+/** The raw newest-first rows a spec matches, as the results list reads them (with `sortAt`). */
+export async function newestFor(
+  db: Db,
+  spec: SearchSpec,
+  page: { limit: number; cursor?: string },
+  now = Math.floor(Date.now() / 1000),
+) {
+  const match = specMatch(spec);
+  if (!match) return { jobs: [] as Row[], nextCursor: null };
+  return searchJobs(db, page, now, match);
 }

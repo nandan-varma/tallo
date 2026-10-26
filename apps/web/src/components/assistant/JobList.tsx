@@ -145,6 +145,7 @@ function TrackerRows({ openId, onOpen }: { openId: string | null; onOpen: (id: s
  */
 export function JobList({
   spec,
+  title,
   notes,
   view,
   onView,
@@ -154,6 +155,8 @@ export function JobList({
   onOpen,
 }: {
   spec: SearchSpec | null;
+  /** What the list is showing, when it is a saved search; otherwise it is just "Results". */
+  title?: string;
   notes: Map<string, Note>;
   view: ListView;
   onView: (view: ListView) => void;
@@ -250,7 +253,7 @@ export function JobList({
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b px-4">
         <h2 className="truncate text-sm font-medium">
-          {view === "tracker" ? "Tracker" : "Results"}
+          {view === "tracker" ? "Tracker" : (title ?? "Results")}
         </h2>
         <div
           role="tablist"

@@ -135,4 +135,70 @@ describe("ResumeWorkspace", () => {
     );
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/resume/tailor");
   });
+
+  it("has no cover letter on the base resume", () => {
+    render(<ResumeWorkspace {...props} initial={record("Jane Roe")} />);
+    expect(screen.queryByRole("tab", { name: "Cover letter" })).toBeNull();
+  });
+
+  it("writes a cover letter for a posting's copy and fills the text", async () => {
+    const letter = "Dear Hiring Team,\n\nI build platforms.\n\nSincerely,\nJane Roe";
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/resume/cover-letter"
+        ? respond({ letter })
+        : respond({ jobId: 5, doc: defaultResumeDoc(), updatedAt: 2 }),
+    );
+    render(
+      <ResumeWorkspace
+        {...props}
+        base={record("Jane Roe")}
+        posting={{
+          id: 5,
+          title: "Platform Engineer",
+          company: "Globex",
+          applyUrl: null,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cover letter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Write with the assistant" }));
+    await waitFor(() =>
+      expect((screen.getByLabelText("Cover letter text") as HTMLTextAreaElement).value).toBe(
+        letter,
+      ),
+    );
+    const call = fetchMock.mock.calls.find(([url]) => url === "/api/resume/cover-letter");
+    expect(JSON.parse(String(call?.[1].body)).jobId).toBe(5);
+    expect(screen.getByRole("button", { name: "Write again" })).toBeTruthy();
+  });
+
+  it("saves the cover letter with the copy as the person types", async () => {
+    render(
+      <ResumeWorkspace
+        {...props}
+        base={record("Jane Roe")}
+        posting={{
+          id: 5,
+          title: "Platform Engineer",
+          company: "Globex",
+          applyUrl: null,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cover letter" }));
+    fireEvent.change(screen.getByLabelText("Cover letter text"), {
+      target: { value: "My own words." },
+    });
+    await waitFor(
+      () => {
+        const put = fetchMock.mock.calls.find(
+          ([url, init]) => url === "/api/resume?job=5" && init?.method === "PUT",
+        );
+        expect(JSON.parse(String(put?.[1].body)).coverLetter).toBe("My own words.");
+      },
+      { timeout: 3000 },
+    );
+  });
 });

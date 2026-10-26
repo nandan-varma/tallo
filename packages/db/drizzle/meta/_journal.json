@@ -85,6 +85,13 @@
       "when": 1793057677868,
       "tag": "0011_chemical_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793058232323,
+      "tag": "0012_sloppy_morph",
+      "breakpoints": true
     }
   ]
 }

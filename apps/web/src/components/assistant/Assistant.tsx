@@ -1,4 +1,5 @@
 import { useChat } from "@ai-sdk/react";
+import type { SavedSearch } from "@tallo/contracts";
 import type { JobAgentMessage } from "@tallo/search-ai";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
@@ -7,6 +8,7 @@ import { ChatPanel } from "@/components/assistant/ChatPanel";
 import { JobList, type ListView } from "@/components/assistant/JobList";
 import { JobPage } from "@/components/assistant/JobPage";
 import { Orb } from "@/components/assistant/Orb";
+import { useSearches } from "@/components/assistant/searches";
 import { collectHits, currentSearch, notesById } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
 
@@ -52,7 +54,11 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
 
   const working = status === "submitted" || status === "streaming";
   const hits = useMemo(() => collectHits(messages), [messages]);
-  const spec = useMemo(() => currentSearch(messages), [messages]);
+  const chatSpec = useMemo(() => currentSearch(messages), [messages]);
+  // A saved search the person opened stands in for the chat's search until they ask for something new.
+  const [pinned, setPinned] = useState<SavedSearch | null>(null);
+  const spec = pinned?.spec ?? chatSpec;
+  const searches = useSearches();
   const notes = useMemo(() => notesById(messages), [messages]);
 
   useEffect(() => {
@@ -85,6 +91,7 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
 
   const send = useCallback(
     (text: string) => {
+      setPinned(null);
       setView("results");
       setOpenId(null);
       setTab("chat");
@@ -93,9 +100,21 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
     [sendMessage],
   );
 
+  const runSaved = useCallback(
+    (search: SavedSearch) => {
+      setPinned(search);
+      setView("results");
+      setOpenId(null);
+      setTab("results");
+      searches.markSeen(search.id);
+    },
+    [searches.markSeen],
+  );
+
   const reset = useCallback(() => {
     void stop();
     setMessages([]);
+    setPinned(null);
     setOpenId(null);
     setShownId(null);
     setView("results");
@@ -156,6 +175,11 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
             status={status}
             error={error}
             hasResume={hasResume}
+            spec={spec}
+            saved={searches.searches}
+            onRunSaved={runSaved}
+            onSaveSearch={searches.save}
+            onRemoveSearch={searches.remove}
             inputRef={inputRef}
             onSend={send}
             onStop={() => void stop()}
@@ -169,6 +193,7 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
       <section aria-label="Results" className={pane.list}>
         <JobList
           spec={spec}
+          title={pinned?.name}
           notes={notes}
           view={view}
           onView={setView}
