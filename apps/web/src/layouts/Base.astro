@@ -7,6 +7,7 @@ interface Props {
 const { title = "Jobs · Tallo" } = Astro.props;
 const savedView = Astro.url.searchParams.has("saved");
 const jobsActive = Astro.url.pathname === "/" && !savedView;
+const statusActive = Astro.url.pathname === "/status";
 ---
 <!doctype html>
 <html lang="en">
@@ -26,6 +27,7 @@ const jobsActive = Astro.url.pathname === "/" && !savedView;
       <nav aria-label="Main navigation" class="header-nav">
         <a href="/" aria-current={jobsActive ? "page" : undefined}>Jobs</a>
         <a href="/?saved=true" aria-current={savedView ? "page" : undefined}>Saved jobs</a>
+        <a href="/status" aria-current={statusActive ? "page" : undefined}>Status</a>
       </nav>
     </header>
     <main id="main" transition:animate="fade"><slot /></main>
