@@ -36,6 +36,25 @@ describe("POST /api/ai/ask body guard", () => {
     });
   });
 
+  it("forwards a 20,000-char multibyte profile (over 32 KB as UTF-8) without a 413", async () => {
+    // 20,000 three-byte characters: 60 KB of UTF-8. The earlier 32 KB cap rejected this valid profile.
+    const profile = "界".repeat(20_000);
+    const body = JSON.stringify({ query: "go", profile });
+    expect(new TextEncoder().encode(body).byteLength).toBeGreaterThan(32 * 1024);
+    expect(new TextEncoder().encode(body).byteLength).toBeLessThanOrEqual(MAX_ASK_BODY_BYTES);
+
+    const response = await call(
+      new Request(ENDPOINT, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(askJobs).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(askJobs.mock.calls[0]?.[0] as string)).toEqual({ query: "go", profile });
+  });
+
   it("returns 415 without forwarding when the content-type is not JSON", async () => {
     const response = await call(
       new Request(ENDPOINT, {
@@ -82,7 +101,8 @@ describe("POST /api/ai/ask body guard", () => {
     );
     expect(response.status).toBe(413);
     expect(askJobs).not.toHaveBeenCalled();
-    expect(pulls).toBeLessThan(10);
+    // The read stops once the cap is passed: about cap / chunk pulls, plus one for the stream's read-ahead.
+    expect(pulls).toBeLessThanOrEqual(Math.ceil(MAX_ASK_BODY_BYTES / (8 * 1024)) + 2);
   });
 
   it("returns 400 for a valid-size JSON body that fails validation", async () => {

@@ -1,6 +1,7 @@
 # AI search (design)
 
-Status: design agreed 2026-10-26, nothing built. Decision log entry: D13 in `decisions.md`.
+Status: design agreed 2026-10-26. The engine, the JobsPort recall and `POST /v1/ai/ask` are in PR #54 (no UI yet).
+Decision log entry: D13 in `decisions.md`.
 
 ## Problem
 
@@ -33,8 +34,36 @@ can return empty content, so every call sets an explicit output budget and model
 
 1. **Understand** (fast): request + profile -> intent: target and adjacent titles, seniority, must-haves,
    deal-breakers. Not structured filters.
-2. **Recall** (no model): several FTS queries from the title variants, merged, a few hundred candidates.
-   Only impossible rows are excluded (closed, hidden, stale). Vector recall (#16) later, same `recall` port.
+2. **Recall** (no model): the variants (the request, the intent queries and titles; at most 12) each become one
+   bounded read: `searchJobs` with an exact-term AND expression (`ftsAllTerms`, no prefix, every term quoted), limit
+   100, no cursor. Results are merged and capped at `recallLimit` (300). Only impossible rows are excluded: closed,
+   hidden, stale and duplicates (`dup_of`), through `visibleJobs`. Vector recall (#16) later, same `recall` port.
+   The understand prompt asks for two- or three-word title phrases ("backend engineer"), because a single generic
+   word matches most of the catalog.
+
+   **Rows read per ask.** A variant reads its FTS matches: the plan is `SCAN jobs_fts` (MATCH), one rowid lookup
+   per match, then a temp B-tree for the sort. So a variant costs its match count, and an ask costs the sum over at
+   most 12 variants. Measured on a local SQLite built from migrations 0000 to 0006, 100,000 synthetic jobs (80% of
+   titles contain "engineer", 1% "Backend Engineer", 1% "Platform Engineer"):
+
+   | Variant                 | FTS matches (rows read) | Before (3 pages, each sorting all matches) |
+   | ----------------------- | ----------------------- | ------------------------------------------ |
+   | `"engineer"` (one word) | 80,000                  | up to 240,000 per query                    |
+   | `"backend" "engineer"`  | 1,000                   | up to 3,000 per query                      |
+
+   Production has the same shape (480k open rows, `engineer` in 154k titles, from the #54 review), so one common
+   word costs about 154k rows per variant. Production was not measured with two-word titles. The worst ask is 12
+   variants that are all single common words (about 1.8M rows). The prompt rule and the 12-variant cap bound it;
+   a single generic word typed by the user is a known residual, since it is also a variant.
+   Test: `apps/api/test/jobs-port.test.ts` (one read per variant, at most 100 rows per variant, and a title
+   phrase at least 50x narrower than the common word at 100k rows).
+
+   **Model-call ceiling (`AI_MAX_MODEL_CALLS` = 150).** Worst default ask: 1 understand, 3 triage batches (300
+   candidates at 100 per batch), and 15 deep reads of up to 8 parts, each read being 8 notes calls plus 1 judge:
+   1 + 3 + 15 x 9 = 139. The 139 excludes retries: each empty-content retry is one more call, so the 11 spare calls
+   cover 11 retries, and a worse ask stops with 422. The old ceiling of 60 stopped an ask of 15 long reads.
+
+   Vector recall (#16) later, same `recall` port.
 3. **Triage** (fast, batches of ~100): per candidate `strong | maybe | no` from title, company, location and
    whatever facts exist. Missing facts stay `unknown`; nothing is invented.
 4. **Deep** (smart, budgeted ~10 reads): only for `maybe` rows near the cut. `description` is never truncated:
@@ -79,7 +108,8 @@ One posting listed once per location is one row per location. `jobs.dedupe_key` 
 normalized company, normalized title, `jd_hash`, versioned by `DEDUPE_VERSION`) groups them. `jobs.dup_of`
 is the canonical row's id (lowest open id) and NULL for canonical and ungrouped rows. Search and facets read
 canonical rows only (`visibleJobs`, the shared predicate); `variants` counts a group and the job page lists
-every open location. Recall is design intent only: no recall code exists yet, and it must use `visibleJobs`.
+every open location. Recall (`jobsPort.recall`, PR #54) reads through `visibleJobs`, and so do `facts` and
+`description`: an id that is not visible returns nothing, so a duplicate never reaches the engine.
 - A group is open rows sharing a key, `hidden` flag and freshness. Splitting on the last two keeps a
   hidden or stale canonical from hiding a visible duplicate.
 - `rebuildDuplicates` (ingest.ts, the only writer) regroups the keys of rows written in a 3-hour window

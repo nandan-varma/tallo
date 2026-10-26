@@ -34,8 +34,13 @@ export function parseAskBody(value: unknown): AskBody | null {
   return buildAskBody(query, value.profile);
 }
 
-/** Largest accepted proxy body: above the biggest valid body (20k profile + 500 query + JSON). */
-export const MAX_ASK_BODY_BYTES = 32 * 1024;
+/**
+ * Largest accepted proxy body. A valid profile is up to 20,000 characters, and a character is up to
+ * 3 UTF-8 bytes (60 KB), so the cap must allow that for non-ASCII text, not just ASCII. The query and JSON
+ * add a few KB. Control characters are the one case this does not cover (they escape to 6 bytes), and a
+ * textarea does not produce them; the API accepts 128 KB, so this is the stricter of the two.
+ */
+export const MAX_ASK_BODY_BYTES = 96 * 1024;
 
 export type AskBodyRead =
   | { ok: true; value: unknown }
