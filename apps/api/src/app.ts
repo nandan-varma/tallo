@@ -18,6 +18,7 @@ import {
   jdKey,
   listFacets,
   listRuns,
+  listSourceStatus,
   listSources,
   rebuildFacets,
   reclassify,
@@ -83,6 +84,9 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
   );
 
   app.get("/v1/sources", read, async (c) => c.json(await listSources(db)));
+
+  /** Slim per-source view for the status page; `/v1/sources` stays the full record for the runner. */
+  app.get("/v1/sources/status", read, async (c) => c.json(await listSourceStatus(db)));
 
   /** Precomputed counts for the filter dropdowns; a few rows read per request. */
   app.get("/v1/facets", read, async (c) => {

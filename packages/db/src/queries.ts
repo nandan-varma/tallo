@@ -167,6 +167,24 @@ export async function listSources(db: Db, now = Math.floor(Date.now() / 1000)) {
   return rows.map((source) => ({ ...source, freshness: freshness(source.lastListedAt, now) }));
 }
 
+/** Slim per-source view for the status page: no `params`, no `consecutiveFailures`. */
+export async function listSourceStatus(db: Db, now = Math.floor(Date.now() / 1000)) {
+  const rows = await db
+    .select({
+      id: sources.id,
+      platform: sources.platform,
+      company: sources.company,
+      key: sources.key,
+      lastRunAt: sources.lastRunAt,
+      lastCompleteRunAt: sources.lastCompleteRunAt,
+      lastListedAt: sources.lastListedAt,
+      lastStatus: sources.lastStatus,
+    })
+    .from(sources)
+    .orderBy(sources.id);
+  return rows.map((source) => ({ ...source, freshness: freshness(source.lastListedAt, now) }));
+}
+
 export const runsSearchSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   /** Only runs that ended partial or reported issues: the ones an operator needs to see. */

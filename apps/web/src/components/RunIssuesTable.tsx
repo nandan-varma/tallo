@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { type RunRecord, runCounts, since } from "@/lib/status";
+import { httpsUrl, type RunRecord, runCounts, since } from "@/lib/status";
 
 const MAX_ISSUES_SHOWN = 3;
 
@@ -63,9 +63,9 @@ export function RunIssuesTable({
                       <li key={i} className="flex flex-wrap items-baseline gap-1.5">
                         <Badge variant="outline">{issue.code}</Badge>
                         <span className="break-words">{issue.message}</span>
-                        {issue.url && (
+                        {httpsUrl(issue.url) && (
                           <a
-                            href={issue.url}
+                            href={httpsUrl(issue.url)}
                             rel="noreferrer noopener"
                             className="text-xs text-muted-foreground underline underline-offset-4"
                           >

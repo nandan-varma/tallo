@@ -59,13 +59,20 @@ Flags win over env. Invalid values (non-numeric, below the minimum) fail before 
 conservative setting. Retries after a 429/5xx keep their per-host slot but do not wait for the gap.
 `verify` uses its own limit of 4 and is not shared.
 
-Check health: `GET /v1/sources` (needs READ_TOKEN) shows `lastRunAt`, `lastCompleteRunAt`, `lastStatus`
-per source. A source with no complete run for 7 days is stale.
+Check health, read-only, with READ_TOKEN:
+- `GET /v1/sources/status` is the slim per-source view the status page uses: `lastRunAt`,
+  `lastCompleteRunAt`, `lastListedAt`, `lastStatus` and `freshness`, without board params or failure counters.
+- `GET /v1/sources` is the full record (adds `status` and `consecutiveFailures`). The runner's `sources --dead`
+  reads it with the ingest token, which the API also accepts for reads.
+- `GET /v1/runs?attention=true&limit=50` lists recent runs that ended partial or reported issues (`limit` 1 to 200).
+
+A source with no complete run for 7 days is stale.
 
 ### Dead boards
 
-A listing that returns HTTP 404 means the board does not exist. Three runs in a row that 404 mark the
-source `dead` (`sources.status`, `sources.consecutive_failures`). Any other outcome breaks the streak: a 500
+A listing whose first request returns HTTP 404 means the board does not exist. Three runs in a row that 404 mark the
+source `dead` (`sources.status`, `sources.consecutive_failures`). A 404 later in a paginated listing is a failed
+run on a board that exists, so it does not count. Any other outcome breaks the streak: a 500
 or a partial run resets the count to 0. A dead source is skipped by `tallo sync` (its jobs stay as they
 are; nothing closes on a failed run).
 - `pnpm --filter @tallo/runner tallo sources --dead` lists dead boards with their 404 count and last run.
