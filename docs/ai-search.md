@@ -37,13 +37,16 @@ can return empty content, so every call sets an explicit output budget and model
    Only impossible rows are excluded (closed, hidden, stale). Vector recall (#16) later, same `recall` port.
 3. **Triage** (fast, batches of ~100): per candidate `strong | maybe | no` from title, company, location and
    whatever facts exist. Missing facts stay `unknown`; nothing is invented.
-4. **Deep** (smart, budgeted ~10 reads): only for `maybe` rows near the cut. `description` is capped
-   (~6k chars) and sliced. Scores fit against the profile with quoted evidence.
+4. **Deep** (smart, budgeted ~10 reads): only for `maybe` rows near the cut. The **full** description is read:
+   the important facts (pay, minimum requirements) are usually at the bottom, so text is **never truncated**.
+   If a description exceeds the model's context it is read in consecutive chunks (all of them), not cut.
+   Cost is controlled by how many jobs get a deep read, never by shortening one. Scores fit against the
+   profile with quoted evidence.
 5. **Answer**: ranked best fit first; each item has a one-line reason, evidence, and an explicit unknown list.
 
 Rule: when the input is already known (e.g. one job's requirements) use one `generateText` with
 `Output.object`; use the agent loop only for open-ended retrieval. Budgets (`stopWhen`, `maxOutputTokens`,
-deep-read cap) are enforced in `prepareStep`, not by prompt.
+deep-read count) are enforced in `prepareStep`, not by prompt.
 
 ## Profile
 
@@ -62,3 +65,11 @@ Logs never include content outside the CLI trace.
 
 `POST /v1/ai/ask` (read token, streamed `createAgentUIStreamResponse`), then a small chat island in
 `apps/web` (`useChat`; the one justified `client:*`). AI key is a Worker secret.
+
+## Duplicates
+
+A posting listed for several locations, or the same job on two boards, is many rows with one description.
+Rows are never deleted (collectors stay lossless). `jobs.dedupe_key` = hash(normalized company, normalized title,
+`jd_hash`); `jobs.dup_of` points non-canonical open rows at the canonical one (lowest open id in the group).
+Search, facets and recall read canonical rows only (`dup_of IS NULL`) and carry the variant count/locations,
+so the engine and the UI never see a job twice. `dup_of` is recomputed by a rebuild (cron + admin endpoint).
