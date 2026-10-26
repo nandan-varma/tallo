@@ -89,6 +89,13 @@ corrected rule be replayed without refetching.
 `closed_at IS NULL AND hidden = 0`. Search sits behind `searchJobs`; vector/context search will be another
 implementation of the same query surface.
 
+`GET /v1/facets`: work mode, department, employment type and country counts over the same default-visible
+set as search (`visibleJobs`). Counts live in `facet_counts` (top 100 per facet) and are rebuilt in one batch
+by `rebuildFacets` in the hourly cron, or on demand via `POST /v1/admin/facets/rebuild`. Counts can lag by
+up to an hour. D1 rows read: a request reads at most ~400 rows from `facet_counts`; a rebuild reads each
+default-visible job once plus one `sources` lookup per job for the staleness check, so roughly 2 × visible
+jobs per hour (24 rebuilds a day). Confirm with the D1 dashboard after the first few cron runs.
+
 ## Cost (10 daily users, ~300k stored jobs)
 
 Workers Paid $5 + domain; D1 and R2 stay inside included allowances. AI enrichment is the real cost risk

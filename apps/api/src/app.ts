@@ -16,7 +16,9 @@ import {
   getJob,
   IngestError,
   jdKey,
+  listFacets,
   listSources,
+  rebuildFacets,
   reclassify,
   schema,
   searchJobs,
@@ -80,6 +82,12 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
 
   app.get("/v1/sources", read, async (c) => c.json(await listSources(db)));
 
+  /** Precomputed counts for the filter dropdowns; a few rows read per request. */
+  app.get("/v1/facets", read, async (c) => {
+    c.header("cache-control", "private, max-age=300");
+    return c.json(await listFacets(db));
+  });
+
   // ---- ingest (runner) ------------------------------------------------------------------
   app.post("/v1/runs", write, zValidator("json", createRunSchema), async (c) => {
     await startRun(db, c.req.valid("json"));
@@ -133,6 +141,9 @@ export function createApp({ db, blobs, readToken, ingestToken }: Deps) {
   app.post("/v1/runs/:id/finalize", write, zValidator("json", finalizeSchema), async (c) =>
     c.json(await finalize(db, c.req.param("id"), c.req.valid("json"))),
   );
+
+  /** Recount facets now instead of waiting for the hourly cron (e.g. right after a deploy). */
+  app.post("/v1/admin/facets/rebuild", write, async (c) => c.json(await rebuildFacets(db)));
 
   /** Upgrade heuristic flags after a rule change, from stored facts. Call until `more` is false. */
   app.post("/v1/admin/reclassify", write, async (c) =>

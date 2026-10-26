@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 /** One configured recruiting surface. Mirrors the repo's source config; written when a run starts. */
 export const sources = sqliteTable("sources", {
@@ -107,3 +115,18 @@ export const jobs = sqliteTable(
 );
 
 export type JobRow = typeof jobs.$inferSelect;
+
+/**
+ * Precomputed facet counts over the default-visible catalog (see `rebuildFacets`). Derived data:
+ * rebuilt wholesale in one batch, so readers always see one complete snapshot.
+ */
+export const facetCounts = sqliteTable(
+  "facet_counts",
+  {
+    facet: text().notNull(),
+    value: text().notNull(),
+    count: integer().notNull(),
+    computedAt: integer("computed_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.facet, t.value] })],
+);

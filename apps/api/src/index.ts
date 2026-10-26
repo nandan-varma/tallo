@@ -1,5 +1,5 @@
 import type { BlobStore } from "@tallo/db";
-import { pruneRuns, purgeClosed, schema } from "@tallo/db";
+import { pruneRuns, purgeClosed, rebuildFacets, schema } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
 import { createApp } from "./app.ts";
 
@@ -39,10 +39,14 @@ const appFor = (env: Env) => {
 
 export default {
   fetch: (request, env, ctx) => appFor(env).fetch(request, env, ctx),
-  /** Hourly housekeeping: drop jobs closed for 30+ days and their orphaned description blobs. */
+  /**
+   * Hourly housekeeping: drop jobs closed for 30+ days and their orphaned description blobs,
+   * then refresh the facet counts (the search dropdowns read them).
+   */
   async scheduled(_event: ScheduledController, env: Env) {
     const { db, blobs } = deps(env);
     await purgeClosed(db, blobs);
     await pruneRuns(db, blobs);
+    await rebuildFacets(db);
   },
 } satisfies ExportedHandler<Env>;
