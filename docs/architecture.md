@@ -90,7 +90,9 @@ corrected rule be replayed without refetching.
 implementation of the same query surface.
 
 `GET /v1/facets`: work mode, department, employment type and country counts over the same default-visible
-set as search (`visibleJobs`). Counts live in `facet_counts` (top 100 per facet) and are rebuilt in one batch
+set as search (`visibleJobs`). Each count is the global count for that one value within the default-visible
+set. It ignores `q`, `company`, salary, posted-within and the `all` toggle, so it is not the count inside
+the current search, and a count can be larger than the result set when other filters are active. Counts live in `facet_counts` (top 100 per facet) and are rebuilt in one batch
 by `rebuildFacets` in the hourly cron, or on demand via `POST /v1/admin/facets/rebuild`. Counts can lag by
 up to an hour. D1 rows read: a request reads at most ~400 rows from `facet_counts`; a rebuild reads each
 default-visible job once plus one `sources` lookup per job for the staleness check, so roughly 2 × visible

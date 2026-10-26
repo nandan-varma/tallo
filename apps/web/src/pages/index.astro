@@ -5,9 +5,10 @@ import { getFacets, searchJobs } from "@/lib/api";
 
 const params = Astro.url.searchParams;
 const query = new URLSearchParams([...params].filter(([, value]) => value !== ""));
+// Facets are optional: a failed or missing /v1/facets must not take the search page down with it.
 const [{ jobs, nextCursor }, facets] = await Promise.all([
   params.get("saved") === "true" ? { jobs: [], nextCursor: null } : searchJobs(query),
-  getFacets(),
+  getFacets().catch(() => undefined),
 ]);
 ---
 <Base>
@@ -16,6 +17,6 @@ const [{ jobs, nextCursor }, facets] = await Promise.all([
     jobs={jobs}
     nextCursor={nextCursor}
     values={Object.fromEntries(params)}
-    facets={facets}
+    facets={facets ?? undefined}
   />
 </Base>

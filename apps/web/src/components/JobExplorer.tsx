@@ -57,7 +57,7 @@ export function JobExplorer({
   jobs: JobSummary[];
   nextCursor: string | null;
   values: Record<string, string>;
-  facets: Facets;
+  facets?: Facets;
 }) {
   const [selected, setSelected] = useState<JobSummary | null>(
     values.saved === "true" ? null : (jobs[0] ?? null),
