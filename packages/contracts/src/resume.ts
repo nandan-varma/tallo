@@ -115,13 +115,24 @@ export const editResumeSchema = z.object({
 });
 
 /** How well a resume fits a posting. Quotes are checked against both texts before they reach the person. */
-export const fitSchema = z.object({
-  verdict: z.enum(["strong", "good", "stretch", "weak"]),
+export const modelFitSchema = z.object({
   summary: z.string(),
   matches: z.array(z.object({ requirement: z.string(), evidence: z.string() })),
   gaps: z.array(z.object({ requirement: z.string(), advice: z.string() })),
 });
-export type Fit = z.infer<typeof fitSchema>;
+export type ModelFit = z.infer<typeof modelFitSchema>;
+
+export type FitVerdict = "strong" | "good" | "stretch" | "weak";
+
+/**
+ * What the person sees: the model's verified matches and gaps, plus a percentage the code works out from them
+ * (matched requirements over all requirements checked) and the verdict that percentage falls in. The model
+ * never states a score, so the number cannot be talked up.
+ */
+export interface Fit extends ModelFit {
+  percent: number;
+  verdict: FitVerdict;
+}
 
 /** What the AI endpoints answer: the new resume plus a short list of what changed, for the person to review. */
 export interface ResumeEdit {

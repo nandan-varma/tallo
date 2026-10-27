@@ -17,6 +17,7 @@ const record = {
 };
 
 const fit: Fit = {
+  percent: 80,
   verdict: "strong",
   summary: "Strong overlap on TypeScript and API design.",
   matches: [
@@ -43,7 +44,8 @@ describe("FitCard", () => {
   it("reads the base resume, posts it with the job, and shows the verdict with its quotes", async () => {
     const fetchMock = mount((url) => Response.json(url === "/api/resume/fit" ? fit : record));
 
-    expect(await screen.findByText("Strong fit")).toBeTruthy();
+    expect(await screen.findByText("80%")).toBeTruthy();
+    expect(screen.getByText("Strong fit")).toBeTruthy();
     expect(screen.getByText("Strong overlap on TypeScript and API design.")).toBeTruthy();
     expect(screen.getByText("5+ years of TypeScript")).toBeTruthy();
     expect(screen.getByText("Five years writing TypeScript services")).toBeTruthy();

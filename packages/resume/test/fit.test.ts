@@ -1,4 +1,4 @@
-import { emptyResume, type Fit, type Resume } from "@tallo/contracts";
+import { emptyResume, type ModelFit, type Resume } from "@tallo/contracts";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { fitCheck } from "../src/ai.ts";
@@ -12,8 +12,7 @@ const usage = {
 const RESUME = "Built a  Go\nservice that cut p95 latency.";
 const POSTING = "Five years of experience with Kubernetes.\nOwn   API latency.";
 
-const fit = (over: Partial<Fit> = {}): Fit => ({
-  verdict: "good",
+const fit = (over: Partial<ModelFit> = {}): ModelFit => ({
   summary: "Solid backend record. Kubernetes is missing.",
   matches: [
     { requirement: "Own API latency.", evidence: "Built a Go service that cut p95 latency." },
@@ -32,7 +31,33 @@ describe("guardFit", () => {
     const out = guardFit(fit(), RESUME, POSTING);
     expect(out.matches).toHaveLength(1);
     expect(out.gaps).toHaveLength(1);
-    expect(out.verdict).toBe("good");
+    expect(out.percent).toBe(50);
+    expect(out.verdict).toBe("stretch");
+  });
+
+  it("scores matched requirements over all requirements checked, ignoring what the model may claim", () => {
+    const gap = (requirement: string) => ({ requirement, advice: "Not covered in your resume." });
+    const match = {
+      requirement: "Own API latency.",
+      evidence: "Built a Go service that cut p95 latency.",
+    };
+    const score = (matches: number, gaps: number) =>
+      guardFit(
+        {
+          ...fit(),
+          matches: Array(matches).fill(match),
+          gaps: Array(gaps).fill(gap("Five years of experience with Kubernetes.")),
+          verdict: "strong",
+          percent: 99,
+        } as ModelFit,
+        RESUME,
+        POSTING,
+      );
+    expect(score(4, 1)).toMatchObject({ percent: 80, verdict: "strong" });
+    expect(score(3, 2)).toMatchObject({ percent: 60, verdict: "good" });
+    expect(score(1, 2)).toMatchObject({ percent: 33, verdict: "weak" });
+    expect(score(0, 3)).toMatchObject({ percent: 0, verdict: "weak" });
+    expect(score(0, 0)).toMatchObject({ percent: 0, verdict: "weak" });
   });
 
   it("drops a match whose requirement or evidence the texts do not contain", () => {
@@ -116,7 +141,7 @@ describe("fitCheck", () => {
       resume,
       posting: { title: "Backend", company: "Globex", description: POSTING },
     });
-    expect(out.verdict).toBe("good");
+    expect(out.percent).toBe(50);
     expect(out.matches).toHaveLength(1);
     expect(out.gaps).toHaveLength(1);
     expect(seen[0]).toContain("<posting>");

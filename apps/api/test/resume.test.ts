@@ -168,7 +168,6 @@ describe("cover letter and fit routes", () => {
 
   it("checks the fit against a posting and returns the guarded answer", async () => {
     const { model, prompts } = answering({
-      verdict: "stretch",
       summary: "Strong on APIs. Backend scale is not shown.",
       matches: [
         { requirement: "Pay: $200,000.", evidence: "Built APIs." },
@@ -181,7 +180,13 @@ describe("cover letter and fit routes", () => {
 
     const response = await send(app, "/v1/resume/fit", "POST", { jobId: 1, resume: resume() });
     expect(response.status).toBe(200);
-    const out = (await response.json()) as { verdict: string; matches: unknown[]; gaps: unknown[] };
+    const out = (await response.json()) as {
+      percent: number;
+      verdict: string;
+      matches: unknown[];
+      gaps: unknown[];
+    };
+    expect(out.percent).toBe(50);
     expect(out.verdict).toBe("stretch");
     expect(out.matches).toEqual([{ requirement: "Pay: $200,000.", evidence: "Built APIs." }]);
     expect(out.gaps).toHaveLength(1);

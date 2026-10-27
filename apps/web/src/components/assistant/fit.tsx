@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { messageOf, requestJson } from "@/lib/client";
 import { tidy } from "@/lib/resume/edit";
+import { cn } from "@/lib/utils";
 
 const NO_RESUME = "Add your resume first.";
 
@@ -13,6 +14,13 @@ const VERDICT_LABEL: Record<Fit["verdict"], string> = {
   good: "Good fit",
   stretch: "Stretch",
   weak: "Weak fit",
+};
+
+const VERDICT_BAR: Record<Fit["verdict"], string> = {
+  strong: "bg-emerald-500",
+  good: "bg-sky-500",
+  stretch: "bg-amber-500",
+  weak: "bg-muted-foreground/50",
 };
 
 const VERDICT_TONE: Record<Fit["verdict"], string> = {
@@ -41,9 +49,29 @@ const LABEL = "text-[11px] font-medium tracking-wide text-muted-foreground upper
 function FitResult({ fit }: { fit: Fit }) {
   return (
     <div className="mt-2 grid gap-4">
-      <div className="grid gap-2">
-        <Badge className={VERDICT_TONE[fit.verdict]}>{VERDICT_LABEL[fit.verdict]}</Badge>
+      <div className="grid gap-2.5">
+        <div className="flex items-baseline gap-2.5">
+          <span className="text-3xl font-semibold tracking-tight tabular-nums">{fit.percent}%</span>
+          <Badge className={VERDICT_TONE[fit.verdict]}>{VERDICT_LABEL[fit.verdict]}</Badge>
+        </div>
+        <div
+          role="progressbar"
+          aria-label="Fit"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={fit.percent}
+          className="h-1.5 overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className={cn("h-full rounded-full", VERDICT_BAR[fit.verdict])}
+            style={{ width: `${fit.percent}%` }}
+          />
+        </div>
         <p className="text-sm leading-relaxed">{fit.summary}</p>
+        <p className="text-xs text-muted-foreground">
+          {fit.matches.length} of {fit.matches.length + fit.gaps.length} requirements the posting
+          states are shown in your resume.
+        </p>
       </div>
       {fit.matches.length > 0 && (
         <div className="grid gap-2">
