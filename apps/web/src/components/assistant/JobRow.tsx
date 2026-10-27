@@ -1,7 +1,7 @@
 import type { ApplicationStatus } from "@tallo/contracts";
 import type { JobHit } from "@tallo/search-ai";
 import { Banknote, Clock3, MapPin, Quote } from "lucide-react";
-import { type Note, payLabel, postedLabel } from "@/lib/assistant";
+import { type Note, postedLabel } from "@/lib/assistant";
 import { STATUS_LABEL, STATUS_TONE } from "@/lib/tracker";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,6 @@ export function JobRow({
   active: boolean;
   onOpen: (id: string) => void;
 }) {
-  const pay = payLabel(hit.pay);
   const posted = postedLabel(hit.postedAt);
   return (
     <li>
@@ -74,10 +73,10 @@ export function JobRow({
                 </span>
               )}
               {hit.workMode && <span className="capitalize">{hit.workMode}</span>}
-              {pay && (
+              {hit.pay && (
                 <span className="inline-flex items-center gap-1">
                   <Banknote className="size-3 shrink-0" aria-hidden />
-                  {pay}
+                  {hit.pay}
                 </span>
               )}
               {posted && (

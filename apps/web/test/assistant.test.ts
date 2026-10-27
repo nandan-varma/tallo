@@ -5,7 +5,6 @@ import {
   collectHits,
   currentSearch,
   notesById,
-  payLabel,
   postedLabel,
   textBlocks,
   textOf,
@@ -181,14 +180,7 @@ describe("text", () => {
   });
 });
 
-describe("payLabel / postedLabel", () => {
-  it("formats the API's pay text and passes unknown shapes through", () => {
-    expect(payLabel("USD 150000-180000 per year")).toBe("$150K – $180K / yr");
-    expect(payLabel("200000-200000 per year")).toBe("$200K / yr");
-    expect(payLabel("negotiable")).toBe("negotiable");
-    expect(payLabel(null)).toBeNull();
-  });
-
+describe("postedLabel", () => {
   it("says how long ago", () => {
     const now = Date.parse("2026-10-26");
     expect(postedLabel("2026-10-26", now)).toBe("today");
