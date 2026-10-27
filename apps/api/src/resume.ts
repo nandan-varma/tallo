@@ -18,6 +18,7 @@ import {
   editResume,
   fitCheck,
   importResume,
+  prepInterview,
   tailorResume,
   writeCoverLetter,
 } from "@tallo/resume/ai";
@@ -170,6 +171,25 @@ export function resumeRoutes({
       const posting = { title: job.title, company: job.company, description };
       return resumeAi(c, "ai.resume.fit.failed", (model) =>
         fitCheck({ model, resume, posting, abortSignal: c.req.raw.signal }),
+      );
+    },
+  );
+
+  routes.post(
+    "/v1/resume/prep",
+    read,
+    bounded,
+    zValidator("json", tailorResumeSchema),
+    async (c) => {
+      const { jobId, resume } = c.req.valid("json");
+      const job = await getJob(db, jobId);
+      if (!job) return c.json({ error: "That posting is no longer listed." }, 404);
+      const description = await descriptionOf(job.jdHash);
+      if (!description)
+        return c.json({ error: "That posting has no description to prepare for." }, 422);
+      const posting = { title: job.title, company: job.company, description };
+      return resumeAi(c, "ai.resume.prep.failed", (model) =>
+        prepInterview({ model, resume, posting, abortSignal: c.req.raw.signal }),
       );
     },
   );

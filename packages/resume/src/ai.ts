@@ -156,3 +156,4 @@ export async function writeCoverLetter({
 }
 
 export { fitCheck } from "./fit.ts";
+export { prepInterview } from "./prep.ts";

@@ -35,6 +35,17 @@ export function filterByStatus(applications: Application[], filter: StatusFilter
     : applications.filter((application) => application.status === filter);
 }
 
+const WEEK = 7 * 86_400;
+
+/** An application a week old with no later status: time to follow up. */
+export function needsFollowUp(application: Application, now = Date.now() / 1000): boolean {
+  return (
+    application.status === "applied" &&
+    application.appliedAt !== null &&
+    now - application.updatedAt >= WEEK
+  );
+}
+
 /** What clicking "Apply" means for the tracker: a role not yet applied to is now applied to. */
 export function afterApplyClick(current: ApplicationStatus | undefined): ApplicationStatus | null {
   return current === undefined || current === "saved" ? "applied" : null;

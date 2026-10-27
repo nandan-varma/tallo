@@ -149,3 +149,16 @@ export const defaultResumeDoc = (): ResumeDoc => ({
   style: resumeStyleSchema.parse({}),
   coverLetter: "",
 });
+
+/** Interview prep for one posting: likely questions with answers drawn from the resume, and questions to ask them. */
+export const prepSchema = z.object({
+  questions: z.array(
+    z.object({
+      question: z.string(),
+      angle: z.string(),
+      evidence: z.string(),
+    }),
+  ),
+  ask: z.array(z.string()),
+});
+export type Prep = z.infer<typeof prepSchema>;

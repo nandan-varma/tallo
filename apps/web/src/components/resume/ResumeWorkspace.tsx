@@ -32,7 +32,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { messageOf, requestJson } from "@/lib/client";
 import { slug } from "@/lib/resume/layout";
 import { cn } from "@/lib/utils";
@@ -272,11 +271,31 @@ export function ResumeWorkspace({
         </p>
       )}
 
-      <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-0">
-        <TabsList className="mx-3 mt-2 mb-2 w-[calc(100%-1.5rem)] lg:hidden">
-          <TabsTrigger value="edit">Edit</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-        </TabsList>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* Phone and tablet only: which column is shown. Both columns are always in the page on desktop. */}
+        <div className="mx-3 mt-2 mb-2 flex w-[calc(100%-1.5rem)] gap-0.5 rounded-lg bg-muted p-[3px] text-sm lg:hidden">
+          {(
+            [
+              ["edit", "Edit"],
+              ["preview", "Preview"],
+            ] as const
+          ).map(([name, label]) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={tab === name}
+              onClick={() => setTab(name)}
+              className={cn(
+                "flex-1 rounded-md px-1.5 py-0.5 font-medium transition-colors",
+                tab === name
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-foreground/60 hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="grid min-h-0 flex-1 lg:grid-cols-2">
           <div
@@ -447,7 +466,7 @@ export function ResumeWorkspace({
             </div>
           </div>
         </div>
-      </Tabs>
+      </div>
     </div>
   );
 }

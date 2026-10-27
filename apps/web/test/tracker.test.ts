@@ -1,6 +1,6 @@
 import type { Application } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
-import { afterApplyClick, countByStatus, filterByStatus } from "@/lib/tracker";
+import { afterApplyClick, countByStatus, filterByStatus, needsFollowUp } from "@/lib/tracker";
 
 const app = (jobId: number, status: Application["status"]): Application => ({
   jobId,
@@ -33,6 +33,17 @@ describe("tracker helpers", () => {
     expect(filterByStatus(all, "applied").map((a) => a.jobId)).toEqual([2, 3]);
     expect(filterByStatus(all, "offer")).toEqual([]);
     expect(filterByStatus(all, "all")).toBe(all);
+  });
+
+  it("nudges to follow up on an application with no update for a week", () => {
+    const day = 86_400;
+    const applied = { ...app(1, "applied"), appliedAt: 100, updatedAt: 100 };
+    expect(needsFollowUp(applied, 100 + 6 * day)).toBe(false);
+    expect(needsFollowUp(applied, 100 + 7 * day)).toBe(true);
+    expect(needsFollowUp({ ...applied, status: "interviewing" }, 100 + 30 * day)).toBe(false);
+    expect(needsFollowUp({ ...applied, appliedAt: null, status: "saved" }, 100 + 30 * day)).toBe(
+      false,
+    );
   });
 
   it("clicking Apply moves an untracked or saved role to applied, and never overrides a later status", () => {

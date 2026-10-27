@@ -201,3 +201,45 @@ describe("cover letter and fit routes", () => {
     }
   });
 });
+
+describe("interview prep route", () => {
+  it("prepares questions for a posting and returns the guarded answer", async () => {
+    const { model, prompts } = answering({
+      questions: [
+        {
+          question: "Tell me about your API work.",
+          angle: "Lead with the APIs you built at Acme.",
+          evidence: "Built APIs.",
+        },
+        {
+          question: "Have you run Kubernetes?",
+          angle: "Not in your resume.",
+          evidence: "Ran Kubernetes.",
+        },
+      ],
+      ask: ["How is the API latency budget set?"],
+    });
+    const { app, db, blobs } = build(model);
+    await seedJob(db, blobs);
+
+    const response = await send(app, "/v1/resume/prep", "POST", { jobId: 1, resume: resume() });
+    expect(response.status).toBe(200);
+    const out = (await response.json()) as { questions: { evidence: string }[]; ask: string[] };
+    expect(out.questions.map((item) => item.evidence)).toEqual(["Built APIs.", ""]);
+    expect(out.ask).toEqual(["How is the API latency budget set?"]);
+    expect(prompts[0]).toContain("Senior Backend Engineer");
+  });
+
+  it("answers 404 for an unknown posting and 503 without a model", async () => {
+    const missing = build(answering({ questions: [], ask: [] }).model);
+    expect(
+      (await send(missing.app, "/v1/resume/prep", "POST", { jobId: 99, resume: resume() })).status,
+    ).toBe(404);
+
+    const none = build(null);
+    await seedJob(none.db, none.blobs);
+    expect(
+      (await send(none.app, "/v1/resume/prep", "POST", { jobId: 1, resume: resume() })).status,
+    ).toBe(503);
+  });
+});

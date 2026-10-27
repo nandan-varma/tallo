@@ -7,7 +7,13 @@ import { StatusMenu } from "@/components/assistant/StatusMenu";
 import { Button } from "@/components/ui/button";
 import type { Note } from "@/lib/assistant";
 import { ago } from "@/lib/format";
-import { countByStatus, filterByStatus, STATUS_LABEL, type StatusFilter } from "@/lib/tracker";
+import {
+  countByStatus,
+  filterByStatus,
+  needsFollowUp,
+  STATUS_LABEL,
+  type StatusFilter,
+} from "@/lib/tracker";
 import { cn } from "@/lib/utils";
 
 export type ListView = "results" | "tracker";
@@ -106,6 +112,11 @@ function TrackerRows({ openId, onOpen }: { openId: string | null; onOpen: (id: s
                       {application.location ? ` · ${application.location}` : ""}
                       {application.appliedAt ? ` · applied ${ago(application.appliedAt)}` : ""}
                     </span>
+                    {needsFollowUp(application) && (
+                      <span className="mt-0.5 block text-xs font-medium text-amber-700 dark:text-amber-300">
+                        No update in a week. Time to follow up?
+                      </span>
+                    )}
                     {application.note && (
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground italic">
                         {application.note}
