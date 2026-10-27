@@ -179,6 +179,22 @@ describe("workday", () => {
     expect(result.complete).toBe(true);
   });
 
+  it("skips a posting without externalPath, keeps the rest, and marks the listing incomplete", async () => {
+    const { externalPath: _gone, ...unidentified } = obj(row(0));
+    const { ctx, issues } = fakeCtx(() => ({
+      total: 3,
+      jobPostings: [row(1), unidentified, row(2)],
+      facets: [],
+    }));
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(items.map((i) => i.id)).toEqual(["/job/x/1", "/job/x/2"]);
+    expect(result.complete).toBe(false);
+    expect(issues).toContainEqual({
+      code: "schema",
+      message: "Workday posting without externalPath skipped",
+    });
+  });
+
   it.each([undefined, null, -1, 1.5, "20", Number.POSITIVE_INFINITY])(
     "rejects an invalid reported total %s instead of inferring a complete listing",
     async (total) => {

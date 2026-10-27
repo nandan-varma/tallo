@@ -83,7 +83,13 @@ async function* slice(
     if (offset === 0) facets = body.facets ?? [];
     for (const job of page) {
       const path = str(job.externalPath);
-      if (!path) throw new SchemaError("Workday posting without externalPath");
+      if (!path) {
+        // Unidentifiable, so it cannot be listed as seen. The listing is incomplete: a posting we
+        // could not see must not let closure age out its catalog row. The rest of the board is kept.
+        state.complete = false;
+        ctx.record({ code: "schema", message: "Workday posting without externalPath skipped" });
+        continue;
+      }
       if (seen.has(path)) continue;
       seen.add(path);
       yield { id: path, listing: job };

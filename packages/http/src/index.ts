@@ -5,7 +5,8 @@ import PQueue from "p-queue";
 export class HttpError extends Error {
   readonly status: number;
   readonly url: string;
-  readonly kind: "http" | "schema" | "network" | "blocked";
+  /** `redirect`: a redirect pointed off the host allowlist (the board moved or was retired). */
+  readonly kind: "http" | "schema" | "network" | "blocked" | "redirect";
   constructor(kind: HttpError["kind"], message: string, url: string, status = 0) {
     super(message);
     this.name = "HttpError";
@@ -68,6 +69,15 @@ interface HttpOptions {
   /** Override backoff (tests). Receives the 1-based retry attempt. */
   retryDelay?: (attempt: number) => number;
   onRequest?: () => void;
+}
+
+/**
+ * Backoff before retry `attempt` (1-based): exponential from 1s, capped at 30s, with equal jitter so
+ * a retry never lands sooner than half its slot. Full jitter could retry almost at once after a 429.
+ */
+export function backoffMs(attempt: number, random = Math.random): number {
+  const slot = Math.min(30_000, 1000 * 2 ** (attempt - 1));
+  return slot / 2 + random() * (slot / 2);
 }
 
 export function hostAllowed(hostname: string, patterns: readonly string[]): boolean {
@@ -146,7 +156,9 @@ export function createHttp(options: HttpOptions): Http {
       methods: ["get", "post"],
       statusCodes: [408, 429, 500, 502, 503, 504],
       maxRetryAfter: 30_000,
-      jitter: true,
+      // A timed-out request is a slow host, not a dead one: retry it like a 5xx.
+      retryOnTimeout: true,
+      delay: backoffMs,
       // Plain fetch failures (DNS, reset, offline) surface as TypeError; retry them too.
       shouldRetry: ({ error }) => (error instanceof TypeError ? true : undefined),
       ...(options.retryDelay ? { delay: options.retryDelay } : {}),
@@ -196,7 +208,16 @@ export function createHttp(options: HttpOptions): Http {
           await response.body?.cancel();
           if (!location)
             throw new HttpError("http", "Redirect without location", url.href, response.status);
-          url = check(new URL(location, url).href);
+          const target = new URL(location, url);
+          if (!hostAllowed(target.hostname, options.allowedHosts)) {
+            throw new HttpError(
+              "redirect",
+              `Redirected to a host outside the allowlist: ${target.hostname}`,
+              url.href,
+              response.status,
+            );
+          }
+          url = check(target.href);
           verb = "GET";
           payload = undefined;
           continue;
