@@ -15,8 +15,12 @@ const assistantParts = (messages: JobAgentMessage[]) =>
 export function currentSearch(messages: JobAgentMessage[]): SearchSpec | null {
   for (const part of assistantParts(messages).reverse()) {
     if (part.type === "tool-search_jobs" && part.state === "output-available") {
-      const { queries, locations } = part.input;
-      return locations?.length ? { queries, locations } : { queries };
+      const { queries, companies, locations } = part.input;
+      return {
+        queries,
+        ...(companies?.length ? { companies } : {}),
+        ...(locations?.length ? { locations } : {}),
+      };
     }
   }
   return null;

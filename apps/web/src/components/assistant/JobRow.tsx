@@ -72,6 +72,7 @@ export function JobRow({
                   <span className="[overflow-wrap:anywhere]">{hit.location}</span>
                 </span>
               )}
+              {hit.locations > 1 && <span>{`${hit.locations} locations`}</span>}
               {hit.workMode && <span className="capitalize">{hit.workMode}</span>}
               {hit.pay && (
                 <span className="inline-flex items-center gap-1">

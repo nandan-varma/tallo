@@ -66,7 +66,7 @@ beforeEach(() => {
       Response.json(
         url === "/api/applications" || url === "/api/searches"
           ? []
-          : { hits: HITS, nextCursor: null },
+          : { hits: HITS, nextOffset: null },
       ),
     ),
   );

@@ -19,6 +19,7 @@ const hit = (id: string, over: Partial<JobHit> = {}): JobHit => ({
   pay: null,
   postedAt: null,
   department: null,
+  locations: 1,
   ...over,
 });
 
@@ -69,6 +70,17 @@ describe("currentSearch", () => {
       currentSearch([assistant([searched([], ["a b"], undefined, "input-streaming")])]),
     ).toBeNull();
     expect(currentSearch([])).toBeNull();
+  });
+
+  it("carries the companies the person named into the list's search", () => {
+    const part = {
+      ...searched([], ["software engineer"]),
+      input: { queries: ["software engineer"], companies: ["Stripe"] },
+    };
+    expect(currentSearch([assistant([part])])).toEqual({
+      queries: ["software engineer"],
+      companies: ["Stripe"],
+    });
   });
 });
 

@@ -179,15 +179,11 @@ export function JobList({
   started: boolean;
   onOpen: (id: string) => void;
 }) {
-  // Pages are reached by cursor: the stack is the cursors of the pages visited, for one search at a time.
+  // The page is an index for one search at a time; a new search starts again at the first page.
   const searchKey = JSON.stringify(spec);
-  const [stack, setStack] = useState<{ key: string; cursors: (string | undefined)[] }>({
-    key: searchKey,
-    cursors: [undefined],
-  });
-  const cursors = stack.key === searchKey ? stack.cursors : [undefined];
-  const page = cursors.length - 1;
-  const query = useSearchPage(spec, cursors[page]);
+  const [paging, setPaging] = useState({ key: searchKey, page: 0 });
+  const page = paging.key === searchKey ? paging.page : 0;
+  const query = useSearchPage(spec, page * PAGE_SIZE);
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -195,9 +191,9 @@ export function JobList({
   }, [searchKey, page]);
 
   const hits = query.data?.hits ?? [];
-  const nextCursor = query.data?.nextCursor ?? null;
+  const nextOffset = query.data?.nextOffset ?? null;
   const tracker = useTracker();
-  const go = (next: (string | undefined)[]) => setStack({ key: searchKey, cursors: next });
+  const go = (next: number) => setPaging({ key: searchKey, page: next });
 
   let body: ReactNode;
   if (view === "tracker") {
@@ -259,7 +255,7 @@ export function JobList({
     );
   }
 
-  const paged = view === "results" && spec !== null && (page > 0 || nextCursor !== null);
+  const paged = view === "results" && spec !== null && (page > 0 || nextOffset !== null);
   const from = page * PAGE_SIZE + 1;
   const to = page * PAGE_SIZE + hits.length;
   return (
@@ -312,7 +308,7 @@ export function JobList({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => go(cursors.slice(0, -1))}
+            onClick={() => go(page - 1)}
             disabled={page === 0}
             className="gap-1"
           >
@@ -326,8 +322,8 @@ export function JobList({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => nextCursor && go([...cursors, nextCursor])}
-            disabled={!nextCursor || query.isPlaceholderData}
+            onClick={() => nextOffset !== null && go(page + 1)}
+            disabled={nextOffset === null || query.isPlaceholderData}
             className="gap-1"
           >
             Next

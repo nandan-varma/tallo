@@ -12,21 +12,21 @@ import { requestJson } from "@/lib/client";
 
 export const PAGE_SIZE = 20;
 
-type SearchPage = { hits: JobHit[]; nextCursor: string | null };
+type SearchPage = { hits: JobHit[]; nextOffset: number | null };
 
 /**
- * One page of the database's answer to the assistant's search. The previous page stays on screen while the
- * next one loads, so the list never blanks between searches or pages.
+ * One page of the database's answer to the assistant's search, from `offset`. The previous page stays on screen
+ * while the next one loads, so the list never blanks between searches or pages.
  */
-export function useSearchPage(spec: SearchSpec | null, cursor: string | undefined) {
+export function useSearchPage(spec: SearchSpec | null, offset: number) {
   return useQuery({
-    queryKey: ["search", spec, cursor],
+    queryKey: ["search", spec, offset],
     enabled: spec !== null,
     placeholderData: keepPreviousData,
     queryFn: ({ signal }) =>
       requestJson<SearchPage>("/api/search", {
         method: "POST",
-        body: { ...spec, cursor, limit: PAGE_SIZE },
+        body: { ...spec, offset, limit: PAGE_SIZE },
         signal,
       }),
   });

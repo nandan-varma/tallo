@@ -104,7 +104,7 @@ function stubBrowser(desktop: boolean) {
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       if (url === "/api/search") {
-        return Response.json({ hits: DB_HITS, nextCursor: null });
+        return Response.json({ hits: DB_HITS, nextOffset: null });
       }
       if (url === "/api/resumes") return Response.json(copies);
       if (url === "/api/applications") return Response.json(tracked);
