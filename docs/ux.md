@@ -14,7 +14,7 @@ Navigation is Jobs and Resume. Data status is a quiet link on the right. Old `/p
 
 - **Jobs** (`/`): chat, results, tracker (the "Tracker" tab: every saved or applied role, filter by status, notes on the
   posting), saved searches on the empty chat with "N new" since you last ran them. A posting offers Save/status, Tailor
-  resume, Apply, and a fit check against your resume.
+  resume, Apply, and a fit check against your resume; at the interviewing stage it also offers interview prep.
 - **Resume** (`/resume`, `/resume/<posting>`): editor with checks, assistant, live PDF; a posting's copy also has the cover
   letter tab. Theme (light/dark) is the toggle in the header and follows the system until you choose.
 

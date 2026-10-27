@@ -33,7 +33,11 @@ _Last updated: 2026-10-26 (tracker, saved searches, fit, cover letter, dark mode
   interviewing / offer / rejected with notes; clicking Apply on a role marks it applied; table `applications` keeps a snapshot
   of the posting), **saved searches** with a count of roles new since last run (`searches`), **fit check** on a posting
   (`POST /v1/resume/fit`, quotes verified in code), **cover letter** per tailored copy (stored in the resume doc, PDF export),
-  **dark mode**. Migrations 0010-0012 applied.
+  **dark mode**, deterministic **resume checks** in the editor, **interview prep** on roles at the interviewing stage
+  (`POST /v1/resume/prep`), a follow-up nudge on applications a week old, a PDF text round-trip test (headings are real
+  words to a parser; letter-spaced headings were removed after it caught them), axe accessibility tests over the main
+  screens, and `apps/api/src/app.ts` split into route modules (`jobs`, `assistant`, `resume`, `ingest`, `applications`,
+  `searches`). Migrations 0010-0012 applied.
 
 ## Infra
 

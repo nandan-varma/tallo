@@ -90,6 +90,13 @@ copied in because postings are purged after closing), `searches` (saved searches
 (structured resume JSON, one row per user and posting; `job_id` 0 is the base resume, no foreign key so a copy outlives its posting). Neither is ever joined
 into catalog tables; `listResumes` looks up posting titles in a second query. v1 has one user (`DEFAULT_USER`).
 
+## API layout
+
+`apps/api/src/app.ts` only mounts: `jobs.ts` (catalog reads), `assistant.ts` (chat, notes, the model getter), `applications.ts`,
+`searches.ts`, `resume.ts` (resume CRUD and the AI calls: import, tailor, edit, cover letter, fit, prep) and `ingest.ts`
+(runner protocol, admin). Every AI route goes through `resumeAi`/`assistant()`, so a missing key is a 503 and a model
+failure is a 502 with only the error name logged.
+
 ## Resume builder
 
 `/resume` (base) and `/resume/<posting id>` (tailored copy; `?tailor=1` tailors on arrival) are one React island,
