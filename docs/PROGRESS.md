@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-10-26 (ranked search by relevance; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+_Last updated: 2026-10-26 (write-cost quick wins on a branch; ranked search by relevance; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
 ## Done
 
@@ -66,6 +66,12 @@ _Last updated: 2026-10-26 (ranked search by relevance; no heuristics in the data
 
 ## In flight
 
+- Write-cost quick wins (branch `write-cost-quick-wins`, not deployed, migrations 0014 and 0015 not applied): unchanged postings
+  are not rewritten, the FTS trigger has a `WHEN` guard, absences write only the counter, the purge checks hashes in batches
+  of 100 through `jobs_jd_hash_idx`, the feed and company indexes are dropped and `GET /v1/jobs` requires `q`. Deploy order and
+  expected writes: `docs/runbook.md` ("write-cost migrations") and `docs/architecture.md` ("Write cost per posting").
+  Open: `jobs_updated_idx` could take the hourly regroup window from `sources.last_run_at` instead, but each run then reads all
+  of that source's rows, so it only helps if syncs spread out over the day (not done).
 - Background syncs (one process per platform, logs `~/Library/Logs/tallo-sync-*.log`) were started 2026-10-26; check they finished,
   then install the daily launchd job (#1).
 

@@ -56,6 +56,8 @@ what ran where and when. Failures finalize the run as `partial`; nothing is infe
 
 - Seen in a complete listing: `absent_runs = 0`, reopened if closed.
 - Missing from a complete, non-empty (or authoritatively empty) listing: `absent_runs += 1`; at 2, `closed_at` is set.
+- `updated_at` moves only when the row's duplicate group can change: it is inserted, its `dedupe_key` changes, it closes or
+  it reopens. Other edits (location, pay, a first absence) leave it alone, so the hourly regroup window stays small.
 - Closed jobs are purged (rows and orphaned description blobs) 30 days later by the Worker's hourly cron.
 - A source with no complete run for 7 days is flagged stale (`sources.last_complete_run_at`); hiding stale
   sources' jobs is a read-side policy (planned, see issues).
@@ -106,7 +108,9 @@ from a user URL). The web `/api/resume*` routes only relay with a byte cap (`lib
 
 ## Search
 
-`GET /v1/jobs`: FTS prefix match, keyset pagination on `(sort_at, id)`, partial indexes on `closed_at IS NULL`.
+`GET /v1/jobs`: FTS prefix match (`q` is required), newest first, keyset pagination on `(sort_at, id)`. There is no unfiltered
+feed: without `q` it would scan and sort every open job, and no index serves it (the feed and company indexes were dropped).
+The planner reads the FTS table for `q` and sorts the matches (checked on production with EXPLAIN QUERY PLAN).
 The assistant's results list is a ranked search (`rankedJobs`): title phrases ORed in one FTS MATCH, places and companies
 ANDed, the best 2000 candidates by bm25 (title x10, company x2, location x1), collapsed to one row per company and title,
 paged by offset up to 300. Visibility is one predicate (`visibleJobs`): open, canonical (`dup_of IS NULL`), from a source
@@ -133,6 +137,42 @@ Open rows about 487k (production read-only count, Oct 26, 2026; the count moves 
 | One-off backfill (`tallo dedupe`, id cursor)                                                       | about 0.47M                                                                   | about 0.94M (row and index entry)                |
 | One-off full regroup (`tallo dedupe`)                                                              | about 0.87M                                                                   | about 0.14M (about 68k rows, plus index entries) |
 
-The index `jobs_updated_idx` costs one index entry per changed posting and saves roughly 12M reads per day (estimate).
-D1 writes are the scarcer allowance, so the index is cheap on writes too: writes scale with changed postings,
-not with the catalog. The one-off backfill is about 0.94M writes, roughly 2% of the monthly included writes.
+The index `jobs_updated_idx` costs one index entry per row whose group can change (see Lifecycle) and saves roughly 12M reads
+per day (estimate). D1 writes are the scarcer allowance, so the index is cheap on writes too: writes scale with changed
+postings, not with the catalog. The one-off backfill is about 0.94M writes, roughly 2% of the monthly included writes.
+
+### Write cost per posting (local harness, 100 postings)
+
+Scenario on SQLite (`testDb`): 100 postings are new, then re-applied unchanged, then re-applied with every title changed,
+then listed once (99 absent), then listed again (99 close), then purged 30 days later. The table is from a scratch run of
+that scenario; `packages/db/test/write-cost.test.ts` asserts each behavior it depends on. `testDb().writeCost` counts
+the way below (`writeCost(db)` in `testing.ts`). `rows` is every row SQLite changed,
+triggers included (`total_changes`). `index` is index entries written, as EXPLAIN says each statement opens them: it
+over-counts partial indexes (a partial index is written only for rows that match its WHERE). Production's rows_written
+also counts index entries; these numbers are relative, not D1 billing.
+
+| Work                              | Before (rows / index) | After (rows / index) | What changed                                                            |
+| --------------------------------- | --------------------- | -------------------- | ----------------------------------------------------------------------- |
+| New postings                      | 9.1 / 6.0             | 9.1 / 6.0            | Feed and company indexes replaced by `jd_hash` and closed indexes       |
+| Identical postings re-applied     | 11.3 / 6.0            | 0.02 / 0.02          | Unchanged postings are not rewritten; no FTS write                      |
+| Title changed                     | 11.1 / 6.0            | 11.3 / 6.0           | FTS rewrite stays (the title changed); dedupe key moves, updated_at too |
+| First absence (99 of 100 missing) | 1.0 / 4.0             | 1.0 / 0.02           | `absent_runs` only; no index, no updated_at                             |
+| Second absence (closes 99)        | 1.0 / 4.0             | 1.0 / 3.0            | Closing sets closed_at and updated_at (regroup input)                   |
+| Purge of 99 closed postings       | 3.4 / 5.9             | 3.0 / 5.9            | Reads change, see below; the index metric does not show the new entries |
+
+Per posting in production terms: an open new job writes the source/posting, dedupe, updated_at and `jd_hash` index entries
+(about 4 real entries), where it wrote 5 before (feed and company indexes are gone). A first absence writes no index entry.
+The purge is the cost that goes up: each purged row now also leaves a `jd_hash` entry and a `closed_at` entry
+(about 2 more index entries per purged row). In exchange, a purge pass no longer reads the whole table.
+
+### Purge reads (production, EXPLAIN QUERY PLAN, Oct 26, 2026)
+
+| Lookup                                        | Before (plan on production)                                     | After (local plan; re-check on production after migration 0014) |
+| --------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| Closed rows older than 30 days (`LIMIT 1000`) | `SCAN jobs` (508k rows read every hourly pass)                  | `SEARCH jobs USING INDEX jobs_closed_idx` (closed rows only)    |
+| Is a hash still referenced, one per hash      | `SCAN jobs` per hash (about 508k rows each)                     | one statement per 100 hashes, `SEARCH` via `jobs_jd_hash_idx`   |
+| Same, batched (100 hashes in one statement)   | `SCAN jobs` (about 508k rows per statement), not an improvement | seeks: about 100 index entries plus the matching rows           |
+
+Batching alone does not help: the batched statement still scans `jobs` on the current schema. The index is what makes
+the lookup cheap. Both new indexes are kept because the alternative is a table scan on every hourly pass that purges
+anything (about 12M rows read per day), while the index costs one write per new description and per purged row.
