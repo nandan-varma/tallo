@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { gzip, prepareJob, sha256, stableStringify } from "@tallo/catalog";
+import { gzip, PREPARE_VERSION, prepareJob, sha256, stableStringify } from "@tallo/catalog";
 import type {
   CollectContext,
   Finalize,
@@ -117,7 +117,9 @@ export async function syncSource(
   const hashes = new Map<string, string>();
   for (const posting of listed) {
     const stable = platform.fingerprint?.(posting.listing) ?? posting.listing;
-    hashes.set(posting.id, await sha256(stableStringify({ stable, platform: platform.version })));
+    // The prepare version is part of the hash so a catalog rule change re-prepares unchanged postings.
+    const version = { platform: platform.version, prepare: PREPARE_VERSION };
+    hashes.set(posting.id, await sha256(stableStringify({ stable, ...version })));
   }
   const changedIds = new Set(
     await api.diff(

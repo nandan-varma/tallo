@@ -1,7 +1,13 @@
 import type { JobFacts, MappedJob, SourceConfig } from "@tallo/contracts";
 import { dedupeKey } from "./dedupe.ts";
 import { gzip, sha256, stableStringify } from "./hash.ts";
-import { excerpt } from "./text.ts";
+import { cleanTitle, excerpt } from "./text.ts";
+
+/**
+ * Version of the prepare rules (titles, derived columns). The runner mixes it into each posting's
+ * source hash, so bumping it makes the next sync re-prepare every posting, not just changed ones.
+ */
+export const PREPARE_VERSION = 2;
 
 interface PreparedJob {
   facts: JobFacts;
@@ -30,12 +36,13 @@ export async function prepareJob(
   sourceHash: string,
 ): Promise<PreparedJob> {
   const primary = job.locations.find((l) => l.primary) ?? job.locations[0];
+  const title = cleanTitle(job.title);
   const extras = stableStringify(job.extras).length <= MAX_EXTRAS_BYTES ? job.extras : {};
   const text = new TextEncoder().encode(job.description);
 
   const columns = {
     postingId: job.postingId,
-    title: job.title,
+    title,
     url: job.url ?? null,
     applyUrl: job.applyUrl ?? null,
     locationText: primary ? excerpt(primary.text, 500) : null,
@@ -65,7 +72,7 @@ export async function prepareJob(
     facts: {
       ...columns,
       jdHash,
-      dedupeKey: await dedupeKey({ company: source.company, title: job.title, jdHash }),
+      dedupeKey: await dedupeKey({ company: source.company, title, jdHash }),
       sourceHash,
       facts,
     },
