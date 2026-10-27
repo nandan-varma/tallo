@@ -1,6 +1,6 @@
 import { type Money, payText, STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
 import { jobs, runs, sources } from "./schema.ts";
@@ -25,27 +25,66 @@ function ftsQuery(q: string): string | undefined {
 }
 
 /**
- * Safe FTS5 expression for recall: every term must match as a whole token (AND, no prefix), so a
- * title variant like "backend engineer" stays narrow. Quoting drops every FTS operator character.
+ * `column : (A OR B)` for one FTS column. Each entry must contain all of its words (AND), as whole tokens with no
+ * prefix: ["Seattle", "San Francisco"] is Seattle or (San AND Francisco). Words are quoted and only letters and
+ * digits survive, so no FTS operator can come through. Undefined when no entry has a word.
  */
-export function ftsAllTerms(q: string): string | undefined {
-  const terms = q.toLowerCase().match(/[\p{L}\p{N}]+/gu);
-  return terms?.map((t) => `"${t}"`).join(" ");
-}
-
-/**
- * A MATCH clause that requires the job's location text to mention any of `locations` (OR), where each entry
- * must contain all of its words (AND): ["Seattle", "WA"] is Seattle or WA, ["San Francisco"] needs both words.
- * Words are quoted, so no FTS operator can come through. Undefined when no entry has a word.
- */
-export function ftsLocations(locations: string[]): string | undefined {
-  const alternatives = locations.flatMap((location) => {
-    const words = location.toLowerCase().match(/[\p{L}\p{N}]+/gu);
+export function ftsScope(
+  column: "title" | "company" | "location_text",
+  entries: string[],
+): string | undefined {
+  const alternatives = entries.flatMap((entry) => {
+    const words = entry.toLowerCase().match(/[\p{L}\p{N}]+/gu);
     if (!words) return [];
     const quoted = words.map((w) => `"${w}"`);
     return [quoted.length > 1 ? `(${quoted.join(" ")})` : (quoted[0] as string)];
   });
-  return alternatives.length > 0 ? `location_text : (${alternatives.join(" OR ")})` : undefined;
+  return alternatives.length > 0 ? `${column} : (${alternatives.join(" OR ")})` : undefined;
+}
+
+/** Candidates the ranked search reads before it collapses, joins and pages: the best this many by relevance. */
+export const RANK_CANDIDATES = 2000;
+
+/**
+ * What a ranked search asks for. Each title phrase is ORed (a phrase needs all its words, as whole tokens);
+ * companies are ANDed with the titles. `locations` are ANDed with the titles, which narrows the index lookup,
+ * except that `remote` is ORed with them: remote work is a work-mode match on the row, not a text match.
+ */
+export interface RankedSpec {
+  titles: string[];
+  companies?: string[];
+  locations?: string[];
+  remote?: boolean;
+}
+
+/** The MATCH for a spec's titles and companies (and locations, unless remote is ORed in). Undefined when none has a word. */
+function rankedMatch(spec: RankedSpec): string | undefined {
+  const parts = [
+    ftsScope("title", spec.titles),
+    ftsScope("company", spec.companies ?? []),
+    spec.remote ? undefined : ftsScope("location_text", spec.locations ?? []),
+  ].filter((part): part is string => part !== undefined);
+  return parts.length > 0 ? parts.join(" AND ") : undefined;
+}
+
+/**
+ * The best `RANK_CANDIDATES` FTS rows for a MATCH, by bm25 (title x10, company x2, location x1), ties by rowid. A
+ * bounded subquery: however broad the terms, no more rows than this are read from the index.
+ */
+function candidatesFor(match: string) {
+  const score = sql`bm25(jobs_fts, 10, 2, 1)`;
+  return sql`(SELECT rowid AS id, ${score} AS score FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY ${score}, rowid LIMIT ${RANK_CANDIDATES})`;
+}
+
+/** With `remote`: work mode is remote, or the location text matches the places. Undefined when remote was not asked. */
+function remoteOrPlaces(spec: RankedSpec): SQL | undefined {
+  if (!spec.remote) return undefined;
+  const places = ftsScope("location_text", spec.locations ?? []);
+  if (!places) return eq(jobs.workMode, "remote");
+  return or(
+    eq(jobs.workMode, "remote"),
+    sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${places})`,
+  );
 }
 
 const summary = {
@@ -94,17 +133,9 @@ export function visibleJobs(now: number, { includeStale = false } = {}): SQL[] {
   ];
 }
 
-/**
- * `fts` is a ready MATCH expression (see `ftsAllTerms`); when omitted, `input.q` becomes `ftsQuery`.
- * Recall passes its own expression so it can use exact terms while the public search keeps prefixes.
- */
-export async function searchJobs(
-  db: Db,
-  input: Search,
-  now = Math.floor(Date.now() / 1000),
-  fts?: string,
-) {
-  const match = fts ?? (input.q ? ftsQuery(input.q) : undefined);
+/** Newest first, keyset-paged: `GET /v1/jobs`. Free text is prefix-matched on its last word. */
+export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.now() / 1000)) {
+  const match = input.q ? ftsQuery(input.q) : undefined;
   const where: (SQL | undefined)[] = [
     ...visibleJobs(now, input),
     match
@@ -130,6 +161,57 @@ export async function searchJobs(
     jobs: page,
     nextCursor: rows.length > input.limit && last ? `${last.sortAt}.${last.id}` : null,
   };
+}
+
+/**
+ * The ranked results for a spec: most relevant first. One row per company and title: the best-ranked location,
+ * with `locations` = how many of the candidate postings share that company and title. Only what the site shows.
+ * Paged by offset (rank has no keyset); the caller caps the total. No searchable word means no rows.
+ */
+export async function rankedJobs(
+  db: Db,
+  spec: RankedSpec,
+  page: { limit: number; offset: number },
+  now = Math.floor(Date.now() / 1000),
+) {
+  const match = rankedMatch(spec);
+  if (!match) return [];
+  const rows = await db
+    .select({
+      ...summary,
+      score: sql<number>`min(cand.score)`,
+      locations: sql<number>`count(*)`,
+    })
+    .from(sql`${candidatesFor(match)} AS cand`)
+    .innerJoin(jobs, sql`${jobs.id} = cand.id`)
+    .where(and(...visibleJobs(now), remoteOrPlaces(spec)))
+    .groupBy(jobs.companySlug, sql`lower(${jobs.title})`)
+    .orderBy(sql`score`, jobs.id)
+    .limit(page.limit)
+    .offset(page.offset);
+  return rows.map(({ facts, ...row }) => ({ ...row, pay: payOf(facts) }));
+}
+
+/**
+ * How many of a spec's best candidates were posted after `since`, up to `cap`. Counts postings, not collapsed rows,
+ * and reads no more candidates than the ranked search does.
+ */
+export async function countPostedSince(
+  db: Db,
+  spec: RankedSpec,
+  since: number,
+  cap: number,
+  now = Math.floor(Date.now() / 1000),
+): Promise<number> {
+  const match = rankedMatch(spec);
+  if (!match) return 0;
+  const rows = await db
+    .select({ id: jobs.id })
+    .from(sql`${candidatesFor(match)} AS cand`)
+    .innerJoin(jobs, sql`${jobs.id} = cand.id`)
+    .where(and(...visibleJobs(now), gt(jobs.sortAt, since), remoteOrPlaces(spec)))
+    .limit(cap);
+  return rows.length;
 }
 
 export async function getJob(db: Db, id: number) {
