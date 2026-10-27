@@ -15,6 +15,21 @@ export interface AiEnv {
   /** Any OpenAI-compatible endpoint, e.g. `https://host/v1`. */
   AI_CUSTOM_BASE_URL?: string;
   AI_CUSTOM_API_KEY?: string;
+  /** Tokens (input plus output) the assistant may spend per UTC day. Unset uses `DEFAULT_DAILY_TOKEN_LIMIT`. */
+  AI_DAILY_TOKEN_LIMIT?: string;
+}
+
+/** Input and output tokens per UTC day. At $1/M input (unverified list price) it is about $2 if every token were input; see docs/ai-search.md. */
+export const DEFAULT_DAILY_TOKEN_LIMIT = 2_000_000;
+
+/** Parses `AI_DAILY_TOKEN_LIMIT`. A bad value throws: a budget that is silently ignored is worse than a loud error. */
+export function dailyTokenLimit(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === "") return DEFAULT_DAILY_TOKEN_LIMIT;
+  const limit = Number(raw);
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new RangeError(`AI_DAILY_TOKEN_LIMIT must be a positive integer, got "${raw}"`);
+  }
+  return limit;
 }
 
 export const ROLE_ENV = {
