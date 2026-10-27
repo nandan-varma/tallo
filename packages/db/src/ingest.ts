@@ -22,6 +22,8 @@ export class IngestError extends Error {
 }
 
 const RUN_LEASE_SECONDS = 2 * 60 * 60;
+/** Description hashes checked per purge lookup (one statement each). */
+const HASH_CHUNK = 100;
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 const slug = (name: string) =>
   name
@@ -104,7 +106,17 @@ export interface ApplyResult {
   missingBlobs: string[];
 }
 
-/** Upsert a batch of jobs. Postings whose JD blob is not stored yet are skipped and reported. */
+/** Equal as stored. JSON columns compare by value, since they come back parsed. */
+const same = (stored: unknown, next: unknown) =>
+  stored === next ||
+  (typeof next === "object" && next !== null && JSON.stringify(stored) === JSON.stringify(next));
+
+/**
+ * Upsert a batch of jobs. Postings whose JD blob is not stored yet are skipped and reported.
+ * A stored row is rewritten only in the columns that changed: SQLite rewrites every index and fires every
+ * `AFTER UPDATE OF` trigger for a column named in SET, even when its value is the same. An unchanged posting
+ * therefore costs nothing here, and a changed one costs its changed columns and the indexes they belong to.
+ */
 export async function applyJobs(
   db: Db,
   blobs: BlobStore,
@@ -116,32 +128,39 @@ export async function applyJobs(
   const source = (await db.select().from(sources).where(eq(sources.id, sourceId)).limit(1))[0];
   if (!source) throw new IngestError(404, `Unknown source ${sourceId}`);
 
-  const hashes = [...new Set(incoming.map((j) => j.jdHash))];
-  const present = new Set(
-    (await Promise.all(hashes.map(async (h) => ((await blobs.has(jdKey(h))) ? h : null)))).filter(
-      (h): h is string => !!h,
-    ),
-  );
-  const ready = incoming.filter((j) => present.has(j.jdHash));
-  const missingBlobs = hashes.filter((h) => !present.has(h));
-  if (ready.length === 0) return { applied: 0, missingBlobs };
-
-  const existing = new Set(
+  // One row per posting, the last one sent (what sequential upserts would leave behind).
+  const latest = [...new Map(incoming.map((j) => [j.postingId, j])).values()];
+  const stored = new Map(
     (
       await db
-        .select({ id: jobs.postingId })
+        .select()
         .from(jobs)
         .where(
           and(
             eq(jobs.sourceId, sourceId),
-            sql`${jobs.postingId} IN ${jsonIds(ready.map((j) => j.postingId))}`,
+            sql`${jobs.postingId} IN ${jsonIds(latest.map((j) => j.postingId))}`,
           ),
         )
-    ).map((r) => r.id),
+    ).map((r) => [r.postingId, r]),
   );
-  const added = ready.filter((j) => !existing.has(j.postingId)).length;
+  // A stored row's description is in R2 by invariant (purge keeps every blob a row references), so a
+  // description equal to the stored jd_hash needs no existence check.
+  const known = new Set(
+    latest.filter((j) => stored.get(j.postingId)?.jdHash === j.jdHash).map((j) => j.jdHash),
+  );
+  const hashes = [...new Set(latest.map((j) => j.jdHash))];
+  const found = await Promise.all(
+    hashes.filter((h) => !known.has(h)).map(async (h) => ((await blobs.has(jdKey(h))) ? h : null)),
+  );
+  const present = new Set([...known, ...found.filter((h): h is string => !!h)]);
+  const ready = latest.filter((j) => present.has(j.jdHash));
+  const missingBlobs = hashes.filter((h) => !present.has(h));
+  if (ready.length === 0) return { applied: 0, missingBlobs };
 
-  const upserts = ready.map((j) => {
+  const added = ready.filter((j) => !stored.has(j.postingId)).length;
+
+  const upserts: BatchItem<"sqlite">[] = [];
+  for (const j of ready) {
     const { postingId, facts, ...columns } = j;
     const values = {
       ...columns,
@@ -154,20 +173,46 @@ export async function applyJobs(
       firstSeenAt: now,
       updatedAt: now,
     };
-    const { firstSeenAt: _keep, ...update } = values;
-    return db
-      .insert(jobs)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [jobs.sourceId, jobs.postingId],
-        set: {
-          ...update,
-          sortAt: sql`coalesce(${j.postedAt}, ${jobs.firstSeenAt})`,
-          absentRuns: 0,
-          closedAt: null,
-        },
-      });
-  });
+    const target = [jobs.sourceId, jobs.postingId];
+    const prior = stored.get(postingId);
+    if (!prior) {
+      // New, or inserted by a concurrent run since the read: the conflict path keeps the first seen time.
+      const { firstSeenAt: _keep, ...update } = values;
+      upserts.push(
+        db
+          .insert(jobs)
+          .values(values)
+          .onConflictDoUpdate({
+            target,
+            set: {
+              ...update,
+              sortAt: sql`coalesce(${j.postedAt}, ${jobs.firstSeenAt})`,
+              absentRuns: 0,
+              closedAt: null,
+            },
+          }),
+      );
+      continue;
+    }
+    const next: Record<string, unknown> = {
+      ...columns,
+      facts,
+      company: source.company,
+      companySlug: source.companySlug,
+      sortAt: j.postedAt ?? prior.firstSeenAt,
+      absentRuns: 0,
+      closedAt: null,
+    };
+    const set: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(next)) {
+      if (!same((prior as Record<string, unknown>)[key], value)) set[key] = value;
+    }
+    if (Object.keys(set).length === 0) continue;
+    // Duplicate groups are rebuilt from rows written in the window: a changed dedupe key or a reopen moves
+    // the row between groups, so it bumps updated_at. Other changes leave the grouping alone.
+    if ("dedupeKey" in set || set.closedAt === null) set.updatedAt = now;
+    upserts.push(db.insert(jobs).values(values).onConflictDoUpdate({ target, set }));
+  }
   const counters = db
     .update(runs)
     .set({
@@ -230,14 +275,19 @@ export async function finalize(
     const back = open.filter(
       (j) => seen.has(j.postingId) && (j.absentRuns > 0 || j.closedAt !== null),
     );
+    const reopening = back.filter((j) => j.closedAt !== null);
+    const recovering = back.filter((j) => j.closedAt === null);
     const gone = open.filter((j) => !seen.has(j.postingId) && j.closedAt === null);
-    reopened = back.filter((j) => j.closedAt !== null).length;
-    closed = gone.filter((j) => j.absentRuns + 1 >= CLOSE_AFTER_ABSENT_RUNS).length;
+    const closing = gone.filter((j) => j.absentRuns + 1 >= CLOSE_AFTER_ABSENT_RUNS);
+    const absent = gone.filter((j) => j.absentRuns + 1 < CLOSE_AFTER_ABSENT_RUNS);
+    reopened = reopening.length;
+    closed = closing.length;
+    // Only rows that change group (closing, reopening) bump updated_at, which is what the regroup reads.
+    // The other rows get the counter alone: a first absence or a recovery does not change any group.
     for (const ids of chunks(
-      back.map((j) => j.id),
+      reopening.map((j) => j.id),
       CHUNK,
     )) {
-      // Reopening moves the row to another duplicate group: bump updated_at so the rebuild sees it.
       statements.push(
         db
           .update(jobs)
@@ -246,7 +296,18 @@ export async function finalize(
       );
     }
     for (const ids of chunks(
-      gone.map((j) => j.id),
+      recovering.map((j) => j.id),
+      CHUNK,
+    )) {
+      statements.push(
+        db
+          .update(jobs)
+          .set({ absentRuns: 0 })
+          .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
+      );
+    }
+    for (const ids of chunks(
+      closing.map((j) => j.id),
       CHUNK,
     )) {
       statements.push(
@@ -258,6 +319,17 @@ export async function finalize(
             // A closing canonical hands its group over: bump updated_at so the rebuild sees it.
             updatedAt: now,
           })
+          .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
+      );
+    }
+    for (const ids of chunks(
+      absent.map((j) => j.id),
+      CHUNK,
+    )) {
+      statements.push(
+        db
+          .update(jobs)
+          .set({ absentRuns: sql`${jobs.absentRuns} + 1` })
           .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
       );
     }
@@ -298,8 +370,11 @@ export async function finalize(
   );
   await batch(db, statements);
   // A listing that brings a stale source back changes every group its rows belong to, not only the
-  // rows written in this run, so all of the source's keys are regrouped.
-  await regroupSource(db, current.sourceId, now, listed && wasStale);
+  // rows written in this run, so all of the source's keys are regrouped. Otherwise only a run that
+  // wrote something a group depends on (rows added or changed, closures, reopens) needs a regroup.
+  const recovered = listed && wasStale;
+  const grouped = current.added + current.changed + closed + reopened > 0;
+  if (recovered || grouped) await regroupSource(db, current.sourceId, now, recovered);
   return { status, closureApplied, closed, reopened };
 }
 
@@ -374,11 +449,17 @@ export async function purgeClosed(
   )) {
     await db.delete(jobs).where(sql`${jobs.id} IN ${jsonIds(ids)}`);
   }
-  for (const hash of new Set(stale.map((j) => j.jdHash))) {
-    const used = (
-      await db.select({ id: jobs.id }).from(jobs).where(eq(jobs.jdHash, hash)).limit(1)
-    )[0];
-    if (!used) await blobs.delete(jdKey(hash));
+  // One lookup per HASH_CHUNK hashes (jobs_jd_hash_idx), not one per hash.
+  for (const part of chunks([...new Set(stale.map((j) => j.jdHash))], HASH_CHUNK)) {
+    const used = new Set(
+      (
+        await db
+          .selectDistinct({ hash: jobs.jdHash })
+          .from(jobs)
+          .where(sql`${jobs.jdHash} IN ${jsonIds(part)}`)
+      ).map((r) => r.hash),
+    );
+    for (const hash of part) if (!used.has(hash)) await blobs.delete(jdKey(hash));
   }
   return stale.length;
 }
