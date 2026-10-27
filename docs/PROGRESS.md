@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-10-26 (no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+_Last updated: 2026-10-26 (ranked search by relevance; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
 ## Done
 
@@ -25,6 +25,12 @@ _Last updated: 2026-10-26 (no heuristics in the database; tracker, saved searche
   tool-using agent (`packages/search-ai`, models via `packages/ai`, default Claude Haiku 5.5 on OpenCode Go), `POST /v1/ai/chat`,
   profile = the built resume plus the person's notes (see UX below), full descriptions never truncated. See `docs/ai-search.md`.
   `OPENCODE_API_KEY` is a Worker secret on `tallo-api`; `AI_MODEL_SMART` is a plain var.
+- **Ranked search (relevance, not newest)**: the results list is one FTS MATCH over title phrases (ORed), companies and places
+  (ANDed), the best 2000 candidates by bm25, collapsed per company and title with a location count, paged by offset to 300.
+  Places are the person's words, expanded by a reviewed table (`packages/catalog/src/places.ts`). The model sees 20 compact
+  hit lines. Measured on the 30-request experiment: P@40 0.67 to 0.84, rows read about 4x lower. No migration; the FTS table
+  is unchanged. Deploy API, then web (the paging contract changed: `nextOffset`, not `nextCursor`). `GET /v1/jobs` is unchanged.
+  See `docs/ai-search.md`. Open: `docs/ai-search.md` "Open".
 - Duplicates collapsed (`dedupe_key`, `dup_of`): 508k open rows, 78k collapsed; `last_listed_at` now advances at finalize.
 - Deploy policy: deploy to prod right after each change (migrations first). Deploy from a clean worktree of origin/main, not from a
   checkout that background syncs import. Use `pnpm --filter @tallo/api run deploy` (plain `pnpm deploy` is another command).

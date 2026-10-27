@@ -107,9 +107,12 @@ from a user URL). The web `/api/resume*` routes only relay with a byte cap (`lib
 ## Search
 
 `GET /v1/jobs`: FTS prefix match, keyset pagination on `(sort_at, id)`, partial indexes on `closed_at IS NULL`.
-Visibility is one predicate (`visibleJobs`): open, canonical (`dup_of IS NULL`), from a source that listed within
-14 days. There are no other filters; the assistant narrows by title phrases and places. Search sits behind
-`searchJobs`; vector/context search will be another implementation of the same query surface.
+The assistant's results list is a ranked search (`rankedJobs`): title phrases ORed in one FTS MATCH, places and companies
+ANDed, the best 2000 candidates by bm25 (title x10, company x2, location x1), collapsed to one row per company and title,
+paged by offset up to 300. Visibility is one predicate (`visibleJobs`): open, canonical (`dup_of IS NULL`), from a source
+that listed within 14 days. There are no other filters; the assistant narrows by title phrases, companies and places
+(`docs/ai-search.md`). Search sits behind these query functions; vector/context search will be another implementation
+of the same query surface.
 
 ## Cost (10 daily users, ~300k stored jobs)
 
