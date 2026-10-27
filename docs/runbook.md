@@ -47,6 +47,8 @@ run against the old one (`classifier_version` is NOT NULL). Do these back to bac
 3. Deploy the API (`pnpm --filter @tallo/api deploy`), then the web.
 4. Re-enable the sync. Platform version 2 means the next sync re-fetches and re-maps every posting, so run a full pass
    (`tallo sync`) once to replace the old text-derived facts. Until then, old rows keep their stored facts.
+5. Then `tallo dedupe`. Duplicate groups no longer split on the old hidden flag, so postings that were grouped apart
+   only because of it merge only in a full regroup. Until then they show as separate rows, never as lost ones.
 
 ## Daily collection (launchd)
 

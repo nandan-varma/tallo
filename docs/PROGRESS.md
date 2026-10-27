@@ -16,8 +16,9 @@ _Last updated: 2026-10-26 (no heuristics in the database; tracker, saved searche
   `is_tech`, `classifier_version`, `hidden`, the annualized salary and experience columns, and recreates `jobs_feed_idx`
   and `jobs_company_idx` without the hidden predicate. Platform `version` is 2 for all six platforms, so the next full
   sync re-maps every posting.
-  **Deploy order: migration first, then API, then web, back to back** (`docs/runbook.md`, "Order for the no-heuristics
-  change"). Old API code cannot read the new schema and new API code cannot write the old one.
+  **Deploy order: migration first, then API, then web, back to back**, then a full sync and `tallo dedupe`
+  (`docs/runbook.md`, "Order for the no-heuristics change"). Old API code cannot read the new schema and new API code
+  cannot write the old one. Visible results grow: postings the old flag hid are now listed, and the assistant judges them.
 - Workflow: stateless GitHub-native process (`docs/workflow.md`), roles in `.claude/agents/`, review checklist.
 - Sources seeded from the legacy registry: ~8.9k boards.
 - **AI assistant (live 2026-10-26)**: `/` is a chat (left) beside a results list that is the database's answer to the assistant's search (it never writes the list; notes are validated); the old filter UI and `/ask` are gone. One streamed
