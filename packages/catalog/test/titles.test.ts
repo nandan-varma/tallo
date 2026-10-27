@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { cleanTitle, parseLocation, prepareJob } from "../src/index.ts";
+import { cleanTitle, prepareJob, sourceLocation } from "../src/index.ts";
 
 const source = { id: "x:y", platform: "x", key: "y", company: "Y", params: {} };
 const job = {
   postingId: "1",
   title: "Software Engineer",
   description: "Build things.",
-  locations: [parseLocation("Austin, TX")],
+  locations: [sourceLocation("Austin, TX")],
   compensation: [],
   experience: [],
   extras: {},
