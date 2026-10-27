@@ -50,12 +50,24 @@ export interface Listing {
   complete: boolean;
   /** True only if an empty listing proves the board really has no jobs. */
   emptyIsAuthoritative: boolean;
+  /**
+   * Validator (an ETag) for the listing this run read. The runner stores it and sends it back as
+   * `CollectContext.validator`. Only set for a whole listing that one response covers.
+   */
+  validator?: string;
+  /**
+   * The listing answered 304 to the stored validator, so no postings were yielded. The runner
+   * must then reuse the posting ids it stored with that validator; without them it fails the run.
+   */
+  notModified?: boolean;
 }
 
 export interface HttpResponse<T = Json> {
   status: number;
   url: string;
   data: T;
+  /** The response ETag, when the server sent one. */
+  etag?: string;
 }
 
 /** The only I/O a platform sees. Implemented by @tallo/http; trivially faked in tests. */
@@ -74,6 +86,8 @@ export interface HttpInit {
 export interface CollectContext {
   http: Http;
   signal?: AbortSignal;
+  /** Validator stored from this source's last complete, fully applied run (see `Listing.validator`). */
+  validator?: string;
   /** Safety valve for runaway pagination, per source. */
   maxPostings: number;
   record(issue: Issue): void;
