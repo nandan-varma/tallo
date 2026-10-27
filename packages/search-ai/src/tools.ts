@@ -45,7 +45,7 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
   return {
     search_jobs: tool({
       description:
-        "Search the catalog of open US tech jobs. The results list the person sees is this search, run by the database, so put everything they asked for in it. Returns up to 40 compact hits (title, company, location, work mode, pay, posted date, department) for you to read; a null field is unknown.",
+        "Search the catalog of open job postings (every kind of work and place the sources list). The results list the person sees is this search, run by the database, so put everything they asked for in it; the database does not filter by relevance, so judge the hits yourself. Returns up to 40 compact hits (title, company, location, work mode, pay as the source stated it, posted date, department) for you to read; a null field is unknown.",
       inputSchema: searchSpecSchema,
       execute: async ({ queries, locations }) => ({
         hits: await jobs.search(
@@ -58,7 +58,7 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
 
     read_job: tool({
       description:
-        "Read one job in full: all facts and the complete description. Use only when a question cannot be answered from the search hit (pay, requirements, location unclear).",
+        "Read one job in full: the facts the source stated and the complete description. Use only when a question cannot be answered from the search hit (pay, requirements, location unclear).",
       inputSchema: z.object({
         id: z.string().describe("The id of a job returned by search_jobs."),
       }),
