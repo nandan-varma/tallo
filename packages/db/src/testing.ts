@@ -1,9 +1,27 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
+import type { Db } from "./db.ts";
 import * as schema from "./schema.ts";
 
 const MIGRATIONS = new URL("../drizzle/", import.meta.url);
+
+/**
+ * Write cost as D1 bills it, approximately: `rows` counts every row changed, triggers included (SQLite's
+ * total_changes); `indexEntries` counts index b-tree entries written (changed rows x indexes the statement
+ * opens for writing, read from EXPLAIN). FTS shadow-table writes are not visible here.
+ */
+export interface WriteCost {
+  rows: number;
+  indexEntries: number;
+}
+
+const costs = new WeakMap<Db, WriteCost>();
+
+/** Cumulative write cost of everything run through a `testDb()` instance. Tests only. */
+export const writeCost = (db: Db): WriteCost => ({
+  ...(costs.get(db) ?? { rows: 0, indexEntries: 0 }),
+});
 
 /** In-memory SQLite behind Drizzle's proxy driver, with every migration applied. Tests only. */
 export function testDb() {
@@ -17,17 +35,34 @@ export function testDb() {
       if (statement.trim()) sqlite.exec(statement);
     }
   }
+  const cost: WriteCost = { rows: 0, indexEntries: 0 };
+  const totalChanges = () => Number(sqlite.prepare("SELECT total_changes() AS n").get()?.n);
+  const indexRoots = () =>
+    new Set(
+      sqlite
+        .prepare("SELECT rootpage FROM sqlite_schema WHERE type = 'index' AND rootpage > 0")
+        .all()
+        .map((r) => Number(r.rootpage)),
+    );
   const run = (sql: string, params: unknown[], method: string) => {
     const stmt = sqlite.prepare(sql);
     if (method === "run") {
-      stmt.run(...(params as never[]));
+      const before = totalChanges();
+      const roots = indexRoots();
+      const opened = sqlite
+        .prepare(`EXPLAIN ${sql}`)
+        .all(...(params as never[]))
+        .filter((op) => op.opcode === "OpenWrite" && roots.has(Number(op.p2))).length;
+      const { changes } = stmt.run(...(params as never[]));
+      cost.rows += totalChanges() - before;
+      cost.indexEntries += Number(changes) * opened;
       return { rows: [] };
     }
     stmt.setReturnArrays(true);
     const rows = stmt.all(...(params as never[])) as unknown as unknown[][];
     return { rows: method === "get" ? (rows[0] ?? []) : rows };
   };
-  return drizzle(
+  const db = drizzle(
     async (sql, params, method) => run(sql, params, method),
     async (queries) => {
       sqlite.exec("BEGIN");
@@ -42,4 +77,6 @@ export function testDb() {
     },
     { schema },
   );
+  costs.set(db, cost);
+  return db;
 }
