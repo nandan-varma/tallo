@@ -11,17 +11,19 @@ import {
 } from "@tallo/db";
 import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
-import { newestFor } from "./jobs-port.ts";
+import { newCountSince } from "./jobs-port.ts";
 
 /** Saved searches: personal data, so read-token only and never cached. */
 export function searchRoutes({ db, read }: { db: Db; read: MiddlewareHandler }) {
   const routes = new Hono();
   const byId = zValidator("param", z.object({ id: z.coerce.number().int().positive() }));
 
-  /** A search with how many of its newest roles were posted after it was last run. */
+  /**
+   * A search with how many of its best matches were posted after it was last run. Counted over the same capped
+   * candidates the search reads, so a broad search costs no more here than on the results list.
+   */
   const withCount = async (row: SearchRow): Promise<SavedSearch> => {
-    const newest = await newestFor(db, row.spec, { limit: NEW_WINDOW });
-    const newCount = newest.jobs.filter((job) => job.sortAt > row.seenAt).length;
+    const newCount = await newCountSince(db, row.spec, row.seenAt, NEW_WINDOW);
     return { ...row, newCount, newCapped: newCount === NEW_WINDOW };
   };
 

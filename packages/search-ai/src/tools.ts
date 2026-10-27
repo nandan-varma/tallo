@@ -1,9 +1,9 @@
 import { searchSpecSchema } from "@tallo/contracts";
 import { tool } from "ai";
 import { z } from "zod";
-import type { JobsPort } from "./jobs.ts";
+import type { JobHit, JobsPort } from "./jobs.ts";
 
-export const SEARCH_LIMIT = 40;
+export const SEARCH_LIMIT = 20;
 const MAX_NOTES = 12;
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
@@ -16,6 +16,31 @@ const isVerbatim = (quote: string, sources: (string | undefined)[]) => {
     sources.some((source) => source !== undefined && squash(source).includes(needle))
   );
 };
+
+/**
+ * What the model reads of a search: one line per hit, `id | title | company | location | mode | pay | date | dept`.
+ * A null field is unknown and is left out, so a line only has the fields the catalog has. The browser never sees
+ * this text; it gets the structured hits.
+ */
+export function hitLines(hits: JobHit[]): string {
+  if (hits.length === 0) return "No hits. Try other title phrases, or fewer places.";
+  const lines = hits.map((hit) =>
+    [
+      hit.id,
+      hit.title,
+      hit.company,
+      hit.location,
+      hit.workMode,
+      hit.pay,
+      hit.postedAt,
+      hit.department,
+      hit.locations > 1 ? `${hit.locations} locations` : null,
+    ]
+      .filter((field) => field !== null && field !== "")
+      .join(" | "),
+  );
+  return `${hits.length} hits, most relevant first:\n${lines.join("\n")}`;
+}
 
 const Note = z.object({
   id: z.string().describe("The id of a job returned by search_jobs."),
@@ -45,15 +70,10 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
   return {
     search_jobs: tool({
       description:
-        "Search the catalog of open job postings (every kind of work and place the sources list). The results list the person sees is this search, run by the database, so put everything they asked for in it; the database does not filter by relevance, so judge the hits yourself. Returns up to 40 compact hits (title, company, location, work mode, pay as the source stated it, posted date, department) for you to read; a null field is unknown.",
+        "Search the catalog of open job postings (every kind of work and place the sources list). The results list the person sees is this search, run by the database, so put everything they asked for in it. The database ranks by how well the titles match and does not judge fit: you do, from the hits. Returns up to 20 compact hits (title, company, location, work mode, pay as the source stated it, posted date, department) for you to read; a field that is missing is unknown.",
       inputSchema: searchSpecSchema,
-      execute: async ({ queries, locations }) => ({
-        hits: await jobs.search(
-          queries,
-          SEARCH_LIMIT,
-          locations?.length ? { locations } : undefined,
-        ),
-      }),
+      execute: async (spec) => ({ hits: await jobs.search(spec, SEARCH_LIMIT) }),
+      toModelOutput: ({ output }) => ({ type: "text", value: hitLines(output.hits) }),
     }),
 
     read_job: tool({

@@ -1,29 +1,29 @@
-import { gunzip } from "@tallo/catalog";
-import type { SearchSpec } from "@tallo/contracts";
-import type { BlobStore, Db } from "@tallo/db";
-import {
-  ftsAllTerms,
-  ftsLocations,
-  jdKey,
-  payOf,
-  schema,
-  searchJobs,
-  visibleJobs,
-} from "@tallo/db";
+import { expandPlaces, gunzip } from "@tallo/catalog";
+import { SEARCH_RESULT_CAP, type SearchSpec } from "@tallo/contracts";
+import type { BlobStore, Db, RankedSpec } from "@tallo/db";
+import { countPostedSince, jdKey, payOf, rankedJobs, schema, visibleJobs } from "@tallo/db";
 import type { JobHit, JobRead, JobsPort } from "@tallo/search-ai";
 import { and, eq, inArray } from "drizzle-orm";
 
-/** Hits read per title phrase. Phrases are merged round-robin, so every phrase gets a say. */
-const PER_QUERY = 20;
 const MAX_QUERIES = 8;
+const MAX_COMPANIES = 4;
 const MAX_QUERY_CHARS = 200;
 
 /**
- * A named place is part of the match itself: it narrows the index lookup, instead of filtering only the
- * newest few hits afterwards.
+ * The ranked search a spec asks for. The titles and companies are the words given; the places are expanded here, on
+ * the server, from the person's own words (see `expandPlaces`).
  */
-const withPlace = (titles: string, place: string | undefined) =>
-  place ? `(${titles}) AND ${place}` : titles;
+export function rankedSpec(spec: SearchSpec): RankedSpec {
+  const places = expandPlaces(spec.locations ?? []);
+  return {
+    titles: spec.queries.slice(0, MAX_QUERIES).map((q) => q.slice(0, MAX_QUERY_CHARS)),
+    companies: (spec.companies ?? [])
+      .slice(0, MAX_COMPANIES)
+      .map((c) => c.slice(0, MAX_QUERY_CHARS)),
+    locations: places.locations,
+    remote: places.remote,
+  };
+}
 
 /**
  * The agent's view of the catalog, over D1 and R2. Every read goes through the same visibility
@@ -32,27 +32,15 @@ const withPlace = (titles: string, place: string | undefined) =>
  */
 export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
   return {
-    async search(queries, limit, options) {
+    async search(spec, limit) {
       const now = Math.floor(Date.now() / 1000);
-      const place = ftsLocations(options?.locations ?? []);
-      const lists = await Promise.all(
-        queries.slice(0, MAX_QUERIES).map(async (raw) => {
-          const q = raw.slice(0, MAX_QUERY_CHARS);
-          // Exact terms, ANDed: "backend engineer" stays narrow where a bare "engineer" matches most rows.
-          const titles = ftsAllTerms(q);
-          if (!titles) return [];
-          return (await searchJobs(db, { q, limit: PER_QUERY }, now, withPlace(titles, place)))
-            .jobs;
-        }),
+      const rows = await rankedJobs(
+        db,
+        rankedSpec(spec),
+        { limit: Math.min(limit, SEARCH_RESULT_CAP), offset: 0 },
+        now,
       );
-      const seen = new Map<number, JobHit>();
-      for (let i = 0; i < PER_QUERY && seen.size < limit; i++) {
-        for (const list of lists) {
-          const row = list[i];
-          if (row && !seen.has(row.id) && seen.size < limit) seen.set(row.id, toHit(row));
-        }
-      }
-      return [...seen.values()];
+      return rows.map(toHit);
     },
 
     async lookup(ids) {
@@ -89,22 +77,22 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
   };
 }
 
-type Row = Awaited<ReturnType<typeof searchJobs>>["jobs"][number];
-
 /** The fields a hit shows; `pay` is the structured pay line (see `payOf`). */
-type HitRow = Pick<
-  Row,
-  | "id"
-  | "title"
-  | "company"
-  | "locationText"
-  | "city"
-  | "region"
-  | "countryCode"
-  | "workMode"
-  | "department"
-  | "postedAt"
-> & { pay: string | null };
+type HitRow = {
+  id: number;
+  title: string;
+  company: string;
+  locationText: string | null;
+  city: string | null;
+  region: string | null;
+  countryCode: string | null;
+  workMode: string | null;
+  department: string | null;
+  postedAt: number | null;
+  pay: string | null;
+  /** From a ranked search: postings of this company and title among the candidates. */
+  locations?: number;
+};
 
 function toHit(row: HitRow): JobHit {
   const place = [row.city, row.region, row.countryCode].filter(Boolean).join(", ");
@@ -117,41 +105,31 @@ function toHit(row: HitRow): JobHit {
     pay: row.pay,
     postedAt: row.postedAt ? new Date(row.postedAt * 1000).toISOString().slice(0, 10) : null,
     department: row.department,
+    locations: row.locations ?? 1,
   };
 }
 
 /**
- * One page of the database's answer to a search spec, newest first (keyset cursor). This is the list the
- * person browses: the assistant only chose the spec. One OR across the title phrases, ANDed with the places,
- * so a page is one indexed lookup however many phrases there are.
+ * One page of the database's answer to a search spec, most relevant first: what the person browses beside the
+ * chat. Offset paging, capped at `SEARCH_RESULT_CAP` in total. `nextOffset` is null on the last page; there is no
+ * count, so a full page at the cap ends the list.
  */
-export async function searchPage(db: Db, input: SearchSpec & { cursor?: string; limit: number }) {
-  const { jobs, nextCursor } = await newestFor(db, input, {
-    limit: input.limit,
-    cursor: input.cursor,
-  });
-  return { hits: jobs.map(toHit), nextCursor };
-}
-
-/** The FTS MATCH for a spec: any title phrase (OR), ANDed with the places. Undefined when no phrase has a word. */
-function specMatch(spec: SearchSpec): string | undefined {
-  const phrases = spec.queries
-    .slice(0, MAX_QUERIES)
-    .map((q) => ftsAllTerms(q.slice(0, MAX_QUERY_CHARS)))
-    .filter((expression): expression is string => Boolean(expression))
-    .map((expression) => `(${expression})`);
-  if (phrases.length === 0) return undefined;
-  return withPlace(phrases.join(" OR "), ftsLocations(spec.locations ?? []));
-}
-
-/** The raw newest-first rows a spec matches, as the results list reads them (with `sortAt`). */
-export async function newestFor(
+export async function searchPage(
   db: Db,
-  spec: SearchSpec,
-  page: { limit: number; cursor?: string },
+  input: SearchSpec & { offset: number; limit: number },
   now = Math.floor(Date.now() / 1000),
 ) {
-  const match = specMatch(spec);
-  if (!match) return { jobs: [] as Row[], nextCursor: null };
-  return searchJobs(db, page, now, match);
+  const limit = Math.min(input.limit, SEARCH_RESULT_CAP - input.offset);
+  if (limit <= 0) return { hits: [], nextOffset: null };
+  const rows = await rankedJobs(db, rankedSpec(input), { limit, offset: input.offset }, now);
+  const end = input.offset + rows.length;
+  return {
+    hits: rows.map(toHit),
+    nextOffset: rows.length === limit && end < SEARCH_RESULT_CAP ? end : null,
+  };
+}
+
+/** How many of a saved search's best matches were posted after it was last run, up to `cap`. */
+export function newCountSince(db: Db, spec: SearchSpec, seenAt: number, cap: number) {
+  return countPostedSince(db, rankedSpec(spec), seenAt, cap);
 }

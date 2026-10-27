@@ -7,7 +7,7 @@ export const saveSearchSchema = z.object({
   spec: searchSpecSchema,
 });
 
-/** How many of a search's newest roles to look at when counting what is new. */
+/** The most roles a saved search counts as new. The count reads the same capped candidates as the search. */
 export const NEW_WINDOW = 30;
 
 export interface SavedSearch {
@@ -18,8 +18,8 @@ export interface SavedSearch {
   createdAt: number;
   /** When the person last ran it. Roles posted after this count as new. */
   seenAt: number;
-  /** Roles among the search's newest `NEW_WINDOW` that were posted after `seenAt`. */
+  /** Roles among the search's best matches (capped) that were posted after `seenAt`, at most `NEW_WINDOW`. */
   newCount: number;
-  /** True when every one of the newest `NEW_WINDOW` is new, so the real count may be higher. */
+  /** True when the count reached `NEW_WINDOW`, so the real count may be higher. */
   newCapped: boolean;
 }

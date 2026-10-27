@@ -1,3 +1,5 @@
+import type { SearchSpec } from "@tallo/contracts";
+
 /** One search hit: only what a person skims in a list. A null field is unknown, never guessed. */
 export type JobHit = {
   id: string;
@@ -9,6 +11,11 @@ export type JobHit = {
   pay: string | null;
   postedAt: string | null;
   department: string | null;
+  /**
+   * Postings of this company and title among the search's candidates, this one included. Above 1, the same role
+   * is open in several places and the hit shows the best-ranked of them.
+   */
+  locations: number;
 };
 
 export type JobRead = JobHit & {
@@ -25,10 +32,10 @@ export type JobRead = JobHit & {
  */
 export interface JobsPort {
   /**
-   * Jobs matching any of the title phrases, merged, each at most once, at most `limit`. When `locations` is
-   * given, a job must also mention at least one of them in its location text.
+   * The ranked search for a spec (most relevant first, one hit per company and title), at most `limit` hits.
+   * The places in the spec are the person's own words; the port expands them.
    */
-  search(queries: string[], limit: number, options?: { locations?: string[] }): Promise<JobHit[]>;
+  search(spec: SearchSpec, limit: number): Promise<JobHit[]>;
   /** The compact record of each of these ids that is visible to the site; ids that are not are left out. */
   lookup(ids: string[]): Promise<JobHit[]>;
   /** One job with its full description, or null when it is not visible. */

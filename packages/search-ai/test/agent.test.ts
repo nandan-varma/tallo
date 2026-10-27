@@ -1,3 +1,4 @@
+import type { SearchSpec } from "@tallo/contracts";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { createJobAgent, MAX_READS } from "../src/index.ts";
@@ -14,15 +15,16 @@ const hit = (id: string, over: Partial<JobHit> = {}): JobHit => ({
   pay: null,
   postedAt: "2026-10-01",
   department: null,
+  locations: 1,
   ...over,
 });
 
 function port(descriptions: Record<string, string>, hits: JobHit[] = [hit("1"), hit("2")]) {
   const reads: string[] = [];
-  const searches: string[][] = [];
+  const searches: { spec: SearchSpec; limit: number }[] = [];
   const jobs: JobsPort = {
-    async search(queries) {
-      searches.push(queries);
+    async search(spec, limit) {
+      searches.push({ spec, limit });
       return hits;
     },
     async lookup(ids) {
@@ -223,8 +225,8 @@ describe("job agent", () => {
     const system = promptText(call);
     expect(system).not.toMatch(/US tech|tech jobs/);
     expect(system).toContain("nothing is pre-filtered");
-    expect(system).toContain("does not judge relevance, tech or not, seniority, or place");
-    expect(system).toContain("A null field is UNKNOWN");
+    expect(system).toContain("It does not judge fit: tech or not, seniority");
+    expect(system).toContain("A field the line does not show is UNKNOWN");
     expect(system).toContain("never present a converted figure as the source's");
     const search = call.tools?.find((t) => t.name === "search_jobs");
     expect(JSON.stringify(search)).not.toMatch(/US tech/);
@@ -235,5 +237,86 @@ describe("job agent", () => {
     const { model, seen } = scripted([said("hi")]);
     await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
     expect(seen[0]?.reasoning).toBe("none");
+  });
+
+  it("passes the whole spec to the port, with the person's own words, and asks for the search limit", async () => {
+    const { jobs, searches } = port({});
+    const { model } = scripted([
+      calls({
+        name: "search_jobs",
+        input: {
+          queries: ["stripe software engineer"],
+          companies: ["Stripe"],
+          locations: ["NYC", "remote"],
+        },
+      }),
+      said("ok"),
+    ]);
+    await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
+    expect(searches).toEqual([
+      {
+        spec: {
+          queries: ["stripe software engineer"],
+          companies: ["Stripe"],
+          locations: ["NYC", "remote"],
+        },
+        limit: 20,
+      },
+    ]);
+  });
+
+  it("gives the model one line per hit, with unknown fields left out, and keeps the structured hits for the browser", async () => {
+    const hits = [
+      hit("7", {
+        title: "Data Engineer",
+        company: "Acme",
+        location: "Seattle, WA",
+        workMode: "onsite",
+        pay: "USD 150000-180000 per year",
+        postedAt: "2026-10-02",
+        department: null,
+      }),
+      hit("8", {
+        title: "Data Engineer",
+        company: "Acme",
+        location: null,
+        workMode: null,
+        pay: null,
+        postedAt: null,
+        department: "Platform",
+        locations: 3,
+      }),
+    ];
+    const { jobs } = port({}, hits);
+    const { model, seen } = scripted([
+      calls({ name: "search_jobs", input: { queries: ["data engineer"] } }),
+      said("ok"),
+    ]);
+    const result = await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
+
+    const modelSaw = promptText(seen[1] as LanguageModelV4CallOptions);
+    expect(modelSaw).toContain(
+      "2 hits, most relevant first:\\n7 | Data Engineer | Acme | Seattle, WA | onsite | USD 150000-180000 per year | 2026-10-02",
+    );
+    expect(modelSaw).toContain("8 | Data Engineer | Acme | Platform | 3 locations");
+
+    // The browser gets the structured hits, not the text.
+    const searched = result.steps
+      .flatMap((s) => s.toolResults)
+      .find((r) => r.toolName === "search_jobs");
+    expect(searched?.output).toEqual({ hits });
+  });
+
+  it("tells the model to name places in the person's own words and to use precise titles", async () => {
+    const { jobs } = port({});
+    const { model, seen } = scripted([said("hi")]);
+    await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
+    const system = promptText(seen[0] as LanguageModelV4CallOptions);
+    expect(system).toContain("pass their own words in locations");
+    expect(system).toContain("Do not list cities or states yourself");
+    expect(system).toContain("For a precise profession, use its precise title");
+    expect(system).toContain("Never a single generic word");
+    expect(system).toContain("Leave company names out of the titles");
+    expect(system).toContain("a new, complete search");
   });
 });

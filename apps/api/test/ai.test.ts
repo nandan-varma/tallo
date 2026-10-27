@@ -158,12 +158,13 @@ describe("POST /v1/jobs/search", () => {
     const page = await post({ queries: ["backend engineer"], limit: 5 });
     expect(page.status).toBe(200);
     expect(page.headers.get("cache-control")).toBe("private, no-store");
-    const json = (await page.json()) as { hits: { title: string }[]; nextCursor: string | null };
+    const json = (await page.json()) as { hits: { title: string }[]; nextOffset: number | null };
     expect(json.hits.map((h) => h.title)).toEqual(["Senior Backend Engineer"]);
-    expect(json.nextCursor).toBeNull();
+    expect(json.nextOffset).toBeNull();
 
     expect((await post({ queries: [] })).status).toBe(400);
-    expect((await post({ queries: ["x y"], cursor: "nope" })).status).toBe(400);
+    expect((await post({ queries: ["x y"], offset: 300 })).status).toBe(400);
+    expect((await post({ queries: ["x y"], offset: -1 })).status).toBe(400);
     expect((await app.request("/v1/jobs/search", { method: "POST", body: "{}" })).status).toBe(401);
   });
 });

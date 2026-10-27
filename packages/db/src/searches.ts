@@ -22,6 +22,7 @@ export interface SearchRow {
 const specKey = (spec: SearchSpec) =>
   JSON.stringify({
     queries: spec.queries.map((q) => q.trim().toLowerCase()).sort(),
+    companies: (spec.companies ?? []).map((c) => c.trim().toLowerCase()).sort(),
     locations: (spec.locations ?? []).map((l) => l.trim().toLowerCase()).sort(),
   });
 
