@@ -76,6 +76,14 @@ function candidatesFor(match: string) {
   return sql`(SELECT rowid AS id, ${score} AS score FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY ${score}, rowid LIMIT ${RANK_CANDIDATES})`;
 }
 
+/**
+ * The newest `RANK_CANDIDATES` FTS rows for a MATCH, by rowid (insertion order), newest first. Used for counting new
+ * roles: a role posted recently is always inside this window, whatever its bm25 rank.
+ */
+function newestCandidatesFor(match: string) {
+  return sql`(SELECT rowid AS id FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY rowid DESC LIMIT ${RANK_CANDIDATES})`;
+}
+
 /** With `remote`: work mode is remote, or the location text matches the places. Undefined when remote was not asked. */
 function remoteOrPlaces(spec: RankedSpec): SQL | undefined {
   if (!spec.remote) return undefined;
@@ -193,8 +201,9 @@ export async function rankedJobs(
 }
 
 /**
- * How many of a spec's best candidates were posted after `since`, up to `cap`. Counts postings, not collapsed rows,
- * and reads no more candidates than the ranked search does.
+ * How many postings matching a spec were posted after `since` (`sort_at`), up to `cap`. The candidates are the
+ * newest `RANK_CANDIDATES` matches by rowid, not the best-ranked ones: a new role with a weak title match must still
+ * be counted. Counts postings, not collapsed rows; reads at most `RANK_CANDIDATES` index rows.
  */
 export async function countPostedSince(
   db: Db,
@@ -207,7 +216,7 @@ export async function countPostedSince(
   if (!match) return 0;
   const rows = await db
     .select({ id: jobs.id })
-    .from(sql`${candidatesFor(match)} AS cand`)
+    .from(sql`${newestCandidatesFor(match)} AS cand`)
     .innerJoin(jobs, sql`${jobs.id} = cand.id`)
     .where(and(...visibleJobs(now), gt(jobs.sortAt, since), remoteOrPlaces(spec)))
     .limit(cap);

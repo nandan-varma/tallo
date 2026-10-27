@@ -316,4 +316,51 @@ describe("countPostedSince", () => {
     expect(await countPostedSince(db, { titles: ["data engineer"] }, 200, 1, NOW)).toBe(1);
     expect(await countPostedSince(db, { titles: ["nothing"] }, 0, 30, NOW)).toBe(0);
   });
+
+  it("counts a new role whose title ranks outside the best candidates", async () => {
+    const db = testDb();
+    // More old postings with short, high-ranking titles than the candidate window holds.
+    await db.insert(schema.sources).values({
+      id: "greenhouse:bulk",
+      platform: "greenhouse",
+      key: "bulk",
+      company: "Bulk",
+      companySlug: "bulk",
+      params: {},
+      lastListedAt: NOW,
+    });
+    const old = Array.from({ length: RANK_CANDIDATES }, (_, i) => ({
+      sourceId: "greenhouse:bulk",
+      postingId: `old${i}`,
+      company: `Old ${i}`,
+      companySlug: `old-${i}`,
+      title: "Data Engineer",
+      excerpt: "x",
+      jdHash: `old${i}`,
+      jdBytes: 1,
+      sourceHash: "s",
+      facts: {},
+      sortAt: 1,
+      firstSeenAt: 1,
+      updatedAt: 1,
+      locationText: "Remote",
+      workMode: "onsite" as const,
+    }));
+    for (let i = 0; i < old.length; i += 200) {
+      await db.insert(schema.jobs).values(old.slice(i, i + 200));
+    }
+    // Posted later, but with a long title: its bm25 rank is below all the old ones.
+    const fresh = await seed(db, {
+      title: "Senior Staff Data Engineer Platform Infrastructure Team",
+      company: "Fresh",
+      sortAt: 9_000,
+    });
+
+    const spec = { titles: ["data engineer"] };
+    // Premise: the best-ranked list does not reach the new role within the candidate window.
+    const ranked = await rankedJobs(db, spec, { limit: 300, offset: 0 }, NOW);
+    expect(ids(ranked)).not.toContain(fresh);
+    // The new-role count still finds it: it reads the newest candidates, not the best ones.
+    expect(await countPostedSince(db, spec, 5_000, 30, NOW)).toBe(1);
+  });
 });
