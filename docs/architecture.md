@@ -2,7 +2,7 @@
 
 ## Goals and non-goals (v1)
 
-Browse US tech jobs from ~9k company boards with simple search and filters, refreshed daily from this
+Browse jobs from ~9k company boards (the database stores what they state; the AI assistant judges fit), refreshed daily from this
 Mac, hosted cheaply on Cloudflare (about $5/month). Not in v1: public traffic, SEO, accounts,
 personal fit/resume features, vector search, closed-job history.
 
@@ -65,9 +65,10 @@ what ran where and when. Failures finalize the run as `partial`; nothing is infe
 
 - `sources`: configured boards + last run status, consecutive 404 count and `active`/`dead` status.
 - `runs`: bounded operational history.
-- `jobs`: hot narrow row: identity (`source_id`, `posting_id`), display facts, typed filters (country, work mode,
-  department, pay annualized, experience years), tri-state `is_us`/`is_tech`, `hidden` (confident out-of-scope),
-  `jd_hash`, `source_hash`, `facts` JSON (all locations, pay components, experience, extras), lifecycle fields.
+- `jobs`: hot narrow row: identity (`source_id`, `posting_id`), display facts as the source stated them (location
+  text, city/region/country code when the source gives them, work mode, department, employment type, dates), `jd_hash`,
+  `source_hash`, `facts` JSON (all locations, pay components in their own interval, experience, extras), lifecycle
+  fields, `dedupe_key`/`dup_of`. There are no derived columns: no pay or experience columns, no US/tech flags, no hidden flag.
 - `jobs_fts`: FTS5 over title, company, location (external-content, trigger-maintained). No descriptions.
 
 Location display text is bounded to 500 characters; city/region values over 120 characters stay NULL
@@ -75,13 +76,10 @@ in indexed columns. Full location values remain in `facts.locations` and raw evi
 malformed source place fields from rejecting otherwise valid job batches.
 
 Quantities keep source semantics: "3+ years" is `{min: 3, kind: required}`, never a range or midpoint. Pay
-components keep currency, interval, component type and region. Inferred values (parsed from text) carry
-`inferred: true`; structured values always win. Unknown stays NULL.
-
-Heuristics (`catalog/classify.ts`, versioned): `is_us` is 1 if any location is US, 0 only if every
-location is known and non-US, else NULL. `is_tech` is 1 for tech titles/departments, 0 only when confidently
-non-tech, else NULL. Only confident zeros hide a job; unknown stays visible. Retained raw packs let a
-corrected rule be replayed without refetching.
+components keep currency, the interval the source states (never annualized), component type and region. Unknown stays
+NULL. Nothing is parsed from text: no heuristics in the database (see `decisions.md` D6). The one derived string is the
+result's `pay` line: the first base pay the source stated with a rate interval, e.g. "USD 90000-95000 per hour".
+`inferred` on a value marks text-parsed data; no platform sets it today and the pay line never uses it.
 
 ### Personal layer
 
@@ -108,9 +106,10 @@ from a user URL). The web `/api/resume*` routes only relay with a byte cap (`lib
 
 ## Search
 
-`GET /v1/jobs`: FTS prefix match plus filters, keyset pagination on `(sort_at, id)`, partial indexes on
-`closed_at IS NULL AND hidden = 0`. Search sits behind `searchJobs`; vector/context search will be another
-implementation of the same query surface.
+`GET /v1/jobs`: FTS prefix match, keyset pagination on `(sort_at, id)`, partial indexes on `closed_at IS NULL`.
+Visibility is one predicate (`visibleJobs`): open, canonical (`dup_of IS NULL`), from a source that listed within
+14 days. There are no other filters; the assistant narrows by title phrases and places. Search sits behind
+`searchJobs`; vector/context search will be another implementation of the same query surface.
 
 ## Cost (10 daily users, ~300k stored jobs)
 

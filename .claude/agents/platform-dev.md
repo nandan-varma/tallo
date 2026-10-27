@@ -14,4 +14,4 @@ explore the public API with curl, record small real fixtures, write `list`/`deta
 
 Quality bar: lossless `list`; `SchemaError` on unexpected shapes (never return an empty list); honest `complete` and
 `emptyIsAuthoritative`; `map` reads explicitly via `lookup()` (no spreads) so `verify` can report unmapped fields;
-typed pay/experience only from structured fields. Report what `verify` shows as unmapped and why you left it.
+typed pay/experience/locations only from structured fields (never parsed from text; an unstated interval is `unknown`). Report what `verify` shows as unmapped and why you left it.

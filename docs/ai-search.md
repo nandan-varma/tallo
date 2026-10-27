@@ -8,8 +8,13 @@ database produces the list**. Nothing the model writes is stored; the conversati
 
 - The model reads and searches; it does not generate data. The list, every job field and every description come from the
   database. The assistant may add a short note under a job (why it is there), and notes are validated on the server.
-- Filters never worked well (many jobs lack department, work mode, pay, experience), so there are none: the assistant turns a
-  request into title phrases and places, treats a missing fact as unknown, and reads a whole posting only when it must.
+- The catalog is global and unfiltered: every kind of work and every place the sources list. The database judges nothing
+  (no US/tech flag, no hidden rows, no pay or experience filters; decisions D6). The assistant judges relevance, tech vs
+  non-tech, place, pay and seniority from titles, departments, location text and descriptions. It turns a request into title
+  phrases and places, leaves out hits that do not fit (and says so), treats a missing fact as unknown, and reads a whole
+  posting only when it must.
+- Pay is quoted as the source stated it: the `pay` line is the base pay in the interval the source gave ("USD 90000-95000
+  per hour"). The assistant never converts it to a yearly figure as if the source had said so.
 - Depth is budgeted by the loop (`prepareStep` removes `read_job` after 6 reads), not by the prompt.
 
 ## The contract: a search spec
@@ -40,7 +45,7 @@ defines the list the person sees; the web app runs that spec against the databas
 - `POST /v1/jobs/search`: a page of the database's answer to a search spec (no model). `GET/PUT /v1/profile` (the person's free-text notes). The agent's profile is the built resume as text plus those notes; nothing is generated.
 - `jobs-port.ts`: `search` runs one exact-term (ANDed, quoted) FTS query per phrase, merged round-robin; named places are part of the MATCH
   (`location_text : (...)`, `ftsLocations`), so local jobs are not crowded out by newer ones elsewhere. `searchPage` ORs the phrases
-  and pages by keyset cursor. Everything goes through `visibleJobs` (open, canonical, not hidden, fresh source).
+  and pages by keyset cursor. Everything goes through `visibleJobs` (open, canonical, fresh source).
 - Missing `OPENCODE_API_KEY` or `AI_MODEL_SMART`: 503 with a clear message.
 
 ## Web (`apps/web`)
