@@ -102,10 +102,14 @@ export async function syncSource(
     log.warn({ source: source.id, error: String(error) }, "listing failed");
     // A 404 on the first request means the board does not exist; repeated ones mark it dead.
     // A 404 later in pagination is a failed run on a board that exists, so it must not count.
-    // `requests` counts every attempt, including retries and redirect hops, so any earlier
-    // request makes this false. That is the safe direction: a board is only marked dead on a
-    // 404 that was the very first request.
-    const boardNotFound = error instanceof HttpError && error.status === 404 && requests === 1;
+    // `requests` counts HTTP hops (retries of one hop are not counted), so any earlier request
+    // makes this false. That is the safe direction: a board is only marked dead on a 404 that
+    // was the very first request. A first hop redirected off the allowlist (a retired tenant
+    // sent to a generic page) is the same signal: the board is no longer where the config says.
+    const boardNotFound =
+      error instanceof HttpError &&
+      requests === 1 &&
+      (error.status === 404 || error.kind === "redirect");
     return finish({ boardNotFound });
   }
 

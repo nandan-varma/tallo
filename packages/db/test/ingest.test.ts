@@ -1,5 +1,6 @@
 import { prepareJob } from "@tallo/catalog";
 import type { MappedJob, SourceConfig } from "@tallo/contracts";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   applyJobs,
@@ -12,6 +13,7 @@ import {
   pruneRuns,
   purgeClosed,
   rawKey,
+  reapStaleRuns,
   reclassify,
   schema,
   searchJobs,
@@ -322,14 +324,32 @@ describe("board health", () => {
     expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
   });
 
-  it("a failure that is not a 404 breaks the streak and never marks dead", async () => {
+  it("a failure that is not a 404 leaves the streak alone, so it neither resets nor marks dead", async () => {
     await failed(T + 1000, true);
     await failed(T + 2000, true);
     await failed(T + 3000, false);
-    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
-    await failed(T + 4000, true);
-    await failed(T + 5000, true);
     expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await failed(T + 4000, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("only a successful listing resets the streak", async () => {
+    await failed(T + 1000, true);
+    await failed(T + 2000, true);
+    const run = await start(T + 3000);
+    await finalize(db, run, fin(["1"], { listingComplete: false }), T + 3000);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await failed(T + 4000, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("interleaved failures do not stop consecutive 404s from marking a board dead", async () => {
+    await failed(T + 1000, true);
+    await failed(T + 2000, false);
+    await failed(T + 3000, true);
+    await failed(T + 4000, false);
+    await failed(T + 5000, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
   });
 
   it("a complete listing revives a dead board", async () => {
@@ -375,6 +395,47 @@ describe("reclassify", () => {
     expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 0, more: false });
     expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(0);
     expect((await searchJobs(db, { limit: 10, all: true })).jobs).toHaveLength(3);
+  });
+});
+
+describe("stuck runs", () => {
+  it("marks a run left running past the lease as partial, and closes nothing", async () => {
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1"), mapped("2")]);
+    await finalize(db, first, fin(["1", "2"]), T + 1000);
+    // The collector is killed after listing: the run never finalizes.
+    const stuck = await start(T + 2000);
+    expect(await reapStaleRuns(db, T + 2000 + 60)).toBe(0);
+    expect(await reapStaleRuns(db, T + 2000 + 3 * 3600)).toBe(1);
+
+    const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, stuck));
+    expect(row).toMatchObject({ status: "partial", closed: null });
+    expect(row?.issues).toEqual([
+      { code: "stopped", message: "Collector process stopped before finalize" },
+    ]);
+    const open = await db.select().from(schema.jobs);
+    expect(open.map((j) => [j.closedAt, j.absentRuns])).toEqual([
+      [null, 0],
+      [null, 0],
+    ]);
+  });
+
+  it("a late finalize from a reaped collector cannot close jobs", async () => {
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1")]);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const late = await start(T + 2000);
+    await reapStaleRuns(db, T + 2000 + 3 * 3600);
+    // The zombie collector reports an authoritatively empty listing after it was reaped.
+    const result = await finalize(
+      db,
+      late,
+      fin([], { emptyIsAuthoritative: true }),
+      T + 2000 + 3 * 3600 + 1,
+    );
+    expect(result).toMatchObject({ status: "partial", closureApplied: false, closed: 0 });
+    const open = await db.select().from(schema.jobs);
+    expect(open.map((j) => j.closedAt)).toEqual([null]);
   });
 });
 

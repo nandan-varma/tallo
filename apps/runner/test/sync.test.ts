@@ -198,6 +198,55 @@ describe("dead boards", () => {
     expect(row).toMatchObject({ status: "active", consecutiveFailures: 0 });
   });
 
+  it("a retired Workday tenant that redirects off the allowlist is board-not-found, and goes dead", async () => {
+    const { app, api } = stack();
+    const workday = {
+      id: "workday:acme",
+      platform: "workday",
+      key: "acme/careers",
+      company: "Acme",
+      params: { wd: "wd5" },
+    };
+    const retired: typeof fetch = async () =>
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://community.workday.com/retired" },
+      });
+    for (let i = 0; i < 3; i++) {
+      const result = await syncSource(workday, {
+        api,
+        log,
+        runnerId: "test",
+        version: "t",
+        fetch: retired,
+      });
+      expect(result).toMatchObject({ listingComplete: false, boardNotFound: true });
+    }
+    const [row] = (await read(app, "/v1/sources")).filter(
+      (s: { id: string }) => s.id === workday.id,
+    );
+    expect(row).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("a failure between two 404s does not reset the streak", async () => {
+    const { app, api } = stack();
+    // 403 is not retried, so this stays fast; it says nothing about whether the board exists.
+    const forbidden = greenhouse({ listing: () => new Response("", { status: 403 }) });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    const result = await syncSource(source, {
+      api,
+      log,
+      runnerId: "test",
+      version: "t",
+      fetch: forbidden,
+    });
+    expect(result.boardNotFound).toBe(false);
+    expect(await sourceRow(app)).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    expect(await sourceRow(app)).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
   it("a 500 is a failed run, not a 404, and does not count toward dead", async () => {
     const { app, api } = stack();
     const broken = greenhouse({ listing: () => new Response("{}", { status: 500 }) });

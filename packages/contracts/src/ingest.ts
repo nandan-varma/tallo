@@ -82,7 +82,10 @@ export const finalizeSchema = z.object({
   finishedAt: epoch,
   rawKey: z.string().max(300).nullable(),
   issues: z.array(issueSchema).max(50),
-  /** The listing failed because the board does not exist (HTTP 404). Counts toward dead. */
+  /**
+   * The listing failed because the board does not exist: HTTP 404 or a redirect off the allowlist,
+   * on the first request. Counts toward dead.
+   */
   boardNotFound: z.boolean().default(false),
 });
 export type Finalize = z.infer<typeof finalizeSchema>;

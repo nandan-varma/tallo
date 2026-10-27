@@ -267,8 +267,10 @@ export async function finalize(
   const status = fin.listingComplete ? "complete" : "partial";
   // A listing that returned (complete, or any postings seen) counts for freshness; a failed one does not.
   const listed = fin.listingComplete || fin.seenIds.length > 0;
-  // Board health. A complete listing revives a dead board; a 404 counts toward dead; any other
-  // outcome breaks the streak, so only consecutive 404s can mark a board dead.
+  // Board health. Only a successful listing resets the not-found streak and revives a dead board.
+  // A board-not-found run adds to the streak. Any other failure says nothing about whether the
+  // board exists, so it leaves the streak as it is: a timeout between two 404s must not hide them.
+  // `consecutive_failures` holds that streak.
   const health = fin.listingComplete
     ? { consecutiveFailures: 0, status: "active" as const, lastCompleteRunAt: now }
     : fin.boardNotFound
@@ -276,7 +278,7 @@ export async function finalize(
           consecutiveFailures: sql`${sources.consecutiveFailures} + 1`,
           status: sql`CASE WHEN ${sources.consecutiveFailures} + 1 >= ${DEAD_AFTER_NOT_FOUND_RUNS} THEN 'dead' ELSE ${sources.status} END`,
         }
-      : { consecutiveFailures: 0 };
+      : {};
   statements.push(
     db
       .update(runs)
@@ -301,6 +303,33 @@ export async function finalize(
   // rows written in this run, so all of the source's keys are regrouped.
   await regroupSource(db, current.sourceId, now, listed && wasStale);
   return { status, closureApplied, closed, reopened };
+}
+
+/**
+ * Marks runs still `running` past the lease as partial: the collector died before it could finalize.
+ * It closes nothing (a partial run never proves a posting is gone) and leaves board health alone.
+ * A late finalize from the dead collector is then a no-op, because the run is no longer running.
+ */
+export async function reapStaleRuns(db: Db, now = nowSeconds()): Promise<number> {
+  const stale = await db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(and(eq(runs.status, "running"), lt(runs.startedAt, now - RUN_LEASE_SECONDS)))
+    .limit(1000);
+  for (const ids of chunks(
+    stale.map((r) => r.id),
+    CHUNK,
+  )) {
+    await db
+      .update(runs)
+      .set({
+        status: "partial",
+        finishedAt: now,
+        issues: [{ code: "stopped", message: "Collector process stopped before finalize" }],
+      })
+      .where(sql`${runs.id} IN ${jsonIds(ids)}`);
+  }
+  return stale.length;
 }
 
 /**

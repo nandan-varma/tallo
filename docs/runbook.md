@@ -70,11 +70,11 @@ A source with no complete run for 7 days is stale.
 
 ### Dead boards
 
-A listing whose first request returns HTTP 404 means the board does not exist. Three runs in a row that 404 mark the
-source `dead` (`sources.status`, `sources.consecutive_failures`). A 404 later in a paginated listing is a failed
-run on a board that exists, so it does not count. Any other outcome breaks the streak: a 500
-or a partial run resets the count to 0. A dead source is skipped by `tallo sync` (its jobs stay as they
-are; nothing closes on a failed run).
+A listing whose first request returns HTTP 404, or redirects off the platform's host allowlist (a retired Workday
+tenant), means the board does not exist. Three runs in a row of that mark the source `dead` (`sources.status`,
+`sources.consecutive_failures`). A 404 later in a paginated listing is a failed run on a board that exists, so it
+does not count. Only a successful listing resets the count; a 500, a timeout or a partial run leaves it as it is.
+A dead source is skipped by `tallo sync` (its jobs stay as they are; nothing closes on a failed run).
 - `pnpm --filter @tallo/runner tallo sources --dead` lists dead boards with their 404 count and last run.
 - Review each one, then remove it from `sources/*.json` to stop tracking it.
 - `tallo sync --include-dead` (or `--source <id>`, which still needs the flag) retries them. A complete
@@ -82,7 +82,10 @@ are; nothing closes on a failed run).
 
 ## Troubleshooting
 
-- _Run stuck "running"_: a run older than 2h no longer blocks the source; start another.
+- _Run stuck "running"_: a run older than 2h no longer blocks the source, and the hourly cron marks it `partial`
+  (issue code `stopped`). Nothing closes on it.
+- _Workday posting without externalPath_: skipped and recorded as a `schema` issue; the listing is marked
+  incomplete, so closure waits until the board lists every posting with a path again.
 - _Source fails every run_: `tallo verify <id>`; 404 means the board moved or died. After three 404 runs it is
   marked dead and skipped; see "Dead boards".
 - _Workday incomplete_: expected for slices that cannot be split; closure is skipped, jobs stay open.
