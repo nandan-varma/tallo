@@ -106,14 +106,14 @@ export const jobs = sqliteTable(
     uniqueIndex("jobs_source_posting_idx").on(t.sourceId, t.postingId),
     index("jobs_dedupe_idx").on(t.dedupeKey).where(sql`${t.closedAt} IS NULL`),
     index("jobs_dup_of_idx").on(t.dupOf).where(sql`${t.dupOf} IS NOT NULL`),
-    // The hourly regroup finds rows written since the last pass by updated_at (closure bumps it too).
+    // The hourly regroup finds rows whose grouping changed by updated_at (a regroup input or a reopen or
+    // closure bumps it; see ingest.ts). Every index costs a write per row it covers, so keep this list short.
     index("jobs_updated_idx").on(t.updatedAt),
-    index("jobs_feed_idx")
-      .on(sql`${t.sortAt} desc`, sql`${t.id} desc`)
-      .where(sql`${t.closedAt} IS NULL`),
-    index("jobs_company_idx")
-      .on(t.companySlug, sql`${t.sortAt} desc`)
-      .where(sql`${t.closedAt} IS NULL`),
+    // Description lookup: purge asks which of a batch of hashes are still referenced. Without it each
+    // purge pass scans the whole table. Costs one index write per new job (and per description change).
+    index("jobs_jd_hash_idx").on(t.jdHash),
+    // The 30-day purge selects closed rows only; open rows (the vast majority) are not indexed.
+    index("jobs_closed_idx").on(t.closedAt).where(sql`${t.closedAt} IS NOT NULL`),
   ],
 );
 
