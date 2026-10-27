@@ -9,7 +9,13 @@ import {
 } from "./extract.ts";
 import { gzip, sha256, stableStringify } from "./hash.ts";
 import { detectWorkMode } from "./location.ts";
-import { excerpt } from "./text.ts";
+import { cleanTitle, excerpt } from "./text.ts";
+
+/**
+ * Version of the prepare rules (pay, experience, locations, titles). The runner mixes it into each
+ * posting's source hash, so bumping it makes the next sync re-prepare every posting, not just changed ones.
+ */
+export const PREPARE_VERSION = 2;
 
 interface PreparedJob {
   facts: JobFacts;
@@ -41,8 +47,9 @@ export async function prepareJob(
   const pay = annualizeBase(compensation);
   const exp = summarizeExperience(experience);
   const primary = job.locations.find((l) => l.primary) ?? job.locations[0];
+  const title = cleanTitle(job.title);
   const verdict = classify({
-    title: job.title,
+    title,
     department: job.department,
     team: job.team,
     locations: job.locations,
@@ -52,7 +59,7 @@ export async function prepareJob(
 
   const columns = {
     postingId: job.postingId,
-    title: job.title,
+    title,
     url: job.url ?? null,
     applyUrl: job.applyUrl ?? null,
     locationText: primary ? excerpt(primary.text, 500) : null,
@@ -90,7 +97,7 @@ export async function prepareJob(
     facts: {
       ...columns,
       jdHash,
-      dedupeKey: await dedupeKey({ company: source.company, title: job.title, jdHash }),
+      dedupeKey: await dedupeKey({ company: source.company, title, jdHash }),
       sourceHash,
       facts,
     },

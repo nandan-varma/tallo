@@ -24,6 +24,14 @@ export function htmlToText(input: string): string {
     .trim();
 }
 
+/**
+ * A posting title as shown: entities decoded ("R&amp;D" to "R&D", "&lt;p&gt;" to "<p>") and whitespace
+ * collapsed. Nothing else changes, so short real titles such as "RN" are kept as they are.
+ */
+export function cleanTitle(title: string): string {
+  return decodeHTML(title).replace(/\s+/g, " ").trim();
+}
+
 export function excerpt(text: string, max = 280): string {
   const flat = text.replace(/\s+/g, " ").trim();
   return flat.length <= max ? flat : `${flat.slice(0, max - 1).trimEnd()}…`;
