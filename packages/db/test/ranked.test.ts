@@ -16,6 +16,8 @@ interface Seed {
   closedAt?: number | null;
   dupOf?: number | null;
   sourceId?: string;
+  requisitionId?: string | null;
+  jdHash?: string;
 }
 
 let counter = 0;
@@ -46,7 +48,8 @@ async function seed(db: Db, args: Seed): Promise<number> {
       companySlug: company.toLowerCase(),
       title: args.title,
       excerpt: args.title,
-      jdHash: `h${counter}`,
+      jdHash: args.jdHash ?? `h${counter}`,
+      requisitionId: args.requisitionId ?? null,
       jdBytes: 1,
       sourceHash: "s",
       facts: { platform: "greenhouse" },
@@ -167,12 +170,27 @@ describe("rankedJobs", () => {
     expect(ids(rows)).toEqual([stripe]);
   });
 
-  it("collapses one company and title across locations, showing the best one and the count", async () => {
+  it("collapses one requisition across locations, showing one row and the count", async () => {
     const db = testDb();
     const acmeIds = [
-      await seed(db, { title: "Data Engineer", company: "Acme", location: "Seattle, WA" }),
-      await seed(db, { title: "Data Engineer", company: "Acme", location: "Boston, MA" }),
-      await seed(db, { title: "Data Engineer", company: "Acme", location: "Austin, TX" }),
+      await seed(db, {
+        title: "Data Engineer",
+        company: "Acme",
+        location: "Seattle, WA",
+        requisitionId: "R1",
+      }),
+      await seed(db, {
+        title: "Data Engineer",
+        company: "Acme",
+        location: "Boston, MA",
+        requisitionId: "R1",
+      }),
+      await seed(db, {
+        title: "Data Engineer",
+        company: "Acme",
+        location: "Austin, TX",
+        requisitionId: "R1",
+      }),
     ];
     await seed(db, { title: "Data Engineer", company: "Other", location: "Seattle, WA" });
 
@@ -183,6 +201,66 @@ describe("rankedJobs", () => {
     expect(acme).toMatchObject({ locations: 3 });
     expect(acmeIds).toContain(acme?.id);
     expect(rows.find((r) => r.company === "Other")).toMatchObject({ locations: 1 });
+  });
+
+  it("keeps distinct requisitions with the same company and title apart", async () => {
+    const db = testDb();
+    const first = await seed(db, {
+      title: "Software Engineer",
+      company: "Amazon",
+      location: "Seattle, WA",
+      requisitionId: "2001",
+    });
+    const second = await seed(db, {
+      title: "Software Engineer",
+      company: "Amazon",
+      location: "Seattle, WA",
+      requisitionId: "2002",
+    });
+
+    const rows = await rankedJobs(db, { titles: ["software engineer"] }, page, NOW);
+
+    expect(ids(rows).sort()).toEqual([first, second].sort());
+    expect(rows.map((r) => r.locations)).toEqual([1, 1]);
+  });
+
+  it("collapses rows with the same description and no requisition, and keeps other descriptions apart", async () => {
+    const db = testDb();
+    const same = await seed(db, {
+      title: "Data Engineer",
+      company: "Acme",
+      location: "Seattle, WA",
+      jdHash: "same-text",
+    });
+    await seed(db, {
+      title: "Data Engineer",
+      company: "Acme",
+      location: "Boston, MA",
+      jdHash: "same-text",
+    });
+    await seed(db, {
+      title: "Data Engineer",
+      company: "Acme",
+      location: "Austin, TX",
+      jdHash: "other-text",
+    });
+
+    const rows = await rankedJobs(db, { titles: ["data engineer"] }, page, NOW);
+
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === same)).toMatchObject({ locations: 2 });
+    expect(rows.filter((r) => r.locations === 1)).toHaveLength(1);
+  });
+
+  it("keeps a posting with a requisition apart from one without, and rows that only share a title", async () => {
+    const db = testDb();
+    await seed(db, { title: "Data Engineer", company: "Acme", requisitionId: "R9" });
+    await seed(db, { title: "Data Engineer", company: "Acme" });
+
+    const rows = await rankedJobs(db, { titles: ["data engineer"] }, page, NOW);
+
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.locations)).toEqual([1, 1]);
   });
 
   it("ANDs the places with the titles, so local jobs are not crowded out", async () => {
@@ -302,6 +380,96 @@ describe("rankedJobs", () => {
     expect(await countPostedSince(db, { titles: ["data engineer"] }, -1, 100000, NOW)).toBe(
       RANK_CANDIDATES,
     );
+  });
+});
+
+/** `count` visible-or-not rows of one title, one company each, in one bulk source. Returns nothing: the rows are the point. */
+async function bulkRows(
+  db: Db,
+  count: number,
+  title: string,
+  fields: { closedAt?: number; workMode?: "remote" | "onsite"; sortAt?: number } = {},
+) {
+  await db
+    .insert(schema.sources)
+    .values({
+      id: "greenhouse:bulk",
+      platform: "greenhouse",
+      key: "bulk",
+      company: "Bulk",
+      companySlug: "bulk",
+      params: {},
+      lastListedAt: NOW,
+    })
+    .onConflictDoNothing();
+  const rows = Array.from({ length: count }, (_, i) => ({
+    sourceId: "greenhouse:bulk",
+    postingId: `${title}-${fields.closedAt ?? 0}-${i}`,
+    company: `Co ${title} ${i}`,
+    companySlug: `co-${title.replaceAll(" ", "-")}-${i}`,
+    title,
+    excerpt: "x",
+    jdHash: `${title}-${fields.closedAt ?? 0}-${i}`,
+    jdBytes: 1,
+    sourceHash: "s",
+    facts: {},
+    sortAt: fields.sortAt ?? i,
+    firstSeenAt: 1,
+    updatedAt: 1,
+    locationText: "Somewhere",
+    workMode: fields.workMode ?? ("onsite" as const),
+    closedAt: fields.closedAt ?? null,
+  }));
+  for (let i = 0; i < rows.length; i += 200) {
+    await db.insert(schema.jobs).values(rows.slice(i, i + 200));
+  }
+}
+
+describe("the candidate cut", () => {
+  it("finds a remote posting beyond the candidate window when the remote filter is on", async () => {
+    const db = testDb();
+    // Onsite postings with short titles fill the best candidates; the remote one ranks below the cut.
+    await bulkRows(db, RANK_CANDIDATES + 100, "Data Engineer");
+    const remote = await seed(db, {
+      title: "Senior Staff Data Engineer Platform Infrastructure Team",
+      company: "Remote Co",
+      location: "Remote, US",
+      workMode: "remote",
+    });
+    const spec = { titles: ["data engineer"], remote: true };
+
+    // Premise: without the remote filter the remote posting is outside the window.
+    expect(ids(await rankedJobs(db, { titles: ["data engineer"] }, page, NOW))).not.toContain(
+      remote,
+    );
+    expect(ids(await rankedJobs(db, spec, page, NOW))).toEqual([remote]);
+    expect(await countPostedSince(db, spec, 0, 30, NOW)).toBe(1);
+  });
+
+  it("finds a place posting beyond the window when remote work is also asked for", async () => {
+    const db = testDb();
+    await bulkRows(db, RANK_CANDIDATES + 100, "Data Engineer");
+    const seattle = await seed(db, {
+      title: "Senior Staff Data Engineer Platform Infrastructure Team",
+      company: "Seattle Co",
+      location: "Seattle, WA",
+      workMode: "onsite",
+    });
+
+    const spec = { titles: ["data engineer"], locations: ["Seattle"], remote: true };
+
+    expect(ids(await rankedJobs(db, spec, page, NOW))).toEqual([seattle]);
+  });
+
+  it("does not let closed postings take the window from open ones", async () => {
+    const db = testDb();
+    await bulkRows(db, RANK_CANDIDATES + 100, "Data Engineer", { closedAt: 5 });
+    const open = await seed(db, {
+      title: "Senior Staff Data Engineer Platform Infrastructure Team",
+      company: "Open Co",
+    });
+
+    expect(ids(await rankedJobs(db, { titles: ["data engineer"] }, page, NOW))).toEqual([open]);
   });
 });
 
