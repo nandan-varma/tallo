@@ -141,9 +141,13 @@ export function visibleJobs(now: number, { includeStale = false } = {}): SQL[] {
   ];
 }
 
-/** Newest first, keyset-paged: `GET /v1/jobs`. Free text is prefix-matched on its last word. */
+/**
+ * Newest first, keyset-paged: `GET /v1/jobs` (which requires `q`). Free text is prefix-matched on its last word.
+ * Text with no searchable word matches nothing, the same as `rankedJobs`.
+ */
 export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.now() / 1000)) {
   const match = input.q ? ftsQuery(input.q) : undefined;
+  if (input.q && !match) return { jobs: [], nextCursor: null };
   const where: (SQL | undefined)[] = [
     ...visibleJobs(now, input),
     match

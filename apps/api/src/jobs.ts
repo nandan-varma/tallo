@@ -33,7 +33,9 @@ export function jobRoutes({
   const routes = new Hono();
   const descriptionOf = descriptionReader(blobs);
 
-  routes.get("/v1/jobs", read, zValidator("query", searchSchema), async (c) => {
+  // Text is required: the feed without it would scan and sort every open job (there is no index for it).
+  const listQuery = searchSchema.extend({ q: z.string().trim().min(1).max(200) });
+  routes.get("/v1/jobs", read, zValidator("query", listQuery), async (c) => {
     c.header("cache-control", "private, max-age=30");
     return c.json(await searchJobs(db, c.req.valid("query")));
   });

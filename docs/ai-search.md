@@ -65,7 +65,8 @@ to saved searches too.
   `{hits, nextOffset}` out. `nextOffset` is null on the last page; there is no count probe, so a full page at the cap ends the list.
 - `GET/PUT /v1/profile` (the person's free-text notes). The agent's profile is the built resume as text plus those notes; nothing is generated.
 - `jobs-port.ts`: `rankedSpec` turns a spec into the ranked query. `search` and `searchPage` run the same query.
-- `GET /v1/jobs` keeps the newest-first keyset feed (`searchJobs`), unchanged.
+- `GET /v1/jobs` keeps the newest-first keyset feed (`searchJobs`), but `q` is now required (400 without it): the feed
+  had no index, and no client calls it without text.
 - Missing `OPENCODE_API_KEY` or `AI_MODEL_SMART`: 503 with a clear message.
 
 ## Ranked search (`rankedJobs`, `packages/db/src/queries.ts`)

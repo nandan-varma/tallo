@@ -39,8 +39,17 @@ describe("api", () => {
     expect((await call("/health", null)).status).toBe(200);
     expect((await call("/v1/jobs", null)).status).toBe(401);
     expect((await call("/v1/jobs", "wrong")).status).toBe(401);
-    expect((await call("/v1/jobs", READ)).status).toBe(200);
+    expect((await call("/v1/jobs?q=software", READ)).status).toBe(200);
     expect((await call("/v1/runs", READ, { method: "POST", json: {} })).status).toBe(401);
+  });
+
+  it("requires search text on GET /v1/jobs: the unfiltered feed has no index", async () => {
+    const { call } = setup();
+    // No q, a blank q, and text with no word all get a clear 400 or an empty page, never the whole feed.
+    expect((await call("/v1/jobs", READ)).status).toBe(400);
+    expect((await call("/v1/jobs?q=%20", READ)).status).toBe(400);
+    const nothing = (await (await call("/v1/jobs?q=%21%21", READ)).json()) as { jobs: unknown[] };
+    expect(nothing.jobs).toEqual([]);
   });
 
   it("runs a full ingest round trip and serves the job with its description", async () => {
@@ -283,7 +292,7 @@ describe("api", () => {
     });
 
     type Variant = { id: number; applyUrl: string };
-    const search = (await (await call("/v1/jobs", READ)).json()) as {
+    const search = (await (await call("/v1/jobs?q=software", READ)).json()) as {
       jobs: { id: number; variants: number }[];
     };
     const hit = search.jobs[0];
