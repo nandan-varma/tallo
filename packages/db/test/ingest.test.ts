@@ -14,7 +14,6 @@ import {
   purgeClosed,
   rawKey,
   reapStaleRuns,
-  reclassify,
   schema,
   searchJobs,
   startRun,
@@ -146,29 +145,37 @@ describe("ingest", () => {
     expect(third.nextCursor).toBeNull();
   });
 
-  it("hides out-of-scope jobs by default but keeps them", async () => {
+  it("lists every job the source gave, whatever its place or kind of work", async () => {
     const run = await start();
     await ingest(run, [
       mapped("1"),
       mapped("2", { title: "Registered Nurse", locations: [loc("Berlin, Germany", "DE")] }),
     ]);
-    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(1);
-    expect((await searchJobs(db, { limit: 10, all: true })).jobs).toHaveLength(2);
+    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(2);
   });
 
-  it("filters by pay and experience", async () => {
+  it("shows the source's stated pay line in its own interval, and only stated pay", async () => {
     const run = await start();
     await ingest(run, [
-      mapped("1", { description: "Pay $200,000 - $250,000 per year. 8+ years of experience." }),
-      mapped("2", { description: "Pay $90,000 - $110,000 per year. 1+ years of experience." }),
-      mapped("3"),
+      mapped("1", {
+        compensation: [{ min: 50, max: 60, currency: "USD", interval: "hour", component: "base" }],
+      }),
+      mapped("2", {
+        // Inferred from text: never used for a pay line.
+        compensation: [
+          { min: 200000, currency: "USD", interval: "year", component: "base", inferred: true },
+        ],
+      }),
+      mapped("3", { description: "Pay $200,000 - $250,000 per year." }),
     ]);
-    expect(
-      (await searchJobs(db, { limit: 10, salaryMin: 180000 })).jobs.map((j) => j.title),
-    ).toEqual(["Software Engineer 1"]);
-    expect(
-      (await searchJobs(db, { limit: 10, maxExperience: 2 })).jobs.map((j) => j.title).sort(),
-    ).toEqual(["Software Engineer 2", "Software Engineer 3"]);
+    const pay = Object.fromEntries(
+      (await searchJobs(db, { limit: 10 })).jobs.map((j) => [j.title, j.pay]),
+    );
+    expect(pay).toEqual({
+      "Software Engineer 1": "USD 50-60 per hour",
+      "Software Engineer 2": null,
+      "Software Engineer 3": null,
+    });
   });
 });
 
@@ -239,10 +246,8 @@ describe("closure", () => {
       const run = await start(now);
       await finalize(db, run, fin(["1"]), now);
     }
-    const closedId = (await searchJobs(db, { limit: 10, all: true })).jobs.find((j) =>
-      j.title.endsWith("2"),
-    );
-    expect(closedId).toBeUndefined();
+    const closed = (await searchJobs(db, { limit: 10 })).jobs.find((j) => j.title.endsWith("2"));
+    expect(closed).toBeUndefined();
     expect(await purgeClosed(db, blobs, 30, T + 3000 + 31 * 86400)).toBe(1);
     expect(blobs.keys()).toHaveLength(1);
   });
@@ -381,20 +386,6 @@ describe("getJob", () => {
     const { jobs } = await searchJobs(db, { limit: 1 });
     const job = await getJob(db, jobs[0]!.id);
     expect(job?.facts).toMatchObject({ platform: "greenhouse", extras: { team: "x" } });
-  });
-});
-
-describe("reclassify", () => {
-  it("upgrades stale classifications from stored facts, in pages", async () => {
-    const run = await start();
-    await ingest(run, [mapped("1"), mapped("2"), mapped("3")]);
-    const verdict = { isUs: 0 as const, isTech: 1 as const, version: 9 };
-    const first = await reclassify(db, () => verdict, 9, 2);
-    expect(first).toEqual({ updated: 2, more: true });
-    expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 1, more: false });
-    expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 0, more: false });
-    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(0);
-    expect((await searchJobs(db, { limit: 10, all: true })).jobs).toHaveLength(3);
   });
 });
 

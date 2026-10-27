@@ -1,20 +1,14 @@
 import type { Money, Platform, SourceConfig } from "@tallo/contracts";
 import { arr, id, obj, str } from "@tallo/contracts";
-import {
-  describe,
-  guessInterval,
-  locations,
-  lookup,
-  pairs,
-  requireKey,
-  rows,
-  workModeOf,
-} from "../kit.ts";
+import { describe, locations, lookup, pairs, requireKey, rows, workModeOf } from "../kit.ts";
 
 const base = (s: SourceConfig) =>
   `https://${s.params.region === "eu" ? "boards-api.eu.greenhouse.io" : "boards-api.greenhouse.io"}/v1/boards/${s.key}/jobs`;
 
-/** Pay ranges are cents with a free-text title ("Annual Salary:"); the interval is in the title. */
+/**
+ * Pay ranges are cents with a free-text title ("Annual Salary:"). The interval is what the title states;
+ * without one it is unknown, never guessed from the amount.
+ */
 function pay(ranges: unknown): Money[] {
   return arr(ranges).flatMap((r) => {
     const { min_cents, max_cents, currency_type, title } = obj(r);
@@ -22,11 +16,7 @@ function pay(ranges: unknown): Money[] {
     const max = typeof max_cents === "number" ? max_cents / 100 : undefined;
     if (min === undefined && max === undefined) return [];
     const label = str(title) ?? "";
-    const interval = /hour/i.test(label)
-      ? "hour"
-      : /annual|year/i.test(label)
-        ? "year"
-        : guessInterval(max ?? min ?? 0);
+    const interval = /hour/i.test(label) ? "hour" : /annual|year/i.test(label) ? "year" : "unknown";
     return [
       {
         min,
@@ -42,7 +32,7 @@ function pay(ranges: unknown): Money[] {
 
 export const greenhouse: Platform = {
   id: "greenhouse",
-  version: 1,
+  version: 2,
   hosts: ["boards-api.greenhouse.io", "boards-api.eu.greenhouse.io"],
   validate: (source) => requireKey(source),
 

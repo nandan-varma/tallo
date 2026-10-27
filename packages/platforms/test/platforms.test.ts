@@ -51,9 +51,34 @@ describe("greenhouse", () => {
     expect(job.locations.map((l) => l.text)).toEqual(
       expect.arrayContaining(["San Francisco, CA", "Seattle, WA"]),
     );
-    expect(job.locations[0]).toMatchObject({ primary: true, countryCode: "US" });
+    // Greenhouse states only the place's name; the country is not read from "San Francisco, CA".
+    expect(job.locations[0]).toMatchObject({ primary: true, text: "San Francisco, CA" });
+    expect(job.locations[0]?.countryCode).toBeUndefined();
     expect(job.description.length).toBeGreaterThan(500);
     expect(job.description).not.toContain("<");
+  });
+  it("keeps a Greenhouse pay range's interval unknown unless its title states one", () => {
+    const listing = {
+      id: 1,
+      title: "Engineer",
+      pay_input_ranges: [
+        { min_cents: 9000000, max_cents: 12000000, currency_type: "USD", title: "Salary" },
+      ],
+    };
+    const job = greenhouse.map(
+      { id: "1", listing, detail: undefined },
+      source("greenhouse", "acme"),
+    );
+    expect(job.compensation).toEqual([
+      {
+        min: 90000,
+        max: 120000,
+        currency: "USD",
+        interval: "unknown",
+        component: "base",
+        text: "Salary",
+      },
+    ]);
   });
   it("fetches pay detail by posting id", async () => {
     const { ctx, urls } = fakeCtx(() => fixture("greenhouse-detail"));
@@ -91,6 +116,16 @@ describe("lever", () => {
     const job = lever.map({ id: "x", listing }, src);
     expect(job.compensation).toEqual([
       { min: 40, max: 55, currency: "USD", interval: "hour", component: "base" },
+    ]);
+  });
+  it("leaves the pay interval unknown when the source does not state it, whatever the amount", () => {
+    const listing = {
+      ...obj((fixture("lever-list") as Json[])[0]),
+      salaryRange: { currency: "USD", min: 90000, max: 120000 },
+    };
+    const job = lever.map({ id: "x", listing }, src);
+    expect(job.compensation).toEqual([
+      { min: 90000, max: 120000, currency: "USD", interval: "unknown", component: "base" },
     ]);
   });
 });
@@ -617,11 +652,13 @@ describe("oraclecloud", () => {
       postedAt: "2026-10-23T20:16:52+00:00",
     });
     expect(job.title).toContain("Private Client Advisor");
+    // The source says "Lexington, KY, United States" and states the country; no region is read from the text.
     expect(job.locations[0]).toMatchObject({
       primary: true,
       countryCode: "US",
-      region: "Kentucky",
+      text: "Lexington, KY, United States",
     });
+    expect(job.locations[0]?.region).toBeUndefined();
     expect(job.description.length).toBeGreaterThan(300);
     expect(job.description).not.toContain("<");
     expect(job.extras).toMatchObject({ businessUnit: "Consumer & Community Banking" });

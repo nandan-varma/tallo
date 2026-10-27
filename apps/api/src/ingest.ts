@@ -1,11 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
-import { CLASSIFIER_VERSION, classify, dedupeKey, gunzip, sha256 } from "@tallo/catalog";
+import { dedupeKey, gunzip, sha256 } from "@tallo/catalog";
 import {
   blobCheckSchema,
   createRunSchema,
   diffSchema,
   finalizeSchema,
-  type JobLocation,
   jobsBatchSchema,
 } from "@tallo/contracts";
 import {
@@ -20,7 +19,6 @@ import {
   listSourceStatus,
   listSources,
   rebuildDuplicates,
-  reclassify,
   runsSearchSchema,
   schema,
   startRun,
@@ -148,23 +146,6 @@ export function ingestRoutes({
       const { full, after, limit } = c.req.valid("query");
       return c.json(await rebuildDuplicates(db, undefined, { full, after, limit }));
     },
-  );
-
-  /** Upgrades heuristic flags after a rule change, from stored facts. Call until `more` is false. */
-  routes.post("/v1/admin/reclassify", write, async (c) =>
-    c.json(
-      await reclassify(
-        db,
-        (row) =>
-          classify({
-            title: row.title,
-            department: row.department ?? undefined,
-            team: row.team ?? undefined,
-            locations: Array.isArray(row.locations) ? (row.locations as JobLocation[]) : [],
-          }),
-        CLASSIFIER_VERSION,
-      ),
-    ),
   );
 
   return routes;

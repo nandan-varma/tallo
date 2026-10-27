@@ -14,10 +14,6 @@ export const jobFactsSchema = z.object({
   region: z.string().max(120).nullable(),
   countryCode: z.string().length(2).nullable(),
   workMode: z.enum(["remote", "hybrid", "onsite"]).nullable(),
-  /** Tri-state heuristics: 1 yes, 0 no, null unknown. */
-  isUs: z.union([z.literal(0), z.literal(1)]).nullable(),
-  isTech: z.union([z.literal(0), z.literal(1)]).nullable(),
-  classifierVersion: z.number().int().positive(),
   department: z.string().max(200).nullable(),
   team: z.string().max(200).nullable(),
   employmentType: z.string().max(100).nullable(),
@@ -25,11 +21,6 @@ export const jobFactsSchema = z.object({
   postedAt: epoch.nullable(),
   sourceUpdatedAt: epoch.nullable(),
   expiresAt: epoch.nullable(),
-  salaryMinAnnual: z.number().nonnegative().nullable(),
-  salaryMaxAnnual: z.number().nonnegative().nullable(),
-  salaryCurrency: z.string().max(8).nullable(),
-  expMinYears: z.number().nonnegative().nullable(),
-  expMaxYears: z.number().nonnegative().nullable(),
   excerpt: z.string().max(400),
   jdHash: hex64,
   /** Groups listings of one posting (see catalog `dedupeKey`). Optional until every runner sends it. */

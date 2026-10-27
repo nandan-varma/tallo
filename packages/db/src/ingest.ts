@@ -2,7 +2,6 @@ import type { CreateRun, Finalize, FinalizeResult, JobFacts } from "@tallo/contr
 import {
   CLOSE_AFTER_ABSENT_RUNS,
   DEAD_AFTER_NOT_FOUND_RUNS,
-  outOfScope,
   STALE_HIDE_DAYS,
 } from "@tallo/contracts";
 import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
@@ -154,7 +153,6 @@ export async function applyJobs(
       sortAt: j.postedAt ?? now,
       firstSeenAt: now,
       updatedAt: now,
-      hidden: outOfScope(j),
     };
     const { firstSeenAt: _keep, ...update } = values;
     return db
@@ -333,8 +331,8 @@ export async function reapStaleRuns(db: Db, now = nowSeconds()): Promise<number>
 }
 
 /**
- * Regroups the keys this source's finalize can change, so its closures, reopens, hidden flags and
- * freshness take effect now instead of at the next hourly pass. Normally that is the keys of the rows
+ * Regroups the keys this source's finalize can change, so its closures, reopens and freshness take
+ * effect now instead of at the next hourly pass. Normally that is the keys of the rows
  * written in the window (the run just wrote them). When the source comes back from stale, it is every
  * key the source has. Writes only rows whose `dup_of` changes.
  */
@@ -447,62 +445,6 @@ export async function pruneRuns(
   return { packs: obsolete.length, runs: expired.length };
 }
 
-type Classifier = (row: {
-  title: string;
-  department: string | null;
-  team: string | null;
-  locations: unknown;
-}) => {
-  isUs: 0 | 1 | null;
-  isTech: 0 | 1 | null;
-  version: number;
-};
-
-/**
- * Re-derive heuristic flags for jobs classified by an older rule version, from stored facts alone
- * (no refetching). Call repeatedly until `more` is false.
- */
-export async function reclassify(
-  db: Db,
-  classify: Classifier,
-  version: number,
-  limit = 300,
-  now = nowSeconds(),
-): Promise<{ updated: number; more: boolean }> {
-  const stale = await db
-    .select({
-      id: jobs.id,
-      title: jobs.title,
-      department: jobs.department,
-      team: jobs.team,
-      facts: jobs.facts,
-    })
-    .from(jobs)
-    .where(sql`${jobs.classifierVersion} < ${version}`)
-    .limit(limit + 1);
-  const page = stale.slice(0, limit);
-  if (page.length > 0) {
-    await batch(
-      db,
-      page.map((row) => {
-        const verdict = classify({ ...row, locations: row.facts.locations });
-        return db
-          .update(jobs)
-          .set({
-            isUs: verdict.isUs,
-            isTech: verdict.isTech,
-            classifierVersion: verdict.version,
-            hidden: outOfScope(verdict),
-            // A hidden change moves the row to another duplicate group: the rebuild must see it.
-            updatedAt: now,
-          })
-          .where(eq(jobs.id, row.id));
-      }),
-    );
-  }
-  return { updated: page.length, more: stale.length > limit };
-}
-
 /**
  * Fills `dedupe_key` for rows stored before the key existed, from their stored company, title and
  * jd_hash (no refetching). Pages by id (`after` = the last id of the previous page), so each call
@@ -576,11 +518,11 @@ export function crossedKeys(db: Db, since: number, staleBefore: number) {
 /**
  * Keys whose group may have changed, after the cursor, ascending. Incremental mode finds, each via
  * an index or a small table, never a scan of `jobs`:
- * - rows written in the window (applyJobs, finalize closure and reopen, reclassify): jobs_updated_idx;
+ * - rows written in the window (applyJobs, finalize closure and reopen): jobs_updated_idx;
  * - sources that crossed the stale threshold in the window (a time change with no write): the few
  *   crossed source ids (a scan of `sources`, a small table), then their keys by jobs_source_posting_idx;
- * - open duplicates whose canonical was written in the window: it may have moved key, closed or
- *   been hidden, so the duplicate's own key is regrouped. A purged canonical cannot exist here: its
+ * - open duplicates whose canonical was written in the window: it may have moved key or closed,
+ *   so the duplicate's own key is regrouped. A purged canonical cannot exist here: its
  *   group was handed over when it closed, 30 days before the purge.
  * Full mode pages over every open key.
  */
@@ -633,8 +575,8 @@ async function keysPage(
 }
 
 /**
- * Recomputes `dup_of` for the given keys. A group is the open rows sharing a key, hidden flag and
- * freshness (so a hidden or stale row never hides a visible one); its canonical is the lowest id.
+ * Recomputes `dup_of` for the given keys. A group is the open rows sharing a key and source freshness
+ * (so a stale source's row never hides a fresh one); its canonical is the lowest id.
  * Writes only rows whose `dup_of` changes, as json_each id lists in batches of statements.
  */
 async function regroup(db: Db, keys: string[], staleBefore: number): Promise<number> {
@@ -644,7 +586,6 @@ async function regroup(db: Db, keys: string[], staleBefore: number): Promise<num
       .select({
         id: jobs.id,
         key: jobs.dedupeKey,
-        hidden: jobs.hidden,
         dupOf: jobs.dupOf,
         stale: sql<number>`coalesce(${sources.lastListedAt}, 0) < ${staleBefore}`,
       })
@@ -655,7 +596,7 @@ async function regroup(db: Db, keys: string[], staleBefore: number): Promise<num
 
     const groups = new Map<string, typeof rows>();
     for (const row of rows) {
-      const groupKey = `${row.key}|${row.hidden}|${row.stale}`;
+      const groupKey = `${row.key}|${row.stale}`;
       const members = groups.get(groupKey) ?? [];
       members.push(row);
       groups.set(groupKey, members);
@@ -696,7 +637,7 @@ async function regroup(db: Db, keys: string[], staleBefore: number): Promise<num
  * Regroups duplicates: the hourly cron runs it incrementally; `full` walks every key. Keys are
  * processed `limit` at a time, so call again with `after = next` until `next` is null.
  * A canonical that closes in a sync hands over at that run's finalize; changes that never finalize
- * (stale sources, reclassify, a run that never finished) wait for the hourly pass.
+ * (stale sources, a run that never finished) wait for the hourly pass.
  */
 export async function rebuildDuplicates(
   db: Db,

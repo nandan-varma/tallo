@@ -4,7 +4,6 @@ import {
   index,
   integer,
   primaryKey,
-  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -78,10 +77,6 @@ export const jobs = sqliteTable(
     region: text(),
     countryCode: text("country_code"),
     workMode: text("work_mode", { enum: ["remote", "hybrid", "onsite"] }),
-    /** Tri-state heuristics: 1 yes, 0 no, NULL unknown. */
-    isUs: integer("is_us"),
-    isTech: integer("is_tech"),
-    classifierVersion: integer("classifier_version").notNull(),
     department: text(),
     team: text(),
     employmentType: text("employment_type"),
@@ -89,11 +84,6 @@ export const jobs = sqliteTable(
     postedAt: integer("posted_at"),
     sourceUpdatedAt: integer("source_updated_at"),
     expiresAt: integer("expires_at"),
-    salaryMinAnnual: real("salary_min_annual"),
-    salaryMaxAnnual: real("salary_max_annual"),
-    salaryCurrency: text("salary_currency"),
-    expMinYears: real("exp_min_years"),
-    expMaxYears: real("exp_max_years"),
     excerpt: text().notNull(),
     jdHash: text("jd_hash").notNull(),
     jdBytes: integer("jd_bytes").notNull(),
@@ -107,8 +97,6 @@ export const jobs = sqliteTable(
     /** Consecutive complete runs that did not list this job. */
     absentRuns: integer("absent_runs").notNull().default(0),
     closedAt: integer("closed_at"),
-    /** 1 when heuristics are confident the job is out of scope (non-US or non-tech). */
-    hidden: integer().notNull().default(0),
     /** Groups listings of one posting (catalog `dedupeKey`). NULL until backfilled. */
     dedupeKey: text("dedupe_key"),
     /** Canonical row of the open group (lowest id). NULL for canonical and ungrouped rows. */
@@ -122,10 +110,10 @@ export const jobs = sqliteTable(
     index("jobs_updated_idx").on(t.updatedAt),
     index("jobs_feed_idx")
       .on(sql`${t.sortAt} desc`, sql`${t.id} desc`)
-      .where(sql`${t.closedAt} IS NULL AND ${t.hidden} = 0`),
+      .where(sql`${t.closedAt} IS NULL`),
     index("jobs_company_idx")
       .on(t.companySlug, sql`${t.sortAt} desc`)
-      .where(sql`${t.closedAt} IS NULL AND ${t.hidden} = 0`),
+      .where(sql`${t.closedAt} IS NULL`),
   ],
 );
 

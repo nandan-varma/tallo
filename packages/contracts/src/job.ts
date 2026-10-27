@@ -12,7 +12,10 @@ export interface Quantity {
   kind: "required" | "preferred" | "stated";
   /** Source text this was read from, for audit. */
   text?: string;
-  /** True when parsed from free text rather than a structured source field. */
+  /**
+   * True only for a value parsed from free text. No platform map sets it, and the pay line never uses it:
+   * the database stores what the source stated.
+   */
   inferred?: boolean;
 }
 
@@ -27,7 +30,10 @@ export interface Money {
   /** Geography this band applies to, when the source scopes it. */
   region?: string;
   text?: string;
-  /** True when parsed from free text rather than a structured source field. */
+  /**
+   * True only for a value parsed from free text. No platform map sets it, and the pay line never uses it:
+   * the database stores what the source stated.
+   */
   inferred?: boolean;
 }
 
@@ -71,9 +77,35 @@ export interface MappedJob {
   extras: JsonObject;
 }
 
-/** 1 when heuristics are confident a job is out of the public scope (non-US or non-tech). */
-export const outOfScope = (flags: { isUs: 0 | 1 | null; isTech: 0 | 1 | null }): 0 | 1 =>
-  flags.isUs === 0 || flags.isTech === 0 ? 1 : 0;
+/** Intervals a pay line can state. "once" and "unknown" are not a rate, so they never make a pay line. */
+const RATE_INTERVALS: PayInterval[] = ["year", "month", "week", "day", "hour"];
+
+/**
+ * The pay line a result shows, in the interval the source stated: "USD 90000-95000 per hour". Only base
+ * pay the source stated (not inferred from text) with a rate interval counts; the first such band wins.
+ * Null when there is none.
+ */
+export function payText(compensation: Money[] | undefined): string | null {
+  const band = (compensation ?? []).find(
+    (b) =>
+      !b.inferred &&
+      b.component === "base" &&
+      RATE_INTERVALS.includes(b.interval) &&
+      (b.min !== undefined || b.max !== undefined),
+  );
+  if (!band) return null;
+  const { min, max } = band;
+  const amount =
+    min !== undefined && max !== undefined
+      ? min === max
+        ? `${min}`
+        : `${min}-${max}`
+      : min !== undefined
+        ? `${min}+`
+        : `up to ${max}`;
+  const line = [band.currency, amount, `per ${band.interval}`].filter(Boolean).join(" ");
+  return band.region ? `${line} (${band.region})` : line;
+}
 
 /** Read model: one row in a result list. */
 export interface JobSummary {
@@ -92,10 +124,8 @@ export interface JobSummary {
   employmentType: string | null;
   /** Epoch seconds. */
   postedAt: number | null;
-  salaryMinAnnual: number | null;
-  salaryMaxAnnual: number | null;
-  salaryCurrency: string | null;
-  expMinYears: number | null;
+  /** The source's stated base pay in its own interval (see `payText`), or null. */
+  pay: string | null;
   excerpt: string;
   sortAt: number;
 }
@@ -122,7 +152,6 @@ export interface JobVariant {
 export interface JobDetail extends JobSummary {
   team: string | null;
   requisitionId: string | null;
-  expMaxYears: number | null;
   description: string | null;
   /** Rich typed detail: all locations, pay components, experience, extras. */
   facts: Record<string, unknown>;

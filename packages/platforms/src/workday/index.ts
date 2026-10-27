@@ -124,7 +124,7 @@ async function* slice(
 
 export const workday: Platform = {
   id: "workday",
-  version: 1,
+  version: 2,
   hosts: ["*.myworkdayjobs.com"],
   validate: (source) => void parts(source),
 

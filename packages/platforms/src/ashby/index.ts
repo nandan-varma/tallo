@@ -57,7 +57,7 @@ const place = (
 
 export const ashby: Platform = {
   id: "ashby",
-  version: 1,
+  version: 2,
   hosts: ["api.ashbyhq.com"],
   validate: (source) => requireKey(source),
 

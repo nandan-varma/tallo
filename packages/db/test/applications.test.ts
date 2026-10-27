@@ -24,7 +24,6 @@ async function seed(db: ReturnType<typeof testDb>, postings: { id: number; apply
       url: `https://boards.example/acme/${posting.id}`,
       applyUrl: posting.applyUrl ?? null,
       locationText: "Remote, US",
-      classifierVersion: 1,
       excerpt: "x",
       jdHash: "a".repeat(64),
       jdBytes: 1,

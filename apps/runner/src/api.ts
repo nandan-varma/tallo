@@ -47,7 +47,6 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .then((r) => r.key),
     finalize: (runId: string, body: Finalize) =>
       client.post(`v1/runs/${runId}/finalize`, { json: body }).json<FinalizeResult>(),
-    reclassify: () => client.post("v1/admin/reclassify").json<{ updated: number; more: boolean }>(),
     dedupeBackfill: (after: number) =>
       client
         .post("v1/admin/dedupe/backfill", { searchParams: { after } })
