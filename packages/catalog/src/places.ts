@@ -1,7 +1,7 @@
 /**
  * What a person's place word means in posting locations. A reviewed lookup of aliases, not inference: a word that
  * is not in the table passes through as the person wrote it. Each entry lists the strings postings use; every
- * string is matched as all of its words (see `ftsLocations`), so "Washington DC" never matches Seattle.
+ * string is matched as all of its words (see `ftsScope` in the db package), so "Washington DC" never matches Seattle.
  *
  * Collisions this table avoids on purpose:
  * - "LA" is never a token: "la" means the Los Angeles metro, and Louisiana's "LA" is never searched.
@@ -102,7 +102,8 @@ const PLACES: Place[] = [
   { names: ["seattle", "seattle area", "greater seattle"], locations: SEATTLE_METRO },
   {
     names: ["washington", "washington state", "wa", "state of washington"],
-    locations: [...SEATTLE_METRO, "WA", "Washington State", "Spokane"],
+    // No "Washington State" string: the tokenizer stems "States" to "state", which would match DC's "United States".
+    locations: [...SEATTLE_METRO, "WA", "Spokane"],
   },
   {
     names: ["dc", "washington dc", "d c", "washington d c", "dc metro", "dc area"],
