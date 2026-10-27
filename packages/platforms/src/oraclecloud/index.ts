@@ -64,7 +64,7 @@ const definedOnly = (fields: Record<string, string | undefined>): JsonObject =>
 
 export const oraclecloud: Platform = {
   id: "oraclecloud",
-  version: 1,
+  version: 2,
   hosts: ["*.fa.oraclecloud.com", "*.fa.us2.oraclecloud.com", "*.fa.ocs.oraclecloud.com"],
   validate(source) {
     if (!HOST.test(source.key))

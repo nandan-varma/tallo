@@ -13,7 +13,7 @@ const SECTIONS = [
 
 export const smartrecruiters: Platform = {
   id: "smartrecruiters",
-  version: 1,
+  version: 2,
   hosts: ["api.smartrecruiters.com"],
   validate: (source) => requireKey(source),
 

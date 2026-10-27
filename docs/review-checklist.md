@@ -2,7 +2,7 @@
 
 Run the PR (`pnpm check`, plus `tallo verify` for platform/source work) before commenting. Check, in order:
 1. **CLAUDE.md rules**: lossless collectors with pure `map`; no closure from failed/partial runs; `ingest.ts` is
-   the only catalog writer; nothing heavy in D1; source config trusted; heuristics/platform versions bumped.
+   the only catalog writer; nothing heavy in D1; source config trusted; no heuristics in the database; platform versions bumped when `map` changes.
 2. **Correctness**: edge cases, error paths, off-by-ones, concurrency, behavior changes for existing callers.
 3. **Tests**: would they fail if the feature were broken? Fakes instead of the network; recorded fixtures for platforms.
 4. **Simplicity**: small and plain; a library over hand-rolled machinery; no abstraction without a second user;

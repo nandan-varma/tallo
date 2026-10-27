@@ -60,7 +60,7 @@ describe("syncSource end to end", () => {
     expect(blobs.keys().some((k) => k.startsWith("raw/greenhouse:stripe/"))).toBe(true);
     // The fixture's two listings are one posting in two locations (same title and JD): one card,
     // both listings kept as variants.
-    const { jobs } = await read(app, "/v1/jobs?all=true");
+    const { jobs } = await read(app, "/v1/jobs");
     expect(jobs).toHaveLength(1);
     const detail = await read(app, `/v1/jobs/${jobs[0].id}`);
     expect(detail.variants).toHaveLength(2);
@@ -102,7 +102,7 @@ describe("syncSource end to end", () => {
       });
       expect(failed.listingComplete).toBe(false);
     }
-    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(1);
+    expect((await read(app, "/v1/jobs")).jobs).toHaveLength(1);
     const [row] = await read(app, "/v1/sources");
     expect(row).toMatchObject({ id: source.id, lastStatus: "partial" });
   });
@@ -124,7 +124,7 @@ describe("syncSource end to end", () => {
     });
     expect(result).toMatchObject({ listingComplete: true, detailsComplete: false });
     expect(result.issues.some((i) => i.code === "detail")).toBe(true);
-    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(0);
+    expect((await read(app, "/v1/jobs")).jobs).toHaveLength(0);
   });
 });
 
@@ -160,7 +160,7 @@ describe("dead boards", () => {
     await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
     expect(await sourceRow(app)).toMatchObject({ status: "dead", consecutiveFailures: 3 });
     // The catalog is untouched: a dead board closes nothing.
-    expect((await read(app, "/v1/jobs?all=true")).jobs).toHaveLength(1);
+    expect((await read(app, "/v1/jobs")).jobs).toHaveLength(1);
   });
 
   it("a 404 on a later page of a real board is a failed run, not board-not-found", async () => {
@@ -196,6 +196,55 @@ describe("dead boards", () => {
     expect(result).toMatchObject({ listingComplete: false, boardNotFound: false });
     const [row] = (await read(app, "/v1/sources")).filter((s: { id: string }) => s.id === smart.id);
     expect(row).toMatchObject({ status: "active", consecutiveFailures: 0 });
+  });
+
+  it("a retired Workday tenant that redirects off the allowlist is board-not-found, and goes dead", async () => {
+    const { app, api } = stack();
+    const workday = {
+      id: "workday:acme",
+      platform: "workday",
+      key: "acme/careers",
+      company: "Acme",
+      params: { wd: "wd5" },
+    };
+    const retired: typeof fetch = async () =>
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://community.workday.com/retired" },
+      });
+    for (let i = 0; i < 3; i++) {
+      const result = await syncSource(workday, {
+        api,
+        log,
+        runnerId: "test",
+        version: "t",
+        fetch: retired,
+      });
+      expect(result).toMatchObject({ listingComplete: false, boardNotFound: true });
+    }
+    const [row] = (await read(app, "/v1/sources")).filter(
+      (s: { id: string }) => s.id === workday.id,
+    );
+    expect(row).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("a failure between two 404s does not reset the streak", async () => {
+    const { app, api } = stack();
+    // 403 is not retried, so this stays fast; it says nothing about whether the board exists.
+    const forbidden = greenhouse({ listing: () => new Response("", { status: 403 }) });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    const result = await syncSource(source, {
+      api,
+      log,
+      runnerId: "test",
+      version: "t",
+      fetch: forbidden,
+    });
+    expect(result.boardNotFound).toBe(false);
+    expect(await sourceRow(app)).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    expect(await sourceRow(app)).toMatchObject({ status: "dead", consecutiveFailures: 3 });
   });
 
   it("a 500 is a failed run, not a 404, and does not count toward dead", async () => {

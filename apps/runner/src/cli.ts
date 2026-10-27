@@ -136,20 +136,6 @@ program
   });
 
 program
-  .command("reclassify")
-  .description("Re-derive US/tech flags for jobs classified by older rules (no refetching)")
-  .action(async () => {
-    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
-    let total = 0;
-    for (;;) {
-      const { updated, more } = await api.reclassify();
-      total += updated;
-      log.info({ updated, total }, "reclassified");
-      if (!more) break;
-    }
-  });
-
-program
   .command("dedupe")
   .description(
     "Backfill duplicate keys for stored jobs, then regroup every posting (no refetching)",

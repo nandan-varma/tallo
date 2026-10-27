@@ -1,24 +1,13 @@
-import { STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
+import { type Money, payText, STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
 import { jobs, runs, sources } from "./schema.ts";
 
+/** Catalog search: free text, paging, and the stale-source switch. The database filters nothing else. */
 export const searchSchema = z.object({
   q: z.string().trim().max(200).optional(),
-  company: z.string().max(100).optional(),
-  country: z.string().length(2).toUpperCase().optional(),
-  workMode: z.enum(["remote", "hybrid", "onsite"]).optional(),
-  department: z.string().max(200).optional(),
-  employmentType: z.string().max(100).optional(),
-  /** Pay band overlaps at least this annual amount. */
-  salaryMin: z.coerce.number().nonnegative().optional(),
-  /** Required experience is at most this many years (unknown experience matches). */
-  maxExperience: z.coerce.number().nonnegative().optional(),
-  postedWithinDays: z.coerce.number().int().positive().max(365).optional(),
-  /** Include jobs the heuristics hide (non-US / non-tech). */
-  all: z.coerce.boolean().optional(),
   /** Include jobs from sources that stopped listing for STALE_HIDE_DAYS. */
   includeStale: z.coerce.boolean().optional(),
   cursor: z
@@ -74,10 +63,8 @@ const summary = {
   department: jobs.department,
   employmentType: jobs.employmentType,
   postedAt: jobs.postedAt,
-  salaryMinAnnual: jobs.salaryMinAnnual,
-  salaryMaxAnnual: jobs.salaryMaxAnnual,
-  salaryCurrency: jobs.salaryCurrency,
-  expMinYears: jobs.expMinYears,
+  /** Read for `pay` only; never returned as is. */
+  facts: jobs.facts,
   excerpt: jobs.excerpt,
   sortAt: jobs.sortAt,
   /**
@@ -87,16 +74,18 @@ const summary = {
   variants: sql<number>`(SELECT count(*) FROM jobs AS dup WHERE dup.dup_of = "jobs"."id" AND dup.closed_at IS NULL) + 1`,
 };
 
+/** The pay line of a row, from its stored facts (see `payText`). */
+export const payOf = (facts: Record<string, unknown>) =>
+  payText(facts.compensation as Money[] | undefined);
+
 /**
- * What a default search shows: open canonical jobs (one per duplicate group, see `dup_of`), not
- * heuristically hidden, from sources that listed recently. The same predicate is used so
- * every count matches its filter's results.
+ * What a default search shows: open canonical jobs (one per duplicate group, see `dup_of`), from
+ * sources that listed recently. The same predicate is used so every count matches its results.
  */
-export function visibleJobs(now: number, { all = false, includeStale = false } = {}): SQL[] {
+export function visibleJobs(now: number, { includeStale = false } = {}): SQL[] {
   return [
     sql`${jobs.closedAt} IS NULL`,
     sql`${jobs.dupOf} IS NULL`,
-    ...(all ? [] : [sql`${jobs.hidden} = 0`]),
     ...(includeStale
       ? []
       : [
@@ -121,20 +110,6 @@ export async function searchJobs(
     match
       ? sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`
       : undefined,
-    input.company ? eq(jobs.companySlug, input.company) : undefined,
-    input.country ? eq(jobs.countryCode, input.country) : undefined,
-    input.workMode ? eq(jobs.workMode, input.workMode) : undefined,
-    input.department ? eq(jobs.department, input.department) : undefined,
-    input.employmentType ? eq(jobs.employmentType, input.employmentType) : undefined,
-    input.salaryMin === undefined
-      ? undefined
-      : sql`coalesce(${jobs.salaryMaxAnnual}, ${jobs.salaryMinAnnual}) >= ${input.salaryMin}`,
-    input.maxExperience === undefined
-      ? undefined
-      : sql`(${jobs.expMinYears} IS NULL OR ${jobs.expMinYears} <= ${input.maxExperience})`,
-    input.postedWithinDays
-      ? sql`${jobs.sortAt} >= ${now - input.postedWithinDays * 86400}`
-      : undefined,
   ];
   if (input.cursor) {
     const [at, id] = input.cursor.split(".").map(Number);
@@ -146,7 +121,10 @@ export async function searchJobs(
     .where(and(...where))
     .orderBy(desc(jobs.sortAt), desc(jobs.id))
     .limit(input.limit + 1);
-  const page = rows.slice(0, input.limit);
+  const page = rows.slice(0, input.limit).map(({ facts, ...row }) => ({
+    ...row,
+    pay: payOf(facts),
+  }));
   const last = page.at(-1);
   return {
     jobs: page,
@@ -155,7 +133,8 @@ export async function searchJobs(
 }
 
 export async function getJob(db: Db, id: number) {
-  return (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
+  const row = (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
+  return row ? { ...row, pay: payOf(row.facts) } : undefined;
 }
 
 /**

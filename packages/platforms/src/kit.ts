@@ -1,12 +1,5 @@
-import { htmlToText, parseLocation } from "@tallo/catalog";
-import type {
-  JobLocation,
-  Json,
-  JsonObject,
-  PayInterval,
-  SourceConfig,
-  WorkMode,
-} from "@tallo/contracts";
+import { htmlToText, sourceLocation } from "@tallo/catalog";
+import type { JobLocation, Json, JsonObject, SourceConfig, WorkMode } from "@tallo/contracts";
 import { arr, isObject, obj, str } from "@tallo/contracts";
 
 /** The source answered, but not in the shape we know. Aborts the run; never implies closure. */
@@ -35,11 +28,6 @@ export function workModeOf(value: unknown): WorkMode | undefined {
   return undefined;
 }
 
-/** Pay interval for sources that omit it: annual salaries are large, hourly wages small. */
-export function guessInterval(amount: number): PayInterval {
-  return amount >= 20000 ? "year" : amount > 0 && amount < 500 ? "hour" : "unknown";
-}
-
 /** Description text from HTML fragments, in order. Fragments may be missing. */
 export function describe(...html: unknown[]): string {
   return htmlToText(
@@ -50,7 +38,10 @@ export function describe(...html: unknown[]): string {
   );
 }
 
-/** Distinct locations from free text; the first is primary. */
+/**
+ * Distinct places the source listed, split at its own `;` and `|` separators. Structure comes only from
+ * the source's fields (`hints`). The first place is primary.
+ */
 export function locations(
   entries: { text: unknown; hints?: Partial<JobLocation> }[],
 ): JobLocation[] {
@@ -61,7 +52,7 @@ export function locations(
       const key = part.toLowerCase();
       if (!part || seen.has(key)) continue;
       seen.add(key);
-      out.push(parseLocation(part, { ...hints, ...(out.length === 0 ? { primary: true } : {}) }));
+      out.push(sourceLocation(part, { ...hints, ...(out.length === 0 ? { primary: true } : {}) }));
     }
   }
   return out;

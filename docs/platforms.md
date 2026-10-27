@@ -26,9 +26,9 @@ length alone; incomplete listings never apply job closure.
 
 ## Per-platform field coverage (what maps today)
 
-All: title, apply/job URL, description text, locations (+country/state when parsable), work mode, department,
-employment type, posted/updated dates, requisition id when present, pay when structured, source extras.
-Experience years are inferred from description text for all platforms (`inferred: true`).
+All: title, apply/job URL, description text, locations (as the source names them, with country/region/city only when the
+source gives those fields), work mode, department, employment type, posted/updated dates, requisition id when present,
+pay when structured (in the source's own interval), source extras. Nothing is inferred from text.
 
 Oracle Cloud (`params.siteNumber`): hosts are `*.fa.oraclecloud.com`, `*.fa.us2.oraclecloud.com` and `*.fa.ocs.oraclecloud.com`.
 An unknown siteNumber silently returns the host's default board, so `list()` probes a site that cannot exist and

@@ -134,24 +134,6 @@ export const lastUserText = (messages: JobAgentMessage[]): string => {
   return last ? textOf(last) : "";
 };
 
-/** "USD 150000-180000 per year" (the API's pay text) as "$150K – $180K / yr". Anything else passes through. */
-export function payLabel(pay: string | null): string | null {
-  if (!pay) return null;
-  const m = /^(?:([A-Z]{3}) )?(\d+)-(\d+) per year$/.exec(pay);
-  if (!m) return pay;
-  const [, currency, low, high] = m;
-  const fmt = (n: string) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "USD",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(Number(n));
-  return low === high
-    ? `${fmt(low as string)} / yr`
-    : `${fmt(low as string)} – ${fmt(high as string)} / yr`;
-}
-
 /** "2026-10-23" as "3d ago" / "2mo ago". */
 export function postedLabel(iso: string | null, now = Date.now()): string | null {
   if (!iso) return null;

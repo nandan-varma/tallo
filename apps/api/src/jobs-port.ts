@@ -1,7 +1,15 @@
 import { gunzip } from "@tallo/catalog";
 import type { SearchSpec } from "@tallo/contracts";
 import type { BlobStore, Db } from "@tallo/db";
-import { ftsAllTerms, ftsLocations, jdKey, schema, searchJobs, visibleJobs } from "@tallo/db";
+import {
+  ftsAllTerms,
+  ftsLocations,
+  jdKey,
+  payOf,
+  schema,
+  searchJobs,
+  visibleJobs,
+} from "@tallo/db";
 import type { JobHit, JobRead, JobsPort } from "@tallo/search-ai";
 import { and, eq, inArray } from "drizzle-orm";
 
@@ -19,8 +27,8 @@ const withPlace = (titles: string, place: string | undefined) =>
 
 /**
  * The agent's view of the catalog, over D1 and R2. Every read goes through the same visibility
- * predicate as the public search (open, canonical, not hidden, fresh source), so the agent never
- * sees a job the site hides, not even by id. Descriptions are the full gunzipped text.
+ * predicate as the public search (open, canonical, fresh source), so the agent never sees a job the
+ * site does not show, not even by id. Descriptions are the full gunzipped text.
  */
 export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
   return {
@@ -57,7 +65,7 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
         .select()
         .from(schema.jobs)
         .where(and(inArray(schema.jobs.id, numeric), ...visibleJobs(now)));
-      return rows.map(toHit);
+      return rows.map((row) => toHit({ ...row, pay: payOf(row.facts) }));
     },
 
     async read(id): Promise<JobRead | null> {
@@ -72,7 +80,7 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
       if (!row) return null;
       const blob = await blobs.get(jdKey(row.jdHash));
       return {
-        ...toHit(row),
+        ...toHit({ ...row, pay: payOf(row.facts) }),
         applyUrl: row.applyUrl ?? row.url,
         facts: row.facts as Record<string, unknown>,
         description: blob ? new TextDecoder().decode(await gunzip(blob)) : null,
@@ -83,7 +91,22 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
 
 type Row = Awaited<ReturnType<typeof searchJobs>>["jobs"][number];
 
-function toHit(row: Pick<Row, keyof Row & keyof typeof schema.jobs.$inferSelect>): JobHit {
+/** The fields a hit shows; `pay` is the structured pay line (see `payOf`). */
+type HitRow = Pick<
+  Row,
+  | "id"
+  | "title"
+  | "company"
+  | "locationText"
+  | "city"
+  | "region"
+  | "countryCode"
+  | "workMode"
+  | "department"
+  | "postedAt"
+> & { pay: string | null };
+
+function toHit(row: HitRow): JobHit {
   const place = [row.city, row.region, row.countryCode].filter(Boolean).join(", ");
   return {
     id: String(row.id),
@@ -91,17 +114,10 @@ function toHit(row: Pick<Row, keyof Row & keyof typeof schema.jobs.$inferSelect>
     company: row.company,
     location: row.locationText ?? (place || null),
     workMode: row.workMode,
-    pay: payText(row),
+    pay: row.pay,
     postedAt: row.postedAt ? new Date(row.postedAt * 1000).toISOString().slice(0, 10) : null,
     department: row.department,
   };
-}
-
-function payText(row: Pick<Row, "salaryMinAnnual" | "salaryMaxAnnual" | "salaryCurrency">) {
-  const low = row.salaryMinAnnual ?? row.salaryMaxAnnual;
-  const high = row.salaryMaxAnnual ?? row.salaryMinAnnual;
-  if (low === null || high === null) return null;
-  return `${row.salaryCurrency ?? ""} ${low}-${high} per year`.trim();
 }
 
 /**

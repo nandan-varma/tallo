@@ -5,6 +5,7 @@ export type JobHit = {
   company: string;
   location: string | null;
   workMode: string | null;
+  /** The source's stated base pay with its own interval ("USD 90000-95000 per hour"), or null. */
   pay: string | null;
   postedAt: string | null;
   department: string | null;
@@ -12,7 +13,7 @@ export type JobHit = {
 
 export type JobRead = JobHit & {
   applyUrl: string | null;
-  /** Typed facts the catalog extracted (all locations, pay components, experience). */
+  /** Facts as the source stated them (all locations, pay components, experience, source extras). */
   facts: Record<string, unknown>;
   /** The FULL description. Never truncated: pay and minimum requirements are usually at the bottom. */
   description: string | null;
@@ -20,7 +21,7 @@ export type JobRead = JobHit & {
 
 /**
  * What the agent needs from the catalog. Implemented by the API Worker over D1/R2; the package never
- * imports a database. Both methods see only jobs the site shows (open, canonical, not hidden, fresh).
+ * imports a database. Every method sees only jobs the site shows (open, canonical, fresh source).
  */
 export interface JobsPort {
   /**

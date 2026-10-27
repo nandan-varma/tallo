@@ -7,7 +7,6 @@ import {
   getJob,
   listVariants,
   rebuildDuplicates,
-  reclassify,
   schema,
   searchJobs,
   searchSchema,
@@ -52,7 +51,7 @@ async function sources() {
   ]);
 }
 
-/** One open, visible, US tech row in the fresh source unless overridden. */
+/** One open, visible row in the fresh source unless overridden. */
 async function row(over: Partial<typeof schema.jobs.$inferInsert> = {}): Promise<number> {
   n++;
   await db.insert(schema.jobs).values({
@@ -62,7 +61,6 @@ async function row(over: Partial<typeof schema.jobs.$inferInsert> = {}): Promise
     companySlug: "acme",
     title: "Software Engineer",
     locationText: `City ${n}`,
-    classifierVersion: 1,
     excerpt: "x",
     jdHash: "a".repeat(64),
     jdBytes: 1,
@@ -79,7 +77,7 @@ async function row(over: Partial<typeof schema.jobs.$inferInsert> = {}): Promise
 }
 
 const dupOf = async (id: number) => (await getJob(db, id))?.dupOf ?? undefined;
-const visibleIds = async (opts: { all?: boolean; includeStale?: boolean } = {}) =>
+const visibleIds = async (opts: { includeStale?: boolean } = {}) =>
   (await searchJobs(db, searchSchema.parse({ ...opts, limit: 100 }), NOW)).jobs
     .map((j) => j.id)
     .sort((a, b) => a - b);
@@ -174,15 +172,23 @@ describe("duplicate groups", () => {
     expect(await visibleIds()).toEqual([a, b]);
   });
 
-  it("does not hide a visible row behind a hidden canonical", async () => {
-    const hidden = await row({ hidden: 1, countryCode: "IN" });
-    const visible = await row({ countryCode: "US" });
+  it("shows postings of every country: the database hides nothing by place or kind of work", async () => {
+    const abroad = await row({ countryCode: "IN", dedupeKey: "1".repeat(64) });
+    const home = await row({ countryCode: "US", dedupeKey: "2".repeat(64), department: "Sales" });
     await rebuild();
 
-    expect(await dupOf(visible)).toBeUndefined();
-    expect(await dupOf(hidden)).toBeUndefined();
-    expect(await visibleIds()).toEqual([visible]);
-    expect(await visibleIds({ all: true })).toEqual([hidden, visible]);
+    expect(await dupOf(abroad)).toBeUndefined();
+    expect(await dupOf(home)).toBeUndefined();
+    expect(await visibleIds()).toEqual([abroad, home]);
+  });
+
+  it("groups rows that share a key and source freshness, whatever their country", async () => {
+    const first = await row({ countryCode: "IN" });
+    const second = await row({ countryCode: "US" });
+    await rebuild();
+
+    expect(await dupOf(second)).toBe(first);
+    expect(await visibleIds()).toEqual([first]);
   });
 
   it("does not let a stale source's canonical hide a fresh duplicate", async () => {
@@ -221,26 +227,6 @@ describe("duplicate groups", () => {
     // 5 keys at 2 per page: two full pages, then one short page that ends the walk.
     expect(pages).toBe(3);
     expect(await visibleIds()).toEqual(ids.filter((_, i) => i % 2 === 0));
-  });
-
-  it("regroups a row that reclassify hid or reopened, without a full rebuild", async () => {
-    const old = NOW - 10 * DAY;
-    const a = await row({ updatedAt: old });
-    const b = await row({ updatedAt: old, department: "Sales" });
-    await rebuild({ full: true });
-    expect(await dupOf(b)).toBe(a);
-
-    // Reclassify hides b (out of scope) and must make the incremental pass see it.
-    await reclassify(
-      db,
-      (r) => ({ isUs: r.department === "Sales" ? 0 : 1, isTech: 1, version: 2 }),
-      2,
-      300,
-      NOW,
-    );
-    await rebuild();
-    expect(await dupOf(b)).toBeUndefined();
-    expect(await visibleIds({ all: true })).toEqual([a, b]);
   });
 
   it("regroups a posting that finalize reopens without a full rebuild", async () => {

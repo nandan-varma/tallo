@@ -1,6 +1,6 @@
 import type { AiEnv } from "@tallo/ai";
 import type { BlobStore } from "@tallo/db";
-import { pruneRuns, purgeClosed, rebuildDuplicates, schema } from "@tallo/db";
+import { pruneRuns, purgeClosed, reapStaleRuns, rebuildDuplicates, schema } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
 import { assistantModel } from "./ai.ts";
 import { createApp } from "./app.ts";
@@ -43,11 +43,12 @@ const appFor = (env: Env) => {
 export default {
   fetch: (request, env, ctx) => appFor(env).fetch(request, env, ctx),
   /**
-   * Hourly housekeeping: drop jobs closed for 30+ days and their orphaned description blobs,
-   * and regroup duplicate postings.
+   * Hourly housekeeping: mark runs abandoned by a killed collector as partial, drop jobs closed
+   * for 30+ days and their orphaned description blobs, and regroup duplicate postings.
    */
   async scheduled(_event: ScheduledController, env: Env) {
     const { db, blobs } = deps(env);
+    await reapStaleRuns(db);
     await purgeClosed(db, blobs);
     await pruneRuns(db, blobs);
     let next: string | null = "";

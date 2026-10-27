@@ -10,7 +10,7 @@ const now = () => Math.floor(Date.now() / 1000);
 type Db = ReturnType<typeof testDb>;
 type Blobs = ReturnType<typeof memoryBlobs>;
 
-/** One job row, visible by default; flags turn it into a row the site hides. */
+/** One job row, visible by default; `closed` and `dupOf` turn it into a row the site hides. */
 async function seed(
   db: Db,
   blobs: Blobs,
@@ -19,7 +19,6 @@ async function seed(
     title: string;
     description?: string;
     closed?: boolean;
-    hidden?: boolean;
     dupOf?: number;
     pay?: [number, number];
     location?: string;
@@ -48,22 +47,30 @@ async function seed(
       company: "Acme",
       companySlug: "acme",
       title: args.title,
-      classifierVersion: 1,
       excerpt: text.slice(0, 80),
       jdHash,
       jdBytes: text.length,
       sourceHash: "b".repeat(64),
-      facts: { platform: "greenhouse" },
+      facts: args.pay
+        ? {
+            platform: "greenhouse",
+            compensation: [
+              {
+                min: args.pay[0],
+                max: args.pay[1],
+                currency: "USD",
+                interval: "year",
+                component: "base",
+              },
+            ],
+          }
+        : { platform: "greenhouse" },
       sortAt: 1000 + Number(args.postingId),
       firstSeenAt: 1,
       updatedAt: 1,
       locationText: args.location ?? "Remote, US",
       workMode: "remote",
-      salaryMinAnnual: args.pay?.[0] ?? null,
-      salaryMaxAnnual: args.pay?.[1] ?? null,
-      salaryCurrency: args.pay ? "USD" : null,
       closedAt: args.closed ? 2 : null,
-      hidden: args.hidden ? 1 : 0,
       dupOf: args.dupOf ?? null,
     })
     .returning({ id: schema.jobs.id });
@@ -87,7 +94,7 @@ describe("jobsPort.search", () => {
     expect(hits.map((h) => h.title)).toEqual(["Backend Engineer"]);
   });
 
-  it("returns compact hits with unknowns as null and pay as text", async () => {
+  it("returns compact hits with unknowns as null and the stated pay line as text", async () => {
     const { db, blobs, port } = setup();
     await seed(db, blobs, { postingId: "1", title: "Platform Engineer", pay: [150000, 180000] });
     await seed(db, blobs, { postingId: "2", title: "Platform Engineer II" });
@@ -101,6 +108,7 @@ describe("jobsPort.search", () => {
       workMode: "remote",
       pay: "USD 150000-180000 per year",
     });
+    expect((await port.lookup([String(paid?.id)]))[0]?.pay).toBe("USD 150000-180000 per year");
     expect(unpaid?.pay).toBeNull();
     expect(unpaid?.department).toBeNull();
   });
@@ -124,11 +132,10 @@ describe("jobsPort.search", () => {
     expect(hits.some((h) => h.title.startsWith("Platform"))).toBe(true);
   });
 
-  it("never returns closed, hidden or duplicate rows", async () => {
+  it("never returns closed or duplicate rows", async () => {
     const { db, blobs, port } = setup();
     const keep = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
     await seed(db, blobs, { postingId: "2", title: "Data Engineer", closed: true });
-    await seed(db, blobs, { postingId: "3", title: "Data Engineer", hidden: true });
     await seed(db, blobs, { postingId: "4", title: "Data Engineer", dupOf: keep });
 
     const hits = await port.search(["data engineer"], 40);
@@ -161,10 +168,9 @@ describe("jobsPort.read", () => {
   it("refuses ids the site hides, and ids that are not ids", async () => {
     const { db, blobs, port } = setup();
     const closed = await seed(db, blobs, { postingId: "1", title: "A", closed: true });
-    const hidden = await seed(db, blobs, { postingId: "2", title: "B", hidden: true });
     const dup = await seed(db, blobs, { postingId: "3", title: "C", dupOf: closed });
 
-    for (const id of [closed, hidden, dup, 9999]) expect(await port.read(String(id))).toBeNull();
+    for (const id of [closed, dup, 9999]) expect(await port.read(String(id))).toBeNull();
     for (const id of ["abc", "-1", "1.5", ""]) expect(await port.read(id)).toBeNull();
   });
 });
@@ -232,13 +238,11 @@ describe("jobsPort.lookup", () => {
     const { db, blobs, port } = setup();
     const open = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
     const closed = await seed(db, blobs, { postingId: "2", title: "Data Engineer", closed: true });
-    const hidden = await seed(db, blobs, { postingId: "3", title: "Data Engineer", hidden: true });
 
     const hits = await port.lookup([
       String(open),
       String(open),
       String(closed),
-      String(hidden),
       "9999",
       "abc",
       "-4",

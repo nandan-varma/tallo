@@ -15,7 +15,7 @@ const INTERVALS: Record<string, PayInterval> = {
 
 export const lever: Platform = {
   id: "lever",
-  version: 1,
+  version: 2,
   hosts: ["api.lever.co", "api.eu.lever.co"],
   validate: (source) => requireKey(source),
 

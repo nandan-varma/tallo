@@ -1,5 +1,6 @@
 import { prepareJob } from "@tallo/catalog";
 import type { MappedJob, SourceConfig } from "@tallo/contracts";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   applyJobs,
@@ -12,7 +13,7 @@ import {
   pruneRuns,
   purgeClosed,
   rawKey,
-  reclassify,
+  reapStaleRuns,
   schema,
   searchJobs,
   startRun,
@@ -144,29 +145,37 @@ describe("ingest", () => {
     expect(third.nextCursor).toBeNull();
   });
 
-  it("hides out-of-scope jobs by default but keeps them", async () => {
+  it("lists every job the source gave, whatever its place or kind of work", async () => {
     const run = await start();
     await ingest(run, [
       mapped("1"),
       mapped("2", { title: "Registered Nurse", locations: [loc("Berlin, Germany", "DE")] }),
     ]);
-    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(1);
-    expect((await searchJobs(db, { limit: 10, all: true })).jobs).toHaveLength(2);
+    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(2);
   });
 
-  it("filters by pay and experience", async () => {
+  it("shows the source's stated pay line in its own interval, and only stated pay", async () => {
     const run = await start();
     await ingest(run, [
-      mapped("1", { description: "Pay $200,000 - $250,000 per year. 8+ years of experience." }),
-      mapped("2", { description: "Pay $90,000 - $110,000 per year. 1+ years of experience." }),
-      mapped("3"),
+      mapped("1", {
+        compensation: [{ min: 50, max: 60, currency: "USD", interval: "hour", component: "base" }],
+      }),
+      mapped("2", {
+        // Inferred from text: never used for a pay line.
+        compensation: [
+          { min: 200000, currency: "USD", interval: "year", component: "base", inferred: true },
+        ],
+      }),
+      mapped("3", { description: "Pay $200,000 - $250,000 per year." }),
     ]);
-    expect(
-      (await searchJobs(db, { limit: 10, salaryMin: 180000 })).jobs.map((j) => j.title),
-    ).toEqual(["Software Engineer 1"]);
-    expect(
-      (await searchJobs(db, { limit: 10, maxExperience: 2 })).jobs.map((j) => j.title).sort(),
-    ).toEqual(["Software Engineer 2", "Software Engineer 3"]);
+    const pay = Object.fromEntries(
+      (await searchJobs(db, { limit: 10 })).jobs.map((j) => [j.title, j.pay]),
+    );
+    expect(pay).toEqual({
+      "Software Engineer 1": "USD 50-60 per hour",
+      "Software Engineer 2": null,
+      "Software Engineer 3": null,
+    });
   });
 });
 
@@ -237,10 +246,8 @@ describe("closure", () => {
       const run = await start(now);
       await finalize(db, run, fin(["1"]), now);
     }
-    const closedId = (await searchJobs(db, { limit: 10, all: true })).jobs.find((j) =>
-      j.title.endsWith("2"),
-    );
-    expect(closedId).toBeUndefined();
+    const closed = (await searchJobs(db, { limit: 10 })).jobs.find((j) => j.title.endsWith("2"));
+    expect(closed).toBeUndefined();
     expect(await purgeClosed(db, blobs, 30, T + 3000 + 31 * 86400)).toBe(1);
     expect(blobs.keys()).toHaveLength(1);
   });
@@ -322,14 +329,32 @@ describe("board health", () => {
     expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
   });
 
-  it("a failure that is not a 404 breaks the streak and never marks dead", async () => {
+  it("a failure that is not a 404 leaves the streak alone, so it neither resets nor marks dead", async () => {
     await failed(T + 1000, true);
     await failed(T + 2000, true);
     await failed(T + 3000, false);
-    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
-    await failed(T + 4000, true);
-    await failed(T + 5000, true);
     expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await failed(T + 4000, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("only a successful listing resets the streak", async () => {
+    await failed(T + 1000, true);
+    await failed(T + 2000, true);
+    const run = await start(T + 3000);
+    await finalize(db, run, fin(["1"], { listingComplete: false }), T + 3000);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await failed(T + 4000, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("interleaved failures do not stop consecutive 404s from marking a board dead", async () => {
+    await failed(T + 1000, true);
+    await failed(T + 2000, false);
+    await failed(T + 3000, true);
+    await failed(T + 4000, false);
+    await failed(T + 5000, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
   });
 
   it("a complete listing revives a dead board", async () => {
@@ -364,17 +389,44 @@ describe("getJob", () => {
   });
 });
 
-describe("reclassify", () => {
-  it("upgrades stale classifications from stored facts, in pages", async () => {
-    const run = await start();
-    await ingest(run, [mapped("1"), mapped("2"), mapped("3")]);
-    const verdict = { isUs: 0 as const, isTech: 1 as const, version: 9 };
-    const first = await reclassify(db, () => verdict, 9, 2);
-    expect(first).toEqual({ updated: 2, more: true });
-    expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 1, more: false });
-    expect(await reclassify(db, () => verdict, 9, 2)).toEqual({ updated: 0, more: false });
-    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(0);
-    expect((await searchJobs(db, { limit: 10, all: true })).jobs).toHaveLength(3);
+describe("stuck runs", () => {
+  it("marks a run left running past the lease as partial, and closes nothing", async () => {
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1"), mapped("2")]);
+    await finalize(db, first, fin(["1", "2"]), T + 1000);
+    // The collector is killed after listing: the run never finalizes.
+    const stuck = await start(T + 2000);
+    expect(await reapStaleRuns(db, T + 2000 + 60)).toBe(0);
+    expect(await reapStaleRuns(db, T + 2000 + 3 * 3600)).toBe(1);
+
+    const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, stuck));
+    expect(row).toMatchObject({ status: "partial", closed: null });
+    expect(row?.issues).toEqual([
+      { code: "stopped", message: "Collector process stopped before finalize" },
+    ]);
+    const open = await db.select().from(schema.jobs);
+    expect(open.map((j) => [j.closedAt, j.absentRuns])).toEqual([
+      [null, 0],
+      [null, 0],
+    ]);
+  });
+
+  it("a late finalize from a reaped collector cannot close jobs", async () => {
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1")]);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const late = await start(T + 2000);
+    await reapStaleRuns(db, T + 2000 + 3 * 3600);
+    // The zombie collector reports an authoritatively empty listing after it was reaped.
+    const result = await finalize(
+      db,
+      late,
+      fin([], { emptyIsAuthoritative: true }),
+      T + 2000 + 3 * 3600 + 1,
+    );
+    expect(result).toMatchObject({ status: "partial", closureApplied: false, closed: 0 });
+    const open = await db.select().from(schema.jobs);
+    expect(open.map((j) => j.closedAt)).toEqual([null]);
   });
 });
 

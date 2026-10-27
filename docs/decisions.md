@@ -27,7 +27,6 @@ registry line. `map` is pure code beside the collector; collectors still never t
 
 **D10. Diff by source fingerprint, not mapped facts.** `sourceHash` = fingerprint(listing) + platform version.
 Daily runs fetch details only for changed postings; bumping a platform version re-processes that platform.
-Heuristic flags are derived data with their own version: `tallo reclassify` upgrades them from stored facts.
 
 **D9. No per-job `last_seen`.** Presence comes from set difference against each complete listing; this avoids
 writing every row every day (~9M writes/month at 300k jobs).
@@ -37,8 +36,12 @@ writing every row every day (~9M writes/month at 300k jobs).
 **D7. Heavy data in R2, lean facts in D1.** Descriptions (gzip, content-addressed, text only) and raw run packs in R2.
 D1 holds facts, an excerpt and hashes. Keeps D1 small/fast and the 10GB cap irrelevant.
 
-**D6. Heuristics are views, not filters at ingest.** `is_us`/`is_tech` are tri-state; only confident zeros set `hidden`.
-Nothing is dropped, so a corrected rule can be replayed from raw packs.
+**D6. No heuristics in the database; the AI assistant judges.** The database stores facts the sources stated (structured
+fields, the source's own text, hashes). It derives nothing from text: no country, region or city guessed from a place,
+no pay or experience parsed from a description, no work mode or US/tech flag, no `hidden` flag. Pay keeps the source's
+interval. The assistant reads titles, departments, locations and descriptions, and treats unknown as unknown. Rejected:
+versioned classifiers with a reclassify job (rules that drift, plus a flag column nobody could trust). Raw packs still keep
+every source field, so a future parser could be added and replayed without refetching.
 
 **D5. Drizzle on D1 (SQLite dialect), tests on node:sqlite.** `sqlite-core` keeps the schema portable to libSQL/Turso
 or a VPS. Schema source of truth is TypeScript; FTS5 is a custom migration.

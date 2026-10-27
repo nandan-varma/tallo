@@ -1,17 +1,6 @@
 import { jobFactsSchema } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
-import {
-  annualizeBase,
-  classify,
-  extractCompensation,
-  extractExperience,
-  gunzip,
-  htmlToText,
-  parseLocation,
-  prepareJob,
-  summarizeExperience,
-  usFlag,
-} from "../src/index.ts";
+import { gunzip, htmlToText, prepareJob, sourceLocation } from "../src/index.ts";
 
 describe("htmlToText", () => {
   it("handles escaped Greenhouse HTML, lists and entities", () => {
@@ -29,90 +18,42 @@ describe("htmlToText", () => {
   });
 });
 
-describe("parseLocation / usFlag", () => {
-  it.each([
-    ["Austin, TX", "US"],
-    ["San Francisco, California", "US"],
-    ["Remote - USA", "US"],
-    ["Tokyo, Japan", "JP"],
-    ["Toronto, ON", "CA"],
-    ["Vancouver, Canada", "CA"],
-    ["London, United Kingdom", "GB"],
-    ["3300 Channahon Rd, Joliet,IL 60436-8579", "US"],
-  ])("%s -> %s", (text, code) => expect(parseLocation(text).countryCode).toBe(code));
-  it("leaves bare remote unknown, flags it remote", () => {
-    const l = parseLocation("Remote");
-    expect(l.countryCode).toBeUndefined();
-    expect(l.remote).toBe(true);
-    expect(usFlag([l])).toBeNull();
+describe("sourceLocation", () => {
+  it("never reads city, region, country or remote out of the text", () => {
+    for (const text of [
+      "Austin, TX",
+      "Remote - USA",
+      "Tokyo, Japan",
+      "Remote",
+      "Joliet,IL 60436",
+    ]) {
+      expect(sourceLocation(text)).toEqual({ text });
+    }
   });
-  it("usFlag is 0 only when every location is known and non-US", () => {
-    expect(usFlag([parseLocation("Berlin, Germany"), parseLocation("Paris, France")])).toBe(0);
-    expect(usFlag([parseLocation("Berlin, Germany"), parseLocation("Austin, TX")])).toBe(1);
-    expect(usFlag([parseLocation("Berlin, Germany"), parseLocation("Remote")])).toBeNull();
-  });
-});
-
-describe("extractors", () => {
-  it("keeps min-only experience as min-only", () => {
-    const [q] = extractExperience("You have 5+ years of experience building services.");
-    expect(q).toMatchObject({ min: 5, kind: "required", inferred: true });
-    expect(q?.max).toBeUndefined();
-  });
-  it("reads ranges and preferred", () => {
-    const qs = extractExperience("3-5 years of Go. Nice to have: 2+ years of Rust.");
-    expect(qs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ min: 3, max: 5, kind: "required" }),
-        expect.objectContaining({ min: 2, kind: "preferred" }),
-      ]),
-    );
-    expect(summarizeExperience(qs)).toEqual({ min: 3, max: 5 });
-  });
-  it("extracts salary bands and annualizes", () => {
-    const [m] = extractCompensation("The range is $120,000 - $150,000 per year plus equity.");
-    expect(m).toMatchObject({ min: 120000, max: 150000, currency: "USD", interval: "year" });
+  it("keeps the source's own structured fields as given", () => {
     expect(
-      annualizeBase([{ min: 50, max: 60, interval: "hour", component: "base", currency: "USD" }]),
-    ).toEqual({ min: 104000, max: 124800, currency: "USD" });
+      sourceLocation("Austin", {
+        city: "Austin",
+        region: "Texas",
+        countryCode: "US",
+        remote: false,
+      }),
+    ).toEqual({
+      text: "Austin",
+      city: "Austin",
+      region: "Texas",
+      countryCode: "US",
+      remote: false,
+    });
   });
-  it("handles k-suffix and ignores unrelated dollars", () => {
-    expect(extractCompensation("$120-150k a year")[0]).toMatchObject({ min: 120000, max: 150000 });
-    expect(extractCompensation("We raised $50 million last year")).toEqual([]);
+  it("turns a structured country name into a code only through the ISO tables", () => {
+    expect(sourceLocation("Berlin", { country: "Germany" }).countryCode).toBe("DE");
+    expect(sourceLocation("NYC", { country: "United States" }).countryCode).toBe("US");
+    expect(sourceLocation("London", { country: "UK" }).countryCode).toBe("GB");
+    expect(sourceLocation("Nowhere", { country: "Narnia" }).countryCode).toBeUndefined();
   });
-});
-
-describe("classify", () => {
-  const us = [parseLocation("Austin, TX")];
-  // [title, department/team, expected isTech]: real rows from the catalog.
-  it.each([
-    ["Senior Software Engineer", undefined, 1],
-    ["Product Manager", undefined, 1],
-    ["IT Operations Specialist", "Operations IT Operations", 1],
-    ["Internship - 2027 Undergraduate IT Intern", undefined, 1],
-    ["Senior IT Vendor Manager", undefined, 1],
-    ["Engineer II", "Engineering", 1],
-    ["Test Engineer", "Software Engineering", 1],
-    ["Registered Nurse", undefined, 0],
-    ["Registered Behavior Technician (RBT)", "North Carolina RBT", 0],
-    ["Account Executive", "Sales", 0],
-    ["Account Manager", "Sales Account Management", 0],
-    [
-      "Maintenance Technician",
-      "Able Services Field Engineering, General Maintenance Technician",
-      0,
-    ],
-    ["BOMA Certified Engineer", "Able Services Field Engineering, Building Engineer", 0],
-    ["Chief Engineer", "Able Services Field Engineering, Chief Engineer", 0],
-    ["Mechanical Engineering Manager", "Engineering", 0],
-    ["Test Engineer", "Manufacturing Operations", 0],
-    ["Proposal Strategist, Creative Strategy", "Business Development", 0],
-    ["Junk Removal and Driver", "1-800-GOT-JUNK?", 0],
-    ["Office Coordinator", undefined, null],
-    ["Quant", "Trading", null],
-    ["Application Engineer - Space Segment", undefined, null],
-  ])("%s (%s) -> %s", (title, department, expected) => {
-    expect(classify({ title, department, locations: us }).isTech).toBe(expected);
+  it("collapses whitespace in the text", () => {
+    expect(sourceLocation("  Austin,\n  TX ").text).toBe("Austin, TX");
   });
 });
 
@@ -122,7 +63,7 @@ describe("prepareJob", () => {
     postingId: "1",
     title: "Software Engineer",
     description: "Build things. 3+ years of experience. $100,000 - $120,000 per year.",
-    locations: [parseLocation("Austin, TX")],
+    locations: [{ text: "Austin, TX", primary: true }],
     compensation: [],
     experience: [],
     extras: {},
@@ -176,17 +117,40 @@ describe("prepareJob", () => {
     },
   );
 
+  it("stores only what the source stated: no derived flags, no text-parsed pay or experience", async () => {
+    const prepared = await prepareJob(
+      { ...job, locations: [{ text: "Remote - USA", primary: true }] },
+      source,
+      "a".repeat(64),
+    );
+    expect(prepared.facts).toMatchObject({ workMode: null, countryCode: null, city: null });
+    expect(prepared.facts.facts).toMatchObject({ compensation: [], experience: [] });
+    for (const removed of [
+      "isUs",
+      "isTech",
+      "classifierVersion",
+      "hidden",
+      "salaryMinAnnual",
+      "expMinYears",
+    ]) {
+      expect(prepared.facts).not.toHaveProperty(removed);
+    }
+  });
+
+  it("keeps source compensation and experience losslessly, in their own interval", async () => {
+    const compensation = [
+      { min: 50, max: 60, currency: "USD", interval: "hour" as const, component: "base" as const },
+    ];
+    const experience = [{ min: 3, unit: "years" as const, kind: "required" as const }];
+    const prepared = await prepareJob({ ...job, compensation, experience }, source, "a".repeat(64));
+    expect(prepared.facts.facts).toMatchObject({ compensation, experience });
+  });
+
   it("derives facts and round-trips the JD", async () => {
     const hash = "a".repeat(64);
     const a = await prepareJob(job, source, hash);
     expect(a.facts.sourceHash).toBe(hash);
-    expect(a.facts).toMatchObject({
-      isUs: 1,
-      isTech: 1,
-      salaryMinAnnual: 100000,
-      expMinYears: 3,
-      countryCode: "US",
-    });
+    expect(a.facts).toMatchObject({ countryCode: null, title: "Software Engineer" });
     expect(new TextDecoder().decode(await gunzip(a.jd))).toBe(job.description);
     expect(
       (await prepareJob({ ...job, description: "Other text" }, source, hash)).facts.jdHash,

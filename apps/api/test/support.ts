@@ -35,7 +35,6 @@ export async function seedJob(
     company: "Acme",
     companySlug: "acme",
     title: "Senior Backend Engineer",
-    classifierVersion: 1,
     excerpt: text,
     jdHash,
     jdBytes: text.length,

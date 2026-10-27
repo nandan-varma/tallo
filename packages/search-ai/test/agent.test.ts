@@ -215,6 +215,21 @@ describe("job agent", () => {
     );
   });
 
+  it("describes an unfiltered catalog: the model judges relevance, place and pay; unknown stays unknown", async () => {
+    const { jobs } = port({});
+    const { model, seen } = scripted([said("hi")]);
+    await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
+    const call = seen[0] as LanguageModelV4CallOptions;
+    const system = promptText(call);
+    expect(system).not.toMatch(/US tech|tech jobs/);
+    expect(system).toContain("nothing is pre-filtered");
+    expect(system).toContain("does not judge relevance, tech or not, seniority, or place");
+    expect(system).toContain("A null field is UNKNOWN");
+    expect(system).toContain("never present a converted figure as the source's");
+    const search = call.tools?.find((t) => t.name === "search_jobs");
+    expect(JSON.stringify(search)).not.toMatch(/US tech/);
+  });
+
   it("asks the provider for no reasoning", async () => {
     const { jobs } = port({});
     const { model, seen } = scripted([said("hi")]);
