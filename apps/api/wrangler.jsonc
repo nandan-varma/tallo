@@ -5,8 +5,9 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  "limits": { "cpu_ms": 120000 },
   "routes": [{ "pattern": "tallo-api.nandan.fyi", "custom_domain": true }],
-  "triggers": { "crons": ["17 * * * *"] },
+  "triggers": { "crons": ["17 * * * *", "*/5 * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
@@ -16,7 +17,26 @@
     }
   ],
   "r2_buckets": [{ "binding": "BLOBS", "bucket_name": "tallo-blobs" }],
+  "queues": {
+    "producers": [{ "binding": "COLLECT", "queue": "tallo-collect" }],
+    "consumers": [
+      {
+        "queue": "tallo-collect",
+        "max_batch_size": 1,
+        "max_batch_timeout": 0,
+        "max_retries": 2,
+        "dead_letter_queue": "tallo-collect-dlq",
+        "max_concurrency": 4
+      }
+    ]
+  },
+  "durable_objects": { "bindings": [{ "name": "HOST_GATE", "class_name": "HostGate" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostGate"] }],
   "vars": {
-    "AI_MODEL_SMART": "go-anthropic:claude-haiku-5-5"
+    "AI_MODEL_SMART": "go-anthropic:claude-haiku-5-5",
+    "COLLECT_ENABLED": "0",
+    "COLLECT_BATCH": "40",
+    "COLLECT_SLICE_SUBREQUESTS": "800",
+    "COLLECT_SLICE_MS": "300000"
   }
 }

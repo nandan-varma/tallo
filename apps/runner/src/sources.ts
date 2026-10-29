@@ -12,12 +12,15 @@ const entrySchema = z.array(
   }),
 );
 
+/** The reviewed hot list: an array of source ids (see `loadHot`). Not a platform file. */
+export const HOT_FILE = "hot.json";
+
 /** `sources/<platform>.json`: one array of boards per platform. Trusted, reviewed configuration. */
 export function loadSources(dir: string): SourceConfig[] {
   const sources: SourceConfig[] = [];
   const seen = new Set<string>();
   for (const file of readdirSync(dir)
-    .filter((f) => f.endsWith(".json"))
+    .filter((f) => f.endsWith(".json") && f !== HOT_FILE)
     .sort()) {
     const platform = file.slice(0, -".json".length);
     for (const entry of entrySchema.parse(JSON.parse(readFileSync(join(dir, file), "utf8")))) {
@@ -35,4 +38,21 @@ export function loadSources(dir: string): SourceConfig[] {
     }
   }
   return sources;
+}
+
+/**
+ * `sources/hot.json`: ids of the large employers collected daily. Every id must be a configured
+ * source; a typo fails here, not silently as a board that never gets the hot tier.
+ */
+export function loadHot(dir: string, sources: SourceConfig[]): string[] {
+  const ids = z
+    .array(z.string().min(1))
+    .parse(JSON.parse(readFileSync(join(dir, HOT_FILE), "utf8")));
+  const known = new Set(sources.map((s) => s.id));
+  const unknown = ids.filter((id) => !known.has(id));
+  if (unknown.length)
+    throw new Error(`${HOT_FILE} names boards not in sources/: ${unknown.join(", ")}`);
+  const dup = ids.filter((id, i) => ids.indexOf(id) !== i);
+  if (dup.length) throw new Error(`${HOT_FILE} lists ${dup[0]} twice`);
+  return ids;
 }

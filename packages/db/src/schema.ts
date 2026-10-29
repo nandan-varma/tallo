@@ -1,4 +1,4 @@
-import type { SearchSpec } from "@tallo/contracts";
+import { type SearchSpec, TIERS } from "@tallo/contracts";
 import { sql } from "drizzle-orm";
 import {
   index,
@@ -10,26 +10,34 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 /** One configured recruiting surface. Mirrors the repo's source config; written when a run starts. */
-export const sources = sqliteTable("sources", {
-  id: text().primaryKey(),
-  platform: text().notNull(),
-  key: text().notNull(),
-  company: text().notNull(),
-  companySlug: text("company_slug").notNull(),
-  params: text({ mode: "json" }).$type<Record<string, string | number | boolean>>().notNull(),
-  lastRunAt: integer("last_run_at"),
-  /** Last run that listed the whole board. */
-  lastCompleteRunAt: integer("last_complete_run_at"),
-  /** Last run that listed any postings, complete or not. Basis for staleness. */
-  lastListedAt: integer("last_listed_at"),
-  lastStatus: text("last_status"),
-  /** Consecutive runs whose listing 404'd. Any other outcome resets it to 0. */
-  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
-  /** `dead` boards are skipped by sync unless asked; a complete listing revives them. */
-  status: text({ enum: ["active", "dead"] })
-    .notNull()
-    .default("active"),
-});
+export const sources = sqliteTable(
+  "sources",
+  {
+    id: text().primaryKey(),
+    platform: text().notNull(),
+    key: text().notNull(),
+    company: text().notNull(),
+    companySlug: text("company_slug").notNull(),
+    params: text({ mode: "json" }).$type<Record<string, string | number | boolean>>().notNull(),
+    lastRunAt: integer("last_run_at"),
+    /** Last run that listed the whole board. */
+    lastCompleteRunAt: integer("last_complete_run_at"),
+    /** Last run that listed any postings, complete or not. Basis for staleness. */
+    lastListedAt: integer("last_listed_at"),
+    lastStatus: text("last_status"),
+    /** Consecutive runs whose listing 404'd. Any other outcome resets it to 0. */
+    consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+    /** `dead` boards are skipped by sync unless asked; a complete listing revives them. */
+    status: text({ enum: ["active", "dead"] })
+      .notNull()
+      .default("active"),
+    /** Epoch second the board is next due (0: due now). The cron claims due boards by moving this forward (a lease). */
+    nextDueAt: integer("next_due_at").notNull().default(0),
+    /** Collection frequency class, from the reviewed hot list. See contracts `schedule.ts`. */
+    tier: text({ enum: TIERS }).notNull().default("rare"),
+  },
+  (t) => [index("sources_next_due_idx").on(t.nextDueAt)],
+);
 
 /**
  * The hourly regroup's cursor: one row (`id` 1). `checked_at` is when the last complete incremental pass ran; the

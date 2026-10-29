@@ -7,7 +7,7 @@ import PQueue from "p-queue";
 import pino from "pino";
 import { createApi } from "./api.ts";
 import { deadSources, dueSources, formatDead } from "./due.ts";
-import { loadSources } from "./sources.ts";
+import { loadHot, loadSources } from "./sources.ts";
 import { syncSource } from "./sync.ts";
 import { verifySource } from "./verify.ts";
 
@@ -18,6 +18,8 @@ try {
 }
 
 const SOURCES_DIR = fileURLToPath(new URL("../../../sources", import.meta.url));
+/** The API's cap on configs per `POST /v1/admin/sources`. */
+const REGISTER_CHUNK = 500;
 const log = pino({
   level: process.env.LOG_LEVEL ?? "info",
   ...(process.stdout.isTTY ? { transport: { target: "pino-pretty" } } : {}),
@@ -181,6 +183,24 @@ program
       ([p, list]) => `${p}: ${list?.length}`,
     );
     console.log(`${sources.length} sources\n${counts.join("\n")}`);
+  });
+
+program
+  .command("register")
+  .description(
+    "Send sources/*.json and sources/hot.json to the API (the Worker collects from them)",
+  )
+  .action(async () => {
+    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+    const sources = loadSources(SOURCES_DIR);
+    const hot = loadHot(SOURCES_DIR, sources);
+    let registered = 0;
+    // The API takes at most 500 configs per call; every call carries the whole hot list.
+    for (let i = 0; i < sources.length; i += REGISTER_CHUNK) {
+      const result = await api.registerSources(sources.slice(i, i + REGISTER_CHUNK), hot);
+      registered += result.registered;
+    }
+    log.info({ sources: sources.length, hot: hot.length, registered }, "registered");
   });
 
 await program.parseAsync();

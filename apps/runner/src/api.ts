@@ -1,4 +1,4 @@
-import type { CreateRun, Finalize, FinalizeResult, JobFacts } from "@tallo/contracts";
+import type { CreateRun, Finalize, FinalizeResult, JobFacts, SourceConfig } from "@tallo/contracts";
 import ky from "ky";
 import type { SourceState } from "./due.ts";
 
@@ -56,6 +56,12 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .post("v1/admin/dedupe", { searchParams: { full, ...(after ? { after } : {}) } })
         .json<{ keys: number; changed: number; next: string | null }>(),
     sources: () => client.get("v1/sources").json<SourceState[]>(),
+    /** Register reviewed board configs and the hot list (the Worker stores them in D1). */
+    registerSources: (sources: SourceConfig[], hot: string[]) =>
+      client.post("v1/admin/sources", { json: { sources, hot } }).json<{ registered: number }>(),
+    collectNow: (sources: string[]) =>
+      client.post("v1/admin/collect", { json: { sources } }).json<{ enqueued: string[] }>(),
+    collectStatus: () => client.get("v1/admin/collect/status").json<unknown>(),
   };
 }
 export type Api = ReturnType<typeof createApi>;

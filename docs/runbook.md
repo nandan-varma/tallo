@@ -76,11 +76,98 @@ run against the old one (`classifier_version` is NOT NULL). Do these back to bac
 5. Then `tallo dedupe`. Duplicate groups no longer split on the old hidden flag, so postings that were grouped apart
    only because of it merge only in a full regroup. Until then they show as separate rows, never as lost ones.
 
+## Cloud collection (queue)
+
+Collection moves into the API Worker (design: `docs/architecture.md`, "Where collection runs"). The Mac runner keeps
+`tallo sync` and `tallo register` for manual use. Until cloud collection has run clean, the launchd job below remains the
+daily collector. At cutover, unload it: `launchctl unload ~/Library/LaunchAgents/fyi.nandan.tallo.sync.plist`.
+
+### Resources and config
+
+- Queues (create once, before the first deploy that declares them):
+
+  ```sh
+  pnpm --filter @tallo/api exec wrangler queues create tallo-collect
+  pnpm --filter @tallo/api exec wrangler queues create tallo-collect-dlq
+  ```
+- Durable Object `HostGate`: created by the first deploy (migration tag `v1`, `new_sqlite_classes`). No command.
+- Variables (in `apps/api/wrangler.jsonc` and `apps/api/cloudflare.config.ts`; keep them equal):
+  - `COLLECT_ENABLED`: the kill switch. Committed as `"0"`. Only `"1"` lets the five-minute cron enqueue work.
+  - `COLLECT_BATCH` (boards claimed per tick, default 40), `COLLECT_SLICE_SUBREQUESTS` (800), `COLLECT_SLICE_MS` (300000).
+- Queue consumer: batch size 1, `max_concurrency` 4, `max_retries` 2, dead-letter `tallo-collect-dlq`. Changing
+  `max_concurrency` is an edit to both config files and a deploy.
+
+### Rollout order (first time)
+
+1. Apply migration `0018` remotely (additive: `sources.next_due_at`, `sources.tier` and an index; existing boards get
+   `next_due_at = 0`, so they are due at the first tick). List first, then apply:
+   `cf d1 migrations list 001b036c-2e15-45c8-9284-edb9d374b849 --dir packages/db/drizzle`, then `... migrations apply ...`.
+2. Create the two queues (above).
+3. Deploy the API with `COLLECT_ENABLED` `"0"`: `pnpm --filter @tallo/api deploy`.
+4. Register the reviewed boards and the hot list (idempotent; a board keeps its schedule when re-registered):
+   `pnpm --filter @tallo/runner tallo register` (needs `TALLO_API_URL` and `TALLO_INGEST_TOKEN`).
+5. Staged test, with the cron still off (see below).
+6. Turn the cron on: set `COLLECT_ENABLED` to `"1"` in both config files and deploy. The first tick claims 40 boards
+   every five minutes (about 11,500 a day), so the first full pass takes about a day. Watch `GET /v1/admin/collect/status`.
+
+### Staged test (named boards, cron off)
+
+`POST /v1/admin/collect` collects named boards now, ignoring their due time, and works with the cron off. Use 20 boards:
+two per platform (Greenhouse, Lever, Ashby, SmartRecruiters, Workday, Oracle Cloud), mixing one small and one large
+listing where the platform has both, plus one `hot` board. Put them in a file and send:
+
+```sh
+curl -s -X POST https://tallo-api.nandan.fyi/v1/admin/collect \
+  -H "authorization: Bearer $TALLO_INGEST_TOKEN" -H "content-type: application/json" \
+  -d @staged.json   # {"sources": ["greenhouse:stripe", "lever:...", ...]}
+```
+
+Then check, with the ingest token: `GET /v1/admin/collect/status` (runs in flight, last 24 hours) and the log lines
+(`pnpm dlx wrangler tail tallo-api --format json`, filter on `"outcome"`). Every board should end `complete`, or
+`partial` with a reason in its `issues`. A `not_found` means the board moved (check `sources/`). Pass criteria: no
+`error` lines, every `complete` board's `changed` count is 0 on a second pass, and `GET /v1/jobs?q=...` returns its jobs.
+
+### Kill switch and rollback
+
+- Stop new collection: set `COLLECT_ENABLED` to `"0"` in both config files and deploy. For an immediate stop without a
+  deploy, set it in the dashboard (Worker `tallo-api`, Settings, Variables) too; a deploy overwrites a dashboard value
+  with the file's, so make the file match.
+- Stop work already queued: `pnpm --filter @tallo/api exec wrangler queues pause-delivery tallo-collect`, and
+  `resume-delivery` to undo. Check the exact subcommand with `wrangler queues --help` first.
+- Roll back the code: redeploy the previous API (revert the collection commits). The schema change is additive and the old
+  API ignores the new columns, so no migration rollback is needed. Runs left `running` are reaped as `partial` by the hourly
+  cron within two hours. Nothing closes on them.
+- The Mac launchd job keeps working throughout. Both collectors can run; a board another run holds is refused (`busy`).
+
+### Failures and dead letters
+
+- A message that fails three times goes to `tallo-collect-dlq`. Its run is reaped as partial. Re-collect the board with
+  the staged route once the cause is fixed.
+- `outcome: "error"` lines carry the error message (up to 300 characters). `not_found` after three runs marks the board
+  dead, and it is then collected every 30 days (`sources` `dead` in `GET /v1/admin/collect/status`).
+- Raw parts of a run that never closed stay under `work/<run>/` in R2 (small; cleanup is not automated yet).
+
+### Local rehearsal (no Cloudflare resources)
+
+`wrangler dev` runs the Worker, D1, R2, the queue and the Durable Object locally. This is how the change was checked:
+
+```sh
+cd apps/api
+printf 'READ_TOKEN=devread\nINGEST_TOKEN=devingest\n' > .dev.vars   # gitignored; never commit it
+pnpm exec wrangler d1 migrations apply tallo --local
+pnpm exec wrangler dev --port 8787 --var COLLECT_ENABLED:1
+# in another shell: the admin routes against http://localhost:8787, then the cron:
+curl "http://localhost:8787/cdn-cgi/handler/scheduled?cron=*%2F5+*+*+*+*"
+```
+
+Outbound requests go to the real boards (read-only GETs). The local D1 and R2 are not production.
+
 ## Daily collection (launchd)
 
 `~/Library/LaunchAgents/fyi.nandan.tallo.sync.plist` runs `pnpm --filter @tallo/runner tallo sync` at 06:30
 (see `scripts/launchd/fyi.nandan.tallo.sync.plist` for the template). The Mac may sleep: the job runs on wake.
 `sync` skips sources completed within `--stale-hours` (default 20), so reruns are cheap and idempotent.
+This is the collector until cloud collection is verified (see "Cloud collection").
 
 ### Politeness (per-host limits)
 

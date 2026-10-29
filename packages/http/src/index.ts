@@ -17,8 +17,8 @@ export class HttpError extends Error {
 }
 
 interface HostLimiterOptions {
-  /** Concurrent in-flight requests per host. */
-  perHostConcurrency?: number;
+  /** Concurrent in-flight requests per host: one number, or a function of the host. */
+  perHostConcurrency?: number | ((host: string) => number);
   /** Minimum gap between request starts per host. */
   minHostIntervalMs?: number;
 }
@@ -29,7 +29,10 @@ export interface HostLimiter {
 }
 
 export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter {
-  const concurrency = options.perHostConcurrency ?? 4;
+  const concurrencyOf = (host: string) => {
+    const c = options.perHostConcurrency ?? 4;
+    return typeof c === "function" ? c(host) : c;
+  };
   const interval = options.minHostIntervalMs ?? 0;
   const queues = new Map<string, PQueue>();
   return {
@@ -37,7 +40,7 @@ export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter
       let q = queues.get(host);
       if (!q) {
         q = new PQueue({
-          concurrency,
+          concurrency: concurrencyOf(host),
           ...(interval > 0 ? { interval, intervalCap: 1 } : {}),
         });
         queues.set(host, q);

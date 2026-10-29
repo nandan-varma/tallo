@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-10-26 (write-cost quick wins on a branch; ranked search by relevance; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+_Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
 ## Done
 
@@ -66,6 +66,13 @@ _Last updated: 2026-10-26 (write-cost quick wins on a branch; ranked search by r
 
 ## In flight
 
+- Cloud collection (branch `worktree-agent-a62304caf8f590baa-collect`, not pushed, not deployed, migration `0018_shiny_speed`
+  not applied remotely): boards are collected in the `tallo-api` Worker from the queue `tallo-collect` (DLQ
+  `tallo-collect-dlq`), scheduled in D1 (`sources.next_due_at`, `sources.tier`; weekly, daily for `sources/hot.json`), with a
+  per-host gate in a `HostGate` Durable Object. Shared engine in `packages/collect`. Kill switch `COLLECT_ENABLED` is `"0"`
+  in config. Rollout, staged test and rollback: `docs/runbook.md` ("Cloud collection"); design: `docs/architecture.md`
+  ("Where collection runs"). Next: queues created, migration applied, staged test with 20 boards, then cron on and the
+  launchd job unloaded.
 - Write-cost quick wins (branch `write-cost-quick-wins`, not deployed, migrations 0014 and 0015 not applied): unchanged postings
   are not rewritten, the FTS trigger has a `WHEN` guard, absences write only the counter, the purge checks hashes in batches
   of 100 through `jobs_jd_hash_idx`, the feed and company indexes are dropped and `GET /v1/jobs` requires `q`. Deploy order and
@@ -141,5 +148,8 @@ PR #18 shared per-host limiter, #19 structured facts on the job page, #20 Oracle
 ## Known gaps / notes
 
 - Workday slices over 2,000 results that cannot be split report `complete: false` (closure skipped).
+- Cloud collection: a listing is not sliced, so a board whose listing alone reaches the 10,000-subrequest hard limit
+  fails its run (partial) and should stay on the Mac runner. Raw parts of runs that never close are left in R2 under
+  `work/`. `normal` and `rare` have the same one-week interval (the tier is kept for later tuning).
 - Oracle finder caps at 10,000 results (see PR #20 notes).
 - Pricing/limits were verified from vendor pages on 2026-10; re-verify before large changes.

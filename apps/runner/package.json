@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tallo/catalog": "workspace:*",
+    "@tallo/collect": "workspace:*",
     "@tallo/contracts": "workspace:*",
     "@tallo/http": "workspace:*",
     "@tallo/platforms": "workspace:*",
