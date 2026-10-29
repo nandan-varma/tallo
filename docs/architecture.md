@@ -141,6 +141,19 @@ The index `jobs_updated_idx` costs one index entry per row whose group can chang
 per day (estimate). D1 writes are the scarcer allowance, so the index is cheap on writes too: writes scale with changed
 postings, not with the catalog. The one-off backfill is about 0.94M writes, roughly 2% of the monthly included writes.
 
+### Read cost of the hourly housekeeping (after migrations 0016 and 0017)
+
+| Work                                                                    | Before                                                                                                  | After                                                                                                           |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Hourly regroup window (`jobs_updated_idx`, canonicals, crossed sources) | 3 hourly passes read each changed row (3-hour look-back)                                                | About 1.5 passes per changed row: the window starts at the last pass (`regroup_state`) less 30 minutes          |
+| Hourly prune, `runs`                                                    | three full scans of `runs` per hour (the superseded ranking, the superseded select, the expired select) | index seeks on `runs_started_idx` and one scan of `runs_pack_idx` (about 2 packs per source, about 18k entries) |
+
+The prune row is the one that grows: `runs` keeps every run for 30 days (about 9k a day, so about 270k rows at steady state),
+which made the old hourly prune about 3 × 270k reads per hour (estimate; about 78k per hour at the 26k rows measured on
+October 28, 2026). The regroup row is about half of the window-driven reads, and the same cursor bounds the crossed-source
+band (sources that stopped listing), which was read three times too. The `sources` scan (8,894 boards) is still read each hour.
+Estimates from the query plans and row counts; re-check with `EXPLAIN QUERY PLAN` on production after the migrations.
+
 ### Write cost per posting (local harness, 100 postings)
 
 Scenario on SQLite (`testDb`): 100 postings are new, then re-applied unchanged, then re-applied with every title changed,

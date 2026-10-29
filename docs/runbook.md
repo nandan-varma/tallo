@@ -51,6 +51,19 @@ writes), then deploy the API. Then check the plans on production: `EXPLAIN QUERY
 `jobs_closed_idx`, and for the hash lookup `jobs_jd_hash_idx`. `GET /v1/jobs` now requires `q`; the web does not call it
 (it uses `POST /v1/jobs/search`), so no web deploy is needed for this change.
 
+### Order for the read-cost migrations (0016 runs indexes, 0017 regroup cursor)
+
+Neither changes a column. Both are small: `0016` creates two indexes on `runs` (`runs_started_idx`, and the partial
+`runs_pack_idx` over packs only); `0017` creates the one-row `regroup_state` table.
+- The new API's hourly cron writes `regroup_state` at the end of every regroup pass. If `0017` is not applied, the regroup
+  throws and the cron fails after the purge, so apply `0017` before deploying the API (not after).
+- The old API runs against both schemas: it does not read `regroup_state`, and the indexes only make its queries cheaper.
+
+Order: `cf d1 migrations apply` for `0016` and `0017` (check first with `wrangler d1 migrations list tallo --remote`, which
+lists only what is pending), then deploy the API. Then check the plans on production: `EXPLAIN QUERY PLAN` for the
+retention selects must show `runs_started_idx` and `runs_pack_idx` (no `SCAN runs` without `USING`). After the first
+hourly pass, `regroup_state` holds one row. No sync needs to be stopped; no full regroup is needed.
+
 ### Order for the no-heuristics change (migration 0013, platform version 2)
 
 The migration drops the flag and pay columns, so the old API cannot run against the new schema and the new API cannot

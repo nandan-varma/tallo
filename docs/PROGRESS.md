@@ -70,8 +70,13 @@ _Last updated: 2026-10-26 (write-cost quick wins on a branch; ranked search by r
   are not rewritten, the FTS trigger has a `WHEN` guard, absences write only the counter, the purge checks hashes in batches
   of 100 through `jobs_jd_hash_idx`, the feed and company indexes are dropped and `GET /v1/jobs` requires `q`. Deploy order and
   expected writes: `docs/runbook.md` ("write-cost migrations") and `docs/architecture.md` ("Write cost per posting").
-  Open: `jobs_updated_idx` could take the hourly regroup window from `sources.last_run_at` instead, but each run then reads all
-  of that source's rows, so it only helps if syncs spread out over the day (not done).
+- Read-cost branch `db-write-efficiency` (not deployed, migrations 0016 and 0017 not applied; order in `docs/runbook.md`,
+  "read-cost migrations"): the hourly regroup starts at a cursor (`regroup_state`, less 30 minutes) instead of a 3-hour
+  look-back, and run retention uses indexes (`runs_started_idx`, partial `runs_pack_idx`) instead of three scans of `runs`.
+  Not done, on purpose: the FTS `company` column and `columnsize=0` (bm25 ranks by company and doc length, so both would
+  change search results); multi-row upserts (D1 bills rows and index entries, not statements, and the changed-columns
+  write needs one SET per row); `/status` (8.9k rows per web cache miss; a longer web TTL is the cheap lever, a user-visible
+  choice).
 - Background syncs (one process per platform, logs `~/Library/Logs/tallo-sync-*.log`) were started 2026-10-26; check they finished,
   then install the daily launchd job (#1).
 
