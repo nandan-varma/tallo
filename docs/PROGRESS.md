@@ -2,6 +2,20 @@
 
 _Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-10-29: reviewed AI recommendations
+
+- Issue #56: chat now publishes a reviewed shortlist rather than displaying the last broad title search. Publishing
+  validates discovered/read/currently visible ids and source quotes; qualification interpretation remains the model's job.
+- More exploration: 40 candidates/page, offset paging to 300, 60 distinct cached description reads, literal passage search
+  and contiguous text pages for omitted sections. Limits are 24 model steps and 400k aggregate input tokens per turn.
+- Latest-turn publication drives the UI; raw candidates and old shortlists are not fallback recommendations. Saved
+  searches remain broad discovery and are explicitly labeled. Catalog facts and D1/R2 storage are unchanged.
+- Follow-up #57 records exact/semantic retrieval, description-only locations, factual storage, runtime fit judgments,
+  and approximately $5 incremental Cloudflare budget as open architecture questions. No index/vector redesign yet.
+- Validation: full pnpm check passed, with additional targeted regression checks. Independent review is recorded on the PR.
+  Scripted tool/UI tests cover enforcement;
+  they do not establish live-model quality. No deployment performed as part of this change.
+
 ## Session 2026-10-28: read this first
 
 **Collection now runs in Cloudflare; the Mac runs nothing.** Cron `*/5` claims due boards (D1 `sources.next_due_at`,

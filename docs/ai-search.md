@@ -1,8 +1,40 @@
 # AI assistant (as built)
 
-Status: live. A chat on the left, the results list beside it, built on the AI SDK's own architecture: one `ToolLoopAgent`
-streamed to the browser as UI messages, rendered from typed tool parts. The assistant helps build the search; **the
-database produces the list**, most relevant first. Nothing the model writes is stored; the conversation lives in the browser tab.
+Status: live architecture with reviewed chat recommendations (2026-10-29). Chat searches gather candidates; a separate
+`publish_jobs` tool produces the ordered list the person sees. The catalog remains factual; personal fit is judged at runtime.
+
+## Reviewed recommendations
+
+- The saved resume plus notes are loaded each turn. Instructions distinguish relevant professional experience from projects,
+  mandatory from preferred requirements, alternative qualifications, unknown facts, senior responsibilities, and actual work
+  locations from headquarters mentions. Follow-ups retain all still-applicable constraints.
+- `search_jobs` returns 40 compact candidates per page, with `offset` capped below 300. The same phrases can be paged;
+  adjacent title variants and bounded searches without location filters help investigate incomplete metadata. Broad discovery
+  does not relax the user's constraints. Descriptions are still **not globally indexed**: description-only matches can be
+  found among explored candidates, but recall is not exhaustive. See #57 for the future indexing/budget discussion.
+- `read_job` can fetch up to 60 distinct postings per turn; concurrent/repeated reads of an id share a per-turn promise.
+  The API bounds full-description fetching to 1 MB per posting and 8 MB total per turn before fetching/inflating blobs;
+  oversized/budget-exhausted descriptions return an explicit notice and cannot be published. The initial view keeps both ends of text with a marked gap at 20,000 characters. `terms` finds case-insensitive literal
+  passages anywhere in the cached full description; `start` reads a contiguous 20,000-character page. Passage views are
+  explicitly partial. Source text remains server-side; client tool results contain only activity metadata and source facts.
+- `publish_jobs` carries the complete requested search spec for saving (rather than the last exploratory query) and accepts up to 30 ordered selections with fit notes and quotes (up to two, at most 600 characters each).
+  It accepts only ids discovered and successfully read this turn, with nonempty descriptions, currently visible to lookup,
+  and at least one quote present both in the source description and in a view retained in a prior model request after context fitting. Same-step read-plus-publish cannot establish review. Invalid ids, duplicate
+  selections and unsupported quotes are rejected. Empty publication clears the shortlist. These checks validate provenance,
+  **not the model's interpretation or qualification judgment**; uncertainty must be stated honestly.
+- The UI displays only publication results from the latest user turn, paged locally. Raw candidates, legacy conversations
+  without publication, failures before publication, and previous-turn shortlists are never fallback recommendations.
+  Saved searches still run broad database discovery and are explicitly labeled as unreviewed for qualifications.
+- Limits: 24 model steps, 2,000 output tokens per step, 400k aggregate input tokens per turn. At the input ceiling only
+  publication is required if none has completed; finalization is also reserved for the last two steps. After publication at
+  the ceiling, tools are removed so the model answers. Context fitting removes individual older tool results, including within a parallel batch,
+  to target 24k estimated input tokens while preserving the newest individual result. The system/profile and a single
+  newest result can still exceed that estimate; this is not a provider-level hard context bound. The daily budget remains.
+- Regression tests script model tool calls to exercise selection, source evidence, read caching, omitted-middle inspection,
+  visibility, paging, empty selections and UI behavior. They do not establish live-model recommendation accuracy.
+
+The sections below describe the underlying catalog and search API. Broad search specs remain useful for exploration and
+saved searches; they are no longer the displayed chat recommendation list.
 
 ## Principles
 
@@ -11,20 +43,18 @@ database produces the list**, most relevant first. Nothing the model writes is s
 - The catalog is global and unfiltered: every kind of work and every place the sources list. The database judges nothing
   (no US/tech flag, no hidden rows, no pay or experience filters; decisions D6). The database ranks by how well the titles
   match. The assistant judges relevance, tech vs non-tech, place, pay and seniority from titles, departments, location text
-  and descriptions. It turns a request into title phrases, companies and places, leaves out hits that do not fit (and says
-  so), treats a missing fact as unknown, and reads a whole posting only when it must.
+  and descriptions, then publishes only its reviewed selection. Missing facts remain unknown.
 - Pay is quoted as the source stated it: the `pay` line is the base pay in the interval the source gave ("USD 90000-95000
   per hour"). The assistant never converts it to a yearly figure as if the source had said so.
-- Depth is budgeted by the loop (`prepareStep` removes `read_job` after 6 reads), not by the prompt.
+- Depth is bounded by the per-turn read cache and model loop; see the reviewed recommendations limits above.
 
 ## The contract: a search spec
 
 `searchSpecSchema` (`packages/contracts/src/ai.ts`): `{ queries: string[1..8], companies?: string[0..4], locations?: string[0..8] }`.
 It is both the input schema of the agent's `search_jobs` tool and the body of `POST /v1/jobs/search` (with `offset` and
 `limit`). `queries` are title phrases (every word must match, as a whole word); `companies` match the company name and are
-ANDed with the titles; `locations` are the person's own place words, expanded on the server (see Places below). The assistant's
-**last** `search_jobs` call defines the list the person sees; the web app runs that spec against the database and pages
-through it (20 a page, at most `SEARCH_RESULT_CAP` = 300 in total).
+ANDed with the titles; `locations` are the person's own place words, expanded on the server (see Places below). The successful publication carries the complete requested spec for saving broad discovery (legacy/unpublished turns fall back to the last search). Chat recommendations instead
+come from `publish_jobs`; saved discovery pages use 20 hits at a time, capped at `SEARCH_RESULT_CAP` = 300.
 
 ## Packages
 
@@ -32,12 +62,12 @@ through it (20 a page, at most `SEARCH_RESULT_CAP` = 300 in total).
   (`AI_MODEL_SMART=provider:model` plus a secret). Providers: `go` (OpenCode Go, openai-compatible, `supportsStructuredOutputs`),
   `go-anthropic`, `go-responses`, `openai`, `anthropic`, `openrouter`, `custom`.
 - `packages/search-ai`: the agent. No database or framework imports; it needs a `JobsPort` (`search`, `lookup`, `read`).
-  - `createJobAgent({model, jobs, profile})`: `ToolLoopAgent`, `reasoning: "none"`, `isStepCount(14)`.
-  - `search_jobs` (spec in, up to 20 hits out), `read_job` (the FULL description, never cut), `explain_jobs` (notes).
+  - `createJobAgent({model, jobs, profile})`: `ToolLoopAgent`, `reasoning: "none"`, `isStepCount(24)`.
+  - `search_jobs` (spec plus offset in, up to 40 candidates out), `read_job` (bounded text views), `publish_jobs` (reviewed shortlist), `explain_jobs` (legacy notes).
   - `search_jobs` reaches the model as one line per hit through `toModelOutput`: `id | title | company | location | work mode |
     pay | posted date | department | N locations`, with unknown fields left out (`hitLines`). The browser gets the structured hits.
-  - `read_job` returns only `{found, title, company, chars, facts}` to the client; the full text reaches the model through
-    `toModelOutput` from a per-request cache, so it never travels to the browser or back in the next request.
+  - `read_job` returns activity metadata (id, title, company, chars, facts, partial/view markers) to the client; the requested
+    text view reaches the model through `toModelOutput` from a per-request cache, not the browser or next request.
   - `explain_jobs` validates: a note is kept only for a job `lookup` finds visible in the catalog (unknown ids are dropped),
     once per job, with a one-sentence `why` (max 240 chars); a quote is kept only if it appears word for word in a description
     read this turn or in the profile.
@@ -98,13 +128,13 @@ Not filtered: country, department, employment type. Their coverage is NULL for m
 ## Web (`apps/web`)
 
 - `/`: `Assistant` island (`client:only`): `useChat<JobAgentMessage>` over `DefaultChatTransport('/api/chat')`; the conversation is kept in
-  `sessionStorage`. Data fetching is TanStack Query (`queries.ts`): `useSearchPage` runs `currentSearch(messages)` through `/api/search` at an
-  offset and keeps the previous page on screen while the next loads (the list never blanks); `useJob` loads a posting once per visit.
+  `sessionStorage`. Chat recommendations derive from `currentResults(messages)` and paginate locally. Saved discovery uses TanStack Query
+  `useSearchPage` through `/api/search`; `useJob` loads a posting once per visit.
 - Layout is CSS only: a `data-detail` / `data-tab` attribute on the container switches three columns (chat | results | posting) and flex
   transitions animate it. One tree serves desktop and mobile (Tailwind `lg:` / `max-lg:` variants). Opening a job tucks the chat into a bubble
   and slides the list left (400px) so you can click another job while you read; the bubble or Esc brings the chat back.
 - Pieces: `Assistant` (state and layout), `ChatPanel`/`Messages`/`Composer`, `JobList` (+ `JobRow`, which shows "N locations"), `JobPage`,
-  `queries.ts`, `hooks.ts`. `lib/assistant.ts` derives everything beside the chat from the messages: `currentSearch`, `notesById`, `activitiesOf`.
+  `queries.ts`, `hooks.ts`. `lib/assistant.ts` derives everything beside the chat from the messages: `currentSearch`, `currentResults`, `notesById`, `activitiesOf`.
 - "About you" sheet in the chat: the notes the resume leaves out (roles, pay, places, deal-breakers). The resume has its own page. Bookmarks stay in `localStorage` (`tallo:saved-roles`).
 - A posting shows the assistant's note (if any), the full description, facts, and the other locations of the same posting.
 - Tests: `Assistant.test.tsx` (jsdom) mounts the real tree with a finished conversation (list, open and switch postings, note, bubble, Esc,
@@ -150,8 +180,8 @@ plan now is a SCAN of the FTS index (MATCH) with a primary-key SEARCH of `jobs` 
 ## Cost controls
 
 Every AI call goes through one gate (`openGate`, `apps/api/src/assistant.ts`) and the AI SDK's own middleware; nothing else is custom.
-- **Ceilings per request.** Chat: at most `MAX_STEPS` (14) model calls, `STEP_OUTPUT_TOKENS` (2000) output per call, `MAX_READS` reads, and once
-  a message has spent `TURN_INPUT_TOKENS` (160k, read from provider usage) the tools are removed so the model can only answer. One call's
+- **Ceilings per request.** Chat: at most `MAX_STEPS` (24) model calls, `STEP_OUTPUT_TOKENS` (2000) output per call, `MAX_READS` reads, and once
+  a message has spent `TURN_INPUT_TOKENS` (400k, read from provider usage) only publication remains available before answering. One call's
   input is held under `STEP_INPUT_TOKENS` (24k estimated) by replacing the oldest search results with a marker, and the model sees only the
   last 40 messages (`recentTurns`); the browser still holds the whole chat. Resume calls set `maxOutputTokens` explicitly.
 - **Clipping is marked.** `clip` (`@tallo/ai`) keeps the first 40% and last 60% of a long description and inserts

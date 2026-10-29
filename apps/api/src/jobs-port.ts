@@ -31,13 +31,16 @@ export function rankedSpec(spec: SearchSpec): RankedSpec {
  * site does not show, not even by id. Descriptions are the full gunzipped text.
  */
 export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
+  // Full descriptions are cached by the assistant for passage inspection. Bound bytes before fetching
+  // or inflating them, including parallel reads, so an unusually large posting cannot exhaust the Worker.
+  let descriptionBytes = 0;
   return {
-    async search(spec, limit) {
+    async search(spec, limit, offset = 0) {
       const now = Math.floor(Date.now() / 1000);
       const rows = await rankedJobs(
         db,
         rankedSpec(spec),
-        { limit: Math.min(limit, SEARCH_RESULT_CAP), offset: 0 },
+        { limit: Math.min(limit, SEARCH_RESULT_CAP - offset), offset },
         now,
       );
       return rows.map(toHit);
@@ -66,12 +69,20 @@ export function jobsPort(db: Db, blobs: BlobStore): JobsPort {
         .where(and(eq(schema.jobs.id, n), ...visibleJobs(now)))
         .limit(1);
       if (!row) return null;
-      const blob = await blobs.get(jdKey(row.jdHash));
+      const withinBudget = row.jdBytes <= 1_000_000 && descriptionBytes + row.jdBytes <= 8_000_000;
+      if (withinBudget) descriptionBytes += row.jdBytes;
+      const blob = withinBudget ? await blobs.get(jdKey(row.jdHash)) : null;
       return {
         ...toHit({ ...row, pay: payOf(row.facts) }),
         applyUrl: row.applyUrl ?? row.url,
         facts: row.facts as Record<string, unknown>,
         description: blob ? new TextDecoder().decode(await gunzip(blob)) : null,
+        ...(!withinBudget
+          ? {
+              descriptionNotice:
+                "Description read budget reached (1 MB per posting, 8 MB per turn). This job cannot be verified this turn; do not recommend it without review.",
+            }
+          : {}),
       };
     },
   };

@@ -9,7 +9,7 @@ import { JobList, type ListView } from "@/components/assistant/JobList";
 import { JobPage } from "@/components/assistant/JobPage";
 import { Orb } from "@/components/assistant/Orb";
 import { useSearches } from "@/components/assistant/searches";
-import { collectHits, currentSearch, notesById } from "@/lib/assistant";
+import { collectHits, currentResults, currentSearch, notesById } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
 
 const transport = new DefaultChatTransport({ api: "/api/chat" });
@@ -54,6 +54,7 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
 
   const working = status === "submitted" || status === "streaming";
   const hits = useMemo(() => collectHits(messages), [messages]);
+  const reviewed = useMemo(() => currentResults(messages), [messages]);
   const chatSpec = useMemo(() => currentSearch(messages), [messages]);
   // A saved search the person opened stands in for the chat's search until they ask for something new.
   const [pinned, setPinned] = useState<SavedSearch | null>(null);
@@ -193,6 +194,8 @@ function Workspace({ hasResume, initialJob }: { hasResume: boolean; initialJob: 
       <section aria-label="Results" className={pane.list}>
         <JobList
           spec={spec}
+          reviewed={pinned ? null : reviewed}
+          discovery={pinned !== null}
           title={pinned?.name}
           notes={notes}
           view={view}

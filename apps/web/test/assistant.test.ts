@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   activitiesOf,
   collectHits,
+  currentResults,
   currentSearch,
   notesById,
   postedLabel,
@@ -48,6 +49,60 @@ const noted = (notes: { id: string; why: string; evidence?: string[] }[]) => ({
   output: { notes: notes.map((n) => ({ evidence: [], ...n })), dropped: 0 },
 });
 
+const published = (hits: JobHit[]) => ({
+  type: "tool-publish_jobs",
+  toolCallId: "p",
+  state: "output-available",
+  input: { search: { queries: ["backend engineer"] }, jobs: [] },
+  output: {
+    search: { queries: ["backend engineer"] },
+    hits,
+    notes: hits.map(({ id }) => ({ id, why: "Reviewed requirements.", evidence: [] })),
+    dropped: 0,
+  },
+});
+
+describe("currentResults", () => {
+  it("shows only the reviewed shortlist, excluding senior discovery candidates", () => {
+    const junior = hit("1", { title: "Graduate Engineer" });
+    const senior = hit("2", { title: "Senior Engineer" });
+    expect(
+      currentResults([
+        user("early career"),
+        assistant([searched([junior, senior]), published([junior])]),
+      ]),
+    ).toEqual([junior]);
+  });
+
+  it("never falls back to raw results, including legacy conversations, failed or unfinished publishing", () => {
+    expect(currentResults([assistant([searched([hit("1")])])])).toBeNull();
+    for (const state of ["input-streaming", "output-error"]) {
+      expect(
+        currentResults([
+          user("roles"),
+          assistant([searched([hit("1")]), { ...published([hit("1")]), state }]),
+        ]),
+      ).toBeNull();
+    }
+  });
+
+  it("preserves empty selection and selected order, and invalidates old results on a new user turn", () => {
+    const old = [user("roles"), assistant([published([hit("2"), hit("1")])])];
+    expect(currentResults(old)?.map(({ id }) => id)).toEqual(["2", "1"]);
+    expect(currentResults([...old, user("only remote")])).toBeNull();
+    expect(currentResults([...old, user("only remote"), assistant([published([])])])).toEqual([]);
+  });
+
+  it("collects published job records and notes", () => {
+    const messages = [user("roles"), assistant([published([hit("1")])])];
+    expect(collectHits(messages).get("1")).toEqual(hit("1"));
+    expect(notesById(messages).get("1")?.why).toBe("Reviewed requirements.");
+    expect(activitiesOf(messages[1] as JobAgentMessage, new Map())[0]?.label).toBe(
+      "Selected 1 reviewed role",
+    );
+  });
+});
+
 describe("currentSearch", () => {
   it("is the last search that finished, wherever it was in the conversation", () => {
     const messages = [
@@ -62,6 +117,24 @@ describe("currentSearch", () => {
       queries: ["data engineer", "data analyst"],
       locations: ["Seattle", "WA"],
     });
+  });
+
+  it("saves canonical Washington constraints after a locationless exploratory search", () => {
+    const search = { queries: ["software engineer"], locations: ["Washington"] };
+    const publication = published([hit("1")]);
+    expect(
+      currentSearch([
+        user("early career software in Washington"),
+        assistant([
+          searched([hit("1")], ["software engineer"]),
+          {
+            ...publication,
+            input: { search, jobs: [] },
+            output: { ...publication.output, search },
+          },
+        ]),
+      ]),
+    ).toEqual(search);
   });
 
   it("omits locations when there are none, and waits for a search to finish", () => {
@@ -151,7 +224,7 @@ describe("activitiesOf", () => {
         tool: "read",
         state: "done",
         label: "Read Staff Engineer · Grafana",
-        detail: "9,303 characters, in full",
+        detail: "9,303 characters in source, reading description",
       },
       { key: "n", tool: "note", state: "done", label: "Added 1 note" },
     ]);

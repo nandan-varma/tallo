@@ -59,14 +59,14 @@ function Timeline({ items }: { items: Activity[] }) {
   );
 }
 
-/** One line for a finished turn: "2 searches · read 3 in full · 4 notes". */
+/** One line for a finished turn: "2 searches · read 3 descriptions · 4 notes". */
 function summary(items: Activity[]): string {
   const searches = items.filter((i) => i.tool === "search").length;
   const reads = items.filter((i) => i.tool === "read").length;
   const notes = items.filter((i) => i.tool === "note" && i.state === "done").length;
   return [
     searches > 0 && `${searches} ${searches === 1 ? "search" : "searches"}`,
-    reads > 0 && `read ${reads} in full`,
+    reads > 0 && `read ${reads} descriptions`,
     notes > 0 && "added notes",
   ]
     .filter(Boolean)

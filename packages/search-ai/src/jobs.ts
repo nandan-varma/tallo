@@ -24,6 +24,8 @@ export type JobRead = JobHit & {
   facts: Record<string, unknown>;
   /** The full description as the source gave it. The agent bounds what it reads (see `READ_MAX_CHARS`). */
   description: string | null;
+  /** Runtime read limit, not a source fact. */
+  descriptionNotice?: string;
 };
 
 /**
@@ -32,10 +34,10 @@ export type JobRead = JobHit & {
  */
 export interface JobsPort {
   /**
-   * The ranked search for a spec (most relevant first, one hit per requisition or company and title), at most `limit` hits.
+   * The ranked search for a spec (most relevant first, one hit per requisition or company and title), at most `limit` hits, starting at `offset`.
    * The places in the spec are the person's own words; the port expands them.
    */
-  search(spec: SearchSpec, limit: number): Promise<JobHit[]>;
+  search(spec: SearchSpec, limit: number, offset?: number): Promise<JobHit[]>;
   /** The compact record of each of these ids that is visible to the site; ids that are not are left out. */
   lookup(ids: string[]): Promise<JobHit[]>;
   /** One job with its full description, or null when it is not visible. */

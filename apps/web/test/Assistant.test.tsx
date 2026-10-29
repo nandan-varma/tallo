@@ -39,6 +39,18 @@ const conversation = [
           dropped: 0,
         },
       },
+      {
+        type: "tool-publish_jobs",
+        toolCallId: "p1",
+        state: "output-available",
+        input: { search: { queries: ["data engineer"], locations: ["Seattle", "WA"] }, jobs: [] },
+        output: {
+          search: { queries: ["data engineer"], locations: ["Seattle", "WA"] },
+          hits: DB_HITS,
+          notes: [],
+          dropped: 0,
+        },
+      },
       { type: "text", text: "I searched Seattle and the rest of Washington." },
     ],
   },
@@ -144,18 +156,127 @@ afterEach(() => {
 describe("Assistant (desktop)", () => {
   beforeEach(() => stubBrowser(true));
 
-  it("lists the database's results for the assistant's search, with its note on the job it noted", async () => {
+  it("lists published recommendations without fetching broad candidates, with their notes", async () => {
     await mount();
     const list = await screen.findByRole("list", { name: "Search results" });
     expect(within(list).getAllByRole("button")).toHaveLength(3);
     expect(within(list).getByText("Closest to your platform background.")).toBeTruthy();
-    // The search the list ran is exactly what the assistant asked for.
-    const call = vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/search");
-    expect(call).toBeDefined();
-    expect(JSON.parse(String((call?.[1] as RequestInit | undefined)?.body))).toMatchObject({
-      queries: ["data engineer"],
-      locations: ["Seattle", "WA"],
-    });
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === "/api/search")).toBe(false);
+  });
+
+  it("does not expose senior candidates that were not selected for an early-career request", async () => {
+    const junior = hit(1, "Graduate Software Engineer");
+    const senior = hit(2, "Senior Software Engineer");
+    chatMessages = [
+      { id: "u", role: "user", parts: [{ type: "text", text: "early career software" }] },
+      {
+        id: "a",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-search_jobs",
+            toolCallId: "s",
+            state: "output-available",
+            input: { queries: ["software engineer"] },
+            output: { hits: [junior, senior] },
+          },
+          {
+            type: "tool-publish_jobs",
+            toolCallId: "p",
+            state: "output-available",
+            input: {
+              search: { queries: ["data engineer"], locations: ["Seattle", "WA"] },
+              jobs: [],
+            },
+            output: {
+              search: { queries: ["software engineer"] },
+              hits: [junior],
+              notes: [],
+              dropped: 0,
+            },
+          },
+        ],
+      },
+    ];
+    await mount();
+    const list = await screen.findByRole("list", { name: "Search results" });
+    expect(within(list).getByText("Graduate Software Engineer")).toBeTruthy();
+    expect(within(list).queryByText("Senior Software Engineer")).toBeNull();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === "/api/search")).toBe(false);
+  });
+
+  it("does not restore old recommendations after a new user request or an unfinished legacy search", async () => {
+    chatMessages = [
+      ...conversation,
+      { id: "u2", role: "user", parts: [{ type: "text", text: "only remote" }] },
+    ];
+    const view = await mount();
+    expect(screen.queryByRole("list", { name: "Search results" })).toBeNull();
+    expect(screen.getByText("Results appear here")).toBeTruthy();
+    view.unmount();
+    chatMessages = [
+      conversation[0],
+      { id: "legacy", role: "assistant", parts: [conversation[1]?.parts[0]] },
+    ];
+    await mount();
+    expect(screen.queryByRole("list", { name: "Search results" })).toBeNull();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === "/api/search")).toBe(false);
+  });
+
+  it("shows an empty reviewed selection without broad-result fallback", async () => {
+    chatMessages = [
+      conversation[0],
+      {
+        id: "a",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-publish_jobs",
+            toolCallId: "p",
+            state: "output-available",
+            input: {
+              search: { queries: ["data engineer"], locations: ["Seattle", "WA"] },
+              jobs: [],
+            },
+            output: { search: { queries: ["software engineer"] }, hits: [], notes: [], dropped: 0 },
+          },
+        ],
+      },
+    ];
+    await mount();
+    expect(screen.getByText("No reviewed matches yet")).toBeTruthy();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === "/api/search")).toBe(false);
+  });
+
+  it("pages published results locally without requesting unreviewed jobs", async () => {
+    const hits = Array.from({ length: 25 }, (_, i) => hit(i + 1, `Reviewed Engineer ${i + 1}`));
+    chatMessages = [
+      conversation[0],
+      {
+        id: "a",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-publish_jobs",
+            toolCallId: "p",
+            state: "output-available",
+            input: {
+              search: { queries: ["data engineer"], locations: ["Seattle", "WA"] },
+              jobs: [],
+            },
+            output: { search: { queries: ["software engineer"] }, hits, notes: [], dropped: 0 },
+          },
+        ],
+      },
+    ];
+    await mount();
+    let list = await screen.findByRole("list", { name: "Search results" });
+    expect(within(list).getAllByRole("button")).toHaveLength(20);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    list = screen.getByRole("list", { name: "Search results" });
+    expect(within(list).getAllByRole("button")).toHaveLength(5);
+    expect(within(list).getByText("Reviewed Engineer 21")).toBeTruthy();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === "/api/search")).toBe(false);
   });
 
   it("opens a posting beside the list and lets you move to another one", async () => {
@@ -218,7 +339,31 @@ describe("Assistant (desktop)", () => {
     expect(open.getAttribute("href")).toBe("/resume/1");
   });
 
-  it("saves the search on screen, and lists saved searches with what is new", async () => {
+  it("saves canonical Washington constraints rather than the last locationless exploration", async () => {
+    const search = { queries: ["data engineer"], locations: ["Seattle", "WA"] };
+    chatMessages = [
+      conversation[0],
+      {
+        id: "a",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-search_jobs",
+            toolCallId: "s",
+            state: "output-available",
+            input: { queries: ["data engineer"] },
+            output: { hits: DB_HITS },
+          },
+          {
+            type: "tool-publish_jobs",
+            toolCallId: "p",
+            state: "output-available",
+            input: { search, jobs: [] },
+            output: { search, hits: DB_HITS, notes: [], dropped: 0 },
+          },
+        ],
+      },
+    ];
     await mount();
     await screen.findByRole("list", { name: "Search results" });
     fireEvent.click(screen.getByRole("button", { name: "Save this search" }));
@@ -257,6 +402,7 @@ describe("Assistant (desktop)", () => {
         );
       expect(seen).toBeDefined();
     });
+    expect(screen.getByText(/broad catalog matches, not reviewed/)).toBeTruthy();
     const search = vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/search");
     expect(JSON.parse(String((search?.[1] as RequestInit | undefined)?.body))).toMatchObject({
       queries: ["backend engineer"],

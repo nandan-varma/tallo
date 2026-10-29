@@ -3,8 +3,8 @@ import type { JobAgentMessage, JobHit } from "@tallo/search-ai";
 
 /**
  * What the UI shows beside the chat is derived from the conversation itself, so there is one source of truth:
- * the search the list runs is the assistant's last `search_jobs` call, and the notes under jobs are its
- * `explain_jobs` results (already checked by the server). The jobs themselves always come from the database.
+ * only published, reviewed jobs drive chat recommendations. Search specs remain available for saving broad
+ * discovery searches. All job records and evidence come from validated server tool results.
  */
 type Part = JobAgentMessage["parts"][number];
 
@@ -14,6 +14,13 @@ const assistantParts = (messages: JobAgentMessage[]) =>
 /** The search the results list runs: the last `search_jobs` call that finished, anywhere in the conversation. */
 export function currentSearch(messages: JobAgentMessage[]): SearchSpec | null {
   for (const part of assistantParts(messages).reverse()) {
+    if (
+      part.type === "tool-publish_jobs" &&
+      part.state === "output-available" &&
+      part.output.search
+    ) {
+      return part.output.search;
+    }
     if (part.type === "tool-search_jobs" && part.state === "output-available") {
       const { queries, companies, locations } = part.input;
       return {
@@ -26,13 +33,27 @@ export function currentSearch(messages: JobAgentMessage[]): SearchSpec | null {
   return null;
 }
 
+/** Only the latest user turn can publish recommendations. Raw search hits are never a fallback. */
+export function currentResults(messages: JobAgentMessage[]): JobHit[] | null {
+  const start = messages.findLastIndex((message) => message.role === "user");
+  for (const part of assistantParts(messages.slice(Math.max(0, start))).reverse()) {
+    if (part.type === "tool-publish_jobs" && part.state === "output-available") {
+      return part.output.hits;
+    }
+  }
+  return null;
+}
+
 export type Note = { id: string; why: string; evidence: string[] };
 
 /** The assistant's notes by job id. Later notes replace earlier ones for the same job. */
 export function notesById(messages: JobAgentMessage[]): Map<string, Note> {
   const notes = new Map<string, Note>();
   for (const part of assistantParts(messages)) {
-    if (part.type === "tool-explain_jobs" && part.state === "output-available") {
+    if (
+      (part.type === "tool-explain_jobs" || part.type === "tool-publish_jobs") &&
+      part.state === "output-available"
+    ) {
       for (const note of part.output.notes) notes.set(note.id, note);
     }
   }
@@ -43,7 +64,10 @@ export function notesById(messages: JobAgentMessage[]): Map<string, Note> {
 export function collectHits(messages: JobAgentMessage[]): Map<string, JobHit> {
   const hits = new Map<string, JobHit>();
   for (const part of assistantParts(messages)) {
-    if (part.type === "tool-search_jobs" && part.state === "output-available") {
+    if (
+      (part.type === "tool-search_jobs" || part.type === "tool-publish_jobs") &&
+      part.state === "output-available"
+    ) {
       for (const hit of part.output.hits) hits.set(hit.id, hit);
     }
   }
@@ -99,8 +123,17 @@ export function activitiesOf(message: JobAgentMessage, hits: Map<string, JobHit>
         label: part.state === "output-available" ? `Read ${name}` : `Reading ${name}`,
         detail:
           part.state === "output-available" && part.output.found
-            ? `${count(part.output.chars, "character")}, in full`
+            ? `${count(part.output.chars, "character")} in source${part.input.terms?.length ? ", matching passages" : part.input.start !== undefined ? ", reading a section" : ", reading description"}`
             : undefined,
+      });
+    } else if (part.type === "tool-publish_jobs") {
+      const n = part.state === "output-available" ? part.output.hits.length : undefined;
+      out.push({
+        key,
+        tool: "note",
+        state: stateOf(part.state),
+        label:
+          n === undefined ? "Selecting reviewed roles" : `Selected ${count(n, "reviewed role")}`,
       });
     } else if (part.type === "tool-explain_jobs") {
       const n = part.state === "output-available" ? part.output.notes.length : undefined;
