@@ -3,8 +3,10 @@ import { IngestError } from "@tallo/db";
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { HTTPException } from "hono/http-exception";
+import { adminRoutes } from "./admin.ts";
 import { applicationRoutes } from "./applications.ts";
 import { type AiAccess, assistantRoutes } from "./assistant.ts";
+import type { CollectEnv } from "./collect.ts";
 import { ingestRoutes } from "./ingest.ts";
 import { jobRoutes } from "./jobs.ts";
 import { resumeRoutes } from "./resume.ts";
@@ -19,10 +21,12 @@ export interface Deps {
   model?: AiAccess["model"];
   /** Today's token ceiling and ledger. Absent: the AI routes answer 503, so a missing guard never means no guard. */
   budget?: AiAccess["budget"];
+  /** Collection environment for the staged-collect admin routes. Absent: those routes answer 503. */
+  collect?: CollectEnv;
 }
 
 /** Internal API. Reads need READ_TOKEN; writes need INGEST_TOKEN (which may also read). */
-export function createApp({ db, blobs, readToken, ingestToken, model, budget }: Deps) {
+export function createApp({ db, blobs, readToken, ingestToken, model, budget, collect }: Deps) {
   const app = new Hono();
   const ai = { model, budget };
   const read = bearerAuth({ verifyToken: (t) => t === readToken || t === ingestToken });
@@ -43,6 +47,7 @@ export function createApp({ db, blobs, readToken, ingestToken, model, budget }: 
   app.route("/", searchRoutes({ db, read }));
   app.route("/", resumeRoutes({ db, blobs, read, ai }));
   app.route("/", ingestRoutes({ db, blobs, read, write }));
+  app.route("/", adminRoutes({ db, write, ...(collect ? { collect } : {}) }));
 
   return app;
 }

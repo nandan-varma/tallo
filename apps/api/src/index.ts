@@ -1,15 +1,40 @@
 import type { Role } from "@tallo/ai";
+import type { CollectMessage } from "@tallo/collect";
 import type { BlobStore } from "@tallo/db";
 import { pruneRuns, purgeClosed, reapStaleRuns, rebuildDuplicates, schema } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
 import { type AiBindings, assistantBudget, assistantModel } from "./ai.ts";
 import { createApp } from "./app.ts";
+import {
+  type CollectEnv,
+  DEFAULT_BATCH,
+  DEFAULT_SLICE_MS,
+  DEFAULT_SLICE_SUBREQUESTS,
+  enqueueDue,
+  handleCollect,
+} from "./collect.ts";
+import type { HostGate } from "./host-gate.ts";
+
+export { HostGate } from "./host-gate.ts";
+
+/** Every five minutes the cron claims due boards and enqueues them (when COLLECT_ENABLED is "1"). */
+export const COLLECT_CRON = "*/5 * * * *";
 
 export interface Env extends AiBindings {
   DB: D1Database;
   BLOBS: R2Bucket;
   READ_TOKEN: string;
   INGEST_TOKEN: string;
+  COLLECT: Queue<CollectMessage>;
+  HOST_GATE: DurableObjectNamespace<HostGate>;
+  /** Kill switch. Anything other than "1" means the cron enqueues nothing. */
+  COLLECT_ENABLED?: string;
+  /** Boards claimed per cron tick. */
+  COLLECT_BATCH?: string;
+  /** Subrequest budget per queue invocation before it hands off a slice. */
+  COLLECT_SLICE_SUBREQUESTS?: string;
+  /** Wall-time budget per queue invocation (ms) before it hands off a slice. */
+  COLLECT_SLICE_MS?: string;
 }
 
 const r2 = (bucket: R2Bucket): BlobStore => ({
@@ -22,6 +47,24 @@ const r2 = (bucket: R2Bucket): BlobStore => ({
   delete: (key) => bucket.delete(key),
 });
 
+/** A whole non-negative integer from a variable, or the default when unset or malformed. */
+const intVar = (raw: string | undefined, fallback: number): number => {
+  const n = Number(raw);
+  return raw && Number.isInteger(n) && n >= 1 ? n : fallback;
+};
+
+const collectEnv = (env: Env): CollectEnv => ({
+  db: drizzle(env.DB, { schema }),
+  blobs: r2(env.BLOBS),
+  queue: env.COLLECT,
+  reserve: (host, gapMs) => env.HOST_GATE.get(env.HOST_GATE.idFromName(host)).reserve(gapMs),
+  enabled: env.COLLECT_ENABLED === "1",
+  sliceSubrequests: intVar(env.COLLECT_SLICE_SUBREQUESTS, DEFAULT_SLICE_SUBREQUESTS),
+  sliceMs: intVar(env.COLLECT_SLICE_MS, DEFAULT_SLICE_MS),
+  version: "worker-1",
+  log: (line) => console.log(JSON.stringify(line)),
+});
+
 const deps = (env: Env) => ({
   db: drizzle(env.DB, { schema }),
   blobs: r2(env.BLOBS),
@@ -29,6 +72,7 @@ const deps = (env: Env) => ({
   ingestToken: env.INGEST_TOKEN,
   model: (role: Role) => assistantModel(env, role),
   budget: () => assistantBudget(env),
+  collect: collectEnv(env),
 });
 
 // The env object is stable for the life of an isolate, so build the app once per env.
@@ -44,10 +88,15 @@ const appFor = (env: Env) => {
 export default {
   fetch: (request, env, ctx) => appFor(env).fetch(request, env, ctx),
   /**
-   * Hourly housekeeping: mark runs abandoned by a killed collector as partial, drop jobs closed
-   * for 30+ days and their orphaned description blobs, and regroup duplicate postings.
+   * The five-minute cron enqueues due boards. The hourly one does housekeeping: mark runs abandoned
+   * by a killed collector as partial, drop jobs closed for 30+ days and their orphaned description
+   * blobs, and regroup duplicate postings.
    */
-  async scheduled(_event: ScheduledController, env: Env) {
+  async scheduled(event: ScheduledController, env: Env) {
+    if (event.cron === COLLECT_CRON) {
+      await enqueueDue(collectEnv(env), intVar(env.COLLECT_BATCH, DEFAULT_BATCH));
+      return;
+    }
     const { db, blobs } = deps(env);
     await reapStaleRuns(db);
     await purgeClosed(db, blobs);
@@ -55,4 +104,23 @@ export default {
     let next: string | null = "";
     while (next !== null) ({ next } = await rebuildDuplicates(db, undefined, { after: next }));
   },
-} satisfies ExportedHandler<Env>;
+  /** One board per invocation (batch size 1). A failed message is retried, then dead-lettered. */
+  async queue(batch: MessageBatch<CollectMessage>, env: Env) {
+    const collect = collectEnv(env);
+    for (const message of batch.messages) {
+      try {
+        await handleCollect(message.body, collect);
+        message.ack();
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            source: message.body.sourceId,
+            outcome: "error",
+            error: (error instanceof Error ? error.message : String(error)).slice(0, 300),
+          }),
+        );
+        message.retry();
+      }
+    }
+  },
+} satisfies ExportedHandler<Env, CollectMessage>;

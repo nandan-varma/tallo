@@ -196,12 +196,21 @@ importers:
       '@tallo/catalog':
         specifier: workspace:*
         version: link:../../packages/catalog
+      '@tallo/collect':
+        specifier: workspace:*
+        version: link:../../packages/collect
       '@tallo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@tallo/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@tallo/http':
+        specifier: workspace:*
+        version: link:../../packages/http
+      '@tallo/platforms':
+        specifier: workspace:*
+        version: link:../../packages/platforms
       '@tallo/resume':
         specifier: workspace:*
         version: link:../../packages/resume
