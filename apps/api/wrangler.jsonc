@@ -35,7 +35,7 @@
   "vars": {
     "AI_MODEL_SMART": "go-anthropic:claude-haiku-5-5",
     "COLLECT_ENABLED": "1",
-    "COLLECT_BATCH": "100",
+    "COLLECT_BATCH": "300",
     "COLLECT_SLICE_SUBREQUESTS": "800",
     "COLLECT_SLICE_MS": "300000"
   }

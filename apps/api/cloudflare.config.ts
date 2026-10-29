@@ -50,7 +50,7 @@ export default defineConfig({
       }),
       AI_MODEL_SMART: bindings.text("go-anthropic:claude-haiku-5-5"),
       COLLECT_ENABLED: bindings.text("1"),
-      COLLECT_BATCH: bindings.text("100"),
+      COLLECT_BATCH: bindings.text("300"),
       COLLECT_SLICE_SUBREQUESTS: bindings.text("800"),
       COLLECT_SLICE_MS: bindings.text("300000"),
     },
