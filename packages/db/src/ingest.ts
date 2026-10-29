@@ -489,22 +489,7 @@ export async function pruneRuns(
   blobs: BlobStore,
   now = nowSeconds(),
 ): Promise<{ packs: number; runs: number }> {
-  const retained = sql`(
-    SELECT id FROM (
-      SELECT id, row_number() OVER (
-        PARTITION BY source_id ORDER BY started_at DESC, id DESC
-      ) AS rank
-      FROM runs WHERE raw_key IS NOT NULL AND raw_uploaded = 1 AND status != 'running'
-    ) WHERE rank <= 2
-  )`;
-  const obsolete = await db
-    .select({ id: runs.id, rawKey: runs.rawKey })
-    .from(runs)
-    .where(sql`${runs.rawKey} IS NOT NULL AND (
-      (${runs.status} != 'running' AND ${runs.rawUploaded} = 1 AND ${runs.id} NOT IN ${retained})
-      OR ((${runs.status} = 'running' OR ${runs.rawUploaded} = 0) AND ${runs.startedAt} < ${now - 30 * 86400})
-    )`)
-    .limit(1000);
+  const obsolete = await obsoleteRuns(db, now);
   for (const page of chunks(obsolete, CHUNK)) {
     for (const row of page) await blobs.delete(row.rawKey!);
     await db
@@ -515,7 +500,7 @@ export async function pruneRuns(
   const expired = await db
     .select({ id: runs.id })
     .from(runs)
-    .where(sql`${runs.startedAt} < ${now - 30 * 86400} AND ${runs.rawKey} IS NULL`)
+    .where(and(lt(runs.startedAt, now - RUN_RETENTION_SECONDS), isNull(runs.rawKey)))
     .limit(1000);
   for (const ids of chunks(
     expired.map((row) => row.id),
@@ -524,6 +509,54 @@ export async function pruneRuns(
     await db.delete(runs).where(sql`${runs.id} IN ${jsonIds(ids)}`);
   }
   return { packs: obsolete.length, runs: expired.length };
+}
+
+const RUN_RETENTION_SECONDS = 30 * 86400;
+
+/**
+ * The two selects of `obsoleteRuns`. Packs to delete: those past the two newest per source, and those of runs
+ * abandoned or never uploaded, once they are 30 days old. Two index-driven selects, not one OR: the age branch
+ * seeks runs_started_idx and the superseded branch reads only runs_pack_idx. The predicates match that partial
+ * index's WHERE exactly (literals, not parameters), so SQLite can use it.
+ */
+export function obsoleteRunQueries(db: Db, now: number) {
+  const retained = sql`(
+    SELECT id FROM (
+      SELECT id, row_number() OVER (
+        PARTITION BY source_id ORDER BY started_at DESC, id DESC
+      ) AS rank
+      FROM runs WHERE raw_key IS NOT NULL AND raw_uploaded = 1 AND status != 'running'
+    ) WHERE rank <= 2
+  )`;
+  const aged = db
+    .select({ id: runs.id, rawKey: runs.rawKey })
+    .from(runs)
+    .where(
+      and(
+        isNotNull(runs.rawKey),
+        sql`(${runs.status} = 'running' OR ${runs.rawUploaded} = 0)`,
+        lt(runs.startedAt, now - RUN_RETENTION_SECONDS),
+      ),
+    )
+    .limit(1000);
+  const superseded = db
+    .select({ id: runs.id, rawKey: runs.rawKey })
+    .from(runs)
+    .where(
+      and(
+        sql`${runs.rawKey} IS NOT NULL AND ${runs.rawUploaded} = 1 AND ${runs.status} != 'running'`,
+        sql`${runs.id} NOT IN ${retained}`,
+      ),
+    )
+    .limit(1000);
+  return [aged, superseded] as const;
+}
+
+/** Packs to delete, at most 1,000 (see `obsoleteRunQueries`). */
+export async function obsoleteRuns(db: Db, now: number) {
+  const [aged, superseded] = await Promise.all(obsoleteRunQueries(db, now));
+  const byId = new Map([...aged, ...superseded].map((row) => [row.id, row]));
+  return [...byId.values()].slice(0, 1000);
 }
 
 /**

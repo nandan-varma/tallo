@@ -113,6 +113,13 @@
       "when": 1793064570776,
       "tag": "0015_fts_update_when",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793243788281,
+      "tag": "0016_runs_prune_indexes",
+      "breakpoints": true
     }
   ]
 }

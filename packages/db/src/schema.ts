@@ -54,7 +54,16 @@ export const runs = sqliteTable(
       { code: string; message: string; url?: string; postingId?: string }[]
     >(),
   },
-  (t) => [index("runs_source_idx").on(t.sourceId, t.startedAt)],
+  (t) => [
+    index("runs_source_idx").on(t.sourceId, t.startedAt),
+    // Retention reads runs by age (expired history, abandoned packs). Without it each hourly prune scans every run.
+    index("runs_started_idx").on(t.startedAt),
+    // Only the finalized, uploaded packs: the rows retention ranks per source. A partial index keeps the
+    // ranking off the rows that have no pack (most of the table) and costs one entry per pack.
+    index("runs_pack_idx")
+      .on(t.sourceId, t.startedAt, t.id)
+      .where(sql`${t.rawKey} IS NOT NULL AND ${t.rawUploaded} = 1 AND ${t.status} != 'running'`),
+  ],
 );
 
 /**

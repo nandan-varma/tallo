@@ -1,0 +1,2 @@
+CREATE INDEX `runs_started_idx` ON `runs` (`started_at`);--> statement-breakpoint
+CREATE INDEX `runs_pack_idx` ON `runs` (`source_id`,`started_at`,`id`) WHERE "runs"."raw_key" IS NOT NULL AND "runs"."raw_uploaded" = 1 AND "runs"."status" != 'running';
