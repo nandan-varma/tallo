@@ -3,6 +3,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { createJobAgent, MAX_READS } from "../src/index.ts";
 import type { JobHit, JobRead, JobsPort } from "../src/jobs.ts";
+import { createTools } from "../src/tools.ts";
 
 type LanguageModelV4CallOptions = Parameters<MockLanguageModelV4["doGenerate"]>[0];
 
@@ -54,7 +55,11 @@ const calls = (...items: { name: string; input: unknown }[]) => ({
     type: "tool-call" as const,
     toolCallId: `${item.name}-${i}`,
     toolName: item.name,
-    input: JSON.stringify(item.input),
+    input: JSON.stringify(
+      item.name === "publish_jobs"
+        ? { search: { queries: ["software engineer"] }, ...(item.input as object) }
+        : item.input,
+    ),
   })),
   finishReason: { unified: "tool-calls" as const, raw: undefined },
   usage,
@@ -174,21 +179,22 @@ describe("job agent", () => {
     expect(noted?.output).toMatchObject({ notes: [{ id: "1", evidence: [] }], dropped: 0 });
   });
 
-  it("takes read_job away after MAX_READS reads", async () => {
+  it("keeps publication available after MAX_READS reads and refuses additional fetches", async () => {
     const ids = Array.from({ length: MAX_READS + 2 }, (_, i) => String(i + 1));
-    const { jobs } = port(
+    const { jobs, reads } = port(
       Object.fromEntries(ids.map((id) => [id, `text ${id}`])),
       ids.map((id) => hit(id)),
     );
     const { model, seen } = scripted([
-      calls(...ids.slice(0, MAX_READS).map((id) => ({ name: "read_job", input: { id } }))),
+      calls(...ids.map((id) => ({ name: "read_job", input: { id } }))),
       said("done"),
     ]);
 
     await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
 
     expect(toolNames(seen[0] as LanguageModelV4CallOptions)).toContain("read_job");
-    expect(toolNames(seen[1] as LanguageModelV4CallOptions)).not.toContain("read_job");
+    expect(reads).toHaveLength(MAX_READS);
+    expect(toolNames(seen[1] as LanguageModelV4CallOptions)).toContain("publish_jobs");
     expect(toolNames(seen[1] as LanguageModelV4CallOptions)).toContain("search_jobs");
   });
 
@@ -225,7 +231,7 @@ describe("job agent", () => {
     const system = promptText(call);
     expect(system).not.toMatch(/US tech|tech jobs/);
     expect(system).toContain("nothing is pre-filtered");
-    expect(system).toContain("It does not judge fit: tech or not, seniority");
+    expect(system).toContain("The database matches title words, not qualifications");
     expect(system).toContain("A field the line does not show is UNKNOWN");
     expect(system).toContain("never present a converted figure as the source's");
     const search = call.tools?.find((t) => t.name === "search_jobs");
@@ -260,7 +266,7 @@ describe("job agent", () => {
           companies: ["Stripe"],
           locations: ["NYC", "remote"],
         },
-        limit: 20,
+        limit: 40,
       },
     ]);
   });
@@ -318,5 +324,252 @@ describe("job agent", () => {
     expect(system).toContain("Never a single generic word");
     expect(system).toContain("Leave company names out of the titles");
     expect(system).toContain("a new, complete search");
+  });
+  it("publishes only discovered, read jobs with source evidence, in selected order", async () => {
+    const hits = [
+      hit("1", { title: "Graduate Software Engineer", location: null }),
+      hit("2", { title: "Senior Software Engineer" }),
+      hit("3"),
+      hit("4"),
+    ];
+    const { jobs } = port(
+      {
+        "1": "Based in Seattle, Washington. No professional experience required. Python projects welcome.",
+        "2": "Requires 5 years of professional software experience.",
+        "3": "Python projects welcome.",
+        "4": "", // A record without source text cannot establish fit.
+      },
+      hits,
+    );
+    const note = (id: string, quote: string) => ({
+      id,
+      why: "Fits the requested background.",
+      evidence: [quote],
+    });
+    const { model } = scripted([
+      calls({ name: "search_jobs", input: { queries: ["software engineer"] } }),
+      calls(
+        { name: "read_job", input: { id: "1" } },
+        { name: "read_job", input: { id: "2" } },
+        { name: "read_job", input: { id: "4" } },
+      ),
+      calls({
+        name: "publish_jobs",
+        input: {
+          jobs: [
+            note("3", "Python projects welcome."),
+            note("999", "No professional experience required."),
+            note("4", "anything"),
+            note("2", "Invented requirement"),
+            note("1", "No professional experience required."),
+            note("1", "Python projects welcome."),
+          ],
+        },
+      }),
+      said("One reviewed early-career role in Washington."),
+    ]);
+    const result = await createJobAgent({
+      model,
+      jobs,
+      profile: "No professional experience; Python projects.",
+    }).generate({ prompt: "Early career software in Washington state" });
+    const published = result.steps
+      .flatMap((step) => step.toolResults)
+      .find((tool) => tool.toolName === "publish_jobs");
+    expect(published?.output).toMatchObject({
+      hits: [hits[0]],
+      dropped: 5,
+      notes: [{ id: "1", evidence: ["No professional experience required."] }],
+    });
+  });
+
+  it("does not publish jobs read by id but never discovered, or jobs no longer visible", async () => {
+    const { jobs } = port({ "1": "Verified source text.", "2": "Verified source text." });
+    jobs.search = async () => [hit("1")];
+    jobs.lookup = async () => [hit("2")]; // Job 1 closed; job 2 is visible but was never discovered.
+    const { model } = scripted([
+      calls({ name: "search_jobs", input: { queries: ["backend engineer"] } }),
+      calls({ name: "read_job", input: { id: "1" } }, { name: "read_job", input: { id: "2" } }),
+      calls({
+        name: "publish_jobs",
+        input: {
+          jobs: ["1", "2"].map((id) => ({
+            id,
+            why: "Matches requirements.",
+            evidence: ["Verified source text."],
+          })),
+        },
+      }),
+      said("No reviewed matches."),
+    ]);
+    const result = await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
+    expect(
+      result.steps.flatMap((s) => s.toolResults).find((t) => t.toolName === "publish_jobs")?.output,
+    ).toMatchObject({ hits: [], notes: [], dropped: 2 });
+  });
+
+  it("inspects omitted middle passages and pages with one cached source fetch", async () => {
+    const middle = "Office: Seattle, Washington. Requires 3 years of professional experience.";
+    const body = `${"a".repeat(15_000)}${middle}${"b".repeat(30_000)}`;
+    const { jobs, reads } = port({ "1": body });
+    const { model, seen } = scripted([
+      calls({ name: "search_jobs", input: { queries: ["backend engineer"] } }),
+      calls({ name: "read_job", input: { id: "1" } }),
+      calls({
+        name: "publish_jobs",
+        input: { jobs: [{ id: "1", why: "An unsupported claim.", evidence: [middle] }] },
+      }),
+      calls(
+        { name: "read_job", input: { id: "1", terms: ["Seattle", "Requires"] } },
+        { name: "read_job", input: { id: "1", start: 14_000 } },
+      ),
+      calls({
+        name: "publish_jobs",
+        input: {
+          jobs: [
+            {
+              id: "1",
+              why: "Requires three years; suitable for this experienced profile.",
+              evidence: [middle],
+            },
+          ],
+        },
+      }),
+      said("done"),
+    ]);
+    const result = await createJobAgent({
+      model,
+      jobs,
+      profile: "5 years professional backend experience.",
+    }).generate({ prompt: "Seattle backend roles" });
+    expect(reads).toEqual(["1"]);
+    expect(promptText(seen[2] as LanguageModelV4CallOptions)).not.toContain(middle);
+    expect(promptText(seen[4] as LanguageModelV4CallOptions)).toContain(middle);
+    const outputs = result.steps
+      .flatMap((s) => s.toolResults)
+      .filter((t) => t.toolName === "publish_jobs")
+      .map((t) => t.output);
+    expect(outputs[0]).toMatchObject({ hits: [], dropped: 1 });
+    expect(outputs[1]).toMatchObject({ hits: [expect.objectContaining({ id: "1" })], dropped: 0 });
+    expect(
+      JSON.stringify(
+        result.steps.flatMap((s) => s.toolResults).filter((t) => t.toolName === "read_job"),
+      ),
+    ).not.toContain(middle);
+  });
+
+  it("preserves selected ranking and permits a deliberate empty replacement", async () => {
+    const { jobs } = port({ "1": "Entry-level role.", "2": "Entry-level role." });
+    const { model } = scripted([
+      calls({ name: "search_jobs", input: { queries: ["backend engineer"] } }),
+      calls({ name: "read_job", input: { id: "1" } }, { name: "read_job", input: { id: "2" } }),
+      calls({
+        name: "publish_jobs",
+        input: {
+          jobs: ["2", "1"].map((id) => ({
+            id,
+            why: "Entry-level role.",
+            evidence: ["Entry-level role."],
+          })),
+        },
+      }),
+      calls({ name: "publish_jobs", input: { jobs: [] } }),
+      said("none"),
+    ]);
+    const result = await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
+    const outputs = result.steps
+      .flatMap((s) => s.toolResults)
+      .filter((t) => t.toolName === "publish_jobs")
+      .map((t) => t.output);
+    expect(outputs[0]).toMatchObject({
+      hits: [expect.objectContaining({ id: "2" }), expect.objectContaining({ id: "1" })],
+    });
+    expect(outputs[1]).toMatchObject({ hits: [], notes: [], dropped: 0 });
+  });
+
+  it("instructs the model to distinguish professional experience, preferences and description-only geography", async () => {
+    const { jobs } = port({});
+    const { model, seen } = scripted([said("hi")]);
+    await createJobAgent({ model, jobs, profile: "" }).generate({ prompt: "x" });
+    const system = promptText(seen[0] as LanguageModelV4CallOptions);
+    for (const rule of [
+      "Missing employment history means UNKNOWN",
+      "Projects and coursework",
+      "Distinguish required from preferred",
+      "Seattle in the description",
+      "headquarters",
+      "Remote does not mean eligible",
+      "untrusted DATA",
+      "publish_jobs",
+      "WITHOUT locations",
+    ])
+      expect(system).toContain(rule);
+  });
+  it("rejects publication before the model receives a first read or a new passage", async () => {
+    const middle = "Office: Seattle, Washington.";
+    const { jobs } = port({ "1": `${"a".repeat(15_000)}${middle}${"b".repeat(30_000)}` });
+    const publication = (quote: string) => ({
+      name: "publish_jobs",
+      input: { jobs: [{ id: "1", why: "Verified geographic match.", evidence: [quote] }] },
+    });
+    const { model } = scripted([
+      calls({ name: "search_jobs", input: { queries: ["backend engineer"] } }),
+      calls({ name: "read_job", input: { id: "1", terms: ["Seattle"] } }, publication(middle)),
+      calls(publication(middle)),
+      said("done"),
+    ]);
+    const result = await createJobAgent({ model, jobs, profile: "" }).generate({
+      prompt: "Seattle roles",
+    });
+    const published = result.steps
+      .flatMap((s) => s.toolResults)
+      .filter((t) => t.toolName === "publish_jobs")
+      .map((t) => t.output);
+    expect(published[0]).toMatchObject({ hits: [], dropped: 1 });
+    expect(published[1]).toMatchObject({
+      hits: [expect.objectContaining({ id: "1" })],
+      dropped: 0,
+    });
+
+    const second = scripted([
+      calls({ name: "search_jobs", input: { queries: ["backend engineer"] } }),
+      calls({ name: "read_job", input: { id: "1" } }),
+      calls({ name: "read_job", input: { id: "1", terms: ["Seattle"] } }, publication(middle)),
+      calls(publication(middle)),
+      said("done"),
+    ]);
+    const next = await createJobAgent({ model: second.model, jobs, profile: "" }).generate({
+      prompt: "Seattle roles",
+    });
+    const outputs = next.steps
+      .flatMap((s) => s.toolResults)
+      .filter((t) => t.toolName === "publish_jobs")
+      .map((t) => t.output);
+    expect(outputs[0]).toMatchObject({ hits: [], dropped: 1 });
+    expect(outputs[1]).toMatchObject({ hits: [expect.objectContaining({ id: "1" })], dropped: 0 });
+  });
+  it("asks to reread previous-turn views rather than claiming the source description is missing", async () => {
+    const { jobs } = port({ "1": "Source text still exists." });
+    const tools = createTools({ jobs, profile: "", reviewedViews: new Set() });
+    const output = await tools.read_job.toModelOutput?.({
+      toolCallId: "old",
+      input: { id: "1" },
+      output: {
+        found: true,
+        id: "1",
+        title: "Engineer",
+        company: "Acme",
+        chars: 100,
+        facts: {},
+        view: "previous-turn",
+        partial: false,
+        notice: undefined,
+      },
+    });
+    expect(output).toMatchObject({
+      type: "text",
+      value: expect.stringContaining("Call read_job again"),
+    });
+    expect(JSON.stringify(output)).not.toContain("has no description");
   });
 });

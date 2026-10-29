@@ -77,7 +77,31 @@ afterEach(() => {
 });
 
 describe("a real recorded turn through the real useChat", () => {
-  it("fills the list when the search finishes and never empties it again", async () => {
+  it("waits for publication before displaying reviewed jobs through the real stream", async () => {
+    // Keep the recorded discovery stream, then append a reviewed selection before it finishes.
+    const finish = sse.lines.findIndex((line) => JSON.parse(line).type === "finish");
+    sse.lines.splice(
+      finish,
+      0,
+      JSON.stringify({ type: "start-step" }),
+      JSON.stringify({
+        type: "tool-input-available",
+        toolCallId: "published",
+        toolName: "publish_jobs",
+        input: { search: { queries: ["data engineer"], locations: ["Washington"] }, jobs: [] },
+      }),
+      JSON.stringify({
+        type: "tool-output-available",
+        toolCallId: "published",
+        output: {
+          search: { queries: ["data engineer"], locations: ["Washington"] },
+          hits: HITS,
+          notes: [],
+          dropped: 0,
+        },
+      }),
+      JSON.stringify({ type: "finish-step" }),
+    );
     const { Assistant } = await import("../src/components/assistant/Assistant.tsx");
     render(<Assistant hasResume={false} />);
     const box = await screen.findByLabelText("Message the assistant");
@@ -94,5 +118,20 @@ describe("a real recorded turn through the real useChat", () => {
     });
     await new Promise((r) => setTimeout(r, 100));
     expect(rows()).toHaveLength(5);
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === "/api/search")).toBe(false);
+  });
+
+  it("never shows raw discovery hits when an old stream ends without publication", async () => {
+    const { Assistant } = await import("../src/components/assistant/Assistant.tsx");
+    render(<Assistant hasResume={false} />);
+    const box = await screen.findByLabelText("Message the assistant");
+    fireEvent.change(box, { target: { value: "entry-level data roles in Washington" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await screen.findByRole("button", { name: "Stop" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull(), {
+      timeout: 8000,
+    });
+    expect(screen.queryByRole("list", { name: "Search results" })).toBeNull();
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => url === "/api/search")).toBe(false);
   });
 });

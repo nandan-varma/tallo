@@ -1,4 +1,5 @@
 import { APPLICATION_STATUSES, type ApplicationStatus, type SearchSpec } from "@tallo/contracts";
+import type { JobHit } from "@tallo/search-ai";
 import { Bookmark, ChevronLeft, ChevronRight, RotateCw, SearchX } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, JobRow } from "@/components/assistant/JobRow";
@@ -151,13 +152,11 @@ function TrackerRows({ openId, onOpen }: { openId: string | null; onOpen: (id: s
   );
 }
 
-/**
- * The results list: the database's answer to the assistant's search, 20 to a page. The assistant chose the
- * search and may have left notes; it never writes the list. Wide beside the chat, narrow beside an open
- * posting, so you can keep browsing while you read.
- */
+/** Chat recommendations are published by the assistant; saved discovery searches use database paging. */
 export function JobList({
   spec,
+  reviewed = null,
+  discovery = false,
   title,
   notes,
   view,
@@ -168,6 +167,10 @@ export function JobList({
   onOpen,
 }: {
   spec: SearchSpec | null;
+  /** null means no reviewed selection has been published for this turn; [] is a completed empty selection. */
+  reviewed?: JobHit[] | null;
+  /** Saved searches are broad catalog discovery, not personal recommendations. */
+  discovery?: boolean;
   /** What the list is showing, when it is a saved search; otherwise it is just "Results". */
   title?: string;
   notes: Map<string, Note>;
@@ -180,35 +183,41 @@ export function JobList({
   onOpen: (id: string) => void;
 }) {
   // The page is an index for one search at a time; a new search starts again at the first page.
-  const searchKey = JSON.stringify(spec);
+  const searchKey = JSON.stringify({ spec, reviewed, discovery });
   const [paging, setPaging] = useState({ key: searchKey, page: 0 });
   const page = paging.key === searchKey ? paging.page : 0;
-  const query = useSearchPage(spec, page * PAGE_SIZE);
+  const query = useSearchPage(discovery ? spec : null, page * PAGE_SIZE);
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
   }, [searchKey, page]);
 
-  const hits = query.data?.hits ?? [];
-  const nextOffset = query.data?.nextOffset ?? null;
+  const hits = discovery
+    ? (query.data?.hits ?? [])
+    : (reviewed?.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) ?? []);
+  const nextOffset = discovery
+    ? (query.data?.nextOffset ?? null)
+    : reviewed && (page + 1) * PAGE_SIZE < reviewed.length
+      ? (page + 1) * PAGE_SIZE
+      : null;
   const tracker = useTracker();
   const go = (next: number) => setPaging({ key: searchKey, page: next });
 
   let body: ReactNode;
   if (view === "tracker") {
     body = <TrackerRows openId={openId} onOpen={onOpen} />;
-  } else if (!spec) {
+  } else if (discovery ? !spec : reviewed === null) {
     body = working ? (
       <Skeleton />
     ) : (
       <Empty title={started ? "Results appear here" : "Your results will appear here"}>
         {started
-          ? "Once the assistant has searched, every matching role is listed here."
-          : "Tell the assistant what you're after. It builds the search; the list is straight from the catalog."}
+          ? "The assistant has not published reviewed recommendations for this request. Ask it to review and select suitable roles."
+          : "Tell the assistant what you're after. It reads postings and selects roles for your background and requirements."}
       </Empty>
     );
-  } else if (query.isError && !query.data) {
+  } else if (discovery && query.isError && !query.data) {
     body = (
       <div className="py-16 text-center">
         <p className="text-sm font-medium">Couldn't load the results.</p>
@@ -224,12 +233,14 @@ export function JobList({
         </Button>
       </div>
     );
-  } else if (!query.data) {
+  } else if (discovery && !query.data) {
     body = <Skeleton />;
   } else if (hits.length === 0) {
     body = (
-      <Empty title="No roles match this search">
-        Ask the assistant to widen the place or try nearby titles.
+      <Empty title={discovery ? "No roles match this search" : "No reviewed matches yet"}>
+        {discovery
+          ? "Try nearby titles or ask the assistant to review this search."
+          : "The assistant did not select any reviewed roles. Ask it to explore more postings or adjust your requirements."}
       </Empty>
     );
   } else {
@@ -237,7 +248,7 @@ export function JobList({
       <ul
         className={cn(
           "grid grid-cols-[minmax(0,1fr)] gap-2.5 transition-opacity",
-          (query.isPlaceholderData || working) && "opacity-60",
+          ((discovery && query.isPlaceholderData) || working) && "opacity-60",
         )}
         aria-label="Search results"
       >
@@ -255,7 +266,7 @@ export function JobList({
     );
   }
 
-  const paged = view === "results" && spec !== null && (page > 0 || nextOffset !== null);
+  const paged = view === "results" && (page > 0 || nextOffset !== null);
   const from = page * PAGE_SIZE + 1;
   const to = page * PAGE_SIZE + hits.length;
   return (
@@ -296,7 +307,14 @@ export function JobList({
         ref={scroller}
         className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       >
-        <div className="mx-auto w-full max-w-3xl px-4 py-4">{body}</div>
+        <div className="mx-auto w-full max-w-3xl px-4 py-4">
+          {discovery && view === "results" && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              Saved search · broad catalog matches, not reviewed for your qualifications.
+            </p>
+          )}
+          {body}
+        </div>
       </div>
 
       {paged && (
@@ -323,7 +341,7 @@ export function JobList({
             variant="outline"
             size="sm"
             onClick={() => nextOffset !== null && go(page + 1)}
-            disabled={nextOffset === null || query.isPlaceholderData}
+            disabled={nextOffset === null || (discovery && query.isPlaceholderData)}
             className="gap-1"
           >
             Next

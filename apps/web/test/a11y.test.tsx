@@ -70,6 +70,18 @@ const conversation = [
           dropped: 0,
         },
       },
+      {
+        type: "tool-publish_jobs",
+        toolCallId: "p1",
+        state: "output-available",
+        input: { search: { queries: ["data engineer"], locations: ["Seattle", "WA"] }, jobs: [] },
+        output: {
+          search: { queries: ["data engineer"], locations: ["Seattle", "WA"] },
+          hits: DB_HITS,
+          notes: [],
+          dropped: 0,
+        },
+      },
       { type: "text", text: "I searched Seattle and the rest of Washington." },
     ],
   },

@@ -55,6 +55,9 @@ function scripted(script: unknown[]) {
   const model = new MockLanguageModelV4({
     doGenerate: async (options) => {
       seen.push(options);
+      if (options.toolChoice?.type === "tool" && options.toolChoice.toolName === "publish_jobs")
+        return toolCall("publish_jobs", { search: { queries: ["software engineer"] }, jobs: [] });
+      if (options.tools?.length === 0) return text("done");
       return script[Math.min(seen.length - 1, script.length - 1)] as never;
     },
   });
@@ -71,7 +74,7 @@ describe("description clipping", () => {
     expect(afterRead).toContain("START");
     expect(afterRead).toContain("Salary: $200,000 per year. END");
     expect(afterRead).toMatch(/characters left out here/);
-    expect(afterRead).toContain("the middle is cut where marked");
+    expect(afterRead).toContain("partial view; inspect other sections as needed");
     expect(afterRead.length).toBeLessThan(READ_MAX_CHARS * 1.5);
   });
 
@@ -107,14 +110,15 @@ describe("request ceilings", () => {
     expect(seen.length).toBeLessThanOrEqual(MAX_STEPS);
   });
 
-  it("takes the tools away once a message has spent its input budget", async () => {
+  it("allows only publication once a message has spent its input budget", async () => {
     const { model, seen } = scripted([
       toolCall("search_jobs", { queries: ["engineer"] }, TURN_INPUT_TOKENS),
       text("done"),
     ]);
     await createJobAgent({ model, jobs: jobs(""), profile: "" }).generate({ prompt: "x" });
     expect(((seen[0] as Options).tools ?? []).length).toBeGreaterThan(0);
-    expect((seen[1] as Options).tools ?? []).toHaveLength(0);
+    expect(((seen[1] as Options).tools ?? []).map((tool) => tool.name)).toEqual(["publish_jobs"]);
+    expect((seen[1] as Options).toolChoice).toEqual({ type: "tool", toolName: "publish_jobs" });
   });
 });
 
@@ -140,10 +144,20 @@ describe("context fitting", () => {
       toolMessage("3", "newest"),
     ];
     const fitted = JSON.stringify(fitMessages(messages, 5_000));
-    expect(fitted).toContain("Earlier search results, left out");
+    expect(fitted).toContain("Earlier search results or description views, left out");
     expect(fitted).toContain("newest");
     expect(fitted).not.toContain(big);
     expect(fitMessages(messages.slice(0, 1), 5_000)).toEqual(messages.slice(0, 1));
+  });
+
+  it("bounds a parallel batch of reads while preserving the last individual result", () => {
+    const first = toolMessage("1", "a".repeat(40_000));
+    const second = toolMessage("2", "b".repeat(40_000));
+    if (first.role !== "tool" || second.role !== "tool") throw new Error("expected tool messages");
+    const batch: ModelMessage = { role: "tool", content: [...first.content, ...second.content] };
+    const fitted = JSON.stringify(fitMessages([batch], 12_000));
+    expect(fitted).not.toContain("a".repeat(40_000));
+    expect(fitted).toContain("b".repeat(40_000));
   });
 
   it("keeps the last turns, starting at a user message", () => {

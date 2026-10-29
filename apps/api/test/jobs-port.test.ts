@@ -175,6 +175,20 @@ describe("jobsPort.search", () => {
     expect(await port.search({ queries: ['"" ** ()', "data engineer"] }, 40)).toHaveLength(1);
     expect(await port.search({ queries: ["--"] }, 40)).toEqual([]);
   });
+  it("pages candidates beyond the first search window without repeating jobs", async () => {
+    const { db, blobs, port } = setup();
+    for (let i = 1; i <= 5; i++)
+      await seed(db, blobs, {
+        postingId: String(i),
+        title: `Software Engineer ${i}`,
+        company: `Co ${i}`,
+      });
+    const first = await port.search({ queries: ["software engineer"] }, 2);
+    const second = await port.search({ queries: ["software engineer"] }, 2, 2);
+    expect(first).toHaveLength(2);
+    expect(second).toHaveLength(2);
+    expect(new Set([...first, ...second].map((hit) => hit.id)).size).toBe(4);
+  });
 });
 
 describe("jobsPort.read", () => {
@@ -198,6 +212,24 @@ describe("jobsPort.read", () => {
 
     for (const id of [closed, dup, 9999]) expect(await port.read(String(id))).toBeNull();
     for (const id of ["abc", "-1", "1.5", ""]) expect(await port.read(id)).toBeNull();
+  });
+  it("refuses oversized descriptions before fetching them from object storage", async () => {
+    const { db, blobs, port } = setup();
+    const id = await seed(db, blobs, {
+      postingId: "1",
+      title: "Software Engineer",
+      description: "x".repeat(1_000_001),
+    });
+    let fetched = 0;
+    const get = blobs.get.bind(blobs);
+    blobs.get = async (key) => {
+      fetched += 1;
+      return get(key);
+    };
+    const job = await port.read(String(id));
+    expect(fetched).toBe(0);
+    expect(job?.description).toBeNull();
+    expect(job?.descriptionNotice).toContain("Description read budget reached");
   });
 });
 
