@@ -11,7 +11,7 @@ import type { BlobStore } from "./blobs.ts";
 import { jdKey, rawKey } from "./blobs.ts";
 import type { Db } from "./db.ts";
 import { batch, CHUNK, chunks } from "./db.ts";
-import { jobs, runs, sources } from "./schema.ts";
+import { jobs, regroupState, runs, sources } from "./schema.ts";
 
 export class IngestError extends Error {
   readonly status: 404 | 409;
@@ -589,8 +589,15 @@ export async function backfillDedupeKeys(
   };
 }
 
-/** A rebuild regroups every key touched within this window. The hourly cron overlaps it. */
+/** A rebuild regroups every key touched within this window (also the look-back before the first cursor). */
 const DEDUPE_WINDOW = 3 * 60 * 60;
+/**
+ * Overlap between incremental passes. Each pass must reach back past the previous pass's end by more than the
+ * time a write takes between stamping and committing, and the time a pass takes to run. Thirty minutes is far
+ * more than either (a request is seconds; a pass is seconds), and each row is then read by about 1.5 passes
+ * instead of the 3 that a 3-hour window over an hourly cron read.
+ */
+const REGROUP_MARGIN = 30 * 60;
 /** Keys per select: each key is 64 characters, so the ids travel as one bound JSON value. */
 const KEY_CHUNK = 300;
 /**
@@ -631,18 +638,24 @@ export function crossedKeys(db: Db, since: number, staleBefore: number) {
 
 /**
  * Keys whose group may have changed, after the cursor, ascending. Incremental mode finds, each via
- * an index or a small table, never a scan of `jobs`:
- * - rows written in the window (applyJobs, finalize closure and reopen): jobs_updated_idx;
- * - sources that crossed the stale threshold in the window (a time change with no write): the few
+ * an index or a small table, never a scan of `jobs`. `since` is the start of the window (see `regroupSince`):
+ * - rows written since then (applyJobs, finalize closure and reopen): jobs_updated_idx;
+ * - sources that crossed the stale threshold since then (a time change with no write): the few
  *   crossed source ids (a scan of `sources`, a small table), then their keys by jobs_source_posting_idx;
- * - open duplicates whose canonical was written in the window: it may have moved key or closed,
+ * - open duplicates whose canonical was written since then: it may have moved key or closed,
  *   so the duplicate's own key is regrouped. A purged canonical cannot exist here: its
  *   group was handed over when it closed, 30 days before the purge.
  * Full mode pages over every open key.
  */
 async function keysPage(
   db: Db,
-  { now, full, after, limit }: { now: number; full: boolean; after: string; limit: number },
+  {
+    now,
+    full,
+    since,
+    after,
+    limit,
+  }: { now: number; full: boolean; since: number; after: string; limit: number },
 ): Promise<string[]> {
   if (full) {
     const rows = await db
@@ -653,7 +666,6 @@ async function keysPage(
       .limit(limit);
     return rows.flatMap((r) => (r.key === null ? [] : [r.key]));
   }
-  const since = now - DEDUPE_WINDOW;
   const staleBefore = now - STALE_HIDE_DAYS * 86400;
   const canonicals = alias(jobs, "canonicals");
   const found = await Promise.all([
@@ -752,6 +764,7 @@ async function regroup(db: Db, keys: string[], staleBefore: number): Promise<num
  * processed `limit` at a time, so call again with `after = next` until `next` is null.
  * A canonical that closes in a sync hands over at that run's finalize; changes that never finalize
  * (stale sources, a run that never finished) wait for the hourly pass.
+ * The last page records `regroup_state`, so the next incremental pass starts there (see `regroupSince`).
  */
 export async function rebuildDuplicates(
   db: Db,
@@ -759,12 +772,31 @@ export async function rebuildDuplicates(
   opts: { full?: boolean; after?: string; limit?: number } = {},
 ): Promise<{ keys: number; changed: number; next: string | null }> {
   const limit = opts.limit ?? 3000;
-  const keys = await keysPage(db, {
-    now,
-    full: opts.full ?? false,
-    after: opts.after ?? "",
-    limit,
-  });
+  const full = opts.full ?? false;
+  // Read once per call; the cursor moves only on the last page, so every page of one pass sees the same window.
+  const since = full ? now - DEDUPE_WINDOW : await regroupSince(db, now);
+  const keys = await keysPage(db, { now, full, since, after: opts.after ?? "", limit });
   const changed = await regroup(db, keys, now - STALE_HIDE_DAYS * 86400);
-  return { keys: keys.length, changed, next: keys.length === limit ? (keys.at(-1) ?? null) : null };
+  const next = keys.length === limit ? (keys.at(-1) ?? null) : null;
+  if (next === null) {
+    await db
+      .insert(regroupState)
+      .values({ id: 1, checkedAt: now })
+      .onConflictDoUpdate({ target: regroupState.id, set: { checkedAt: now } });
+  }
+  return { keys: keys.length, changed, next };
+}
+
+/**
+ * Where an incremental pass starts: the last complete pass, less REGROUP_MARGIN. The margin covers a write
+ * stamped with an earlier `now` than the one it commits under, and a pass that overlaps a sync. A first
+ * pass (no cursor yet) looks back DEDUPE_WINDOW.
+ */
+async function regroupSince(db: Db, now: number): Promise<number> {
+  const [row] = await db
+    .select({ checkedAt: regroupState.checkedAt })
+    .from(regroupState)
+    .where(eq(regroupState.id, 1))
+    .limit(1);
+  return row ? row.checkedAt - REGROUP_MARGIN : now - DEDUPE_WINDOW;
 }

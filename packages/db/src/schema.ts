@@ -31,6 +31,15 @@ export const sources = sqliteTable("sources", {
     .default("active"),
 });
 
+/**
+ * The hourly regroup's cursor: one row (`id` 1). `checked_at` is when the last complete incremental pass ran; the
+ * next pass reads everything written or aged since then, less a margin (ingest.ts). Written only by that pass.
+ */
+export const regroupState = sqliteTable("regroup_state", {
+  id: integer().primaryKey(),
+  checkedAt: integer("checked_at").notNull(),
+});
+
 /** Bounded operational history: what ran where and when. Old rows are pruned. */
 export const runs = sqliteTable(
   "runs",
