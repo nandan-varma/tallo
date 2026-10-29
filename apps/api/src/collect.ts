@@ -29,8 +29,13 @@ import {
 } from "@tallo/db";
 import { createHostLimiter, type HostLimiter } from "@tallo/http";
 
-/** Defaults for the knobs wrangler.jsonc sets as variables. */
+/**
+ * Defaults for the knobs wrangler.jsonc sets as variables. A posting costs about four subrequests
+ * (its detail, two R2 existence checks, one description upload), so a slice of 100 postings stays
+ * well under the budget even before the budget check runs.
+ */
 export const DEFAULT_SLICE_SUBREQUESTS = 800;
+export const SLICE_POSTINGS = 100;
 export const DEFAULT_SLICE_MS = 5 * 60_000;
 export const DEFAULT_BATCH = 40;
 
@@ -44,7 +49,7 @@ export interface CollectEnv {
   };
   /** Reserve a start slot for a host; resolves with how long to wait (ms). Backed by the HostGate DO. */
   reserve: (host: string, gapMs: number) => Promise<number>;
-  /** Kill switch: nothing is claimed or enqueued unless this is true. */
+  /** Kill switch for the cron: when false it claims and enqueues nothing. Named collection ignores it. */
   enabled: boolean;
   sliceSubrequests: number;
   sliceMs: number;
@@ -108,12 +113,15 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
       return base.run(host, task);
     },
   };
-  const scratch: Scratch = {
+  // Every R2 call is a subrequest, including the existence checks the ingest makes per description.
+  const blobs: BlobStore = {
+    has: metered(meter, (key: string) => env.blobs.has(key)),
     put: metered(meter, (key: string, bytes: Uint8Array) => env.blobs.put(key, bytes)),
     get: metered(meter, (key: string) => env.blobs.get(key)),
     delete: metered(meter, (key: string) => env.blobs.delete(key)),
   };
-  const direct = directIngest(env.db, env.blobs);
+  const scratch: Scratch = blobs;
+  const direct = directIngest(env.db, blobs);
   const options: EngineOptions = {
     ingest: {
       startRun: metered(meter, direct.startRun),
@@ -140,10 +148,16 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
   };
   // The engine asks before each posting. The first ask always says go: a slice that spends its budget
   // on overhead (loading the plan, listing) must still make progress, or the run would loop forever.
-  let asks = 0;
-  const stop = () =>
-    asks++ > 0 &&
-    (meter.subrequests >= env.sliceSubrequests || nowMs(env) - started >= env.sliceMs);
+  let asked = 0;
+  const stop = () => {
+    const before = asked++;
+    if (before === 0) return false;
+    return (
+      before >= SLICE_POSTINGS ||
+      meter.subrequests >= env.sliceSubrequests ||
+      nowMs(env) - started >= env.sliceMs
+    );
+  };
   const line = (fields: Record<string, unknown>): void => {
     env.log({ wall_ms: nowMs(env) - started, subrequests: meter.subrequests, ...fields });
   };
@@ -247,7 +261,6 @@ export async function enqueueNamed(
   env: CollectEnv,
   ids: string[],
 ): Promise<{ enqueued: string[] }> {
-  if (!env.enabled) return { enqueued: [] };
   const claimed = (await claimSources(env.db, ids, nowSeconds(env))).map((s) => s.id);
   await sendStarts(env, claimed);
   return { enqueued: claimed };

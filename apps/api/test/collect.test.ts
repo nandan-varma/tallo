@@ -95,21 +95,18 @@ describe("the cron claim", () => {
     expect(await dueOf(db, stripe.id)).toBe(0);
   });
 
-  it("named boards are collected now, and refused while the kill switch is off", async () => {
-    const off = harness({ enabled: false });
-    await registerSources(off.db, [stripe], new Set());
-    expect(await enqueueNamed(off.env, [stripe.id])).toEqual({ enqueued: [] });
-
-    const on = harness();
-    await registerSources(on.db, [stripe], new Set());
-    expect(await enqueueNamed(on.env, [stripe.id, "greenhouse:nope"])).toEqual({
+  it("named boards are collected now, with the cron off too (staged tests)", async () => {
+    const { env, db, messages } = harness({ enabled: false });
+    await registerSources(db, [stripe], new Set());
+    expect(await enqueueNamed(env, [stripe.id, "greenhouse:nope"])).toEqual({
       enqueued: [stripe.id],
     });
-    expect(on.messages).toHaveLength(1);
+    expect(messages).toHaveLength(1);
   });
 });
 
 describe("handleCollect", () => {
+  // (The named-collect path ignores the kill switch; see the admin tests.)
   it("collects a board end to end, logs one line, and schedules the next run", async () => {
     const { env, db, blobs, messages, logs } = harness();
     await registerSources(db, [stripe], new Set());
@@ -242,17 +239,12 @@ describe("admin routes", () => {
     ).toBe(401);
   });
 
-  it("staged collect enqueues named boards, and answers 503 when the kill switch is off", async () => {
-    const on = app();
-    await registerSources(on.db, [stripe], new Set());
-    const res = await post(on.application, "/v1/admin/collect", { sources: [stripe.id] });
-    expect(await res.json()).toEqual({ requested: 1, enqueued: [stripe.id] });
-    expect(on.messages).toHaveLength(1);
-
+  it("staged collect enqueues named boards even while the cron is off", async () => {
     const off = app({ enabled: false });
-    expect(
-      (await post(off.application, "/v1/admin/collect", { sources: [stripe.id] })).status,
-    ).toBe(503);
+    await registerSources(off.db, [stripe], new Set());
+    const res = await post(off.application, "/v1/admin/collect", { sources: [stripe.id] });
+    expect(await res.json()).toEqual({ requested: 1, enqueued: [stripe.id] });
+    expect(off.messages).toHaveLength(1);
   });
 
   it("status reports due counts, runs in flight and the last day", async () => {

@@ -18,7 +18,8 @@ import type { HostGate } from "./host-gate.ts";
 export { HostGate } from "./host-gate.ts";
 
 /** Every five minutes the cron claims due boards and enqueues them (when COLLECT_ENABLED is "1"). */
-export const COLLECT_CRON = "*/5 * * * *";
+// Not exported: a Worker entry module may export only handlers and classes.
+const COLLECT_CRON = "*/5 * * * *";
 
 export interface Env extends AiBindings {
   DB: D1Database;

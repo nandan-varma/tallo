@@ -56,8 +56,7 @@ export function adminRoutes({
   });
 
   routes.post("/v1/admin/collect", write, zValidator("json", collectSchema), async (c) => {
-    if (!collect?.enabled)
-      return c.json({ error: "Collection is disabled (COLLECT_ENABLED)" }, 503);
+    if (!collect) return c.json({ error: "Collection is not configured" }, 503);
     const { sources } = c.req.valid("json");
     const { enqueued } = await enqueueNamed(collect, sources);
     return c.json({ requested: sources.length, enqueued });
