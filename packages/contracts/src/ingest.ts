@@ -93,6 +93,24 @@ export const CLOSE_AFTER_ABSENT_RUNS = 2;
 /** A board that 404s this many runs in a row is marked dead and skipped by sync. */
 export const DEAD_AFTER_NOT_FOUND_RUNS = 3;
 
+const DAY = 86_400;
+
+/**
+ * Seconds to wait between runs of a board whose complete listings stay empty, by how long it has
+ * been empty (`lastPostingsAt` is the last run that listed any postings, null if none is retained).
+ * Under a week: every normal run. A week to a month: every three days. Longer, or never listed: weekly.
+ * A skipped run never closes anything (closure needs complete listings); it only delays one.
+ * Pure: the Mac runner and any Worker scheduler call the same function.
+ */
+export function emptyBackoffSeconds(
+  lastPostingsAt: number | null | undefined,
+  now: number,
+): number {
+  const empty = lastPostingsAt == null ? Number.POSITIVE_INFINITY : now - lastPostingsAt;
+  if (empty < 7 * DAY) return 0;
+  return empty < 30 * DAY ? 3 * DAY : 7 * DAY;
+}
+
 /** A source with no successful listing for this long is flagged, then hidden from search. */
 export const STALE_FLAG_DAYS = 7;
 export const STALE_HIDE_DAYS = 14;

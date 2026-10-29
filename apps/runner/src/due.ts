@@ -1,4 +1,6 @@
-/** Which sources a sync run should collect, and which boards are dead. Pure: no I/O. */
+import { emptyBackoffSeconds } from "@tallo/contracts";
+
+/** Which sources a sync run should collect, and which boards are dead or empty. Pure: no I/O. */
 
 export interface SourceState {
   id: string;
@@ -7,6 +9,10 @@ export interface SourceState {
   consecutiveFailures: number;
   lastRunAt: number | null;
   lastCompleteRunAt: number | null;
+  /** Status of the most recent run: only a complete run can say a board is empty. */
+  lastStatus?: string | null;
+  /** Last run that listed any postings (null if none in the retained runs). */
+  lastPostingsAt?: number | null;
 }
 
 interface DueOptions {
@@ -16,23 +22,36 @@ interface DueOptions {
   /** Skip sources whose last complete run is at or after this epoch second. */
   cutoff: number;
   limit?: number;
+  /** Epoch seconds, for the empty-board back-off. Defaults to now. */
+  now?: number;
 }
 
 /**
  * Sources to sync, oldest complete run first. Dead boards are skipped unless `includeDead`.
- * An explicit `source` bypasses the staleness cutoff, but not the dead check.
+ * Boards whose last run was complete but empty, for a while, wait out `emptyBackoffSeconds`.
+ * An explicit `source` bypasses the staleness cutoff and the back-off, but not the dead check.
  */
 export function dueSources<T extends { id: string; platform: string }>(
   configured: T[],
-  state: Map<string, Pick<SourceState, "status" | "lastCompleteRunAt">>,
+  state: Map<
+    string,
+    Pick<SourceState, "status" | "lastCompleteRunAt" | "lastStatus" | "lastPostingsAt">
+  >,
   options: DueOptions,
 ): T[] {
+  const now = options.now ?? Date.now() / 1000;
   const last = (id: string) => state.get(id)?.lastCompleteRunAt ?? 0;
+  const backedOff = (id: string) => {
+    const row = state.get(id);
+    if (row?.lastStatus !== "complete") return false;
+    return now - last(id) < emptyBackoffSeconds(row.lastPostingsAt, now);
+  };
   const due = configured
     .filter((s) => !options.platform || s.platform === options.platform)
     .filter((s) => !options.source || s.id === options.source)
     .filter((s) => options.includeDead || state.get(s.id)?.status !== "dead")
     .filter((s) => options.source || last(s.id) < options.cutoff)
+    .filter((s) => options.source || !backedOff(s.id))
     .sort((a, b) => last(a.id) - last(b.id));
   return options.limit ? due.slice(0, options.limit) : due;
 }

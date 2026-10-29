@@ -1,6 +1,6 @@
 import { type Money, payText, STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, gt, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
 import { jobs, runs, sources } from "./schema.ts";
@@ -290,8 +290,23 @@ export const freshness = (
   return days >= STALE_HIDE_DAYS ? "hidden" : days >= STALE_FLAG_DAYS ? "stale" : "fresh";
 };
 
+/**
+ * Sources with their freshness and `lastPostingsAt`: the last run that listed any postings, or null.
+ * `lastListedAt` cannot say this (a complete empty listing counts as listed), so sync reads this
+ * to back off boards that stay empty. Runs are pruned after 30 days, so an older board reads as null.
+ */
 export async function listSources(db: Db, now = Math.floor(Date.now() / 1000)) {
-  const rows = await db.select().from(sources).orderBy(sources.id);
+  const rows = await db
+    .select({
+      ...getTableColumns(sources),
+      // Written as `sources.id`, not interpolated: an interpolated column renders bare, and `id` would
+      // resolve to the subquery's own runs.id.
+      lastPostingsAt: sql<
+        number | null
+      >`(SELECT max(r.started_at) FROM runs r WHERE r.source_id = sources.id AND r.seen > 0)`,
+    })
+    .from(sources)
+    .orderBy(sources.id);
   return rows.map((source) => ({ ...source, freshness: freshness(source.lastListedAt, now) }));
 }
 
