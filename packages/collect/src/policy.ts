@@ -13,7 +13,7 @@ export interface HostPolicy {
   gapMs: number;
 }
 
-const FAST: HostPolicy = { concurrency: 8, gapMs: 0 };
+const FAST: HostPolicy = { concurrency: 4, gapMs: 0 };
 const TENANT: HostPolicy = { concurrency: 2, gapMs: 250 };
 
 export const POLICY: Record<string, HostPolicy> = {

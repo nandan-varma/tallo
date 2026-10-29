@@ -59,7 +59,7 @@ describe("gatedLimiter", () => {
 
 describe("policy", () => {
   it("public JSON boards are fast; tenant platforms are gapped and narrow", () => {
-    expect(policyFor("greenhouse")).toEqual({ concurrency: 8, gapMs: 0 });
+    expect(policyFor("greenhouse")).toEqual({ concurrency: 4, gapMs: 0 });
     expect(policyFor("workday")).toEqual({ concurrency: 2, gapMs: 250 });
     expect(policyFor("oraclecloud")).toEqual({ concurrency: 2, gapMs: 250 });
   });
