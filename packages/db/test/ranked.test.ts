@@ -17,7 +17,6 @@ interface Seed {
   dupOf?: number | null;
   sourceId?: string;
   requisitionId?: string | null;
-  jdHash?: string;
 }
 
 let counter = 0;
@@ -48,7 +47,7 @@ async function seed(db: Db, args: Seed): Promise<number> {
       companySlug: company.toLowerCase(),
       title: args.title,
       excerpt: args.title,
-      jdHash: args.jdHash ?? `h${counter}`,
+      jdHash: `h${counter}`,
       requisitionId: args.requisitionId ?? null,
       jdBytes: 1,
       sourceHash: "s",
@@ -224,32 +223,52 @@ describe("rankedJobs", () => {
     expect(rows.map((r) => r.locations)).toEqual([1, 1]);
   });
 
-  it("collapses rows with the same description and no requisition, and keeps other descriptions apart", async () => {
+  it("keeps the same requisition id apart across two sources", async () => {
     const db = testDb();
-    const same = await seed(db, {
+    const greenhouse = await seed(db, {
       title: "Data Engineer",
       company: "Acme",
       location: "Seattle, WA",
-      jdHash: "same-text",
+      requisitionId: "77",
+      sourceId: "greenhouse:acme",
     });
-    await seed(db, {
+    const lever = await seed(db, {
       title: "Data Engineer",
       company: "Acme",
       location: "Boston, MA",
-      jdHash: "same-text",
-    });
-    await seed(db, {
-      title: "Data Engineer",
-      company: "Acme",
-      location: "Austin, TX",
-      jdHash: "other-text",
+      requisitionId: "77",
+      sourceId: "lever:acme",
     });
 
     const rows = await rankedJobs(db, { titles: ["data engineer"] }, page, NOW);
 
-    expect(rows).toHaveLength(2);
-    expect(rows.find((r) => r.id === same)).toMatchObject({ locations: 2 });
-    expect(rows.filter((r) => r.locations === 1)).toHaveLength(1);
+    expect(ids(rows).sort()).toEqual([greenhouse, lever].sort());
+  });
+
+  it("still returns each title when a source repeats one placeholder requisition id on every posting", async () => {
+    const db = testDb();
+    const placeholder = "See Opening ID";
+    const seeded = [
+      await seed(db, {
+        title: "Software Engineer, Payments",
+        company: "Stripe",
+        requisitionId: placeholder,
+      }),
+      await seed(db, {
+        title: "Software Engineer, Billing",
+        company: "Stripe",
+        requisitionId: placeholder,
+      }),
+      await seed(db, {
+        title: "Software Engineer, Risk",
+        company: "Stripe",
+        requisitionId: placeholder,
+      }),
+    ];
+
+    const rows = await rankedJobs(db, { titles: ["software engineer"] }, page, NOW);
+
+    expect(ids(rows).sort()).toEqual([...seeded].sort());
   });
 
   it("keeps a posting with a requisition apart from one without, and rows that only share a title", async () => {
