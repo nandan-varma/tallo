@@ -127,6 +127,13 @@
       "when": 1793243872979,
       "tag": "0017_regroup_state",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793244540754,
+      "tag": "0018_shiny_speed",
+      "breakpoints": true
     }
   ]
 }

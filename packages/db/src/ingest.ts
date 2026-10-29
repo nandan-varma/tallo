@@ -2,6 +2,8 @@ import type { CreateRun, Finalize, FinalizeResult, JobFacts } from "@tallo/contr
 import {
   CLOSE_AFTER_ABSENT_RUNS,
   DEAD_AFTER_NOT_FOUND_RUNS,
+  nextDueAt,
+  type RunOutcome,
   STALE_HIDE_DAYS,
 } from "@tallo/contracts";
 import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
@@ -250,7 +252,12 @@ export async function finalize(
   }
   // Read before the batch advances last_listed_at: a stale source that lists again un-hides its rows.
   const [before] = await db
-    .select({ lastListedAt: sources.lastListedAt })
+    .select({
+      lastListedAt: sources.lastListedAt,
+      status: sources.status,
+      tier: sources.tier,
+      consecutiveFailures: sources.consecutiveFailures,
+    })
     .from(sources)
     .where(eq(sources.id, current.sourceId))
     .limit(1);
@@ -365,7 +372,16 @@ export async function finalize(
       .where(eq(runs.id, runId)),
     db
       .update(sources)
-      .set({ lastStatus: status, ...health, ...(listed ? { lastListedAt: now } : {}) })
+      .set({
+        lastStatus: status,
+        ...health,
+        ...(listed ? { lastListedAt: now } : {}),
+        nextDueAt: nextDueAt({
+          tier: before?.tier ?? "normal",
+          outcome: runOutcome(fin, before),
+          finishedAt: fin.finishedAt,
+        }),
+      })
       .where(eq(sources.id, current.sourceId)),
   );
   await batch(db, statements);
@@ -376,6 +392,21 @@ export async function finalize(
   const grouped = current.added + current.changed + closed + reopened > 0;
   if (recovered || grouped) await regroupSource(db, current.sourceId, now, recovered);
   return { status, closureApplied, closed, reopened };
+}
+
+/**
+ * How the run ends for scheduling. A 404 streak that reaches the dead threshold (or a board already
+ * dead and still failing) is `dead`; any other failure is `partial`.
+ */
+function runOutcome(
+  fin: Pick<Finalize, "listingComplete" | "boardNotFound">,
+  before: { status: string; consecutiveFailures: number } | undefined,
+): RunOutcome {
+  if (fin.listingComplete) return "complete";
+  const dead =
+    before?.status === "dead" ||
+    (fin.boardNotFound && (before?.consecutiveFailures ?? 0) + 1 >= DEAD_AFTER_NOT_FOUND_RUNS);
+  return dead ? "dead" : "partial";
 }
 
 /**
