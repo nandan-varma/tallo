@@ -2,6 +2,63 @@
 
 _Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-10-28: read this first
+
+**Collection now runs in Cloudflare; the Mac runs nothing.** Cron `*/5` claims due boards (D1 `sources.next_due_at`,
+`tier`), a Queue (`tallo-collect`, DLQ `tallo-collect-dlq`) feeds a consumer in `tallo-api` that calls ingest directly,
+a Durable Object gates hosts. Default interval is weekly; `sources/hot.json` boards are daily; dead boards 30 days.
+Live settings (`apps/api/wrangler.jsonc` and `cloudflare.config.ts`, keep both in step): `COLLECT_ENABLED=1`,
+`COLLECT_BATCH=3000`, consumers `max_concurrency=188` (75% of the 250 queue limit), public-platform concurrency 4 per
+consumer (`packages/collect/src/policy.ts`). Kill switch: set `COLLECT_ENABLED` to `"0"` and deploy.
+Detail: `docs/runbook.md` ("Cloud collection (queue)"), `docs/architecture.md`.
+
+State at stop (22:20 PDT): the first full pass (every board re-fetched, platform version 2) was about 70% done:
+Ashby and Lever finished, Greenhouse ~2k, SmartRecruiters ~80, Workday ~180 boards left, dead-letter queue empty, no 429s.
+Nothing monitors it now; the cron keeps claiming on its own. Check `GET /v1/admin/collect/status` (ingest token) for
+`dueNow`, `inFlight`, `last24h`, and `wrangler queues list` for the DLQ count.
+
+Live in prod from this session: migrations 0016-0018; AI cost guard (`AI_DAILY_TOKEN_LIMIT`, optional `AI_MODEL_FAST`,
+optional KV `AI_SPEND`, none set yet); regroup cursor + run-prune indexes; search filter inside the candidate cut,
+requisition-id collapse, place aliases (40-case harness in `packages/db/eval`); Retry-After honored in `packages/http`;
+159 confirmed-dead boards removed from `sources/`.
+
+Lessons: `sendBatch` accepts at most 100 messages (a batch of 300 stranded 900 leased boards; fixed, chunked at 100).
+`concurrency` in the policy is per invocation, so host-wide in-flight = consumers x concurrency; the DO gate only
+enforces a start gap. Local `nohup ... &` jobs get killed; use harness background jobs. The reaper (hourly :17) clears
+runs left `running` after 2h; a board with a running run is refused (409) until then.
+
+Next, in order:
+1. When `dueNow` is near 0: run `pnpm --filter @tallo/runner tallo dedupe` once (full regroup), then check final stats.
+2. Collector hardening (audited against the code, NOT started; no branch). Verified gaps, in this order:
+   a. `enqueueDue` (`apps/api/src/collect.ts`) claims (30 min lease) then sends; a throwing `sendBatch` strands the
+   unsent boards. Release unsent claims per chunk (`next_due_at = now`); test with a throwing fake queue.
+   b. Host-wide load: 188 consumers x concurrency 4 can put ~750 requests on one host (Greenhouse is a single host);
+   the DO gate only enforces a start gap and `FAST` has gapMs 0. Add a per-platform DO slot lease with TTL, taken
+   once per invocation, AIMD on 429; new fields in `policy.ts` with defaults. Biggest operational risk.
+   c. DLQ: `max_retries: 2` with `tallo-collect-dlq`, but nothing consumes it and `message.retry()` has no delay. Add a
+   DLQ consumer (record failure, back off `next_due_at`), `retry({delaySeconds})`, an admin list and replay endpoint.
+   d. Retry schedule: flat 6h after partial (`SCHEDULE.retryAfterPartial`), no failure count, `busy` (409) is acked
+   without rescheduling. Add a failure count on `sources` (additive migration 0019), backoff 1h/3h/6h/24h, a run
+   heartbeat plus a stall reaper (the 2h reaper is the only recovery), and an invariant repair in the hourly cron
+   (every non-dead board has a future `next_due_at` or a live lease).
+   e. Memory: `Plan.changed` keeps full postings in `plan.json`, reloaded every slice; chunk it into per-100 scratch
+   parts. Add cleanup of orphaned `work/` objects older than 2 days. `missingBlobs` does one R2 head per new hash.
+   f. Alerts (`ALERT_WEBHOOK_URL`: claimed 0 while due, DLQ non-empty, error rate, reaper count, overdue boards) and
+   weekly D1 export; port only the alert rules from branch `worktree-agent-a892c135d576e060d`, not launchd.
+   g. Tests for double claim, duplicate queue delivery and a replayed continuation. Closure safety already holds by
+   design (finalize closes only on a complete listing; replayed start/final slices are no-ops).
+   Then apply migration 0019 (`wrangler d1 migrations apply tallo --remote`) and deploy the API.
+3. Alerts and backups do not exist yet: `ALERT_WEBHOOK_URL`, weekly D1 export (only Time Travel today).
+4. Data fidelity branch `worktree-agent-aba2d80d7e13656b8` (Greenhouse pay label, structured country; bumps platform
+   versions = another full pass, cheap now) and Greenhouse "See Opening ID" placeholder as unknown requisition id.
+5. Porter stemming conflates "accountant"/"Account Executive" (needs an FTS tokenizer migration).
+6. Not on any board here: Google, Meta, Apple, Amazon, Microsoft, Netflix, Nvidia (own platforms needed).
+7. Re-verify boards that 404 in this pass and prune them (live `tallo verify`, remove from `sources/*.json`).
+8. R2 write operations are ~52% of the 1M monthly free allowance; keep PUT/COPY/LIST low. Billing API stays 403 for the
+   OAuth login (no billing scope); read Billing -> Usage in the dashboard.
+9. About 45 stale agent worktrees/branches under `.claude/worktrees/`; check `git branch --no-merged origin/main` first.
+   `~/.claude/projects/-Users-nandan-dev-tallo/HANDOFF-2026-10-26.md` is the old handoff (superseded).
+
 ## Done
 
 - Core: contracts, http, catalog, platforms (Greenhouse, Lever, Ashby, SmartRecruiters, Workday), db (Drizzle,
