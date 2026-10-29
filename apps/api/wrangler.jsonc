@@ -26,7 +26,7 @@
         "max_batch_timeout": 0,
         "max_retries": 2,
         "dead_letter_queue": "tallo-collect-dlq",
-        "max_concurrency": 4
+        "max_concurrency": 10
       }
     ]
   },
@@ -34,8 +34,8 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostGate"] }],
   "vars": {
     "AI_MODEL_SMART": "go-anthropic:claude-haiku-5-5",
-    "COLLECT_ENABLED": "0",
-    "COLLECT_BATCH": "40",
+    "COLLECT_ENABLED": "1",
+    "COLLECT_BATCH": "100",
     "COLLECT_SLICE_SUBREQUESTS": "800",
     "COLLECT_SLICE_MS": "300000"
   }
