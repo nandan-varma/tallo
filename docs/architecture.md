@@ -38,6 +38,42 @@ redirect re-checks, response size caps, retries with `Retry-After`, per-host con
   (state, job family, ...) recursively and dedupes by `externalPath`. A slice that cannot be split reports
   `complete: false`, which blocks closure.
 
+## Where collection runs
+
+Collection runs in the `tallo-api` Worker, from a queue. The Mac runner can still collect by hand (`tallo sync`)
+with the same code (`packages/collect`), and it writes through the same HTTP ingest protocol below.
+- **Schedule (D1)**: `sources.next_due_at` (epoch seconds) and `sources.tier` (`hot`, `normal`, `rare`). Every board is
+  collected once a week (`normal`, `rare`). Boards in `sources/hot.json` are `hot` and collected daily. A seen-dead board
+  waits 30 days. A partial run is retried after 6 hours, so a transient failure does not cost a week. The policy is one
+  pure function (`packages/contracts/src/schedule.ts`).
+- **Claim (cron, every 5 minutes)**: one statement moves up to `COLLECT_BATCH` (default 40) due boards' `next_due_at`
+  forward by a 30-minute lease and returns them. Each becomes one `start` message on the queue `tallo-collect`. Two
+  claimers never get the same board. A crashed collector frees its boards when the lease ends. The cron does nothing
+  unless `COLLECT_ENABLED` is `"1"` (the kill switch).
+- **Queue consumer**: one board per invocation (`max_batch_size` 1, `max_concurrency` 4, `max_retries` 2, then the
+  dead-letter queue `tallo-collect-dlq`). It calls the same engine as the runner (`begin`, `advance`, `complete` in
+  `packages/collect/src/engine.ts`) with the D1 and R2 bindings instead of HTTP.
+- **Slices**: a board's detail work is cut into slices of at most 100 postings and 800 subrequests (wall time 5 minutes).
+  A slice that stops early puts a `slice` message back on the queue with its progress (offset, counters, raw part keys).
+  The plan (listing and diff) and the raw parts live in R2 under `work/<run>/`. Closure happens only in the final
+  slice, and only from a complete listing. A slice that throws is retried from the same offset, so a retry repeats the
+  same postings. A run that is never finished stays `running` until the hourly reaper marks it partial.
+- **Per-host politeness**: `packages/collect/src/policy.ts` sets a concurrency and a start gap per platform. Public JSON
+  boards (Greenhouse, Lever, Ashby, SmartRecruiters) use 8 in flight per host and no gap. Workday and Oracle Cloud use 2
+  in flight and a 250 ms gap. The gap is enforced across invocations by a `HostGate` Durable Object per host (SQLite
+  storage, one number: the next free time). Every gated request waits for a slot first; retries do not.
+- **Observability**: one JSON line per invocation (`source`, `platform`, `outcome`: `complete`, `partial`, `not_found`,
+  `continued`, `busy`, `skipped`; `listed`, `changed`, `requests`, `subrequests`, `wall_ms`). Status (ingest token):
+  `GET /v1/admin/collect/status` shows due counts by tier and platform, runs in flight, and the last 24 hours.
+- **Admin**: `POST /v1/admin/sources` (registers reviewed configs and the hot list; `tallo register`), and
+  `POST /v1/admin/collect` with `{sources: [...]}` (collects named boards now, even with the cron off). Both need the
+  ingest token.
+
+Limits: a Worker's subrequests per invocation are 10,000 on the paid plan; the slice budget is 800 so a slice has room.
+R2 and D1 calls, Durable Object calls and every outbound request count against it. A listing is not sliced. If one
+listing alone reaches the hard limit, the invocation throws, the message is retried and then dead-lettered, and the run
+is reaped as partial (nothing closes). Such a board is collected by the Mac runner instead.
+
 ## Ingest protocol (runner → API)
 
 1. `POST /v1/runs` start (idempotent on `runId`; one running run per source, stale after 2h).
