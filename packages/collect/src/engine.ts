@@ -51,6 +51,8 @@ export interface EngineOptions {
   /** Injected in tests. */
   fetch?: typeof fetch;
   maxPostings?: number;
+  /** Epoch seconds. Injected in tests and by the Worker; default: the wall clock. */
+  now?: () => number;
   /** Parallel detail fetches. Default: the platform's policy concurrency. */
   detailConcurrency?: number;
 }
@@ -84,7 +86,7 @@ export type Outcome = Finalize & { changed: number };
 /** Issues kept on the run row. */
 export const ISSUE_CAP = 50;
 const BATCH = 100;
-const now = () => Math.floor(Date.now() / 1000);
+const clock = (options: { now?: () => number }) => options.now?.() ?? Math.floor(Date.now() / 1000);
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export const emptyProgress = (): Progress => ({
@@ -201,7 +203,7 @@ export async function begin(
       detailsComplete: false,
       emptyIsAuthoritative: false,
       requests: counter.requests,
-      finishedAt: now(),
+      finishedAt: clock(options),
       rawKey: null,
       issues: issues.slice(0, ISSUE_CAP),
       boardNotFound,
@@ -365,7 +367,7 @@ export async function complete(
     detailsComplete: progress.detailsComplete,
     emptyIsAuthoritative: plan.listing.emptyIsAuthoritative,
     requests: progress.requests,
-    finishedAt: now(),
+    finishedAt: clock(options),
     rawKey,
     issues: progress.issues.slice(0, ISSUE_CAP),
     boardNotFound: false,
@@ -396,7 +398,7 @@ export async function collectSource(
   meta: { runId: string; runnerId: string; version: string },
   options: EngineOptions,
 ): Promise<Outcome> {
-  const begun = await begin(options, { ...meta, source, startedAt: now() });
+  const begun = await begin(options, { ...meta, source, startedAt: clock(options) });
   if ("finished" in begun) return begun.finished;
   const { plan } = begun;
   try {
@@ -410,7 +412,7 @@ export async function collectSource(
       detailsComplete: false,
       emptyIsAuthoritative: false,
       requests: begun.progress.requests,
-      finishedAt: now(),
+      finishedAt: clock(options),
       rawKey: null,
       issues: [
         ...begun.progress.issues,

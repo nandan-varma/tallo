@@ -1,6 +1,7 @@
 /** Collection shared by the Mac runner and the Worker: list, diff, detail, map, upload, close. */
 export * from "./engine.ts";
 export * from "./gate.ts";
+export * from "./messages.ts";
 export * from "./policy.ts";
 
 /** An in-memory scratch store. The runner collects in one process and needs no persistence. */
