@@ -20,7 +20,13 @@ Nothing monitors it now; the cron keeps claiming on its own. Check `GET /v1/admi
 Live in prod from this session: migrations 0016-0018; AI cost guard (`AI_DAILY_TOKEN_LIMIT`, optional `AI_MODEL_FAST`,
 optional KV `AI_SPEND`, none set yet); regroup cursor + run-prune indexes; search filter inside the candidate cut,
 requisition-id collapse, place aliases (40-case harness in `packages/db/eval`); Retry-After honored in `packages/http`;
-159 confirmed-dead boards removed from `sources/`.
+159 confirmed-dead boards removed from `sources/`, then 49 more on 2026-10-29 (live 404 re-check; `remotecom` and
+`remotereferralboardinternaluseonly` answered 200 and stay). D1 `sources` rows are never deleted by removing a board from
+the files (`register` only upserts), so ~160 dead rows remain there and are re-tried every 30 days.
+
+First full pass finished 2026-10-28 ~23:00 PDT (9,087 complete, 460 partial). Partials: 339 dead-board 404s, 49 runs reaped
+as "stopped before finalize" (34 from the cloud worker, mostly Workday, cause unknown), 37 Workday "posting without
+externalPath", 14 Workday 422/403/429, 11 Oracle Cloud "Short page" pagination.
 
 Lessons: `sendBatch` accepts at most 100 messages (a batch of 300 stranded 900 leased boards; fixed, chunked at 100).
 `concurrency` in the policy is per invocation, so host-wide in-flight = consumers x concurrency; the DO gate only
@@ -53,7 +59,7 @@ Next, in order:
    versions = another full pass, cheap now) and Greenhouse "See Opening ID" placeholder as unknown requisition id.
 5. Porter stemming conflates "accountant"/"Account Executive" (needs an FTS tokenizer migration).
 6. Not on any board here: Google, Meta, Apple, Amazon, Microsoft, Netflix, Nvidia (own platforms needed).
-7. Re-verify boards that 404 in this pass and prune them (live `tallo verify`, remove from `sources/*.json`).
+7. Done 2026-10-29 (see above). Open: find why cloud Workday runs die before finalize; Workday `externalPath` skips; Oracle short pages.
 8. R2 write operations are ~52% of the 1M monthly free allowance; keep PUT/COPY/LIST low. Billing API stays 403 for the
    OAuth login (no billing scope); read Billing -> Usage in the dashboard.
 9. About 45 stale agent worktrees/branches under `.claude/worktrees/`; check `git branch --no-merged origin/main` first.
