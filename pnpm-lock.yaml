@@ -236,6 +236,9 @@ importers:
       '@tallo/catalog':
         specifier: workspace:*
         version: link:../../packages/catalog
+      '@tallo/collect':
+        specifier: workspace:*
+        version: link:../../packages/collect
       '@tallo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -404,6 +407,24 @@ importers:
       '@types/html-to-text':
         specifier: ^9.0.4
         version: 9.0.4
+
+  packages/collect:
+    dependencies:
+      '@tallo/catalog':
+        specifier: workspace:*
+        version: link:../catalog
+      '@tallo/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@tallo/http':
+        specifier: workspace:*
+        version: link:../http
+      '@tallo/platforms':
+        specifier: workspace:*
+        version: link:../platforms
+      p-queue:
+        specifier: ^10.0.0
+        version: 10.0.0
 
   packages/contracts:
     dependencies:

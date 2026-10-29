@@ -1,0 +1,19 @@
+{
+  "name": "@tallo/collect",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tallo/catalog": "workspace:*",
+    "@tallo/contracts": "workspace:*",
+    "@tallo/http": "workspace:*",
+    "@tallo/platforms": "workspace:*",
+    "p-queue": "^10.0.0"
+  }
+}
