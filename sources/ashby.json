@@ -972,10 +972,6 @@
   "company": "Beacons"
  },
  {
-  "key": "beaconsoftware",
-  "company": "Beacon Software"
- },
- {
   "key": "beamery",
   "company": "Beamery"
  },
@@ -1986,10 +1982,6 @@
  {
   "key": "coram-ai",
   "company": "Coram AI"
- },
- {
-  "key": "coreflow",
-  "company": "coreflow"
  },
  {
   "key": "coreoftheheart",
@@ -4552,10 +4544,6 @@
   "company": "Ladder"
  },
  {
-  "key": "lago",
-  "company": "Lago"
- },
- {
   "key": "lambda",
   "company": "Lambda"
  },
@@ -6420,10 +6408,6 @@
   "company": "Pivotal Health"
  },
  {
-  "key": "pixaera",
-  "company": "Pixaera"
- },
- {
   "key": "plaid",
   "company": "Plaid"
  },
@@ -6526,10 +6510,6 @@
  {
   "key": "polar",
   "company": "Polar"
- },
- {
-  "key": "polaranalytics",
-  "company": "Polar Analytics"
  },
  {
   "key": "polarsteps",
@@ -6780,10 +6760,6 @@
   "company": "QED.ai"
  },
  {
-  "key": "quadrivia",
-  "company": "Quadrivia"
- },
- {
   "key": "qualified-health-pbc",
   "company": "Qualified Health PBC"
  },
@@ -6934,10 +6910,6 @@
  {
   "key": "reaktor",
   "company": "Reaktor"
- },
- {
-  "key": "real",
-  "company": "Real"
  },
  {
   "key": "realitydefender",
@@ -7390,10 +7362,6 @@
  {
   "key": "satispay",
   "company": "Satispay"
- },
- {
-  "key": "saturn",
-  "company": "Saturn"
  },
  {
   "key": "savvy",
@@ -7880,10 +7848,6 @@
   "company": "Solstice"
  },
  {
-  "key": "solva",
-  "company": "Solva Technology"
- },
- {
   "key": "solvd",
   "company": "Solvd"
  },
@@ -7926,10 +7890,6 @@
  {
   "key": "southgeeks",
   "company": "South Geeks"
- },
- {
-  "key": "spacecurve",
-  "company": "Spacecurve"
  },
  {
   "key": "spacial",
@@ -8092,10 +8052,6 @@
   "company": "Steadily"
  },
  {
-  "key": "stealthhc",
-  "company": "Stealth HC"
- },
- {
   "key": "stedi",
   "company": "Stedi"
  },
@@ -8224,14 +8180,6 @@
   "company": "SuperDial"
  },
  {
-  "key": "superhuman",
-  "company": "Superhuman"
- },
- {
-  "key": "superhuman20platform20inc",
-  "company": "Superhuman"
- },
- {
   "key": "superpilot-labs",
   "company": "Superpilot Labs"
  },
@@ -8350,10 +8298,6 @@
  {
   "key": "tailor",
   "company": "Tailor"
- },
- {
-  "key": "tailwind",
-  "company": "Tailwind"
  },
  {
   "key": "tako",
@@ -8568,10 +8512,6 @@
   "company": "The Generalist Company Ltd"
  },
  {
-  "key": "that1detailer",
-  "company": "That 1 Detailer"
- },
- {
   "key": "thatgamecompany",
   "company": "thatgamecompany"
  },
@@ -8614,10 +8554,6 @@
  {
   "key": "theflex",
   "company": "The Flex"
- },
- {
-  "key": "themindcompany",
-  "company": "The Mind Company"
  },
  {
   "key": "thera",
@@ -8852,10 +8788,6 @@
   "company": "Trulioo"
  },
  {
-  "key": "trunk20tools",
-  "company": "Trunk Tools"
- },
- {
   "key": "trust-wallet",
   "company": "Trust Wallet"
  },
@@ -8890,10 +8822,6 @@
  {
   "key": "twenty",
   "company": "Twenty"
- },
- {
-  "key": "two-dots",
-  "company": "Two Dots"
  },
  {
   "key": "twosteptx",
@@ -9096,10 +9024,6 @@
   "company": "Venn"
  },
  {
-  "key": "verge-genomics",
-  "company": "Verge Genomics"
- },
- {
   "key": "verisoul",
   "company": "Verisoul"
  },
@@ -9152,10 +9076,6 @@
   "company": "Viktor"
  },
  {
-  "key": "vinci4d",
-  "company": "Vinci4d"
- },
- {
   "key": "vio",
   "company": "Vio"
  },
@@ -9190,10 +9110,6 @@
  {
   "key": "vitvio",
   "company": "VitVio"
- },
- {
-  "key": "vivid",
-  "company": "Vivid"
  },
  {
   "key": "vivun",
@@ -9356,10 +9272,6 @@
   "company": "what3words"
  },
  {
-  "key": "whatnot",
-  "company": "WhatNot"
- },
- {
   "key": "wheel",
   "company": "Wheel"
  },
@@ -9378,10 +9290,6 @@
  {
   "key": "willow-health",
   "company": "Willow Health"
- },
- {
-  "key": "wilson",
-  "company": "WilsonAI"
  },
  {
   "key": "wincent",
@@ -9504,10 +9412,6 @@
   "company": "Xero"
  },
  {
-  "key": "xyme",
-  "company": "Xyme"
- },
- {
   "key": "xyz-reality",
   "company": "XYZ Reality"
  },
@@ -9546,14 +9450,6 @@
  {
   "key": "you-health",
   "company": "You Health"
- },
- {
-  "key": "yovo",
-  "company": "Yovo"
- },
- {
-  "key": "yutori",
-  "company": "Yutori"
  },
  {
   "key": "zania",
