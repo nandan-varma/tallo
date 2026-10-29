@@ -54,6 +54,8 @@ capital, "remote" to a work-mode match. It is a reviewed alias table, not infere
 person wrote it. The table is loaded with a guard that refuses a name claimed by two places. Collisions it avoids on purpose: the
 bare "LA" (Louisiana) is never a token ("la" means Los Angeles), "NY" and "WA" are never inside a city list, and "Washington"
 means the state. Known limits: "London" and "Dublin" match the same words in other countries and states.
+Countries (UK, Canada, India, US) expand to their main cities, written with the country where a city name is shared ("Cambridge, UK",
+never a bare "Cambridge", which is Massachusetts too). Common US metros have short names ("Philly", "SLC", "Vegas", "Twin Cities").
 
 The model passes the person's own words. It does not expand states or cities itself; the server does, so a table change applies
 to saved searches too.
@@ -73,17 +75,23 @@ to saved searches too.
 
 One FTS5 MATCH, built by `ftsScope`: each title phrase is quoted word by word (AND, no prefix) and scoped to the `title` column,
 the phrases are ORed; companies are scoped to `company` and ANDed; places are scoped to `location_text` and ANDed. Only letters
-and digits survive quoting, so no FTS operator reaches the query.
-- The best `RANK_CANDIDATES` (2000) FTS rows are read in a bounded subquery, ordered by `bm25(jobs_fts, 10, 2, 1)` (title x10,
-  company x2, location x1), then ties by rowid. However broad the terms, no more rows are read from the index.
-- Those candidates join to `jobs` and pass `visibleJobs` (open, canonical, fresh source).
-- Rows collapse by company and title: one row per company and title, the best-ranked location, with `locations` = how many
-  candidate postings share that company and title. A role open in ten cities is one hit with "10 locations".
+and digits survive quoting, so no FTS operator reaches the query. The index uses the porter stemmer (see Open).
+- The candidates are the best `RANK_CANDIDATES` (2000) rows of the MATCH that pass `candidateFilter`: the visibility predicate
+  (open, canonical, fresh source) and, with `remote`, the work mode or the place match. They are ordered by
+  `bm25(jobs_fts, 10, 2, 1)` (title x10, company x2, location x1; `BM25_WEIGHTS`), then rowid. The filter runs INSIDE the cut:
+  a filter applied after it drops the postings that lost the cut, so closed rows and onsite rows could take the window from
+  open and remote ones. Each matching row is read from `jobs` to be filtered (a primary-key lookup), so rows read grow with the
+  number of matches, not with the cut. However broad the terms, no more than 2000 rows are ranked.
+- Rows collapse by `groupKey`: company slug, lowercase title and, when the source gave one, its requisition id with the source
+  id. The same requisition open in several cities is one row, with "N locations". Two requisitions with the same title stay apart.
+  Without a requisition id a row stands for its company and title, as before. The requisition only ever splits a group, so a
+  source that repeats one placeholder id on every posting still shows each title.
+- The best-ranked location of a group is the row shown; `locations` = how many candidates share the group key (a lower bound).
 - Paged by offset in rank order (rank has no keyset), capped at 300 in total.
 - With `remote`, the work mode is ORed with the places: a remote job anywhere, or a job whose location matches. Remote is not
   an AND filter. Remote alone is a work-mode filter on the candidates.
 - Saved searches (`apps/api/src/searches.ts`) count the new roles with `countPostedSince`: postings posted after the search was
-  last run, among the same capped candidates, at most `NEW_WINDOW` (30). A broad search costs no more here than on the list.
+  last run, among the newest `RANK_CANDIDATES` matches that pass the same filter, at most `NEW_WINDOW` (30).
 
 Not filtered: country, department, employment type. Their coverage is NULL for many postings, so filtering on them drops good jobs.
 
@@ -104,26 +112,40 @@ Not filtered: country, department, employment type. Their coverage is NULL for m
 
 ## Evaluation
 
-The search design was measured on prod with a set of 30 requests (title, place and company asks) against hand-written truth
-sets. The winning design is the one implemented here: one ranked, collapsed OR query over title phrases, places ANDed with the titles,
-server-side place expansion, a 20-hit model view.
-- Precision at 40 (P@40): 0.67 for the previous per-phrase, newest-first design; 0.84 for this one.
-- Rows read: about 4x lower than the previous design (the bounded candidate set replaces reading every match and sorting it by time).
+`packages/db/eval` is the standing search harness. `cases.ts` holds 40 requests (the spec the assistant sends, and a truth
+written by hand: which titles, places and companies count, and which wrong titles must not). The truth does not use the places
+table or the ranking. Each case runs through `rankedJobs` with `rankedSpec`, the same path the site takes.
+- Fixture (CI, no network): `pnpm --filter @tallo/db eval`, or `node packages/db/eval/run.ts`. A small seeded catalog with a
+  2100-row onsite block that is larger than the candidate cut. `test/eval.test.ts` keeps its scores at or above 95%.
+- Production, read only: `node packages/db/eval/run.ts --prod --truth /tmp/truth.json --json out.json`. Each query is one
+  `cf d1 query` SELECT against the production catalog (the id is in `run.ts`; `TALLO_D1_DATABASE` overrides it). Nothing is
+  written. The truth counts go to the `--truth` file, so before and after runs share one truth and do not repeat the truth
+  queries. Rows read is the D1 `rows_read` of each ranked query.
+- Measures: P@20 (share of the first 20 rows that are relevant; a case that returns no rows is left out of the mean), recall
+  (relevant rows over min(truth, 300) distinct groups, the same grouping the search uses), and rows read.
 
-Rows read on prod for five of the experiment's queries (`cf d1 query`, SELECT only, 2026-10-26). The probe SQL was written by
-hand with the same shape as `rankedJobs` (same MATCH, bounded candidates, visibility, collapse); it is not drizzle's output. The
-query plan shows the MATCH on the FTS index, the candidate sort, and primary-key joins. These are single runs during a full sync:
+Production, 2026-10-28, the same truth for all three runs (`cases.ts`, 40 cases):
 
-| Query                                     | Places             | Rows read |
-| ----------------------------------------- | ------------------ | --------- |
-| backend engineer jobs                     | none               | 12,401    |
-| frontend engineer in NYC                  | NYC metro          | 345       |
-| machine learning engineer in the Bay Area | Bay Area metro     | 8,527     |
-| registered nurse in Houston               | Houston metro      | 239       |
-| data scientist, remote                    | remote (work mode) | 7,583     |
+| Run                                                                           | P@20 | Recall | Rows read |
+| ----------------------------------------------------------------------------- | ---- | ------ | --------- |
+| Before: main's ranking (company and title, filter after the cut, main places) | 86%  | 83%    | 201,380   |
+| Filter inside the cut, requisition collapse                                   | 86%  | 85%    | 231,060   |
+| Plus the place aliases (this change)                                          | 86%  | 87%    | 235,582   |
 
-The reads are the FTS index rows plus the candidate joins. A title with many postings costs up to the 2000-candidate bound; a
-place that narrows the MATCH (NYC, Houston) costs far less.
+Read these numbers as they are. Precision did not move overall: the remote cases gained recall (software engineer remote 85% to
+96%, remote or Canada 85% to 88%), and the UK case went from 24% to 88% recall with the country aliases. Canada got worse on
+precision (40% to 30%): the country list brings in cities the truth set does not name. Rows read rose 17%, the cost of checking
+visibility and the remote ask on every match inside the cut.
+
+The fixture is 97% P@20 and 99% recall. On production the same ranking gives 86%; most of the gap is the stemming problem below.
+
+Bm25 weights: eight settings of (title, company, location) were swept on production (`(10,2,1)` as shipped, `(10,1,1)`, `(10,3,1)`,
+`(10,2,0)`, `(20,2,1)`, `(10,5,2)`, `(5,2,1)`, `(10,2,3)`). P@20 ranged 85% to 88% and recall 80% to 81%: within the noise of a 40-case
+set, so the weights stay. The fixture cannot tell them apart at all.
+
+Rows read on prod for single queries (`cf d1 query`, SELECT only, 2026-10-26; the same shape as `rankedJobs` before the change):
+backend engineer 12,401 (no places), NYC frontend 345, Bay Area ML 8,527, Houston nurse 239, remote data scientist 7,583. The query
+plan now is a SCAN of the FTS index (MATCH) with a primary-key SEARCH of `jobs` for each match, then a temp B-tree for the sort.
 
 ## Cost controls
 
@@ -165,8 +187,14 @@ revisit before public use.
 
 ## Open
 
+- Stemming: the index is porter-stemmed, so "accountant" matches "Account Executive" and "engineer" matches "Engineering Manager";
+  the top of the list for `accountant-chicago` is mostly account executives (P@20 5%). Fixing this needs a tokenizer change (an FTS
+  rebuild migration: `packages/db/drizzle`, owned by the schema worker). Not done here.
+- Requisition ids are not always unique. Greenhouse Stripe repeats the placeholder "See Opening ID" on 694 open postings. The group
+  key never merges across titles, so the rows stay distinct, but the Greenhouse `map` should treat that placeholder as unknown (a
+  platform change, so a version bump and a re-sync).
 - Relevance is by title (bm25 over title, company and location text). Descriptions are not indexed, so a role whose title shares no
   word with the phrases the model tries is missed (vector recall, issue #16, would sit behind the search).
-- Ranking weights (10, 2, 1) are a first choice, not tuned on the full experiment set.
-- The remote filter applies after the candidate cut: a broad title with many onsite postings may hide remote ones beyond the 2000 candidates.
-- Collapse groups by company slug and lowercase title; the location count is a lower bound (only candidates are counted).
+- The location count is a lower bound (only candidates are counted).
+- Rows read rose about 17% with the filter inside the cut. The cost is one `jobs` lookup per match; a `work_mode` index would
+  not help the MATCH side, so the next lever is the number of matches read per query, not the filter.

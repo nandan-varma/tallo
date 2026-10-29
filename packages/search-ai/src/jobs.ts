@@ -12,8 +12,8 @@ export type JobHit = {
   postedAt: string | null;
   department: string | null;
   /**
-   * Postings of this company and title among the search's candidates, this one included. Above 1, the same role
-   * is open in several places and the hit shows the best-ranked of them.
+   * Postings of this requisition (or, without a requisition id, this company and title) among the search's
+   * candidates, this one included. Above 1, the same role is open in several places and the hit shows the best-ranked.
    */
   locations: number;
 };
@@ -32,7 +32,7 @@ export type JobRead = JobHit & {
  */
 export interface JobsPort {
   /**
-   * The ranked search for a spec (most relevant first, one hit per company and title), at most `limit` hits.
+   * The ranked search for a spec (most relevant first, one hit per requisition or company and title), at most `limit` hits.
    * The places in the spec are the person's own words; the port expands them.
    */
   search(spec: SearchSpec, limit: number): Promise<JobHit[]>;

@@ -57,6 +57,13 @@ export interface RankedSpec {
   remote?: boolean;
 }
 
+/**
+ * bm25 column weights for `jobs_fts` (title, company, location_text): a title word is worth five company words and
+ * ten location words. Swept on the evaluation set (`packages/db/eval`, docs/ai-search.md): the settings tried were within
+ * noise of each other, so these stay.
+ */
+export const BM25_WEIGHTS = [10, 2, 1] as const;
+
 /** The MATCH for a spec's titles and companies (and locations, unless remote is ORed in). Undefined when none has a word. */
 function rankedMatch(spec: RankedSpec): string | undefined {
   const parts = [
@@ -65,23 +72,6 @@ function rankedMatch(spec: RankedSpec): string | undefined {
     spec.remote ? undefined : ftsScope("location_text", spec.locations ?? []),
   ].filter((part): part is string => part !== undefined);
   return parts.length > 0 ? parts.join(" AND ") : undefined;
-}
-
-/**
- * The best `RANK_CANDIDATES` FTS rows for a MATCH, by bm25 (title x10, company x2, location x1), ties by rowid. A
- * bounded subquery: however broad the terms, no more rows than this are read from the index.
- */
-function candidatesFor(match: string) {
-  const score = sql`bm25(jobs_fts, 10, 2, 1)`;
-  return sql`(SELECT rowid AS id, ${score} AS score FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY ${score}, rowid LIMIT ${RANK_CANDIDATES})`;
-}
-
-/**
- * The newest `RANK_CANDIDATES` FTS rows for a MATCH, by rowid (insertion order), newest first. Used for counting new
- * roles: a role posted recently is always inside this window, whatever its bm25 rank.
- */
-function newestCandidatesFor(match: string) {
-  return sql`(SELECT rowid AS id FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY rowid DESC LIMIT ${RANK_CANDIDATES})`;
 }
 
 /** With `remote`: work mode is remote, or the location text matches the places. Undefined when remote was not asked. */
@@ -94,6 +84,41 @@ function remoteOrPlaces(spec: RankedSpec): SQL | undefined {
     sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${places})`,
   );
 }
+
+/**
+ * The filter a search applies before it cuts to the best candidates: what the site shows (`visibleJobs`) and the
+ * remote or place ask. It must run inside the cut: a filter applied after `RANK_CANDIDATES` drops the postings that
+ * lost the cut. Closed postings would take the window from open ones, and onsite postings from remote ones.
+ */
+function candidateFilter(spec: RankedSpec, now: number): SQL[] {
+  const remote = remoteOrPlaces(spec);
+  return remote ? [...visibleJobs(now), remote] : visibleJobs(now);
+}
+
+/**
+ * The best `RANK_CANDIDATES` rows for a MATCH that pass `filter`, by bm25 (BM25_WEIGHTS), ties by rowid. A bounded
+ * subquery: however broad the terms, no more rows than this are read from the index.
+ */
+function candidatesFor(match: string, filter: SQL[]) {
+  const score = sql`bm25(jobs_fts, ${sql.raw(BM25_WEIGHTS.join(", "))})`;
+  return sql`(SELECT jobs_fts.rowid AS id, ${score} AS score FROM jobs_fts JOIN jobs ON jobs.id = jobs_fts.rowid WHERE jobs_fts MATCH ${match} AND ${and(...filter)} ORDER BY ${score}, jobs_fts.rowid LIMIT ${RANK_CANDIDATES})`;
+}
+
+/**
+ * The newest `RANK_CANDIDATES` rows for a MATCH that pass `filter`, by rowid (insertion order), newest first. Used for
+ * counting new roles: a role posted recently is always inside this window, whatever its bm25 rank.
+ */
+function newestCandidatesFor(match: string, filter: SQL[]) {
+  return sql`(SELECT jobs_fts.rowid AS id FROM jobs_fts JOIN jobs ON jobs.id = jobs_fts.rowid WHERE jobs_fts MATCH ${match} AND ${and(...filter)} ORDER BY jobs_fts.rowid DESC LIMIT ${RANK_CANDIDATES})`;
+}
+
+/**
+ * What one result row stands for: a company, a title and, when the source gave one, a requisition of that source. Two
+ * postings with the same title but different requisition ids stay apart; the same requisition in several cities is
+ * one row. The requisition only ever splits a company and title group, never joins two (so a source that repeats one
+ * placeholder id on every posting cannot merge them). Only structured fields are read; no text is compared.
+ */
+export const groupKey = sql`${jobs.companySlug} || char(31) || lower(${jobs.title}) || char(31) || coalesce(${jobs.sourceId} || char(31) || ${jobs.requisitionId}, '')`;
 
 const summary = {
   id: jobs.id,
@@ -176,8 +201,8 @@ export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.no
 }
 
 /**
- * The ranked results for a spec: most relevant first. One row per company and title: the best-ranked location,
- * with `locations` = how many of the candidate postings share that company and title. Only what the site shows.
+ * The ranked results for a spec: most relevant first. One row per `groupKey` (a requisition, else a company and title):
+ * the best-ranked location, with `locations` = how many of the candidates share that key. Only what the site shows.
  * Paged by offset (rank has no keyset); the caller caps the total. No searchable word means no rows.
  */
 export async function rankedJobs(
@@ -194,10 +219,9 @@ export async function rankedJobs(
       score: sql<number>`min(cand.score)`,
       locations: sql<number>`count(*)`,
     })
-    .from(sql`${candidatesFor(match)} AS cand`)
+    .from(sql`${candidatesFor(match, candidateFilter(spec, now))} AS cand`)
     .innerJoin(jobs, sql`${jobs.id} = cand.id`)
-    .where(and(...visibleJobs(now), remoteOrPlaces(spec)))
-    .groupBy(jobs.companySlug, sql`lower(${jobs.title})`)
+    .groupBy(groupKey)
     .orderBy(sql`score`, jobs.id)
     .limit(page.limit)
     .offset(page.offset);
@@ -220,9 +244,9 @@ export async function countPostedSince(
   if (!match) return 0;
   const rows = await db
     .select({ id: jobs.id })
-    .from(sql`${newestCandidatesFor(match)} AS cand`)
+    .from(sql`${newestCandidatesFor(match, candidateFilter(spec, now))} AS cand`)
     .innerJoin(jobs, sql`${jobs.id} = cand.id`)
-    .where(and(...visibleJobs(now), gt(jobs.sortAt, since), remoteOrPlaces(spec)))
+    .where(gt(jobs.sortAt, since))
     .limit(cap);
   return rows.length;
 }
