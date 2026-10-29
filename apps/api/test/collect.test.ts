@@ -87,6 +87,25 @@ describe("the cron claim", () => {
     expect(messages).toHaveLength(1);
   });
 
+  it("sends claimed boards in batches of at most 100, the queue's limit", async () => {
+    const { env, db, messages } = harness();
+    const sizes: number[] = [];
+    env.queue.sendBatch = async (batch) => {
+      if (batch.length > 100) throw new Error("sendBatch accepts at most 100 messages");
+      sizes.push(batch.length);
+      messages.push(...batch.map((m) => m.body));
+    };
+    const boards = Array.from({ length: 250 }, (_, i) => ({
+      ...stripe,
+      id: `greenhouse:b${i}`,
+      key: `b${i}`,
+    }));
+    await registerSources(db, boards, new Set());
+    expect(await enqueueDue(env, 300)).toEqual({ enqueued: 250 });
+    expect(sizes).toEqual([100, 100, 50]);
+    expect(new Set(messages.map((m) => (m.kind === "start" ? m.sourceId : ""))).size).toBe(250);
+  });
+
   it("the kill switch stops the cron: nothing is claimed and nothing is enqueued", async () => {
     const { env, db, messages } = harness({ enabled: false });
     await registerSources(db, [stripe], new Set());

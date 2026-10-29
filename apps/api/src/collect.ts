@@ -234,12 +234,18 @@ async function resume(
   });
 }
 
+/** Cloudflare Queues accepts at most 100 messages per `sendBatch`. */
+const SEND_BATCH_MAX = 100;
+
 /** Queue a start message for each claimed board. The run id is chosen here, so a retry is idempotent. */
 async function sendStarts(env: CollectEnv, ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
-  await env.queue.sendBatch(
-    ids.map((sourceId) => ({ body: { kind: "start", sourceId, runId: crypto.randomUUID() } })),
-  );
+  for (let i = 0; i < ids.length; i += SEND_BATCH_MAX) {
+    await env.queue.sendBatch(
+      ids
+        .slice(i, i + SEND_BATCH_MAX)
+        .map((sourceId) => ({ body: { kind: "start", sourceId, runId: crypto.randomUUID() } })),
+    );
+  }
 }
 
 /**
