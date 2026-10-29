@@ -1,3 +1,4 @@
+import { clip } from "@tallo/ai";
 import { type Prep, prepSchema, type Resume } from "@tallo/contracts";
 import { generateText, type LanguageModel, Output } from "ai";
 import { resumeToText } from "./text.ts";
@@ -59,7 +60,7 @@ export async function prepInterview({
     prompt: [
       tag(
         "posting",
-        `${posting.title} at ${posting.company}\n\n${posting.description.slice(0, MAX_POSTING_CHARS)}`,
+        `${posting.title} at ${posting.company}\n\n${clip(posting.description, MAX_POSTING_CHARS)}`,
       ),
       tag("resume", resumeText),
     ].join("\n\n"),

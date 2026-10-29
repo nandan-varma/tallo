@@ -22,7 +22,7 @@ export type JobRead = JobHit & {
   applyUrl: string | null;
   /** Facts as the source stated them (all locations, pay components, experience, source extras). */
   facts: Record<string, unknown>;
-  /** The FULL description. Never truncated: pay and minimum requirements are usually at the bottom. */
+  /** The full description as the source gave it. The agent bounds what it reads (see `READ_MAX_CHARS`). */
   description: string | null;
 };
 

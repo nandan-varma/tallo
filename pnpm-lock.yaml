@@ -456,6 +456,9 @@ importers:
 
   packages/resume:
     dependencies:
+      '@tallo/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@tallo/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -468,6 +471,9 @@ importers:
 
   packages/search-ai:
     dependencies:
+      '@tallo/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@tallo/contracts':
         specifier: workspace:*
         version: link:../contracts

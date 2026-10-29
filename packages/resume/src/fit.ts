@@ -1,3 +1,4 @@
+import { clip } from "@tallo/ai";
 import {
   type Fit,
   type FitVerdict,
@@ -73,7 +74,7 @@ export async function fitCheck({
     model,
     system: FIT_SYSTEM,
     prompt: [
-      tag("posting", `${heading}\n\n${posting.description.slice(0, MAX_POSTING_CHARS)}`),
+      tag("posting", `${heading}\n\n${clip(posting.description, MAX_POSTING_CHARS)}`),
       tag("resume", resumeText),
     ].join("\n\n"),
     output: Output.object({ schema: modelFitSchema }),

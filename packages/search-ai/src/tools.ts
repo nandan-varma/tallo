@@ -1,10 +1,17 @@
+import { clip } from "@tallo/ai";
 import { searchSpecSchema } from "@tallo/contracts";
 import { tool } from "ai";
 import { z } from "zod";
 import type { JobHit, JobsPort } from "./jobs.ts";
+import { MAX_READS } from "./prompt.ts";
 
 export const SEARCH_LIMIT = 20;
 const MAX_NOTES = 12;
+/**
+ * The most of a description the model reads. About 5k tokens: the start and the end are kept and the cut is
+ * marked, so a very long posting cannot make one read cost more than this.
+ */
+export const READ_MAX_CHARS = 20_000;
 
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -66,6 +73,8 @@ const Note = z.object({
  */
 export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string }) {
   const descriptions = new Map<string, string>();
+  // The step loop removes read_job after MAX_READS, but one step can carry several calls: the count is enforced here too.
+  let reads = 0;
 
   return {
     search_jobs: tool({
@@ -85,9 +94,11 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
       // The client only needs to know a read happened; the full text goes to the model through toModelOutput
       // so it never travels to the browser or back in the next request.
       execute: async ({ id }) => {
+        if (reads >= MAX_READS) return { limited: true as const, id };
+        reads += 1;
         const job = await jobs.read(id);
         if (!job) return { found: false as const, id };
-        descriptions.set(id, job.description ?? "");
+        descriptions.set(id, clip(job.description ?? "", READ_MAX_CHARS));
         return {
           found: true as const,
           id,
@@ -98,6 +109,11 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
         };
       },
       toModelOutput: ({ output }) => {
+        if ("limited" in output)
+          return {
+            type: "text",
+            value: `Read limit reached for this message (${MAX_READS} reads). Answer from the hits and descriptions you already have.`,
+          };
         if (!output.found) return { type: "text", value: `Job ${output.id} is not available.` };
         const description = descriptions.get(output.id);
         const head = `${output.title} at ${output.company}\nFacts: ${JSON.stringify(output.facts)}`;
@@ -106,7 +122,7 @@ export function createTools({ jobs, profile }: { jobs: JobsPort; profile: string
           value:
             description === undefined
               ? `${head}\n(The description is not available in this turn. Call read_job again if you need it.)`
-              : `${head}\n\n--- FULL DESCRIPTION ---\n${description || "(This posting has no description.)"}`,
+              : `${head}\n\n--- DESCRIPTION${output.chars > READ_MAX_CHARS ? ` (${output.chars} characters; the middle is cut where marked)` : ""} ---\n${description || "(This posting has no description.)"}`,
         };
       },
     }),

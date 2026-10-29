@@ -1,3 +1,4 @@
+import { clip } from "@tallo/ai";
 import { modelResumeSchema, type Resume, type ResumeEdit, resumeSchema } from "@tallo/contracts";
 import { generateText, type LanguageModel, Output } from "ai";
 import { z } from "zod";
@@ -87,7 +88,7 @@ export async function tailorResume({
   resume: Resume;
   posting: { title: string; company: string; description: string };
 }): Promise<ResumeEdit> {
-  const description = posting.description.slice(0, MAX_POSTING_CHARS);
+  const description = clip(posting.description, MAX_POSTING_CHARS);
   const { output } = await generateText({
     model,
     system: TAILOR_SYSTEM,
@@ -138,7 +139,7 @@ export async function writeCoverLetter({
   resume: Resume;
   posting: { title: string; company: string; description: string };
 }): Promise<string> {
-  const description = posting.description.slice(0, MAX_POSTING_CHARS);
+  const description = clip(posting.description, MAX_POSTING_CHARS);
   const { text } = await generateText({
     model,
     system: COVER_SYSTEM,
