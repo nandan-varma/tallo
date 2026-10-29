@@ -125,6 +125,24 @@ describe("createHttp", () => {
     });
   });
 
+  it("waits out a 429 Retry-After longer than 30 seconds before retrying", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(json({}, 429, { "retry-after": "45" }))
+        .mockResolvedValueOnce(json({ ok: 1 }));
+      const pending = make(f, { retryDelay: undefined }).getJson("https://api.example.com/x");
+      await vi.advanceTimersByTimeAsync(44_000);
+      expect(f).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect((await pending).data).toEqual({ ok: 1 });
+      expect(f).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("gives up after maxRetries on network failure", async () => {
     const f = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("boom"));
     await expect(

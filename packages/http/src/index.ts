@@ -155,7 +155,9 @@ export function createHttp(options: HttpOptions): Http {
       limit: options.maxRetries ?? 3,
       methods: ["get", "post"],
       statusCodes: [408, 429, 500, 502, 503, 504],
-      maxRetryAfter: 30_000,
+      // ky truncates a server's Retry-After to this cap, then retries early; an early retry under
+      // a 429 burns the retry budget (Workday). Wait up to two minutes when the server asks for it.
+      maxRetryAfter: 120_000,
       // A timed-out request is a slow host, not a dead one: retry it like a 5xx.
       retryOnTimeout: true,
       delay: backoffMs,
