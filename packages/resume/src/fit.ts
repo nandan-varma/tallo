@@ -1,3 +1,4 @@
+import { clip } from "@tallo/ai";
 import {
   type Fit,
   type FitVerdict,
@@ -5,7 +6,6 @@ import {
   modelFitSchema,
   type Resume,
 } from "@tallo/contracts";
-import { clip } from "@tallo/ai";
 import { generateText, type LanguageModel, Output } from "ai";
 import { resumeToText } from "./text.ts";
 

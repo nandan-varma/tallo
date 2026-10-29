@@ -15,4 +15,4 @@ export {
 } from "./context.ts";
 export type { JobHit, JobRead, JobsPort } from "./jobs.ts";
 export { MAX_READS } from "./prompt.ts";
-export { READ_MAX_CHARS, type JobTools } from "./tools.ts";
+export { type JobTools, READ_MAX_CHARS } from "./tools.ts";

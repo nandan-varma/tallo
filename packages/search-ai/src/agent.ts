@@ -44,11 +44,7 @@ export function createJobAgent({
         messages: withBreakpoint(fitMessages(messages)),
         // Going deep is budgeted by the loop, not left to the prompt: after MAX_READS reads the tool is gone.
         activeTools:
-          spent >= TURN_INPUT_TOKENS
-            ? []
-            : reads >= MAX_READS
-              ? ["search_jobs"]
-              : undefined,
+          spent >= TURN_INPUT_TOKENS ? [] : reads >= MAX_READS ? ["search_jobs"] : undefined,
       };
     },
   });

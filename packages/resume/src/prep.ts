@@ -1,5 +1,5 @@
-import { type Prep, prepSchema, type Resume } from "@tallo/contracts";
 import { clip } from "@tallo/ai";
+import { type Prep, prepSchema, type Resume } from "@tallo/contracts";
 import { generateText, type LanguageModel, Output } from "ai";
 import { resumeToText } from "./text.ts";
 

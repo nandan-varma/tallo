@@ -11,7 +11,8 @@ export const TURN_INPUT_TOKENS = 160_000;
 /** Messages of conversation history the model sees; older ones are dropped at a user message. */
 export const HISTORY_MESSAGES = 40;
 
-export const estimateTokens = (value: unknown): number => Math.ceil(JSON.stringify(value).length / 4);
+export const estimateTokens = (value: unknown): number =>
+  Math.ceil(JSON.stringify(value).length / 4);
 
 export const OMITTED_RESULT =
   "(Earlier search results, left out to keep this request small. Search again if you need them.)";
@@ -38,13 +39,18 @@ function omitResults(message: ModelMessage): ModelMessage {
   return {
     ...message,
     content: message.content.map((part) =>
-      part.type === "tool-result" ? { ...part, output: { type: "text", value: OMITTED_RESULT } } : part,
+      part.type === "tool-result"
+        ? { ...part, output: { type: "text", value: OMITTED_RESULT } }
+        : part,
     ),
   };
 }
 
 /** The last `max` messages, starting at a user message, so the model never sees an answer without its question. */
-export function recentTurns<T extends { role: string }>(messages: T[], max = HISTORY_MESSAGES): T[] {
+export function recentTurns<T extends { role: string }>(
+  messages: T[],
+  max = HISTORY_MESSAGES,
+): T[] {
   const tail = messages.slice(-max);
   const start = tail.findIndex((m) => m.role === "user");
   return start <= 0 ? tail : tail.slice(start);
