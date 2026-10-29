@@ -21,8 +21,10 @@ Live in prod from this session: migrations 0016-0018; AI cost guard (`AI_DAILY_T
 optional KV `AI_SPEND`, none set yet); regroup cursor + run-prune indexes; search filter inside the candidate cut,
 requisition-id collapse, place aliases (40-case harness in `packages/db/eval`); Retry-After honored in `packages/http`;
 159 confirmed-dead boards removed from `sources/`, then 49 more on 2026-10-29 (live 404 re-check; `remotecom` and
-`remotereferralboardinternaluseonly` answered 200 and stay). D1 `sources` rows are never deleted by removing a board from
-the files (`register` only upserts), so ~160 dead rows remain there and are re-tried every 30 days.
+`remotereferralboardinternaluseonly` answered 200 and stay). Removing a board from the files does not delete its D1 `sources` row (`register` only upserts), so the 206 dead rows
+were deleted by hand with their 77 jobs, 1,274 runs and 18 raw packs (no FKs; delete jobs first for the FTS trigger, and
+delete the jobs too or the stale-hide `NOT EXISTS` on `sources` stops hiding them). The two 200 boards stay (dead flag clears
+on a complete listing).
 
 First full pass finished 2026-10-28 ~23:00 PDT (9,087 complete, 460 partial). Partials: 339 dead-board 404s, 49 runs reaped
 as "stopped before finalize" (34 from the cloud worker, mostly Workday, cause unknown), 37 Workday "posting without
