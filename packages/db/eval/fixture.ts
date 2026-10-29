@@ -6,7 +6,13 @@ import { schema } from "../src/index.ts";
  * block of onsite "Software Engineer" rows that is larger than the candidate window. The last block is what makes
  * the remote and collapse fixes measurable in memory: a remote posting with a longer title ranks below the cut.
  */
-type Row = [company: string, title: string, location: string, workMode: "remote" | "hybrid" | "onsite", req?: string];
+type Row = [
+  company: string,
+  title: string,
+  location: string,
+  workMode: "remote" | "hybrid" | "onsite",
+  req?: string,
+];
 
 export const FIXTURE_ROWS: Row[] = [
   ["Acme", "Backend Engineer", "Remote - United States", "remote"],
@@ -92,7 +98,14 @@ export const FIXTURE_ROWS: Row[] = [
 ];
 
 /** Onsite "Software Engineer" postings, one company each, in mid-size US cities: more than the candidate cut. */
-const BULK_CITIES = ["Seattle, WA", "Boston, MA", "Austin, TX", "Denver, CO", "Chicago, IL", "Atlanta, GA"];
+const BULK_CITIES = [
+  "Seattle, WA",
+  "Boston, MA",
+  "Austin, TX",
+  "Denver, CO",
+  "Chicago, IL",
+  "Atlanta, GA",
+];
 const BULK_COUNT = 2100;
 
 /** The rows as they are stored: one company per row, so nothing collapses in the bulk block. */

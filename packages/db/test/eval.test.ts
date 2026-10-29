@@ -22,5 +22,5 @@ describe("search evaluation on the fixture", () => {
   });
 });
 
-/** Set just below what the fixture gives after the fixes; a drop below these is a regression. */
-const FLOOR = { precision: 0.9, recall: 0.9 };
+/** Set just below what the fixture gives now (P@20 97%, recall 99%); a drop below these is a regression. */
+const FLOOR = { precision: 0.95, recall: 0.95 };

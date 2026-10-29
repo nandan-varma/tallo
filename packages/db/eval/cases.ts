@@ -59,7 +59,15 @@ const LA = ["los angeles", "santa monica", "culver city", "burbank", "el segundo
 const BOSTON = ["boston", "cambridge", "somerville", "waltham", "needham"];
 const DENVER = ["denver", "englewood", "lakewood", "greenwood village", "broomfield", "boulder"];
 const AUSTIN = ["austin", "round rock", "cedar park", "pflugerville"];
-const TORONTO = ["toronto", "mississauga", "markham", "vaughan", "richmond hill", "oakville", "gta"];
+const TORONTO = [
+  "toronto",
+  "mississauga",
+  "markham",
+  "vaughan",
+  "richmond hill",
+  "oakville",
+  "gta",
+];
 const VANCOUVER = ["vancouver", "burnaby", "surrey", "richmond, bc"];
 const MONTREAL = ["montreal", "laval"];
 const LONDON = ["london", "greater london"];
@@ -190,7 +198,10 @@ export const EVAL_CASES: EvalCase[] = [
   {
     id: "qa-engineer-canada",
     spec: { queries: ["qa engineer", "test engineer"], locations: ["Canada"] },
-    must: { title: ["qa engineer", "test engineer"], place: [...TORONTO, ...VANCOUVER, ...MONTREAL] },
+    must: {
+      title: ["qa engineer", "test engineer"],
+      place: [...TORONTO, ...VANCOUVER, ...MONTREAL],
+    },
   },
   {
     id: "ai-engineer-uk",

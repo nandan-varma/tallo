@@ -13,12 +13,12 @@ import { execFile } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
-import { testDb } from "../src/testing.ts";
+import type { Db } from "../src/db.ts";
 import * as schema from "../src/schema.ts";
+import { testDb } from "../src/testing.ts";
 import { EVAL_CASES } from "./cases.ts";
 import { seedFixture } from "./fixture.ts";
-import { type Meter, runEval, table, type TruthCache } from "./harness.ts";
-import type { Db } from "../src/db.ts";
+import { type Meter, runEval, type TruthCache, table } from "./harness.ts";
 
 /** The production catalog (the id in apps/api/wrangler.jsonc). An identifier, not a secret. */
 const PROD_DATABASE = "001b036c-2e15-45c8-9284-edb9d374b849";
@@ -66,6 +66,9 @@ interface D1Result {
 function prodDb(database: string, meter: Meter): Db {
   return drizzle(
     async (text, params, method) => {
+      // The production catalog is read here and never written: refuse anything that is not a read.
+      if (!/^\s*(select|with|explain)\b/i.test(text))
+        throw new Error(`prod eval is read only: ${text.slice(0, 40)}`);
       const { stdout } = await execFileAsync(
         "cf",
         ["d1", "query", database, "--sql", inline(text, params)],

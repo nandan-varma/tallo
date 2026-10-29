@@ -1,9 +1,10 @@
-import { and, eq, type SQL, or, sql } from "drizzle-orm";
+import { and, eq, or, type SQL, sql } from "drizzle-orm";
 import { rankedSpec } from "../../../apps/api/src/jobs-port.ts";
 import type { Db } from "../src/db.ts";
-import { ftsScope, rankedJobs, schema, visibleJobs } from "../src/index.ts";
+import { ftsScope, groupKey, rankedJobs, schema, visibleJobs } from "../src/index.ts";
 
 const { jobs } = schema;
+
 import type { EvalCase, MustNot } from "./cases.ts";
 
 /** Hits asked for in one request: the whole result list the site shows. */
@@ -52,7 +53,10 @@ export function isRelevant(row: Row, c: EvalCase): boolean {
   const needsPlace = must.remote === true || must.place !== undefined;
   const companyOk = must.company ? anyPhrase(row.company, must.company) : true;
   return (
-    titleOk && (!needsPlace || remoteOk || placeOk) && companyOk && !wrongTitle(row.title, c.mustNot)
+    titleOk &&
+    (!needsPlace || remoteOk || placeOk) &&
+    companyOk &&
+    !wrongTitle(row.title, c.mustNot)
   );
 }
 
@@ -86,20 +90,22 @@ export async function truthCount(db: Db, c: EvalCase, now: number): Promise<numb
   }
   const wrong = ftsScope("title", c.mustNot?.title ?? []);
   if (wrong) {
-    conditions.push(sql`${jobs.id} NOT IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${wrong})`);
+    conditions.push(
+      sql`${jobs.id} NOT IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${wrong})`,
+    );
   }
-  const group = sql`${jobs.companySlug} || char(31) || lower(${jobs.title}) || char(31) || coalesce(${jobs.requisitionId}, ${jobs.jdHash})`;
   const [row] = await db
     .select({ n: sql<number>`count(*)` })
     .from(
-      sql`(SELECT DISTINCT ${group} AS grp FROM ${jobs} WHERE ${and(...conditions)} LIMIT ${RECALL_CAP + 1}) AS truth`,
+      sql`(SELECT DISTINCT ${groupKey} AS grp FROM ${jobs} WHERE ${and(...conditions)} LIMIT ${RECALL_CAP + 1}) AS truth`,
     );
   return Number(row?.n ?? 0);
 }
 
 export interface CaseResult {
   id: string;
-  precision: number;
+  /** Share of the first PRECISION_AT rows that are relevant. Null when nothing was returned (nothing to judge). */
+  precision: number | null;
   /** Null when the truth is empty (nothing to recall). */
   recall: number | null;
   returned: number;
@@ -116,6 +122,7 @@ export interface Report {
   cases: CaseResult[];
   total: {
     cases: number;
+    /** Mean over the cases that returned rows. */
     precision: number;
     recall: number;
     rowsRead: number | null;
@@ -140,7 +147,8 @@ export async function runCase(
   const rowsRead = meter ? meter.rowsRead - readBefore : null;
 
   const head = rows.slice(0, PRECISION_AT);
-  const precision = head.length === 0 ? 0 : head.filter((r) => isRelevant(r, c)).length / head.length;
+  const precision =
+    head.length === 0 ? null : head.filter((r) => isRelevant(r, c)).length / head.length;
   const relevant = rows.filter((r) => isRelevant(r, c)).length;
 
   truths[c.id] ??= await truthCount(db, c, now);
@@ -180,7 +188,7 @@ export async function runEval(
     cases: results,
     total: {
       cases: results.length,
-      precision: mean(results.map((r) => r.precision)),
+      precision: mean(results.flatMap((r) => (r.precision === null ? [] : [r.precision]))),
       recall: mean(recalls),
       rowsRead: options.meter ? reads.reduce((a, b) => a + b, 0) : null,
       ms: results.reduce((a, r) => a + r.ms, 0),
@@ -213,6 +221,8 @@ export function table(report: Report): string {
   const all = [header, ...lines, total];
   const widths = header.map((_, i) => Math.max(...all.map((row) => (row[i] ?? "").length)));
   const fmt = (row: string[]) =>
-    row.map((cell, i) => (i === 0 ? cell.padEnd(widths[i] ?? 0) : cell.padStart(widths[i] ?? 0))).join("  ");
+    row
+      .map((cell, i) => (i === 0 ? cell.padEnd(widths[i] ?? 0) : cell.padStart(widths[i] ?? 0)))
+      .join("  ");
   return [fmt(header), ...lines.map(fmt), fmt(total)].join("\n");
 }
