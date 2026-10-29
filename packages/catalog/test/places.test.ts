@@ -111,4 +111,44 @@ describe("expandPlaces", () => {
       expect(locations.length, word).toBeGreaterThan(0);
     }
   });
+
+  it("expands countries to the country string and its main cities", () => {
+    const uk = expandPlaces(["UK"]).locations;
+    expect(uk).toEqual(
+      expect.arrayContaining(["UK", "United Kingdom", "Edinburgh", "Manchester", "London"]),
+    );
+    // A bare city name that another country also has is written with its country, never bare.
+    expect(uk).not.toContain("Cambridge");
+    expect(uk).toContain("Cambridge, UK");
+    expect(expandPlaces(["united kingdom"]).locations).toEqual(uk);
+    expect(expandPlaces(["Canada"]).locations).toEqual(
+      expect.arrayContaining(["Canada", "Ottawa", "Calgary"]),
+    );
+    expect(expandPlaces(["India"]).locations).toEqual(
+      expect.arrayContaining(["India", "Kolkata", "Pune"]),
+    );
+    expect(expandPlaces(["USA"]).locations).toEqual(
+      expect.arrayContaining(["US", "United States"]),
+    );
+  });
+
+  it("keeps the Boston Cambridge out of the UK list", () => {
+    expect(expandPlaces(["Boston"]).locations).toContain("Cambridge, MA");
+    expect(expandPlaces(["UK"]).locations).not.toContain("Cambridge, MA");
+  });
+
+  it("maps the common US metros and their short names to one list", () => {
+    const pairs: [string, string][] = [
+      ["Philly", "Philadelphia"],
+      ["SLC", "Salt Lake City"],
+      ["Research Triangle", "Raleigh"],
+      ["Twin Cities", "Minneapolis"],
+      ["Vegas", "Las Vegas"],
+      ["Indy", "Indianapolis"],
+      ["St Louis", "St. Louis"],
+    ];
+    for (const [short, long] of pairs) {
+      expect(expandPlaces([short]).locations, short).toEqual(expandPlaces([long]).locations);
+    }
+  });
 });

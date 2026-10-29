@@ -268,6 +268,157 @@ const PLACES: Place[] = [
   { names: ["chennai", "madras"], locations: ["Chennai", "Madras"] },
   { names: ["singapore"], locations: ["Singapore"] },
   { names: ["sydney"], locations: ["Sydney"] },
+  // Countries and regions: the strings postings use for the whole country, plus its main cities. A word such as
+  // "Cambridge" or "Manchester" is never listed bare when another country or state has it: "Cambridge, UK" only.
+  {
+    names: ["uk", "united kingdom", "great britain", "england", "britain"],
+    locations: [
+      "UK",
+      "United Kingdom",
+      "England",
+      "Scotland",
+      "Wales",
+      "London",
+      "Manchester",
+      "Edinburgh",
+      "Glasgow",
+      "Bristol, UK",
+      "Bristol, England",
+      "Leeds",
+      "Belfast",
+      "Liverpool",
+      "Cambridge, UK",
+      "Cambridge, England",
+      "Oxford, UK",
+      "Oxford, England",
+    ],
+  },
+  {
+    names: ["canada"],
+    locations: [
+      "Canada",
+      "Ottawa",
+      "Calgary",
+      "Edmonton",
+      "Waterloo, ON",
+      "Kitchener",
+      "Winnipeg",
+      "Halifax, NS",
+      "Quebec City",
+      "Ontario",
+      "British Columbia",
+      "Alberta",
+    ],
+  },
+  {
+    names: ["india"],
+    locations: [
+      "India",
+      "Kolkata",
+      "Ahmedabad",
+      "Kochi",
+      "Chandigarh",
+      "Jaipur",
+      "Coimbatore",
+      "Bhubaneswar",
+      "Indore",
+      "Mysore",
+      "Mumbai",
+      "Chennai",
+      "Pune",
+      "Hyderabad",
+      "Bengaluru",
+      "Bangalore",
+      "Gurgaon",
+      "Gurugram",
+      "Noida",
+      "Delhi",
+    ],
+  },
+  {
+    names: ["us", "usa", "u s", "united states", "united states of america", "america"],
+    locations: ["US", "USA", "United States", "U.S."],
+  },
+  {
+    names: ["philadelphia", "philly", "philadelphia pa", "philly area"],
+    locations: ["Philadelphia", "Philly", "King of Prussia", "Conshohocken", "Malvern, PA"],
+  },
+  {
+    names: ["phoenix", "phoenix az", "phoenix area", "scottsdale"],
+    locations: ["Phoenix", "Scottsdale", "Tempe", "Chandler, AZ", "Mesa, AZ", "Gilbert, AZ"],
+  },
+  {
+    names: ["san diego", "san diego ca", "san diego area"],
+    locations: ["San Diego", "La Jolla", "Carlsbad", "Chula Vista"],
+  },
+  {
+    names: ["portland", "portland or", "portland oregon", "portland area"],
+    locations: ["Portland, OR", "Portland, Oregon", "Beaverton", "Hillsboro"],
+  },
+  {
+    names: ["minneapolis", "st paul", "saint paul", "twin cities", "minneapolis st paul"],
+    locations: ["Minneapolis", "St. Paul", "Saint Paul", "Bloomington, MN", "Eden Prairie"],
+  },
+  {
+    names: ["salt lake city", "salt lake", "slc"],
+    locations: ["Salt Lake City", "Draper, UT", "Lehi, UT", "Sandy, UT"],
+  },
+  {
+    names: ["raleigh", "durham", "raleigh durham", "research triangle", "rtp"],
+    locations: ["Raleigh", "Durham, NC", "Cary, NC", "Chapel Hill", "Morrisville, NC"],
+  },
+  {
+    names: ["charlotte", "charlotte nc"],
+    locations: ["Charlotte, NC", "Charlotte, North Carolina"],
+  },
+  {
+    names: ["nashville", "nashville tn", "nashville area"],
+    locations: ["Nashville", "Franklin, TN", "Brentwood, TN"],
+  },
+  {
+    names: ["pittsburgh", "pittsburgh pa"],
+    locations: ["Pittsburgh", "Cranberry Township", "Wexford, PA"],
+  },
+  {
+    names: ["miami", "miami fl", "south florida"],
+    locations: ["Miami", "Fort Lauderdale", "Boca Raton", "Tampa", "Orlando", "Jacksonville"],
+  },
+  {
+    names: ["baltimore", "baltimore md"],
+    locations: ["Baltimore", "Columbia, MD", "Towson"],
+  },
+  {
+    names: ["st louis", "saint louis", "st louis mo"],
+    locations: ["St. Louis", "Saint Louis", "Clayton, MO"],
+  },
+  {
+    names: ["kansas city", "kansas city mo", "kansas city area"],
+    locations: ["Kansas City", "Overland Park", "Lenexa", "Olathe"],
+  },
+  {
+    names: ["detroit", "detroit mi", "ann arbor"],
+    locations: ["Detroit", "Ann Arbor", "Dearborn", "Southfield", "Troy, MI"],
+  },
+  {
+    names: ["sacramento", "sacramento ca"],
+    locations: ["Sacramento", "Roseville, CA", "Folsom, CA", "Elk Grove, CA"],
+  },
+  {
+    names: ["las vegas", "vegas", "las vegas nv"],
+    locations: ["Las Vegas", "Henderson, NV", "Summerlin"],
+  },
+  {
+    names: ["san antonio", "san antonio tx"],
+    locations: ["San Antonio"],
+  },
+  {
+    names: ["indianapolis", "indy"],
+    locations: ["Indianapolis", "Carmel, IN", "Fishers, IN"],
+  },
+  {
+    names: ["cincinnati", "cleveland"],
+    locations: ["Cincinnati", "Cleveland", "Mason, OH", "Beachwood, OH"],
+  },
   {
     names: [
       "remote",
