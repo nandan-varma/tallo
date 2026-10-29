@@ -1,4 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
+import type { Role } from "@tallo/ai";
 import {
   editResumeSchema,
   importResumeSchema,
@@ -27,7 +28,7 @@ import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { RESUME_MAX_BODY_BYTES } from "./ai.ts";
-import { assistant, type ModelGetter, notConfigured } from "./assistant.ts";
+import { type AiAccess, openGate } from "./assistant.ts";
 import { descriptionReader } from "./jobs.ts";
 import { errorName } from "./util.ts";
 
@@ -36,12 +37,12 @@ export function resumeRoutes({
   db,
   blobs,
   read,
-  model,
+  ai,
 }: {
   db: Db;
   blobs: BlobStore;
   read: MiddlewareHandler;
-  model?: ModelGetter;
+  ai: AiAccess;
 }) {
   const routes = new Hono();
   const descriptionOf = descriptionReader(blobs);
@@ -54,21 +55,29 @@ export function resumeRoutes({
     onError: (c) => c.json({ error: "Request too large" }, 413),
   });
 
-  /** Runs one resume model call; the browser gets a plain message, the logs get the error name only. */
+  /**
+   * Runs one resume model call on the cheapest model that does the job (`fast` is `smart` until AI_MODEL_FAST is
+   * set); the browser gets a plain message, the logs get the error name only.
+   */
   const resumeAi = async <T>(
     c: Context,
-    event: string,
+    feature: string,
+    role: Role,
     run: (model: LanguageModel) => Promise<T>,
   ): Promise<Response> => {
-    const llm = assistant(model);
-    if (!llm) return c.json(notConfigured, 503);
+    const gate = await openGate(c, ai, role, `resume.${feature}`);
+    if (gate instanceof Response) return gate;
     try {
-      const result = await run(llm);
+      const result = await run(gate.model);
       c.header("cache-control", "private, no-store");
       return c.json(result);
     } catch (error) {
-      console.error(JSON.stringify({ event, error: errorName(error) }));
+      console.error(
+        JSON.stringify({ event: `ai.resume.${feature}.failed`, error: errorName(error) }),
+      );
       return c.json({ error: "The assistant could not do that. Try again." }, 502);
+    } finally {
+      await gate.done();
     }
   };
 
@@ -103,7 +112,7 @@ export function resumeRoutes({
   });
 
   routes.post("/v1/resume/import", read, bounded, zValidator("json", importResumeSchema), (c) =>
-    resumeAi(c, "ai.resume.import.failed", async (model) => ({
+    resumeAi(c, "import", "fast", async (model) => ({
       resume: await importResume({
         model,
         text: c.req.valid("json").text,
@@ -113,7 +122,7 @@ export function resumeRoutes({
   );
 
   routes.post("/v1/resume/edit", read, bounded, zValidator("json", editResumeSchema), (c) =>
-    resumeAi(c, "ai.resume.edit.failed", (model) =>
+    resumeAi(c, "edit", "smart", (model) =>
       editResume({ model, ...c.req.valid("json"), abortSignal: c.req.raw.signal }),
     ),
   );
@@ -131,7 +140,7 @@ export function resumeRoutes({
       if (!description)
         return c.json({ error: "That posting has no description to tailor to." }, 422);
       const posting = { title: job.title, company: job.company, description };
-      return resumeAi(c, "ai.resume.tailor.failed", (model) =>
+      return resumeAi(c, "tailor", "smart", (model) =>
         tailorResume({ model, resume, posting, abortSignal: c.req.raw.signal }),
       );
     },
@@ -150,7 +159,7 @@ export function resumeRoutes({
       if (!description)
         return c.json({ error: "That posting has no description to write a letter for." }, 422);
       const posting = { title: job.title, company: job.company, description };
-      return resumeAi(c, "ai.resume.cover-letter.failed", async (model) => ({
+      return resumeAi(c, "cover-letter", "smart", async (model) => ({
         letter: await writeCoverLetter({ model, resume, posting, abortSignal: c.req.raw.signal }),
       }));
     },
@@ -169,7 +178,7 @@ export function resumeRoutes({
       if (!description)
         return c.json({ error: "That posting has no description to check against." }, 422);
       const posting = { title: job.title, company: job.company, description };
-      return resumeAi(c, "ai.resume.fit.failed", (model) =>
+      return resumeAi(c, "fit", "fast", (model) =>
         fitCheck({ model, resume, posting, abortSignal: c.req.raw.signal }),
       );
     },
@@ -188,7 +197,7 @@ export function resumeRoutes({
       if (!description)
         return c.json({ error: "That posting has no description to prepare for." }, 422);
       const posting = { title: job.title, company: job.company, description };
-      return resumeAi(c, "ai.resume.prep.failed", (model) =>
+      return resumeAi(c, "prep", "smart", (model) =>
         prepInterview({ model, resume, posting, abortSignal: c.req.raw.signal }),
       );
     },

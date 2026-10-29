@@ -1,3 +1,4 @@
+import { memoryLedger } from "@tallo/ai";
 import { gzip, sha256 } from "@tallo/catalog";
 import { jdKey, memoryBlobs, schema } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
@@ -47,15 +48,20 @@ export async function seedJob(
   });
 }
 
-export function build(model: MockLanguageModelV4 | null) {
+export function build(
+  model: MockLanguageModelV4 | null,
+  options: { limit?: number; fast?: MockLanguageModelV4 } = {},
+) {
   const db = testDb();
   const blobs = memoryBlobs();
+  const ledger = memoryLedger();
   const app = createApp({
     db,
     blobs,
     readToken: READ,
     ingestToken: INGEST,
-    model: () => model,
+    model: (role) => (role === "fast" ? (options.fast ?? model) : model),
+    budget: () => ({ ledger, limit: options.limit ?? 1_000_000 }),
   });
-  return { app, db, blobs };
+  return { app, db, blobs, ledger };
 }

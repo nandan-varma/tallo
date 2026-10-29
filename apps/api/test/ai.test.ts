@@ -199,3 +199,45 @@ describe("profile routes", () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe("chat spend", () => {
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  it("adds every step of a turn to the day's ledger", async () => {
+    const { model } = scripted([
+      { tool: { name: "search_jobs", input: { queries: ["backend engineer"] } } },
+      { text: "Found one role." },
+    ]);
+    const { app, db, blobs, ledger } = build(model);
+    await seedJob(db, blobs);
+    await (await chat(app, "backend roles")).text();
+    expect(await ledger.used(today())).toBe(20);
+  });
+
+  it("refuses a turn when the day's ceiling is reached", async () => {
+    const { model, prompts } = scripted([{ text: "hi" }]);
+    const { app, ledger } = build(model, { limit: 50 });
+    await ledger.add(today(), 50);
+    const response = await chat(app, "hi");
+    expect(response.status).toBe(429);
+    expect(prompts).toHaveLength(0);
+  });
+
+  it("shows the model only the recent turns of a long conversation", async () => {
+    const { model, prompts } = scripted([{ text: "ok" }]);
+    const { app } = build(model);
+    const messages = Array.from({ length: 101 }, (_, i) => ({
+      id: `m${i}`,
+      role: i % 2 === 0 ? "user" : "assistant",
+      parts: [{ type: "text", text: `turn-${i};` }],
+    }));
+    const response = await app.request("/v1/ai/chat", {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ messages }),
+    });
+    await response.text();
+    expect(prompts[0]).toContain("turn-100;");
+    expect(prompts[0]).not.toContain("turn-10;");
+  });
+});

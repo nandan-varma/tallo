@@ -48,7 +48,11 @@ export function meter(): Meter {
  * Wraps a model with AI SDK middleware that adds each call's usage to `m`. Every call goes through it, the
  * agent's steps and the single-shot resume calls alike, so one meter covers a whole request.
  */
-export function meteredModel(model: Exclude<LanguageModel, string>, m: Meter): LanguageModel {
+export function meteredModel(model: LanguageModel, m: Meter): LanguageModel {
+  // A bare model id string is resolved by the SDK's global provider, which this app never configures.
+  if (typeof model === "string") {
+    throw new TypeError("meteredModel needs a model object, not an id string");
+  }
   return wrapLanguageModel({
     model,
     middleware: {

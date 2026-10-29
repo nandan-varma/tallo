@@ -67,7 +67,7 @@ to saved searches too.
 - `jobs-port.ts`: `rankedSpec` turns a spec into the ranked query. `search` and `searchPage` run the same query.
 - `GET /v1/jobs` keeps the newest-first keyset feed (`searchJobs`), but `q` is now required (400 without it): the feed
   had no index, and no client calls it without text.
-- Missing `OPENCODE_API_KEY` or `AI_MODEL_SMART`: 503 with a clear message.
+- Missing `OPENCODE_API_KEY` or `AI_MODEL_SMART`: 503 with a clear message. Daily token ceiling reached: 429 (see Cost controls).
 
 ## Ranked search (`rankedJobs`, `packages/db/src/queries.ts`)
 
@@ -124,6 +124,37 @@ query plan shows the MATCH on the FTS index, the candidate sort, and primary-key
 
 The reads are the FTS index rows plus the candidate joins. A title with many postings costs up to the 2000-candidate bound; a
 place that narrows the MATCH (NYC, Houston) costs far less.
+
+## Cost controls
+
+Every AI call goes through one gate (`openGate`, `apps/api/src/assistant.ts`) and the AI SDK's own middleware; nothing else is custom.
+- **Ceilings per request.** Chat: at most `MAX_STEPS` (14) model calls, `STEP_OUTPUT_TOKENS` (2000) output per call, `MAX_READS` reads, and once
+  a message has spent `TURN_INPUT_TOKENS` (160k, read from provider usage) the tools are removed so the model can only answer. One call's
+  input is held under `STEP_INPUT_TOKENS` (24k estimated) by replacing the oldest search results with a marker, and the model sees only the
+  last 40 messages (`recentTurns`); the browser still holds the whole chat. Resume calls set `maxOutputTokens` explicitly.
+- **Clipping is marked.** `clip` (`@tallo/ai`) keeps the first 40% and last 60% of a long description and inserts
+  `[... N characters left out here ...]`, so the model never reads a gap as the whole text. Reads are clipped at 20k characters (about 5k
+  tokens), resume tailor/fit/prep/letter at 12k. The old silent `slice` is gone. The tail is kept because pay and requirements sit there.
+- **Prompt caching.** The chat's system message (tools, instructions, profile) and the newest message carry Anthropic cache markers, so each
+  step and each turn reads the earlier prefix from the cache. Providers that do not support it ignore the marker (`go` openai-compatible
+  models do; `go-anthropic` and `anthropic` honour it). Whether it works shows in the log as `cached` (below).
+- **Usage log.** One line per request: `{"event":"ai.usage","feature":"chat|resume.fit|...","model","steps","input","cached","cacheWrite","output"}`.
+  Read it with `wrangler tail` or Workers Logs (observability is already on).
+- **Daily budget.** `AI_DAILY_TOKEN_LIMIT` (input plus output, per UTC day, default 2,000,000, a bad value is a 503). Over it, AI routes answer
+  429 with `Retry-After` until 00:00 UTC. The count is kept in memory per isolate unless a KV namespace is bound as `AI_SPEND`, which makes it
+  shared and survives restarts. KV read-modify-write is not atomic: two requests ending together can lose one update, which is fine for a
+  guard for one user. Tokens are counted when a request ends, so one request can overshoot by its own size.
+- **Cheap routing.** Roles are `fast` and `smart`. Resume import and fit-check (extraction and structured comparison) use `fast`; chat,
+  tailoring, editing, cover letters and interview prep use `smart`. `fast` falls back to `smart` until `AI_MODEL_FAST` is set, so nothing
+  changes until you opt in. Re-test a candidate with the structured-output list above before choosing it.
+
+To enable (nothing here is created by the code or deployed):
+
+```jsonc
+// apps/api/wrangler.jsonc, optional
+"kv_namespaces": [{ "binding": "AI_SPEND", "id": "<id from: cf kv namespace create tallo-ai-spend>" }],
+"vars": { "AI_MODEL_SMART": "go-anthropic:claude-haiku-5-5", "AI_MODEL_FAST": "go:<cheap structured-output model>", "AI_DAILY_TOKEN_LIMIT": "2000000" }
+```
 
 ## Models on OpenCode Go (measured 2026-10-26)
 

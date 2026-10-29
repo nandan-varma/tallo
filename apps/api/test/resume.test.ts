@@ -248,3 +248,39 @@ describe("interview prep route", () => {
     ).toBe(503);
   });
 });
+
+describe("model routing and spend", () => {
+  it("sends import and fit to the fast model, tailoring to the smart one", async () => {
+    const smart = answering({ resume: resume(), changes: [] });
+    const fast = answering({ nonsense: true });
+    const { app, db, blobs } = build(smart.model, { fast: fast.model });
+    await seedJob(db, blobs);
+
+    await send(app, "/v1/resume/fit", "POST", { jobId: 1, resume: resume() });
+    expect(fast.prompts).toHaveLength(1);
+    expect(smart.prompts).toHaveLength(0);
+
+    await send(app, "/v1/resume/tailor", "POST", { jobId: 1, resume: resume() });
+    expect(smart.prompts).toHaveLength(1);
+    expect(fast.prompts).toHaveLength(1);
+  });
+
+  it("counts the tokens a call spent, even when the model's answer is unusable", async () => {
+    const { app, db, blobs, ledger } = build(answering({ nonsense: true }).model);
+    await seedJob(db, blobs);
+    const response = await send(app, "/v1/resume/fit", "POST", { jobId: 1, resume: resume() });
+    expect(response.status).toBe(502);
+    expect(await ledger.used(new Date().toISOString().slice(0, 10))).toBe(10);
+  });
+
+  it("answers 429 with Retry-After once the day's tokens are spent, and calls no model", async () => {
+    const { model, prompts } = answering({});
+    const { app, db, blobs, ledger } = build(model, { limit: 100 });
+    await seedJob(db, blobs);
+    await ledger.add(new Date().toISOString().slice(0, 10), 100);
+    const response = await send(app, "/v1/resume/fit", "POST", { jobId: 1, resume: resume() });
+    expect(response.status).toBe(429);
+    expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(prompts).toHaveLength(0);
+  });
+});
