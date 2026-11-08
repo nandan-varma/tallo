@@ -5,6 +5,7 @@ import { testDb } from "@tallo/db/testing";
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 import { createApi } from "../src/api.ts";
+import { dueSources } from "../src/due.ts";
 import { syncSource } from "../src/sync.ts";
 import { verifySource } from "../src/verify.ts";
 
@@ -125,6 +126,25 @@ describe("syncSource end to end", () => {
     expect(result).toMatchObject({ listingComplete: true, detailsComplete: false });
     expect(result.issues.some((i) => i.code === "detail")).toBe(true);
     expect((await read(app, "/v1/jobs?q=revenue")).jobs).toHaveLength(0);
+  });
+});
+
+describe("empty-board back-off, end to end", () => {
+  it("a board that lists nothing is backed off, and one that lists postings is not", async () => {
+    const { api } = stack();
+    const empty: typeof fetch = async () => new Response(JSON.stringify({ jobs: [] }));
+    const cutoff = Date.now() / 1000 + 1;
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: empty });
+    const [afterEmpty] = await api.sources();
+    expect(afterEmpty).toMatchObject({ lastStatus: "complete", lastPostingsAt: null });
+    const state = () => api.sources().then((rows) => new Map(rows.map((r) => [r.id, r])));
+    expect(dueSources([source], await state(), { cutoff })).toEqual([]);
+
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: greenhouse() });
+    const [afterPostings] = await api.sources();
+    expect(afterPostings?.lastPostingsAt).toEqual(expect.any(Number));
+    // A board with postings is due on the normal schedule: no back-off, just the staleness cutoff.
+    expect(dueSources([source], await state(), { cutoff })).toEqual([source]);
   });
 });
 

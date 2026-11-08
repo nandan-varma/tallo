@@ -94,3 +94,53 @@ describe("deadSources and formatDead", () => {
     expect(formatDead([])).toBe("No dead boards.");
   });
 });
+
+describe("empty-board back-off", () => {
+  const DAY = 86_400;
+  const now = 1_000 * DAY;
+  const board = { id: "ashby:empty", platform: "ashby" };
+  const at = (days: number) => now - days * DAY;
+  /** One board with its last complete run `sinceRun` seconds ago. */
+  const state = (
+    lastPostingsAt: number | null,
+    sinceRun: number,
+    lastStatus: string | null = "complete",
+  ) =>
+    new Map([
+      [
+        board.id,
+        {
+          status: "active" as const,
+          lastCompleteRunAt: now - sinceRun,
+          lastStatus,
+          lastPostingsAt,
+        },
+      ],
+    ]);
+  const dueAt = (s: ReturnType<typeof state>, source?: string) =>
+    dueSources([board], s, { cutoff: now - 3600, now, ...(source ? { source } : {}) });
+
+  it("keeps a board with postings in the last week on the normal schedule", () => {
+    expect(dueAt(state(at(1), DAY))).toEqual([board]);
+  });
+
+  it("runs a board empty for a week every three days", () => {
+    expect(dueAt(state(at(10), 2 * DAY))).toEqual([]);
+    expect(dueAt(state(at(10), 3 * DAY))).toEqual([board]);
+  });
+
+  it("runs a board empty for a month, or never listed, weekly", () => {
+    expect(dueAt(state(at(40), 6 * DAY))).toEqual([]);
+    expect(dueAt(state(null, 6 * DAY))).toEqual([]);
+    expect(dueAt(state(null, 7 * DAY))).toEqual([board]);
+  });
+
+  it("never backs off a board whose last run was partial, so failing boards keep daily retries", () => {
+    expect(dueAt(state(at(40), DAY, "partial"))).toEqual([board]);
+    expect(dueAt(state(at(40), DAY, null))).toEqual([board]);
+  });
+
+  it("an explicit source bypasses the back-off", () => {
+    expect(dueAt(state(at(40), DAY), board.id)).toEqual([board]);
+  });
+});
