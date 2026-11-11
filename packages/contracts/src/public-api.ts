@@ -22,6 +22,9 @@ export const POSTING_ID_SOURCE = "[1-9]\\d{0,15}";
 /** Longest path plus query the public API accepts, in characters. Longer is answered 414 before any query runs. */
 export const PUBLIC_MAX_URL_CHARS = 2048;
 
+/** Requests per minute from one address. The web Worker's rate limiting binding is configured to match (wrangler.jsonc). */
+export const PUBLIC_RATE_PER_MINUTE = 60;
+
 export const SEARCH_DEFAULT_LIMIT = 10;
 export const SEARCH_MAX_LIMIT = 25;
 /** The first chunk of a description on the job page, and the default chunk of the description route. */
@@ -166,7 +169,9 @@ export function encodeCursor(query: CursorQuery, offset: number): string {
 /** The offset a cursor stands for, or null when it is malformed, edited, beyond the cap, or for another query. */
 export function decodeCursor(cursor: string, query: CursorQuery): number | null {
   const text = fromBase64url(cursor);
-  const match = text === null ? null : /^(\d{1,4})\.([0-9a-f]{8})$/.exec(text);
+  // Only the one spelling encodeCursor writes: base64 can carry the same bytes in more than one string.
+  if (text === null || toBase64url(text) !== cursor) return null;
+  const match = /^(\d{1,4})\.([0-9a-f]{8})$/.exec(text);
   if (!match) return null;
   const offset = Number(match[1]);
   if (offset >= SEARCH_RESULT_CAP || match[2] !== checksum(query, offset)) return null;

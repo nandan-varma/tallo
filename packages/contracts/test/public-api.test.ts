@@ -32,6 +32,16 @@ describe("search cursor", () => {
     expect(decodeCursor(cursor, { ...query, location: ["NYC"] })).toBeNull();
   });
 
+  it("accepts only the one spelling of each cursor, so no edit of its last character passes", () => {
+    const cursor = encodeCursor(query, 20);
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    for (const c of alphabet) {
+      const edited = cursor.slice(0, -1) + c;
+      if (edited === cursor) continue;
+      expect(decodeCursor(edited, query), edited).toBeNull();
+    }
+  });
+
   it("rejects a tampered, malformed or out-of-range cursor", () => {
     const cursor = encodeCursor(query, 20);
     const flipped = cursor.slice(0, -1) + (cursor.endsWith("A") ? "B" : "A");
