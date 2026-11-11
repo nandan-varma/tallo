@@ -3,6 +3,7 @@ import {
   PUBLIC_MAX_URL_CHARS,
   PUBLIC_ORIGIN,
   PUBLIC_PATHS,
+  PUBLIC_RATE_PER_MINUTE,
   type PublicError,
   publicError,
 } from "@tallo/contracts";
@@ -11,9 +12,6 @@ import {
  * The public proxy: GET-only, allowlisted, rate limited per address, and cached at the edge. The API behind it is
  * never reachable through these paths except as listed in `PUBLIC_PATHS`.
  */
-
-/** The per-address budget. Must match the `simple` limit of the rate limiting binding in wrangler.jsonc. */
-export const RATE_PER_MINUTE = 60;
 
 /** The Cache API, as far as this module uses it (`caches.default` in production). */
 export interface EdgeCache {
@@ -132,7 +130,7 @@ export async function handlePublic(request: Request, deps: PublicDeps): Promise<
       429,
       publicError(
         "rate_limited",
-        `Too many requests from this address: about ${RATE_PER_MINUTE} a minute.`,
+        `Too many requests from this address: about ${PUBLIC_RATE_PER_MINUTE} a minute.`,
         "Wait a minute, then retry. Keep your own copy of answers: search results change at most every few minutes.",
       ),
       { "retry-after": "60" },

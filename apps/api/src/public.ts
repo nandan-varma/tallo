@@ -236,7 +236,7 @@ export function publicRoutes({ db, blobs }: { db: Db; blobs: BlobStore }) {
         publicError(
           "not_found",
           `Posting ${id} has no stored description.`,
-          "Use the job page for its facts and apply link: /v1/jobs/" + id,
+          `Use the job page for its facts and apply link: /v1/jobs/${id}`,
         ),
       );
     }

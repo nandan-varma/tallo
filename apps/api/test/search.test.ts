@@ -362,7 +362,7 @@ describe("GET /v1/search", () => {
     expect((await error("title=ab&limit=1.5")).message).toMatch(/^limit: /);
     expect((await error("title=ab&limit=abc")).message).toMatch(/^limit: /);
     expect((await error("title=ab&q=engineer")).code).toBe("unknown_parameter");
-    expect((await error("title=ab&cursor=" + "x".repeat(101))).message).toMatch(/^cursor: /);
+    expect((await error(`title=ab&cursor=${"x".repeat(101)}`)).message).toMatch(/^cursor: /);
   });
 
   it("rejects a tampered cursor, a cursor from another search, and one past the cap", async () => {
