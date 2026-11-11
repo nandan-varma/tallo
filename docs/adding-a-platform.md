@@ -24,7 +24,7 @@ Nothing else changes: not contracts, not the db, not the runner.
      stays in the raw payload. Use `describe(html...)` for description text and `locations([...])`.
      Map pay to `Money[]` with currency/interval/component, and experience to `Quantity[]`, only from
      structured source fields. Use the interval the source states and leave it `unknown` otherwise. Nothing
-     is parsed from description text: the database stores what the source stated and the assistant judges the rest.
+     is parsed from description text: the database stores what the source stated and the reader judges the rest.
 4. Register it in `src/index.ts`.
 5. Tests in `packages/platforms/test/platforms.test.ts`: list (with a fake `Http`), pagination/completeness,
    map assertions on fixtures, and the failure modes (malformed response, empty list).

@@ -33,7 +33,6 @@
   "durable_objects": { "bindings": [{ "name": "HOST_GATE", "class_name": "HostGate" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostGate"] }],
   "vars": {
-    "AI_MODEL_SMART": "go-anthropic:claude-haiku-5-5",
     "COLLECT_ENABLED": "1",
     "COLLECT_BATCH": "3000",
     "COLLECT_SLICE_SUBREQUESTS": "800",

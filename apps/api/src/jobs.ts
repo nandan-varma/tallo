@@ -12,7 +12,7 @@ import {
 } from "@tallo/db";
 import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
-import { searchPage } from "./jobs-port.ts";
+import { searchPage } from "./search.ts";
 
 /** Reads a posting's description from its gzipped blob in R2; null when the blob is gone. */
 export const descriptionReader = (blobs: BlobStore) => async (jdHash: string) => {
@@ -40,7 +40,7 @@ export function jobRoutes({
     return c.json(await searchJobs(db, c.req.valid("query")));
   });
 
-  /** The results list: a page of the database's answer to a search spec (what the assistant searched for). */
+  /** The results list: a page of the database's answer to a search spec (the same query the results page sends). */
   routes.post("/v1/jobs/search", read, zValidator("json", searchPageSchema), async (c) => {
     c.header("cache-control", "private, no-store");
     return c.json(await searchPage(db, c.req.valid("json")));

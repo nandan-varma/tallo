@@ -48,7 +48,6 @@ export default defineConfig({
         worker: "tallo-api",
         exportName: "HostGate",
       }),
-      AI_MODEL_SMART: bindings.text("go-anthropic:claude-haiku-5-5"),
       COLLECT_ENABLED: bindings.text("1"),
       COLLECT_BATCH: bindings.text("3000"),
       COLLECT_SLICE_SUBREQUESTS: bindings.text("800"),

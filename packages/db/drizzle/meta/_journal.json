@@ -141,6 +141,13 @@
       "when": 1794426559542,
       "tag": "0019_failure_count",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794426915423,
+      "tag": "0020_drop_personal_tables",
+      "breakpoints": true
     }
   ]
 }

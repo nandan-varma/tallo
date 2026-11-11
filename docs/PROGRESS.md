@@ -2,6 +2,20 @@
 
 _Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-11-11: public search pivot (issue #72, PR open, not merged)
+
+- Removed: the assistant, resume builder, application tracker, saved searches, profile, status page, access-key
+  middleware, `packages/ai`, `packages/resume`, `packages/search-ai`, and the `AI_*` / `OPENCODE_API_KEY` settings.
+- Kept: catalog, collection, ingest, admin, runner, `GET /v1/jobs`, `POST /v1/jobs/search`, `GET /v1/jobs/:id`,
+  `GET /v1/sources/status`. The web is `/` (home with a search form) and `/search` (plain GET form, results
+  paginated server-side, 20 per page, links to each employer's application).
+- Migration `0020_drop_personal_tables` drops `profiles`, `resumes`, `applications`, `searches`. It is NOT applied to
+  production; the main agent applies it remotely. Numbered after `0019_failure_count`.
+- Behaviour change to check: `POST /v1/jobs/search` hits now carry `applyUrl` (the apply link, else the posting page).
+  Additive; needed for the results links.
+- Open: `/llms.txt` (named in the pivot intro, not in this issue's scope); the web is `noindex` (kept as before; a
+  public-site decision); `CLAUDE.md`, `docs/decisions.md` (D15), `docs/architecture.md`, `docs/runbook.md` updated.
+
 ## Session 2026-11-11: health check and dead-board prune
 
 - D1 read-only check: 8,688 boards, 0 due or overdue, 0 stuck runs, DLQ empty, 684,781 open jobs, 0 orphan jobs. Partials (146 of 353 runs in 3 days) are all Workday (stopped, 422/403) and Oracle Cloud (short page).

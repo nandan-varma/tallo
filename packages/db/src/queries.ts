@@ -1,6 +1,6 @@
 import { type Money, payText, STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, getTableColumns, gt, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
 import { jobs, runs, sources } from "./schema.ts";
@@ -59,7 +59,7 @@ export interface RankedSpec {
 
 /**
  * bm25 column weights for `jobs_fts` (title, company, location_text): a title word is worth five company words and
- * ten location words. Swept on the evaluation set (`packages/db/eval`, docs/ai-search.md): the settings tried were within
+ * ten location words. Swept on the evaluation set (`packages/db/eval`): the settings tried were within
  * noise of each other, so these stay.
  */
 export const BM25_WEIGHTS = [10, 2, 1] as const;
@@ -102,14 +102,6 @@ function candidateFilter(spec: RankedSpec, now: number): SQL[] {
 function candidatesFor(match: string, filter: SQL[]) {
   const score = sql`bm25(jobs_fts, ${sql.raw(BM25_WEIGHTS.join(", "))})`;
   return sql`(SELECT jobs_fts.rowid AS id, ${score} AS score FROM jobs_fts JOIN jobs ON jobs.id = jobs_fts.rowid WHERE jobs_fts MATCH ${match} AND ${and(...filter)} ORDER BY ${score}, jobs_fts.rowid LIMIT ${RANK_CANDIDATES})`;
-}
-
-/**
- * The newest `RANK_CANDIDATES` rows for a MATCH that pass `filter`, by rowid (insertion order), newest first. Used for
- * counting new roles: a role posted recently is always inside this window, whatever its bm25 rank.
- */
-function newestCandidatesFor(match: string, filter: SQL[]) {
-  return sql`(SELECT jobs_fts.rowid AS id FROM jobs_fts JOIN jobs ON jobs.id = jobs_fts.rowid WHERE jobs_fts MATCH ${match} AND ${and(...filter)} ORDER BY jobs_fts.rowid DESC LIMIT ${RANK_CANDIDATES})`;
 }
 
 /**
@@ -226,29 +218,6 @@ export async function rankedJobs(
     .limit(page.limit)
     .offset(page.offset);
   return rows.map(({ facts, ...row }) => ({ ...row, pay: payOf(facts) }));
-}
-
-/**
- * How many postings matching a spec were posted after `since` (`sort_at`), up to `cap`. The candidates are the
- * newest `RANK_CANDIDATES` matches by rowid, not the best-ranked ones: a new role with a weak title match must still
- * be counted. Counts postings, not collapsed rows; reads at most `RANK_CANDIDATES` index rows.
- */
-export async function countPostedSince(
-  db: Db,
-  spec: RankedSpec,
-  since: number,
-  cap: number,
-  now = Math.floor(Date.now() / 1000),
-): Promise<number> {
-  const match = rankedMatch(spec);
-  if (!match) return 0;
-  const rows = await db
-    .select({ id: jobs.id })
-    .from(sql`${newestCandidatesFor(match, candidateFilter(spec, now))} AS cand`)
-    .innerJoin(jobs, sql`${jobs.id} = cand.id`)
-    .where(gt(jobs.sortAt, since))
-    .limit(cap);
-  return rows.length;
 }
 
 export async function getJob(db: Db, id: number) {

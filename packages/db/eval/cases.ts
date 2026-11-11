@@ -1,7 +1,7 @@
 import type { SearchSpec } from "@tallo/contracts";
 
 /**
- * The standing search-quality set. Each case is a request the assistant might send (`spec`) with the truth written
+ * The standing search-quality set. Each case is a request a reader might send (`spec`) with the truth written
  * by hand (`must`, `mustNot`), independent of the places table and the ranking. Words are matched as whole words
  * (plural and singular alike); a phrase needs all its words; a list of phrases is ORed.
  *

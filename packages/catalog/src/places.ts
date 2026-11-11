@@ -458,7 +458,7 @@ export interface ExpandedPlaces {
 }
 
 /**
- * Expands the place words a person (or the assistant, passing their words) gave. Known aliases become the strings
+ * Expands the place words a person (or a client passing their words) gave. Known aliases become the strings
  * postings use; unknown words stay as written. Duplicates are dropped; order is kept.
  */
 export function expandPlaces(words: string[]): ExpandedPlaces {

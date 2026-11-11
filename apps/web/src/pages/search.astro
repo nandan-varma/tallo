@@ -1,0 +1,37 @@
+---
+import { JobResults } from "@/components/JobResults";
+import { SearchForm } from "@/components/SearchForm";
+import Base from "@/layouts/Base.astro";
+import { PAGE_SIZE, runSearch } from "@/lib/api";
+import { offsetFrom, searchHref, specFrom, valuesFrom } from "@/lib/search";
+
+const values = valuesFrom(Astro.url.searchParams);
+const offset = offsetFrom(Astro.url.searchParams);
+const spec = specFrom(values);
+
+// A failed search shows a plain message; the form stays usable.
+let page: Awaited<ReturnType<typeof runSearch>> | null = null;
+let failed = false;
+if (spec) {
+  try {
+    page = await runSearch(spec, offset);
+  } catch {
+    failed = true;
+  }
+}
+---
+<Base title="Search · Tallo">
+  <section class="mx-auto grid max-w-3xl gap-8 px-6 py-10">
+    <SearchForm values={values} />
+    {!spec && <p class="text-sm text-muted-foreground">Enter a job title to search.</p>}
+    {failed && <p role="alert" class="text-sm text-destructive">The search is unavailable right now. Try again in a moment.</p>}
+    {page && (
+      <JobResults
+        hits={page.hits}
+        start={offset + 1}
+        prevHref={offset > 0 ? searchHref(values, Math.max(0, offset - PAGE_SIZE)) : null}
+        nextHref={page.nextOffset !== null ? searchHref(values, page.nextOffset) : null}
+      />
+    )}
+  </section>
+</Base>

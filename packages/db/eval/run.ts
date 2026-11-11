@@ -1,6 +1,6 @@
 /**
  * The standing search-quality harness. Runs every case in `cases.ts` through the same ranked query the site uses
- * (`rankedJobs`, with the spec mapped by `rankedSpec` from apps/api) and prints a table; `--json` writes the report.
+ * (`rankedJobs`, with the spec mapped by `rankedSpec` from apps/api/src/search.ts) and prints a table; `--json` writes the report.
  *
  *   pnpm --filter @tallo/db eval                              in-memory fixture (CI; no network)
  *   pnpm --filter @tallo/db eval -- --prod --truth truth.json --json out.json
