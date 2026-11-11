@@ -496,10 +496,6 @@
   "company": "AnySignal"
  },
  {
-  "key": "anything",
-  "company": "Anything"
- },
- {
   "key": "anyvan",
   "company": "AnyVan"
  },
@@ -754,10 +750,6 @@
  {
   "key": "atominvest",
   "company": "Atominvest"
- },
- {
-  "key": "atria",
-  "company": "Atria"
  },
  {
   "key": "atrix",
@@ -1110,10 +1102,6 @@
  {
   "key": "blank-metal",
   "company": "Blank Metal"
- },
- {
-  "key": "blink",
-  "company": "Blink Tech Inc"
  },
  {
   "key": "bliro",
@@ -1822,10 +1810,6 @@
  {
   "key": "coinflow",
   "company": "Coinflow"
- },
- {
-  "key": "coinhako",
-  "company": "Coinhako"
  },
  {
   "key": "cointracker",
@@ -2760,10 +2744,6 @@
   "company": "Evolve AI Ltd"
  },
  {
-  "key": "evolve-tech-llc",
-  "company": "Evolve Tech LLC"
- },
- {
   "key": "exa",
   "company": "Exa"
  },
@@ -2942,10 +2922,6 @@
  {
   "key": "firecrawl",
   "company": "Firecrawl"
- },
- {
-  "key": "firetiger",
-  "company": "Firetiger"
  },
  {
   "key": "fireworks",
@@ -3436,10 +3412,6 @@
   "company": "Gorgias"
  },
  {
-  "key": "gorilla",
-  "company": "Gorilla"
- },
- {
   "key": "goteleport",
   "company": "Teleport"
  },
@@ -3710,10 +3682,6 @@
  {
   "key": "healthleap",
   "company": "HealthLeap"
- },
- {
-  "key": "healthprogresshub",
-  "company": "Health Progress Hub"
  },
  {
   "key": "healthsherpa",
@@ -7112,10 +7080,6 @@
   "company": "RevenueCat"
  },
  {
-  "key": "revic",
-  "company": "Revic"
- },
- {
   "key": "reviserobotics",
   "company": "Revise Robotics"
  },
@@ -7992,10 +7956,6 @@
   "company": "SpruceID"
  },
  {
-  "key": "squad",
-  "company": "Squad | Bowery"
- },
- {
   "key": "squads",
   "company": "Squads"
  },
@@ -8424,10 +8384,6 @@
   "company": "tem"
  },
  {
-  "key": "tempo",
-  "company": "Tempo"
- },
- {
   "key": "tempo-xyz",
   "company": "Tempo"
  },
@@ -8612,16 +8568,8 @@
   "company": "Tight"
  },
  {
-  "key": "tilderesearch",
-  "company": "Tilde Research"
- },
- {
   "key": "tillster",
   "company": "Tillster"
- },
- {
-  "key": "tilt",
-  "company": "Tilt"
  },
  {
   "key": "tilthq",
