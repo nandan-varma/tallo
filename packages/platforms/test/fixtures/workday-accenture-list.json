@@ -1,0 +1,32 @@
+{
+  "total": 3,
+  "jobPostings": [
+    {
+      "title": "Consultor(a) SAP TM",
+      "externalPath": "/job/Pernambuco---Recife/Pessoa-Consultora---SAP-TM_R00253075",
+      "postedOn": "Posted Today",
+      "bulletFields": [
+        "R00253075",
+        "Location Negotiable"
+      ]
+    },
+    {
+      "bulletFields": [
+        "R00338212",
+        "London"
+      ]
+    },
+    {
+      "title": "Agentic Commerce Senior Manager | GEO & Search",
+      "externalPath": "/job/Chicago-Accenture-Tower-Corp/Agentic-Commerce-Senior-Manager---GEO---Search_R00362170",
+      "postedOn": "Posted Today",
+      "bulletFields": [
+        "R00362170",
+        "Location Negotiable"
+      ]
+    }
+  ],
+  "facets": [],
+  "userAuthenticated": false,
+  "_note": "Three rows of page one from AccentureCareers (wd103); row 2 has no externalPath (real). Total is trimmed to the three rows kept."
+}
