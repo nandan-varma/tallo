@@ -1,13 +1,6 @@
-import { type SearchSpec, TIERS } from "@tallo/contracts";
+import { TIERS } from "@tallo/contracts";
 import { sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  primaryKey,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /** One configured recruiting surface. Mirrors the repo's source config; written when a run starts. */
 export const sources = sqliteTable(
@@ -149,68 +142,3 @@ export const jobs = sqliteTable(
 );
 
 export type JobRow = typeof jobs.$inferSelect;
-
-/**
- * Personal layer (CLAUDE.md rule 5): free-text notes the person gives the assistant (`profile`), keyed by user. Never joined into the shared catalog tables. Search results and chat are not stored anywhere.
- */
-export const profiles = sqliteTable("profiles", {
-  userId: text("user_id").primaryKey(),
-  profile: text().notNull(),
-  updatedAt: integer("updated_at").notNull(),
-});
-
-/**
- * Personal layer: the structured resume the user builds. One base copy (`job_id` 0) and one copy per posting
- * it was tailored for. `job_id` is a plain number, not a foreign key: a copy outlives its posting being closed
- * or purged. `doc` is the JSON of `ResumeDoc` (words and style), validated at the API edge.
- */
-export const resumes = sqliteTable(
-  "resumes",
-  {
-    userId: text("user_id").notNull(),
-    jobId: integer("job_id").notNull().default(0),
-    doc: text({ mode: "json" }).$type<unknown>().notNull(),
-    updatedAt: integer("updated_at").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.jobId] })],
-);
-
-/**
- * Personal layer: the application tracker, one row per posting the person has saved or applied to, keyed by user.
- * `job_id` is a plain number, not a foreign key: the tracker outlives the posting being closed or purged, so the
- * title, company, place and apply address are copied in when the role is first tracked.
- */
-export const applications = sqliteTable(
-  "applications",
-  {
-    userId: text("user_id").notNull(),
-    jobId: integer("job_id").notNull(),
-    status: text().notNull(),
-    note: text().notNull().default(""),
-    title: text().notNull(),
-    company: text().notNull(),
-    location: text(),
-    applyUrl: text("apply_url"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
-    appliedAt: integer("applied_at"),
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.jobId] })],
-);
-
-/**
- * Personal layer: a saved search (the title phrases and places the assistant built), keyed by user. `spec` is the
- * JSON of `SearchSpec`. `seen_at` is when the person last ran it; roles posted after that count as new.
- */
-export const searches = sqliteTable(
-  "searches",
-  {
-    id: integer().primaryKey({ autoIncrement: true }),
-    userId: text("user_id").notNull(),
-    name: text().notNull(),
-    spec: text({ mode: "json" }).$type<SearchSpec>().notNull(),
-    createdAt: integer("created_at").notNull(),
-    seenAt: integer("seen_at").notNull(),
-  },
-  (t) => [index("searches_user_idx").on(t.userId)],
-);

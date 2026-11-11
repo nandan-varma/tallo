@@ -1,8 +1,12 @@
 import { gzip, sha256 } from "@tallo/catalog";
+import type { SearchSpec } from "@tallo/contracts";
 import { jdKey, memoryBlobs, schema } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { jobsPort, newCountSince, searchPage } from "../src/jobs-port.ts";
+import { createApp } from "../src/app.ts";
+import { searchPage } from "../src/search.ts";
+import { INGEST, READ } from "./support.ts";
 
 const SOURCE = "greenhouse:acme";
 const now = () => Math.floor(Date.now() / 1000);
@@ -84,28 +88,32 @@ async function seed(
 function setup() {
   const db = testDb();
   const blobs = memoryBlobs();
-  return { db, blobs, port: jobsPort(db, blobs) };
+  return { db, blobs };
 }
+
+/** The hits of one page of a spec, the way the results list asks for them. */
+const hitsOf = async (db: Db, spec: SearchSpec, limit: number, offset = 0) =>
+  (await searchPage(db, { ...spec, offset, limit })).hits;
 
 const titles = (hits: { title: string }[]) => hits.map((h) => h.title);
 
-describe("jobsPort.search", () => {
+describe("search ranking", () => {
   it("matches every word of a title phrase, so a phrase stays narrow", async () => {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     await seed(db, blobs, { postingId: "1", title: "Backend Engineer" });
     await seed(db, blobs, { postingId: "2", title: "Frontend Engineer" });
 
-    const hits = await port.search({ queries: ["backend engineer"] }, 40);
+    const hits = await hitsOf(db, { queries: ["backend engineer"] }, 40);
 
     expect(titles(hits)).toEqual(["Backend Engineer"]);
   });
 
   it("returns compact hits with unknowns as null and the stated pay line as text", async () => {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     await seed(db, blobs, { postingId: "1", title: "Platform Engineer", pay: [150000, 180000] });
     await seed(db, blobs, { postingId: "2", title: "Platform Engineer II" });
 
-    const hits = await port.search({ queries: ["platform engineer"] }, 40);
+    const hits = await hitsOf(db, { queries: ["platform engineer"] }, 40);
 
     const paid = hits.find((h) => h.title === "Platform Engineer");
     const unpaid = hits.find((h) => h.title === "Platform Engineer II");
@@ -115,13 +123,12 @@ describe("jobsPort.search", () => {
       pay: "USD 150000-180000 per year",
       locations: 1,
     });
-    expect((await port.lookup([String(paid?.id)]))[0]?.pay).toBe("USD 150000-180000 per year");
     expect(unpaid?.pay).toBeNull();
     expect(unpaid?.department).toBeNull();
   });
 
   it("ranks one OR across the phrases, each job once, and stops at the limit", async () => {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     for (let i = 1; i <= 5; i++)
       await seed(db, blobs, {
         postingId: `${i}`,
@@ -135,7 +142,8 @@ describe("jobsPort.search", () => {
         company: `P${i}`,
       });
 
-    const hits = await port.search(
+    const hits = await hitsOf(
+      db,
       { queries: ["backend engineer", "platform engineer", "backend engineer"] },
       4,
     );
@@ -145,13 +153,13 @@ describe("jobsPort.search", () => {
   });
 
   it("collapses one company and title across locations into one hit with the count", async () => {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     await seed(db, blobs, { postingId: "1", title: "Data Engineer", location: "Seattle, WA" });
     await seed(db, blobs, { postingId: "2", title: "Data Engineer", location: "Boston, MA" });
     await seed(db, blobs, { postingId: "3", title: "Data Engineer", location: "Austin, TX" });
     await seed(db, blobs, { postingId: "4", title: "Data Engineer", company: "Other" });
 
-    const hits = await port.search({ queries: ["data engineer"] }, 40);
+    const hits = await hitsOf(db, { queries: ["data engineer"] }, 40);
 
     expect(hits).toHaveLength(2);
     expect(hits.find((h) => h.company === "Acme")).toMatchObject({ locations: 3 });
@@ -159,84 +167,42 @@ describe("jobsPort.search", () => {
   });
 
   it("never returns closed or duplicate rows", async () => {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     const keep = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
     await seed(db, blobs, { postingId: "2", title: "Data Engineer", closed: true, company: "C" });
     await seed(db, blobs, { postingId: "4", title: "Data Engineer", dupOf: keep, company: "D" });
 
-    const hits = await port.search({ queries: ["data engineer"] }, 40);
+    const hits = await hitsOf(db, { queries: ["data engineer"] }, 40);
 
     expect(hits.map((h) => h.id)).toEqual([String(keep)]);
   });
 
   it("skips phrases with no searchable word", async () => {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
-    expect(await port.search({ queries: ['"" ** ()', "data engineer"] }, 40)).toHaveLength(1);
-    expect(await port.search({ queries: ["--"] }, 40)).toEqual([]);
+    expect(await hitsOf(db, { queries: ['"" ** ()', "data engineer"] }, 40)).toHaveLength(1);
+    expect(await hitsOf(db, { queries: ["--"] }, 40)).toEqual([]);
   });
   it("pages candidates beyond the first search window without repeating jobs", async () => {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     for (let i = 1; i <= 5; i++)
       await seed(db, blobs, {
         postingId: String(i),
         title: `Software Engineer ${i}`,
         company: `Co ${i}`,
       });
-    const first = await port.search({ queries: ["software engineer"] }, 2);
-    const second = await port.search({ queries: ["software engineer"] }, 2, 2);
+    const first = await hitsOf(db, { queries: ["software engineer"] }, 2);
+    const second = await hitsOf(db, { queries: ["software engineer"] }, 2, 2);
     expect(first).toHaveLength(2);
     expect(second).toHaveLength(2);
     expect(new Set([...first, ...second].map((hit) => hit.id)).size).toBe(4);
   });
 });
 
-describe("jobsPort.read", () => {
-  it("returns the full description, never truncated, with the apply link and facts", async () => {
-    const { db, blobs, port } = setup();
-    const description = `${"Intro paragraph. ".repeat(3_000)}\nPay: $200,000.\nMinimum 6 years of Go.`;
-    const id = await seed(db, blobs, { postingId: "1", title: "Staff Engineer", description });
-
-    const job = await port.read(String(id));
-
-    expect(job?.description).toBe(description);
-    expect(job?.description?.length).toBeGreaterThan(50_000);
-    expect(job?.facts).toEqual({ platform: "greenhouse" });
-    expect(job?.title).toBe("Staff Engineer");
-  });
-
-  it("refuses ids the site hides, and ids that are not ids", async () => {
-    const { db, blobs, port } = setup();
-    const closed = await seed(db, blobs, { postingId: "1", title: "A", closed: true });
-    const dup = await seed(db, blobs, { postingId: "3", title: "C", dupOf: closed });
-
-    for (const id of [closed, dup, 9999]) expect(await port.read(String(id))).toBeNull();
-    for (const id of ["abc", "-1", "1.5", ""]) expect(await port.read(id)).toBeNull();
-  });
-  it("refuses oversized descriptions before fetching them from object storage", async () => {
-    const { db, blobs, port } = setup();
-    const id = await seed(db, blobs, {
-      postingId: "1",
-      title: "Software Engineer",
-      description: "x".repeat(1_000_001),
-    });
-    let fetched = 0;
-    const get = blobs.get.bind(blobs);
-    blobs.get = async (key) => {
-      fetched += 1;
-      return get(key);
-    };
-    const job = await port.read(String(id));
-    expect(fetched).toBe(0);
-    expect(job?.description).toBeNull();
-    expect(job?.descriptionNotice).toContain("Description read budget reached");
-  });
-});
-
-describe("jobsPort.search with places", () => {
+describe("search places", () => {
   /** Four data engineer postings in four places, each at its own company so they do not collapse. */
   async function places() {
-    const { db, blobs, port } = setup();
+    const { db, blobs } = setup();
     const at = (postingId: string, location: string, workMode: "remote" | "onsite" = "onsite") =>
       seed(db, blobs, {
         postingId,
@@ -250,13 +216,14 @@ describe("jobsPort.search with places", () => {
     await at("3", "Boston, MA, United States");
     await at("4", "Redmond, WA");
     await at("5", "Anywhere", "remote");
-    return { db, port };
+    return { db };
   }
   const cities = (hits: { location: string | null }[]) => hits.map((h) => h.location).sort();
 
   it("requires the place, so local jobs are not crowded out by newer ones elsewhere", async () => {
-    const { port } = await places();
-    const hits = await port.search(
+    const { db } = await places();
+    const hits = await hitsOf(
+      db,
       { queries: ["data engineer"], locations: ["Seattle", "Redmond"] },
       40,
     );
@@ -264,10 +231,11 @@ describe("jobsPort.search with places", () => {
   });
 
   it("expands a state word to the state, and keeps Washington, DC for DC words", async () => {
-    const { port } = await places();
-    const state = await port.search({ queries: ["data engineer"], locations: ["Washington"] }, 40);
+    const { db } = await places();
+    const state = await hitsOf(db, { queries: ["data engineer"], locations: ["Washington"] }, 40);
     expect(cities(state)).toEqual(["Redmond, WA", "Seattle, WA, United States"]);
-    const capital = await port.search(
+    const capital = await hitsOf(
+      db,
       { queries: ["data engineer"], locations: ["Washington DC"] },
       40,
     );
@@ -275,57 +243,36 @@ describe("jobsPort.search with places", () => {
   });
 
   it("treats each place as alternatives, and passes unknown words through as their own text", async () => {
-    const { port } = await places();
+    const { db } = await places();
     expect(
-      await port.search({ queries: ["data engineer"], locations: ["Seattle Boston"] }, 40),
+      await hitsOf(db, { queries: ["data engineer"], locations: ["Seattle Boston"] }, 40),
     ).toEqual([]);
     expect(
       cities(
-        await port.search({ queries: ["data engineer"], locations: ["Boston", "Redmond"] }, 40),
+        await hitsOf(db, { queries: ["data engineer"], locations: ["Boston", "Redmond"] }, 40),
       ),
     ).toEqual(["Boston, MA, United States", "Redmond, WA"]);
   });
 
   it("is safe against search syntax: only its words count, and a place with no words is ignored", async () => {
-    const { port } = await places();
+    const { db } = await places();
     expect(
-      await port.search({ queries: ["data engineer"], locations: ['" OR *', "NEAR("] }, 40),
+      await hitsOf(db, { queries: ["data engineer"], locations: ['" OR *', "NEAR("] }, 40),
     ).toEqual([]);
-    expect(await port.search({ queries: ["data engineer"], locations: ["--"] }, 40)).toHaveLength(
-      5,
-    );
-    expect(await port.search({ queries: ["data engineer"], locations: [] }, 40)).toHaveLength(5);
+    expect(await hitsOf(db, { queries: ["data engineer"], locations: ["--"] }, 40)).toHaveLength(5);
+    expect(await hitsOf(db, { queries: ["data engineer"], locations: [] }, 40)).toHaveLength(5);
   });
 
   it("ORs remote work with the named places, and remote alone is the remote postings", async () => {
-    const { port } = await places();
-    const both = await port.search(
+    const { db } = await places();
+    const both = await hitsOf(
+      db,
       { queries: ["data engineer"], locations: ["Seattle", "remote"] },
       40,
     );
     expect(cities(both)).toEqual(["Anywhere", "Redmond, WA", "Seattle, WA, United States"]);
-    const remoteOnly = await port.search({ queries: ["data engineer"], locations: ["remote"] }, 40);
+    const remoteOnly = await hitsOf(db, { queries: ["data engineer"], locations: ["remote"] }, 40);
     expect(cities(remoteOnly)).toEqual(["Anywhere"]);
-  });
-});
-
-describe("jobsPort.lookup", () => {
-  it("returns only jobs the site shows, once each, and ignores bad ids", async () => {
-    const { db, blobs, port } = setup();
-    const open = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
-    const closed = await seed(db, blobs, { postingId: "2", title: "Data Engineer", closed: true });
-
-    const hits = await port.lookup([
-      String(open),
-      String(open),
-      String(closed),
-      "9999",
-      "abc",
-      "-4",
-    ]);
-
-    expect(hits.map((h) => h.id)).toEqual([String(open)]);
-    expect(await port.lookup([])).toEqual([]);
   });
 });
 
@@ -415,7 +362,7 @@ describe("searchPage", () => {
     expect(last.nextOffset).toBeNull();
   });
 
-  it("returns the hits with their location count and the same ranking as the port", async () => {
+  it("returns the hits with their location count and the same ranking the results list shows", async () => {
     const { db, blobs } = setup();
     await seed(db, blobs, { postingId: "1", title: "Data Engineer", location: "Seattle, WA" });
     await seed(db, blobs, { postingId: "2", title: "Data Engineer", location: "Boston, MA" });
@@ -424,16 +371,79 @@ describe("searchPage", () => {
   });
 });
 
-describe("newCountSince", () => {
-  it("counts the best matches posted after the time, up to the cap", async () => {
-    const { db, blobs } = setup();
-    await seed(db, blobs, { postingId: "1", title: "Data Engineer", company: "A", sortAt: 100 });
-    await seed(db, blobs, { postingId: "2", title: "Data Engineer", company: "B", sortAt: 300 });
-    await seed(db, blobs, { postingId: "3", title: "Data Engineer", company: "C", sortAt: 400 });
-    const spec = { queries: ["data engineer"] };
+describe("POST /v1/jobs/search", () => {
+  const post = (app: ReturnType<typeof createApp>, body: unknown, token = READ) =>
+    app.request("/v1/jobs/search", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
-    expect(await newCountSince(db, spec, 200, 30)).toBe(2);
-    expect(await newCountSince(db, spec, 200, 1)).toBe(1);
-    expect(await newCountSince(db, { queries: ["nothing here"] }, 0, 30)).toBe(0);
+  it("answers one page of hits, each with the employer's apply link", async () => {
+    const { db, blobs } = setup();
+    const id = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    await db
+      .update(schema.jobs)
+      .set({ applyUrl: "https://boards.example.com/acme/apply/1" })
+      .where(eq(schema.jobs.id, id));
+    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+
+    const response = await post(app, { queries: ["data engineer"] });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    const body = (await response.json()) as { hits: { id: string; applyUrl: string }[] };
+    expect(body.hits).toEqual([
+      expect.objectContaining({
+        id: String(id),
+        applyUrl: "https://boards.example.com/acme/apply/1",
+      }),
+    ]);
+  });
+
+  it("falls back to the posting's own page when no apply link is stated", async () => {
+    const { db, blobs } = setup();
+    const id = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    await db
+      .update(schema.jobs)
+      .set({ url: "https://boards.example.com/acme/jobs/1" })
+      .where(eq(schema.jobs.id, id));
+    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+
+    const body = (await (await post(app, { queries: ["data engineer"] })).json()) as {
+      hits: { applyUrl: string | null }[];
+    };
+
+    expect(body.hits[0]?.applyUrl).toBe("https://boards.example.com/acme/jobs/1");
+  });
+
+  it("needs the read token and validates the spec at the edge", async () => {
+    const { db, blobs } = setup();
+    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+
+    expect((await post(app, { queries: ["data engineer"] }, "nope")).status).toBe(401);
+    expect((await post(app, { queries: [] })).status).toBe(400);
+    expect((await post(app, { queries: ["data engineer"], offset: 300 })).status).toBe(400);
+  });
+
+  it("no longer serves the removed personal routes", async () => {
+    const { db, blobs } = setup();
+    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+    const headers = { authorization: `Bearer ${READ}`, "content-type": "application/json" };
+
+    for (const [method, path] of [
+      ["GET", "/v1/applications"],
+      ["GET", "/v1/searches"],
+      ["GET", "/v1/resume"],
+      ["GET", "/v1/profile"],
+      ["POST", "/v1/ai/chat"],
+    ] as const) {
+      const response = await app.request(path, {
+        method,
+        headers,
+        ...(method === "GET" ? {} : { body: "{}" }),
+      });
+      expect(response.status, `${method} ${path}`).toBe(404);
+    }
   });
 });

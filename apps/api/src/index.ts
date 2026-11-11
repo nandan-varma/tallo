@@ -1,4 +1,3 @@
-import type { Role } from "@tallo/ai";
 import type { CollectMessage } from "@tallo/collect";
 import type { BlobStore } from "@tallo/db";
 import {
@@ -10,7 +9,6 @@ import {
   schema,
 } from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
-import { type AiBindings, assistantBudget, assistantModel } from "./ai.ts";
 import { createApp } from "./app.ts";
 import {
   type CollectEnv,
@@ -28,7 +26,7 @@ export { HostGate } from "./host-gate.ts";
 // Not exported: a Worker entry module may export only handlers and classes.
 const COLLECT_CRON = "*/5 * * * *";
 
-export interface Env extends AiBindings {
+export interface Env {
   DB: D1Database;
   BLOBS: R2Bucket;
   READ_TOKEN: string;
@@ -78,8 +76,6 @@ const deps = (env: Env) => ({
   blobs: r2(env.BLOBS),
   readToken: env.READ_TOKEN,
   ingestToken: env.INGEST_TOKEN,
-  model: (role: Role) => assistantModel(env, role),
-  budget: () => assistantBudget(env),
   collect: collectEnv(env),
 });
 

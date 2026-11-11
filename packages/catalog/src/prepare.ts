@@ -28,7 +28,7 @@ const epoch = (iso: string | undefined): number | null => {
 
 /**
  * Mapped job in, wire facts + JD blob out. Only what the source stated is kept: no value is derived from
- * the text, so an unstated fact stays null and the assistant judges from the facts and the description.
+ * the text, so an unstated fact stays null and the reader judges from the facts and the description.
  */
 export async function prepareJob(
   job: MappedJob,

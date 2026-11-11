@@ -1,5 +1,5 @@
 import { and, eq, or, type SQL, sql } from "drizzle-orm";
-import { rankedSpec } from "../../../apps/api/src/jobs-port.ts";
+import { rankedSpec } from "../../../apps/api/src/search.ts";
 import type { Db } from "../src/db.ts";
 import { ftsScope, groupKey, rankedJobs, schema, visibleJobs } from "../src/index.ts";
 
