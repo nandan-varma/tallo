@@ -11,13 +11,12 @@ const source = {
   company: "Acme",
   params: {},
 };
-const READ = "read-token";
 const INGEST = "ingest-token";
 
 function setup() {
   const db = testDb();
   const blobs = memoryBlobs();
-  const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+  const app = createApp({ db, blobs, ingestToken: INGEST });
   const call = (path: string, token: string | null, init: RequestInit & { json?: unknown } = {}) =>
     app.request(path, {
       ...init,
@@ -34,22 +33,24 @@ function setup() {
 const now = () => Math.floor(Date.now() / 1000);
 
 describe("api", () => {
-  it("requires the right token for each scope", async () => {
+  it("serves the public reads without a token and needs the ingest token for everything else", async () => {
     const { call } = setup();
     expect((await call("/health", null)).status).toBe(200);
-    expect((await call("/v1/jobs", null)).status).toBe(401);
-    expect((await call("/v1/jobs", "wrong")).status).toBe(401);
-    expect((await call("/v1/jobs?q=software", READ)).status).toBe(200);
-    expect((await call("/v1/runs", READ, { method: "POST", json: {} })).status).toBe(401);
+    expect((await call("/v1/search?title=software+engineer", null)).status).toBe(200);
+    expect((await call("/v1/sources/status", null)).status).toBe(401);
+    expect((await call("/v1/sources/status", "wrong")).status).toBe(401);
+    expect((await call("/v1/sources", "read-token")).status).toBe(401);
+    expect((await call("/v1/runs", null, { method: "POST", json: {} })).status).toBe(401);
   });
 
-  it("requires search text on GET /v1/jobs: the unfiltered feed has no index", async () => {
+  it("no longer serves the free-text feed or the POST search", async () => {
     const { call } = setup();
-    // No q, a blank q, and text with no word all get a clear 400 or an empty page, never the whole feed.
-    expect((await call("/v1/jobs", READ)).status).toBe(400);
-    expect((await call("/v1/jobs?q=%20", READ)).status).toBe(400);
-    const nothing = (await (await call("/v1/jobs?q=%21%21", READ)).json()) as { jobs: unknown[] };
-    expect(nothing.jobs).toEqual([]);
+    expect((await call("/v1/jobs?q=software", null)).status).toBe(404);
+    expect((await call("/v1/jobs", null)).status).toBe(404);
+    expect(
+      (await call("/v1/jobs/search", null, { method: "POST", json: { queries: ["software"] } }))
+        .status,
+    ).toBe(404);
   });
 
   it("runs a full ingest round trip and serves the job with its description", async () => {
@@ -138,19 +139,23 @@ describe("api", () => {
     ).json();
     expect(done).toMatchObject({ status: "complete", closureApplied: true });
 
-    const search = (await (await call("/v1/jobs?q=software", READ)).json()) as {
-      jobs: { id: number }[];
+    const search = (await (await call("/v1/search?title=software+engineer", null)).json()) as {
+      results: { id: string }[];
     };
-    expect(search.jobs).toHaveLength(1);
-    const detail = await (await call(`/v1/jobs/${search.jobs[0]?.id}`, READ)).json();
+    expect(search.results).toHaveLength(1);
+    const detail = await (await call(`/v1/jobs/${search.results[0]?.id}`, null)).json();
     expect(detail).toMatchObject({
       title: "Software Engineer",
       company: "Acme",
       description: "Build the future.",
-      countryCode: "US",
+      descriptionChars: 17,
+      descriptionNext: null,
     });
     expect(detail).not.toHaveProperty("jdHash");
-    expect((await call("/v1/jobs/999", READ)).status).toBe(404);
+    expect(detail).not.toHaveProperty("facts");
+    const missing = await call("/v1/jobs/999", null);
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ error: { code: "not_found" } });
   });
 
   it("serves the slim status view of sources and filters run history", async () => {
@@ -189,7 +194,7 @@ describe("api", () => {
     });
 
     expect((await call("/v1/sources/status", null)).status).toBe(401);
-    const status = (await (await call("/v1/sources/status", READ)).json()) as Record<
+    const status = (await (await call("/v1/sources/status", INGEST)).json()) as Record<
       string,
       unknown
     >[];
@@ -205,27 +210,27 @@ describe("api", () => {
       expect(row).not.toHaveProperty("consecutiveFailures");
     }
     // The full record is unchanged: the runner's `sources --dead` reads status and failures.
-    const full = (await (await call("/v1/sources", READ)).json()) as Record<string, unknown>[];
+    const full = (await (await call("/v1/sources", INGEST)).json()) as Record<string, unknown>[];
     expect(full[0]).toMatchObject({ id: "greenhouse:acme", status: "active", params: {} });
     expect(full[0]).toHaveProperty("consecutiveFailures");
 
-    const runs = (await (await call("/v1/runs", READ)).json()) as { status: string }[];
+    const runs = (await (await call("/v1/runs", INGEST)).json()) as { status: string }[];
     // Newest first: run 1 started last.
     expect(runs.map((r) => r.status)).toEqual(["complete", "partial", "complete"]);
-    const attention = (await (await call("/v1/runs?attention=true", READ)).json()) as {
+    const attention = (await (await call("/v1/runs?attention=true", INGEST)).json()) as {
       sourceId: string;
     }[];
     expect(attention.map((r) => r.sourceId).sort()).toEqual([
       "greenhouse:beta",
       "greenhouse:gamma",
     ]);
-    const limited = (await (await call("/v1/runs?limit=1", READ)).json()) as unknown[];
+    const limited = (await (await call("/v1/runs?limit=1", INGEST)).json()) as unknown[];
     expect(limited).toHaveLength(1);
-    const reads = await call("/v1/runs", READ);
+    const reads = await call("/v1/runs", INGEST);
     expect(reads.headers.get("cache-control")).toBe("private, max-age=30");
-    expect((await call("/v1/runs?limit=0", READ)).status).toBe(400);
-    expect((await call("/v1/runs?limit=201", READ)).status).toBe(400);
-    expect((await call("/v1/runs?attention=maybe", READ)).status).toBe(400);
+    expect((await call("/v1/runs?limit=0", INGEST)).status).toBe(400);
+    expect((await call("/v1/runs?limit=201", INGEST)).status).toBe(400);
+    expect((await call("/v1/runs?attention=maybe", INGEST)).status).toBe(400);
   });
 
   it("rejects malformed input and maps ingest conflicts to 409", async () => {
@@ -291,19 +296,20 @@ describe("api", () => {
       next: null,
     });
 
-    type Variant = { id: number; applyUrl: string };
-    const search = (await (await call("/v1/jobs?q=software", READ)).json()) as {
-      jobs: { id: number; variants: number }[];
+    type Variant = { id: string; applyUrl: string };
+    const search = (await (await call("/v1/search?title=software+engineer", null)).json()) as {
+      results: { id: string; locations: number }[];
     };
-    const hit = search.jobs[0];
-    expect(hit?.variants).toBe(2);
-    const page = (await (await call(`/v1/jobs/${hit?.id}`, READ)).json()) as {
+    // The duplicate listing is grouped under the canonical one, so the results list shows one hit.
+    expect(search.results).toHaveLength(1);
+    const hit = search.results[0];
+    const page = (await (await call(`/v1/jobs/${hit?.id}`, null)).json()) as {
       variants: Variant[];
     };
     expect(page.variants.map((v) => v.applyUrl)).toEqual(["https://x/1", "https://x/2"]);
     // The other listing's page shows the same group.
     const sibling = page.variants[1]?.id;
-    const second = (await (await call(`/v1/jobs/${sibling}`, READ)).json()) as {
+    const second = (await (await call(`/v1/jobs/${sibling}`, null)).json()) as {
       variants: Variant[];
     };
     expect(second.variants).toHaveLength(2);

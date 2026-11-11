@@ -29,7 +29,6 @@ const COLLECT_CRON = "*/5 * * * *";
 export interface Env {
   DB: D1Database;
   BLOBS: R2Bucket;
-  READ_TOKEN: string;
   INGEST_TOKEN: string;
   COLLECT: Queue<CollectMessage>;
   HOST_GATE: DurableObjectNamespace<HostGate>;
@@ -74,7 +73,6 @@ const collectEnv = (env: Env): CollectEnv => ({
 const deps = (env: Env) => ({
   db: drizzle(env.DB, { schema }),
   blobs: r2(env.BLOBS),
-  readToken: env.READ_TOKEN,
   ingestToken: env.INGEST_TOKEN,
   collect: collectEnv(env),
 });

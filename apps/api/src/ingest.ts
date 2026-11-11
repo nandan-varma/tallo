@@ -32,28 +32,26 @@ const MAX_BLOB_BYTES = 25 * 1024 * 1024;
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 
 /**
- * Sources and runs (read by the status page, written by the runner), plus the runner's ingest
- * writes and the admin maintenance jobs. Writes need the ingest token.
+ * Sources and runs (read by the runner and the operator), plus the runner's ingest writes. Every route needs the
+ * ingest token: none of this is public.
  */
 export function ingestRoutes({
   db,
   blobs,
-  read,
   write,
 }: {
   db: Db;
   blobs: BlobStore;
-  read: MiddlewareHandler;
   write: MiddlewareHandler;
 }) {
   const routes = new Hono();
 
-  routes.get("/v1/sources", read, async (c) => c.json(await listSources(db)));
+  routes.get("/v1/sources", write, async (c) => c.json(await listSources(db)));
 
   /** Slim per-source view for the status page; `/v1/sources` stays the full record for the runner. */
-  routes.get("/v1/sources/status", read, async (c) => c.json(await listSourceStatus(db)));
+  routes.get("/v1/sources/status", write, async (c) => c.json(await listSourceStatus(db)));
 
-  routes.get("/v1/runs", read, zValidator("query", runsSearchSchema), async (c) => {
+  routes.get("/v1/runs", write, zValidator("query", runsSearchSchema), async (c) => {
     c.header("cache-control", "private, max-age=30");
     return c.json(await listRuns(db, c.req.valid("query")));
   });

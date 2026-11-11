@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 /** How many results a search lists, in total. Rank has no keyset, so paging stops here; there is no count. */
 export const SEARCH_RESULT_CAP = 300;
 
@@ -8,41 +6,11 @@ export const SEARCH_RESULT_CAP = 300;
  * answer to it, so the list depends only on what the person typed. Places are the person's own words; the server
  * expands them.
  */
-export const searchSpecSchema = z.object({
-  queries: z
-    .array(z.string().min(2).max(80))
-    .min(1)
-    .max(8)
-    .describe(
-      'Title phrases, for example "backend engineer", "platform engineer". Never one generic word. Leave the company out of them.',
-    ),
-  companies: z
-    .array(z.string().min(2).max(80))
-    .max(4)
-    .optional()
-    .describe(
-      'Companies the person named, for example ["Stripe"]. Matched on the company name, ANDed with the titles. Leave out when no company was named.',
-    ),
-  locations: z
-    .array(z.string().min(2).max(60))
-    .max(8)
-    .optional()
-    .describe(
-      'The places the person named, in their own words ("NYC", "Bay Area", "Washington", "remote"). The server expands them. Leave out when the person did not name a place.',
-    ),
-});
-export type SearchSpec = z.infer<typeof searchSpecSchema>;
-
-/** Body of `POST /v1/jobs/search`: one page of the database's answer to a spec, most relevant first. */
-export const searchPageSchema = searchSpecSchema.extend({
-  offset: z
-    .number()
-    .int()
-    .min(0)
-    .max(SEARCH_RESULT_CAP - 1)
-    .default(0),
-  limit: z.number().int().min(1).max(30).default(20),
-});
+export interface SearchSpec {
+  queries: string[];
+  companies?: string[];
+  locations?: string[];
+}
 
 /** One search hit: only what a person skims in a list. A null field is unknown, never guessed. */
 export interface JobHit {
@@ -65,7 +33,7 @@ export interface JobHit {
   locations: number;
 }
 
-/** `POST /v1/jobs/search`: one page of hits. `nextOffset` is null on the last page; there is no total count. */
+/** One page of the internal search: `nextOffset` is null on the last page; there is no total count. */
 export interface SearchPage {
   hits: JobHit[];
   nextOffset: number | null;
