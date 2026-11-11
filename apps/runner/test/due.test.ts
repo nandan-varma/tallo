@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { deadSources, dueSources, formatDead, type SourceState } from "../src/due.ts";
+import {
+  deadSources,
+  dueSources,
+  formatDead,
+  LOCAL_EGRESS_STALE_HOURS,
+  localEgressSources,
+  type SourceState,
+} from "../src/due.ts";
 
 const configured = [
   { id: "greenhouse:acme", platform: "greenhouse" },
@@ -142,5 +149,43 @@ describe("empty-board back-off", () => {
 
   it("an explicit source bypasses the back-off", () => {
     expect(dueAt(state(at(40), DAY), board.id)).toEqual([board]);
+  });
+});
+
+describe("localEgressSources", () => {
+  const boards: { id: string; platform: string; params: Record<string, string> }[] = [
+    { id: "workday:abb", platform: "workday", params: { wd: "wd3", egress: "local" } },
+    { id: "workday:plain", platform: "workday", params: { wd: "wd1" } },
+    { id: "greenhouse:acme", platform: "greenhouse", params: {} },
+    { id: "workday:other", platform: "workday", params: { wd: "wd5", egress: "cloud" } },
+  ];
+
+  it("keeps only boards with params.egress set to local", () => {
+    expect(ids(localEgressSources(boards))).toEqual(["workday:abb"]);
+  });
+
+  it("is empty when no board needs the Mac's egress", () => {
+    expect(localEgressSources(boards.slice(1))).toEqual([]);
+  });
+
+  it("feeds dueSources: only local boards are due, on the weekly cutoff", () => {
+    const now = 10_000_000;
+    const state = new Map<string, Pick<SourceState, "status" | "lastCompleteRunAt">>([
+      ["workday:abb", { status: "active", lastCompleteRunAt: now - 3 * 86_400 }],
+    ]);
+    const cutoff = now - LOCAL_EGRESS_STALE_HOURS * 3600;
+    // Completed 3 days ago: inside the weekly window, so not due yet.
+    expect(dueSources(localEgressSources(boards), state, { cutoff, now })).toEqual([]);
+    // Completed 8 days ago: due.
+    state.set("workday:abb", { status: "active", lastCompleteRunAt: now - 8 * 86_400 });
+    expect(ids(dueSources(localEgressSources(boards), state, { cutoff, now }))).toEqual([
+      "workday:abb",
+    ]);
+  });
+
+  it("never selects a cloud board, even when it is due", () => {
+    expect(ids(dueSources(localEgressSources(boards), new Map(), { cutoff: 1 }))).toEqual([
+      "workday:abb",
+    ]);
   });
 });

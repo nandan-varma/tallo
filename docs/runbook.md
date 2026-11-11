@@ -178,6 +178,28 @@ Outbound requests go to the real boards (read-only GETs). The local D1 and R2 ar
 `sync` skips sources completed within `--stale-hours` (default 20), so reruns are cheap and idempotent.
 This is the collector until cloud collection is verified (see "Cloud collection").
 
+### Local-egress boards (launchd)
+
+Boards with `params.egress: "local"` (see "Boards that need the Mac's egress") are never claimed by the cloud, so only
+this Mac collects them. `tallo sync --local-egress` selects only those boards and keeps the rest of `sync` as it is:
+the same due check, the oldest complete run first, dead boards skipped, and the same per-host limiter. Its staleness
+cutoff defaults to 168 hours (weekly); `--stale-hours` still overrides it.
+
+The job is `apps/runner/launchd/fyi.nandan.tallo.local-egress.plist`, a template that `apps/runner/launchd/local-egress.sh`
+fills in. It runs daily at 03:30 local time with `--per-host 2 --host-interval-ms 250`. Missed runs (Mac asleep) fire on
+wake. The plist holds no secrets; the runner reads `apps/runner/.env`. Logs go to `~/Library/Logs/tallo/local-egress.log`.
+
+```sh
+apps/runner/launchd/local-egress.sh print      # render to stdout, changes nothing
+apps/runner/launchd/local-egress.sh install    # write ~/Library/LaunchAgents/fyi.nandan.tallo.local-egress.plist and load it
+apps/runner/launchd/local-egress.sh uninstall  # unload and remove it
+```
+
+Install from the clone the job should run from: the plist pins that repo path, plus the absolute `pnpm` and `node`
+locations. Re-run `install` after moving the repo or upgrading node or pnpm. Check a run with
+`tail -n 50 ~/Library/Logs/tallo/local-egress.log`, then `pnpm --filter @tallo/runner tallo sources --dead` for dead boards.
+To run it by hand: `pnpm --filter @tallo/runner tallo sync --local-egress`.
+
 ### Politeness (per-host limits)
 
 Many sources share a few hosts (thousands of Greenhouse/Ashby boards). One limiter per process caps every

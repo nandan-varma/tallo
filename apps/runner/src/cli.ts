@@ -6,7 +6,14 @@ import { Command, InvalidArgumentError } from "commander";
 import PQueue from "p-queue";
 import pino from "pino";
 import { createApi } from "./api.ts";
-import { deadSources, dueSources, formatDead } from "./due.ts";
+import {
+  CLOUD_STALE_HOURS,
+  deadSources,
+  dueSources,
+  formatDead,
+  LOCAL_EGRESS_STALE_HOURS,
+  localEgressSources,
+} from "./due.ts";
 import { loadHot, loadSources } from "./sources.ts";
 import { syncSource } from "./sync.ts";
 import { verifySource } from "./verify.ts";
@@ -68,9 +75,12 @@ program
   .option("-c, --concurrency <n>", "sources in parallel", numberFlag("--concurrency", 1), 4)
   .option(
     "--stale-hours <h>",
-    "skip sources completed more recently than this",
+    `skip sources completed more recently than this (default ${CLOUD_STALE_HOURS}, or ${LOCAL_EGRESS_STALE_HOURS} with --local-egress)`,
     numberFlag("--stale-hours", 0),
-    20,
+  )
+  .option(
+    "--local-egress",
+    'only boards with params.egress "local" (they need the Mac\'s network; the cloud never claims them)',
   )
   .option(
     "--per-host <n>",
@@ -91,14 +101,18 @@ program
       (opts.hostIntervalMs as number | undefined) ?? envNumber("TALLO_HOST_INTERVAL_MS", 0, 0);
     const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
     const state = new Map((await api.sources()).map((s) => [s.id, s]));
-    const due = dueSources(loadSources(SOURCES_DIR), state, {
+    const configured = loadSources(SOURCES_DIR);
+    const staleHours =
+      (opts.staleHours as number | undefined) ??
+      (opts.localEgress ? LOCAL_EGRESS_STALE_HOURS : CLOUD_STALE_HOURS);
+    const due = dueSources(opts.localEgress ? localEgressSources(configured) : configured, state, {
       ...(opts.platform ? { platform: opts.platform as string } : {}),
       ...(opts.source ? { source: opts.source as string } : {}),
       includeDead: Boolean(opts.includeDead),
-      cutoff: Date.now() / 1000 - opts.staleHours * 3600,
+      cutoff: Date.now() / 1000 - staleHours * 3600,
       ...(opts.limit ? { limit: opts.limit as number } : {}),
     });
-    log.info({ due: due.length }, "starting sync");
+    log.info({ due: due.length, localEgress: Boolean(opts.localEgress) }, "starting sync");
     const limiter = createHostLimiter({
       perHostConcurrency: perHost,
       minHostIntervalMs: hostIntervalMs,
