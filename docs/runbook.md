@@ -30,10 +30,13 @@ prerendered page generated from the API's schemas.
   the Workers docs; its behaviour in production is not yet observed (check the 429 rate in logs after deploy).
 - Edge cache: 200 answers are stored under the public URL with sorted parameters (`caches.default`), for the lifetimes the API
   sets (search 5 minutes, postings 1 hour). Errors are never cached.
-- Open exposure to check before relying on the limit: `tallo-api.nandan.fyi` is the API's own custom domain (the runner
-  ingests through it), so the public reads are also reachable there without the web's limit or cache. Decide whether to
-  close that route for read paths (for example a zone rate limit rule on `tallo-api.nandan.fyi/v1/search` and `/v1/jobs/*`),
-  before the public launch.
+- Closed: `tallo-api.nandan.fyi` (the API's custom domain, which the runner ingests through) refuses the three public reads
+  with 404. The guard is `READS_BLOCKED_HOST`, set to the same value in `apps/api/wrangler.jsonc` and
+  `apps/api/cloudflare.config.ts` (`apps/api/test/config.test.ts` checks both and that it is a route of the Worker). Ingest,
+  admin and `/health` stay on that domain. The web reaches the API through its service binding on `https://api.internal`,
+  which the guard does not match. An unset var allows the reads everywhere (tests and local development).
+- `workers.dev`: `tallo-api` has routes, so `workers_dev` is inferred off on the next deploy. Confirm in the dashboard that
+  the `*.workers.dev` URL is disabled for `tallo-api`; a re-enabled subdomain would serve the public reads outside the guard.
 
 Rotate: generate a new value (`openssl rand -hex 32`), `wrangler secret put`, update `.env`.
 

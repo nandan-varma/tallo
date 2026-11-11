@@ -12,6 +12,8 @@ export interface Deps {
   db: Db;
   blobs: BlobStore;
   ingestToken: string;
+  /** Host the public reads are refused on (see `publicRoutes`). Unset: allowed everywhere. */
+  readsBlockedHost?: string;
   /** Collection environment for the staged-collect admin routes. Absent: those routes answer 503. */
   collect?: CollectEnv;
 }
@@ -20,7 +22,7 @@ export interface Deps {
  * The API. Public reads (`/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`) need no token. Everything else,
  * including the sources and runs reads, needs INGEST_TOKEN.
  */
-export function createApp({ db, blobs, ingestToken, collect }: Deps) {
+export function createApp({ db, blobs, ingestToken, readsBlockedHost, collect }: Deps) {
   const app = new Hono();
   const write = bearerAuth({ token: ingestToken });
 
@@ -33,7 +35,7 @@ export function createApp({ db, blobs, ingestToken, collect }: Deps) {
 
   app.get("/health", (c) => c.json({ ok: true }));
 
-  app.route("/", publicRoutes({ db, blobs }));
+  app.route("/", publicRoutes({ db, blobs, blockedHost: readsBlockedHost }));
   app.route("/", ingestRoutes({ db, blobs, write }));
   app.route("/", adminRoutes({ db, write, ...(collect ? { collect } : {}) }));
 

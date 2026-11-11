@@ -7,8 +7,8 @@ Short ADR-style log. Newest first. Add an entry when a choice would otherwise be
 `POST /v1/jobs/search`. The web Worker forwards exactly the three paths, with a per-address limit and an edge cache, and
 serves `/llms.txt` (generated from the same schemas). Reasons: the reader's own AI judges fit, so the API returns facts,
 short hits and description chunks, never a whole catalog; cursors are bound to their query so a page cannot be replayed
-against another search; errors are written for a model to correct. `READ_TOKEN` is retired. Open: the API's own custom domain
-also serves the reads, so its traffic bypasses the web's limit and cache (see the runbook).
+against another search; errors are written for a model to correct. `READ_TOKEN` is retired. The API's own custom domain
+refuses the reads (`READS_BLOCKED_HOST`), so the web's limit and cache cannot be bypassed there (see the runbook).
 
 **D15. Public read-only search; no personal data, no AI in the product.** Tallo serves job search to anyone: the API's
 job reads (`GET /v1/jobs`, `POST /v1/jobs/search`, `GET /v1/jobs/:id`) and the web home and `/search` pages, which are

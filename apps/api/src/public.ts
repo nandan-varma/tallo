@@ -16,7 +16,7 @@ import {
   searchNote,
 } from "@tallo/contracts";
 import { type BlobStore, type Db, jdKey, listVariants, openJob } from "@tallo/db";
-import type { Context } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { z } from "zod";
 import { locationOf, postedOf, searchPage } from "./search.ts";
@@ -113,6 +113,27 @@ const longUrl = () =>
     "Use fewer or shorter title, company and location values.",
   );
 
+/**
+ * Refuses the public reads on one host. The API's own custom domain also serves them (the runner ingests through it),
+ * where the web's limit and cache do not apply; the web reaches the API through its service binding on a neutral host.
+ */
+const hiddenOn =
+  (blockedHost: string | undefined): MiddlewareHandler =>
+  async (c, next) => {
+    if (blockedHost && new URL(c.req.url).hostname === blockedHost) {
+      return fail(
+        c,
+        404,
+        publicError(
+          "not_found",
+          "No such route on this host.",
+          "The public API is served at https://tallo.nandan.fyi/v1/. Read /llms.txt there.",
+        ),
+      );
+    }
+    await next();
+  };
+
 /** A positive whole id from the path, or null. */
 const POSTING_ID = new RegExp(`^${POSTING_ID_SOURCE}$`);
 const jobId = (raw: string): number | null => (POSTING_ID.test(raw) ? Number(raw) : null);
@@ -135,11 +156,21 @@ const notFound = (id: number) =>
  * The public read routes: search, one posting, and its description in chunks. No auth. Only these three paths are
  * served to the public; the web Worker forwards exactly these (see `apps/web/src/lib/public.ts`).
  */
-export function publicRoutes({ db, blobs }: { db: Db; blobs: BlobStore }) {
+export function publicRoutes({
+  db,
+  blobs,
+  blockedHost,
+}: {
+  db: Db;
+  blobs: BlobStore;
+  /** The host the reads are refused on (`READS_BLOCKED_HOST`): the API's public custom domain. Unset: allowed. */
+  blockedHost?: string;
+}) {
   const routes = new Hono();
   const descriptionOf = descriptionReader(blobs);
+  const hidden = hiddenOn(blockedHost);
 
-  routes.get("/v1/search", async (c) => {
+  routes.get("/v1/search", hidden, async (c) => {
     const url = new URL(c.req.url);
     if (tooLong(url)) return fail(c, 414, longUrl());
     const parsed = readQuery(url, publicSearchSchema, SEARCH_HINTS);
@@ -181,7 +212,7 @@ export function publicRoutes({ db, blobs }: { db: Db; blobs: BlobStore }) {
     return c.json(body);
   });
 
-  routes.get("/v1/jobs/:id", async (c) => {
+  routes.get("/v1/jobs/:id", hidden, async (c) => {
     const url = new URL(c.req.url);
     if (tooLong(url)) return fail(c, 414, longUrl());
     const id = jobId(c.req.param("id"));
@@ -218,7 +249,7 @@ export function publicRoutes({ db, blobs }: { db: Db; blobs: BlobStore }) {
     });
   });
 
-  routes.get("/v1/jobs/:id/description", async (c) => {
+  routes.get("/v1/jobs/:id/description", hidden, async (c) => {
     const url = new URL(c.req.url);
     if (tooLong(url)) return fail(c, 414, longUrl());
     const id = jobId(c.req.param("id"));

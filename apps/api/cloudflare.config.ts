@@ -45,6 +45,7 @@ export default defineConfig({
         worker: "tallo-api",
         exportName: "HostGate",
       }),
+      READS_BLOCKED_HOST: bindings.text("tallo-api.nandan.fyi"),
       COLLECT_ENABLED: bindings.text("0"),
       COLLECT_BATCH: bindings.text("3000"),
       COLLECT_SLICE_SUBREQUESTS: bindings.text("800"),

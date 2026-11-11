@@ -33,6 +33,7 @@
   "durable_objects": { "bindings": [{ "name": "HOST_GATE", "class_name": "HostGate" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostGate"] }],
   "vars": {
+    "READS_BLOCKED_HOST": "tallo-api.nandan.fyi",
     "COLLECT_ENABLED": "0",
     "COLLECT_BATCH": "3000",
     "COLLECT_SLICE_SUBREQUESTS": "800",

@@ -169,3 +169,66 @@ describe("removed personal routes", () => {
     }
   });
 });
+
+describe("the public reads on the API's own custom domain", () => {
+  const BLOCKED = "tallo-api.nandan.fyi";
+  const blocked = (db: Db, blobs: Blobs) =>
+    createApp({ db, blobs, ingestToken: INGEST, readsBlockedHost: BLOCKED });
+
+  it("answers 404 for the three public reads on the blocked host", async () => {
+    const { db, blobs } = setup();
+    const id = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    const server = blocked(db, blobs);
+    for (const path of [
+      "/v1/search?title=data+engineer",
+      `/v1/jobs/${id}`,
+      `/v1/jobs/${id}/description`,
+    ]) {
+      const response = await server.request(`https://${BLOCKED}${path}`);
+      expect(response.status, path).toBe(404);
+      expect(response.headers.get("cache-control"), path).toBe("no-store");
+      expect(((await json(response)) as { error: { code: string } }).error.code, path).toBe(
+        "not_found",
+      );
+    }
+  });
+
+  it("still serves the reads on the service-binding host the web uses, and on other hosts", async () => {
+    const { db, blobs } = setup();
+    const id = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    const server = blocked(db, blobs);
+    expect(
+      (await server.request(`https://api.internal/v1/search?title=data+engineer`)).status,
+    ).toBe(200);
+    expect((await server.request(`https://api.internal/v1/jobs/${id}`)).status).toBe(200);
+    // Exact host match only: a lookalike host is not the blocked one.
+    expect(
+      (await server.request(`https://${BLOCKED}.example.com/v1/search?title=data+engineer`)).status,
+    ).toBe(200);
+  });
+
+  it("keeps the ingest and admin routes reachable on the blocked host", async () => {
+    const { db, blobs } = setup();
+    const server = blocked(db, blobs);
+    const status = await server.request(`https://${BLOCKED}/v1/sources/status`, {
+      headers: { authorization: `Bearer ${INGEST}` },
+    });
+    expect(status.status).toBe(200);
+    expect((await server.request(`https://${BLOCKED}/v1/sources/status`)).status).toBe(401);
+    const health = await server.request(`https://${BLOCKED}/health`);
+    expect(health.status).toBe(200);
+  });
+
+  it("allows the reads everywhere when the var is unset (tests and local development)", async () => {
+    const { db, blobs } = setup();
+    await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    const unset = createApp({ db, blobs, ingestToken: INGEST });
+    expect((await unset.request(`https://${BLOCKED}/v1/search?title=data+engineer`)).status).toBe(
+      200,
+    );
+    const empty = createApp({ db, blobs, ingestToken: INGEST, readsBlockedHost: "" });
+    expect((await empty.request(`https://${BLOCKED}/v1/search?title=data+engineer`)).status).toBe(
+      200,
+    );
+  });
+});

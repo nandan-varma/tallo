@@ -18,9 +18,9 @@ The "Session 2026-10-28" notes below describe the previous, cloud-collecting sta
   a 2 KB URL cap and an edge cache. `/llms.txt` is generated from the API's zod schemas and tested against the routes.
 - Removed: `GET /v1/jobs` (free text) and `POST /v1/jobs/search`. `READ_TOKEN` retired (API and web); the sources and runs
   reads now need `INGEST_TOKEN`. Migrations: none. The `searchJobs` db helper stays for the db tests (no route uses it).
-- Open before launch: `tallo-api.nandan.fyi` still serves the public reads without the web's limit or cache (the runner
-  ingests through that domain); the main agent decides how to close it. Secrets to delete remotely: `READ_TOKEN` on both
-  Workers. Deploy: API and web together; no D1 or R2 change.
+- `tallo-api.nandan.fyi` refuses the public reads (`READS_BLOCKED_HOST`, kept in step in `apps/api/wrangler.jsonc` and
+  `cloudflare.config.ts`); ingest and admin stay on it. Open: confirm `workers.dev` is off for `tallo-api` in the dashboard.
+  Secrets to delete remotely: `READ_TOKEN` on both Workers. Deploy the API before the web; no D1 or R2 change.
 
 ## Session 2026-11-11: public search pivot (issue #72, PR open, not merged)
 
