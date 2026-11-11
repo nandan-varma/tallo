@@ -1,4 +1,4 @@
-import type { Json, RawPosting } from "@tallo/contracts";
+import type { CollectContext, Json, RawPosting } from "@tallo/contracts";
 import { arr, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import {
@@ -214,7 +214,7 @@ describe("workday", () => {
     expect(result.complete).toBe(true);
   });
 
-  it("skips a posting without externalPath, keeps the rest, and marks the listing incomplete", async () => {
+  it("skips a posting without externalPath as a non-blocking issue, keeping the listing complete", async () => {
     const { externalPath: _gone, ...unidentified } = obj(row(0));
     const { ctx, issues } = fakeCtx(() => ({
       total: 3,
@@ -223,11 +223,95 @@ describe("workday", () => {
     }));
     const { items, result } = await drain(workday.list(src, ctx));
     expect(items.map((i) => i.id)).toEqual(["/job/x/1", "/job/x/2"]);
+    // The unidentified row is one of the three the board reported, so nothing is missing.
+    expect(result.complete).toBe(true);
+    expect(issues).toEqual([
+      { code: "schema", message: "Workday posting without externalPath skipped" },
+    ]);
+  });
+
+  it("keeps a real AccentureCareers listing complete when one row has no externalPath", async () => {
+    const accenture = source("workday", "accenture/AccentureCareers", { wd: "wd103" });
+    const page = fixture("workday-accenture-list") as { total: number; jobPostings: Json[] };
+    const { ctx, issues } = fakeCtx(() => page);
+    const { items, result } = await drain(workday.list(accenture, ctx));
+    expect(items.map((i) => i.id)).toHaveLength(2);
+    expect(result.complete).toBe(true);
+    expect(issues.map((i) => i.message)).toEqual(["Workday posting without externalPath skipped"]);
+  });
+
+  it("counts a row without externalPath once, however many pages repeat it", async () => {
+    const unidentified = { bulletFields: ["R00338212", "London"] };
+    const { ctx, issues } = fakeCtx((_u, body) => {
+      const offset = obj(body).offset as number;
+      // Two real pages of 20 rows, so 39 distinct rows in all, one of them unidentifiable.
+      const page = Array.from({ length: 19 }, (_, i) => row(offset + i));
+      return { total: 39, jobPostings: [...page, unidentified], facets: [] };
+    });
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(items).toHaveLength(38);
+    expect(result.complete).toBe(true);
+    expect(issues.filter((i) => i.message.includes("externalPath"))).toHaveLength(1);
+  });
+
+  it("still reports a real shortfall when duplicate pages hide missing postings", async () => {
+    const unidentified = { bulletFields: ["R1"] };
+    const { ctx, issues } = fakeCtx(() => ({
+      total: 40,
+      jobPostings: [...Array.from({ length: 19 }, (_, i) => row(i)), unidentified],
+      facets: [],
+    }));
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(items).toHaveLength(19);
     expect(result.complete).toBe(false);
     expect(issues).toContainEqual({
-      code: "schema",
-      message: "Workday posting without externalPath skipped",
+      code: "pagination",
+      message: "Workday listing has 20 jobs, fewer than reported 40",
     });
+  });
+
+  it.each([
+    [422, /HTTP 422 on the first request: the tenant is not served/],
+    [403, /HTTP 403 \(permission denied\) on the first request/],
+  ])(
+    "turns a first-request %i into a readable failed run that never claims a 404",
+    async (status, message) => {
+      const ctx: CollectContext = {
+        http: {
+          getJson: async () => {
+            throw Object.assign(new Error(`HTTP ${status}`), { status });
+          },
+          postJson: async () => {
+            throw Object.assign(new Error(`HTTP ${status}`), { status });
+          },
+          getText: async () => {
+            throw Object.assign(new Error(`HTTP ${status}`), { status });
+          },
+        },
+        maxPostings: 1_000_000,
+        record: () => {},
+      };
+      await expect(drain(workday.list(src, ctx))).rejects.toThrow(message);
+    },
+  );
+
+  it("leaves a later-page rejection to the engine unchanged", async () => {
+    const { ctx } = fakeCtx((_u, body) => {
+      if (obj(body).offset === 0)
+        return { total: 40, jobPostings: Array.from({ length: 20 }, (_, i) => row(i)), facets: [] };
+      throw Object.assign(new Error("HTTP 422"), { status: 422 });
+    });
+    const failing: CollectContext = {
+      ...ctx,
+      http: {
+        ...ctx.http,
+        postJson: async (url, body) => {
+          if (obj(body).offset === 0) return ctx.http.postJson(url, body);
+          throw Object.assign(new Error("HTTP 422"), { status: 422 });
+        },
+      },
+    };
+    await expect(drain(workday.list(src, failing))).rejects.toThrow("HTTP 422");
   });
 
   it.each([undefined, null, -1, 1.5, "20", Number.POSITIVE_INFINITY])(
@@ -262,7 +346,7 @@ describe("workday", () => {
     expect(result.complete).toBe(false);
     expect(issues).toContainEqual({
       code: "pagination",
-      message: "Workday listing has 20 unique jobs, fewer than reported 40",
+      message: "Workday listing has 20 jobs, fewer than reported 40",
     });
   });
 
@@ -294,7 +378,7 @@ describe("workday", () => {
     expect(result.complete).toBe(false);
     expect(issues).toContainEqual({
       code: "pagination",
-      message: "Workday listing has 2000 unique jobs, fewer than reported 2500",
+      message: "Workday listing has 2000 jobs, fewer than reported 2500",
     });
   });
 
@@ -402,15 +486,21 @@ describe("workday", () => {
     expect(result.complete).toBe(true);
   });
 
-  it("reports an unsplittable capped slice as incomplete", async () => {
-    const { ctx, issues } = fakeCtx((_u, body) => ({
-      total: 2000,
-      jobPostings: Array.from({ length: 20 }, (_, i) => row((obj(body).offset as number) + i)),
-      facets: [],
-    }));
+  it("reports an unsplittable capped slice as incomplete and never reads past the 2,000 window", async () => {
+    const offsets: number[] = [];
+    const { ctx, issues } = fakeCtx((_u, body) => {
+      const offset = obj(body).offset as number;
+      offsets.push(offset);
+      return {
+        total: 2000,
+        jobPostings: Array.from({ length: 20 }, (_, i) => row(offset + i)),
+        facets: [],
+      };
+    });
     const { result } = await drain(workday.list(src, ctx));
     expect(result.complete).toBe(false);
     expect(issues[0]?.code).toBe("pagination");
+    expect(Math.max(...offsets)).toBe(1980);
   });
 
   it("ignores the relative posted date in the fingerprint and maps detail", () => {

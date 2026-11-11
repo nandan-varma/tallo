@@ -7,22 +7,42 @@ Tiers by value (share of jobs in the legacy dataset): Tier 1 = Greenhouse, Lever
 (99% of configured boards); Tier 2 = Workday (large employers, hard pagination); Tier 3 = custom company
 sites and long-tail ATS.
 
-| Platform                                          | Tier | Status                               | Detail call                 | Notes                                                                                                        |
-| ------------------------------------------------- | ---- | ------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| greenhouse                                        | 1    | shipped, live-verified               | yes (pay ranges, questions) | EU host via `params.region`                                                                                  |
-| lever                                             | 1    | shipped, live-verified               | no                          | `salaryRange` mapped when present; empty list is not authoritative                                           |
-| ashby                                             | 1    | shipped, live-verified               | no                          | pay components from `compensation`                                                                           |
-| smartrecruiters                                   | 1    | shipped, live-verified               | yes (job ad)                | unknown company answers 200 empty                                                                            |
-| workday                                           | 2    | shipped, live-verified on one tenant | yes (description)           | 2,000-result cap handled by facet splitting; unsplittable slices and premature short pages report incomplete |
-| oraclecloud                                       | 3    | shipped, live-verified on 7 boards   | yes (description, dates)    | `siteNumber` (+`sitePath`), `defaultSite: true` on host default; 10k cap, see below                          |
-| eightfold, icims                                  | 3    | todo                                 |                             |                                                                                                              |
-| workable, recruitee, gem, rippling                | 3    | todo                                 |                             | candidates once sources are found                                                                            |
-| amazon, apple, google, microsoft, meta, uber, ... | 3    | todo                                 |                             | one adapter per company site; browser-walled sites need a managed browser                                    |
+| Platform                                          | Tier | Status                              | Detail call                 | Notes                                                                                                        |
+| ------------------------------------------------- | ---- | ----------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| greenhouse                                        | 1    | shipped, live-verified              | yes (pay ranges, questions) | EU host via `params.region`                                                                                  |
+| lever                                             | 1    | shipped, live-verified              | no                          | `salaryRange` mapped when present; empty list is not authoritative                                           |
+| ashby                                             | 1    | shipped, live-verified              | no                          | pay components from `compensation`                                                                           |
+| smartrecruiters                                   | 1    | shipped, live-verified              | yes (job ad)                | unknown company answers 200 empty                                                                            |
+| workday                                           | 2    | shipped, live-verified on 6 tenants | yes (description)           | 2,000-result cap handled by facet splitting; unsplittable slices and premature short pages report incomplete |
+| oraclecloud                                       | 3    | shipped, live-verified on 7 boards  | yes (description, dates)    | `siteNumber` (+`sitePath`), `defaultSite: true` on host default; 10k cap, see below                          |
+| eightfold, icims                                  | 3    | todo                                |                             |                                                                                                              |
+| workable, recruitee, gem, rippling                | 3    | todo                                |                             | candidates once sources are found                                                                            |
+| amazon, apple, google, microsoft, meta, uber, ... | 3    | todo                                |                             | one adapter per company site; browser-walled sites need a managed browser                                    |
 
 Workday requires a nonnegative integer `total` on every page. It keeps the highest reported total
-if a board changes while paging, and marks the listing incomplete when the final unique posting
-count falls short. Facet coverage or duplicate pages cannot establish completeness from page
-length alone; incomplete listings never apply job closure.
+if a board changes while paging, and marks the listing incomplete when the final count of postings
+(unique ones plus rows without an `externalPath`) falls short. Facet coverage or duplicate pages
+cannot establish completeness from page length alone; incomplete listings never apply job closure.
+
+Live behaviour (checked with curl and `tallo verify`, November 2026):
+- `limit` is capped at 20: 21, 50, 100, 200 and 2000 all return HTTP 400. `offset` is honoured only up to 2000 on
+  capped boards: from offset 2000 on they return the first page again and report `total` 2000 (Citi, Accenture,
+  T-Mobile, ABB). PwC pages past 2000 with its real total (3,762). `total` is reported on every page on some
+  boards and as 0 on later pages of others, so only the highest value is kept.
+- A row with no `externalPath` (Accenture has one with only `bulletFields`) has no id and no detail URL. It cannot
+  have a catalog row, so skipping it cannot close anything. It is reported once (`schema`, non-blocking) and
+  counted toward `total`; it does not make the listing incomplete.
+- HTTP 422 on the first request means the tenant is not served on that `params.wd` host (unknown tenant, or
+  the wrong host: `zelis` is on `wd115`, not `wd1`). A valid tenant with a wrong site answers 404 `S21`
+  ("Job_Posting_Site_ID"), which the engine already treats as a dead board. Hosts that are unknown to DNS
+  answer nothing. `osv-amerisure/Amerisure` answers 422 on every Workday host we probed (wd1-wd30, wd100-wd120,
+  wd501-wd503): the tenant is not discoverable from here; leave it until its site is known.
+- HTTP 403 `S22` "permission denied" on the first request means the site exists but refuses the public listing
+  (`wmeimg/160over90US`: the tenant's DRS outage page names the same site). The run fails with a readable
+  message; closure never applies.
+- A 422 or 403 on the first request is a failed run, not a dead board: the engine marks a board dead only on a
+  first-request 404 or redirect. Making a 422 count as dead needs a change in `packages/collect` (not part of
+  this platform change); the platform does not fake a 404.
 
 ## Per-platform field coverage (what maps today)
 

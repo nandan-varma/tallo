@@ -9,8 +9,12 @@ import type {
 import { arr, isObject, num, obj, str } from "@tallo/contracts";
 import { describe, locations, rows, SchemaError } from "../kit.ts";
 
+/** Workday rejects any larger `limit` with HTTP 400 (checked live: 21, 50, 100, 200, 2000). */
 const PAGE = 20;
-/** Workday serves at most 2000 results per query, however large the board is. */
+/**
+ * Some boards answer only the first 2,000 results of a query: offset 2000 and beyond wrap to the first
+ * page and report total 2000. Others page past it. Either way the slice is split by facet at the cap.
+ */
 const CAP = 2000;
 
 type Applied = Record<string, string[]>;
@@ -18,6 +22,12 @@ interface Leaf {
   param: string;
   id: string;
   count: number;
+}
+interface State {
+  /** False once a real gap is known: a short page, an unsplittable capped slice, or a count mismatch. */
+  complete: boolean;
+  /** Distinct rows without an externalPath, keyed by their content. They have no id to close on. */
+  unidentified: Set<string>;
 }
 
 const parts = (s: SourceConfig) => {
@@ -28,7 +38,7 @@ const parts = (s: SourceConfig) => {
   return {
     tenant,
     site,
-    origin: `https://${tenant}.${wd}.myworkdayjobs.com`,
+    wd,
     api: `https://${tenant}.${wd}.myworkdayjobs.com/wday/cxs/${tenant}/${site}`,
   };
 };
@@ -53,23 +63,53 @@ function bestSplit(facets: Json, applied: Applied): Leaf[] | undefined {
   return options.sort((a, b) => coverage(b) - coverage(a) || b.length - a.length)[0];
 }
 
+/**
+ * One POST. A rejection on the very first request means the board is not served where the config
+ * says (422: the tenant is unknown on this host; 403: the career site refuses the public listing).
+ * Those are failed runs with a readable message. They never imply closure.
+ */
+async function postPage(
+  ctx: CollectContext,
+  key: string,
+  url: string,
+  body: Json,
+  first: boolean,
+): Promise<Json> {
+  try {
+    return (await ctx.http.postJson(url, body)).data;
+  } catch (error) {
+    const status = (error as { status?: unknown }).status;
+    if (first && status === 422)
+      throw new Error(
+        `Workday ${key} answered HTTP 422 on the first request: the tenant is not served on this params.wd host`,
+      );
+    if (first && status === 403)
+      throw new Error(
+        `Workday ${key} answered HTTP 403 (permission denied) on the first request: the career site refuses the public listing`,
+      );
+    throw error;
+  }
+}
+
 async function* slice(
   source: SourceConfig,
   ctx: CollectContext,
   applied: Applied,
   seen: Set<string>,
-  state: { complete: boolean },
+  state: State,
 ): AsyncGenerator<RawPosting, number> {
-  const { api } = parts(source);
+  const { api, tenant, site, wd } = parts(source);
+  const root = Object.keys(applied).length === 0;
   let facets: Json = [];
   let total = Number.POSITIVE_INFINITY;
   for (let offset = 0; offset < Math.min(total, CAP); offset += PAGE) {
-    const { data } = await ctx.http.postJson(`${api}/jobs`, {
-      appliedFacets: applied,
-      limit: PAGE,
-      offset,
-      searchText: "",
-    });
+    const data = await postPage(
+      ctx,
+      `${tenant}/${site} (${wd})`,
+      `${api}/jobs`,
+      { appliedFacets: applied, limit: PAGE, offset, searchText: "" },
+      root && offset === 0,
+    );
     const body = obj(data);
     const page = rows(body.jobPostings, "jobPostings");
     const reportedTotal = body.total;
@@ -84,10 +124,13 @@ async function* slice(
     for (const job of page) {
       const path = str(job.externalPath);
       if (!path) {
-        // Unidentifiable, so it cannot be listed as seen. The listing is incomplete: a posting we
-        // could not see must not let closure age out its catalog row. The rest of the board is kept.
-        state.complete = false;
-        ctx.record({ code: "schema", message: "Workday posting without externalPath skipped" });
+        // No id, so no catalog row can exist for it: skipping it cannot close anything. It is
+        // reported once and does not make the listing incomplete (see `list`, which still counts it).
+        const content = JSON.stringify(job);
+        if (!state.unidentified.has(content)) {
+          state.unidentified.add(content);
+          ctx.record({ code: "schema", message: "Workday posting without externalPath skipped" });
+        }
         continue;
       }
       if (seen.has(path)) continue;
@@ -124,19 +167,22 @@ async function* slice(
 
 export const workday: Platform = {
   id: "workday",
-  version: 2,
+  version: 3,
   hosts: ["*.myworkdayjobs.com"],
   validate: (source) => void parts(source),
 
   async *list(source, ctx) {
-    const state = { complete: true };
+    const state: State = { complete: true, unidentified: new Set() };
     const seen = new Set<string>();
     const total = yield* slice(source, ctx, {}, seen, state);
-    if (state.complete && seen.size < total) {
+    // Every row the board reported is either a listed posting or an unidentified row. Only a
+    // shortfall beyond both is a real gap.
+    const accounted = seen.size + state.unidentified.size;
+    if (state.complete && accounted < total) {
       state.complete = false;
       ctx.record({
         code: "pagination",
-        message: `Workday listing has ${seen.size} unique jobs, fewer than reported ${total}`,
+        message: `Workday listing has ${accounted} jobs, fewer than reported ${total}`,
       });
     }
     return { complete: state.complete, emptyIsAuthoritative: false };
@@ -156,6 +202,7 @@ export const workday: Platform = {
 
   map({ id: postingId, listing, detail }) {
     const info = obj(obj(detail).jobPostingInfo);
+    const org = obj(obj(detail).hiringOrganization);
     const l = obj(listing);
     const country = str(obj(info.country).descriptor);
     const extra = arr(info.additionalLocations).map((text) => ({ text, hints: { country } }));
@@ -176,10 +223,8 @@ export const workday: Platform = {
       compensation: [],
       experience: [],
       extras: {
-        ...(str(info.remoteType) ? { remoteType: str(info.remoteType) } : {}),
-        ...(str(obj(obj(detail).hiringOrganization).name)
-          ? { organization: str(obj(obj(detail).hiringOrganization).name) }
-          : {}),
+        remoteType: str(info.remoteType) ?? null,
+        organization: str(org.name) ?? null,
       },
     };
   },
