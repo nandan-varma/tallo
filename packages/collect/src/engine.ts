@@ -185,18 +185,20 @@ export async function begin(
       }
     }
   } catch (error) {
-    issues.push({ code: "http", message: message(error) });
+    // A redirect off the allowlist, or a request the guard refused, is `blocked`: the source did not
+    // answer. Some boards redirect the cloud's requests to a generic page (community.workday.com) while
+    // the same board answers the Mac, so a redirect says nothing about whether the board exists.
+    const blocked =
+      error instanceof HttpError && (error.kind === "redirect" || error.kind === "blocked");
+    issues.push({ code: blocked ? "blocked" : "http", message: message(error) });
     log.warn({ source: source.id, error: String(error) }, "listing failed");
     // A 404 on the first request means the board does not exist; repeated ones mark it dead.
     // A 404 later in pagination is a failed run on a board that exists, so it must not count.
     // `requests` counts HTTP hops (retries of one hop are not counted), so any earlier request
     // makes this false. That is the safe direction: a board is only marked dead on a 404 that
-    // was the very first request. A first hop redirected off the allowlist (a retired tenant
-    // sent to a generic page) is the same signal: the board is no longer where the config says.
+    // was the very first request.
     const boardNotFound =
-      error instanceof HttpError &&
-      counter.requests === 1 &&
-      (error.status === 404 || error.kind === "redirect");
+      error instanceof HttpError && counter.requests === 1 && error.status === 404;
     const finished = await finishRun(ingest, runId, {
       seenIds: [],
       listingComplete: false,

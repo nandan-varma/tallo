@@ -122,6 +122,35 @@ describe("claimSources", () => {
   });
 });
 
+describe("local egress", () => {
+  // A board the Mac must collect: the cloud's egress is refused (`params.egress: "local"`).
+  const local = { ...config("e"), params: { egress: "local" } };
+  beforeEach(async () => {
+    await registerSources(db, [local], new Set());
+  });
+
+  it("the cloud claim never takes such a board, and its due time is left alone", async () => {
+    const claimed = (await claimDue(db, T, 10)).map((s) => s.id);
+    expect(claimed.sort()).toEqual([
+      "greenhouse:a",
+      "greenhouse:b",
+      "greenhouse:c",
+      "greenhouse:d",
+    ]);
+    expect(await dueOf(local.id)).toEqual({ nextDueAt: 0, tier: "normal" });
+  });
+
+  it("a named collect does not claim it either", async () => {
+    expect(await claimSources(db, [local.id], T)).toEqual([]);
+    expect((await dueOf(local.id)).nextDueAt).toBe(0);
+  });
+
+  it("is left out of the due count the status reports", async () => {
+    const status = await collectStatus(db, T);
+    expect(status.dueNow).toContainEqual({ tier: "normal", platform: "greenhouse", count: 3 });
+  });
+});
+
 describe("registerSources", () => {
   it("a new board is due now with the tier its hot-list membership gives", async () => {
     expect(await dueOf("greenhouse:a")).toEqual({ nextDueAt: 0, tier: "normal" });

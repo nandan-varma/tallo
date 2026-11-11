@@ -14,6 +14,7 @@ import {
   type Scratch,
   savePlan,
 } from "@tallo/collect";
+import { needsLocalEgress } from "@tallo/contracts";
 import type { BlobStore, Db } from "@tallo/db";
 import {
   applyJobs,
@@ -94,7 +95,13 @@ function metered<A extends unknown[], R>(meter: Meter, fn: (...args: A) => R) {
 }
 
 const outcomeOf = (o: Outcome) =>
-  o.boardNotFound ? "not_found" : o.listingComplete ? "complete" : "partial";
+  o.boardNotFound
+    ? "not_found"
+    : o.listingComplete
+      ? "complete"
+      : o.issues.some((i) => i.code === "blocked")
+        ? "blocked"
+        : "partial";
 
 /**
  * One queue message: start a board's run, or continue one. Work stops at the slice budget (subrequests
@@ -169,6 +176,9 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
 
   const source = await sourceConfig(env.db, msg.sourceId);
   if (!source) return line({ source: msg.sourceId, outcome: "skipped", reason: "unknown source" });
+  // Never collect a board that needs the Mac's egress, even if a start was queued before it was marked.
+  if (needsLocalEgress(source))
+    return line({ source: source.id, outcome: "skipped", reason: "local egress" });
   const fields = { source: source.id, platform: source.platform };
   let begun: Awaited<ReturnType<typeof begin>>;
   try {

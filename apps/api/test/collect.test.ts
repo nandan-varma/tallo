@@ -106,6 +106,16 @@ describe("the cron claim", () => {
     expect(new Set(messages.map((m) => (m.kind === "start" ? m.sourceId : ""))).size).toBe(250);
   });
 
+  it("never claims a board that needs the Mac's egress, by cron or by name", async () => {
+    const { env, db, messages } = harness();
+    const local = { ...stripe, id: "greenhouse:local", key: "local", params: { egress: "local" } };
+    await registerSources(db, [stripe, local], new Set());
+    expect(await enqueueDue(env, 10)).toEqual({ enqueued: 1 });
+    expect(await enqueueNamed(env, [local.id])).toEqual({ enqueued: [] });
+    expect(messages).toEqual([expect.objectContaining({ sourceId: stripe.id })]);
+    expect(await dueOf(db, local.id)).toBe(0);
+  });
+
   it("the kill switch stops the cron: nothing is claimed and nothing is enqueued", async () => {
     const { env, db, messages } = harness({ enabled: false });
     await registerSources(db, [stripe], new Set());
@@ -191,6 +201,31 @@ describe("handleCollect", () => {
     expect(logs).toEqual([expect.objectContaining({ outcome: "skipped" })]);
   });
 
+  it("a start for a board that needs local egress is skipped, and starts no run", async () => {
+    const { env, db, logs } = harness();
+    const local = { ...stripe, id: "greenhouse:local", key: "local", params: { egress: "local" } };
+    await registerSources(db, [local], new Set());
+    await handleCollect({ kind: "start", sourceId: local.id, runId: "run-local-0001" }, env);
+    expect(logs).toEqual([expect.objectContaining({ outcome: "skipped", reason: "local egress" })]);
+    expect(await db.select().from(schema.runs)).toHaveLength(0);
+  });
+
+  it("a redirect off the allowlist is a blocked run: logged as blocked, retried later, never dead", async () => {
+    const { env, db, logs } = harness({
+      fetch: async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://community.workday.com/x" },
+        }),
+    });
+    await registerSources(db, [stripe], new Set());
+    await handleCollect({ kind: "start", sourceId: stripe.id, runId: "run-cloud-0005" }, env);
+    expect(logs).toEqual([expect.objectContaining({ outcome: "blocked" })]);
+    expect(await dueOf(db, stripe.id)).toBe(T + 6 * 3600);
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, stripe.id));
+    expect(row).toMatchObject({ status: "active", consecutiveFailures: 0 });
+  });
+
   it("a failed listing is a failed run: it closes nothing and does not throw", async () => {
     // A 400 is not retried (a 5xx would wait out the retry backoff in this test).
     const { env, db, logs } = harness({
@@ -256,6 +291,21 @@ describe("admin routes", () => {
     expect(
       (await post(application, "/v1/admin/collect", { sources: [stripe.id] }, READ)).status,
     ).toBe(401);
+  });
+
+  it("revives dead boards through the admin route, which needs the ingest token", async () => {
+    const { application, db } = app();
+    await registerSources(db, [stripe], new Set());
+    await db
+      .update(schema.sources)
+      .set({ status: "dead", consecutiveFailures: 3, nextDueAt: T + 30 * DAY })
+      .where(eq(schema.sources.id, stripe.id));
+    const path = "/v1/admin/sources/revive";
+    expect((await post(application, path, { sources: [stripe.id] }, READ)).status).toBe(401);
+    const res = await post(application, path, { sources: [stripe.id, "greenhouse:nope"] });
+    expect(await res.json()).toEqual({ revived: [stripe.id] });
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, stripe.id));
+    expect(row).toMatchObject({ status: "active", consecutiveFailures: 0, nextDueAt: 0 });
   });
 
   it("staged collect enqueues named boards even while the cron is off", async () => {

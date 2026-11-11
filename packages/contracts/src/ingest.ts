@@ -57,7 +57,7 @@ export const jobsBatchSchema = z.object({ jobs: z.array(jobFactsSchema).min(1).m
 export const blobCheckSchema = z.object({ hashes: z.array(hex64).max(1000) });
 
 const issueSchema = z.object({
-  code: z.enum(["http", "schema", "pagination", "budget", "detail"]),
+  code: z.enum(["http", "schema", "pagination", "budget", "detail", "blocked"]),
   message: z.string().max(500),
   url: z.string().max(500).optional(),
   postingId: z.string().max(512).optional(),
@@ -74,8 +74,8 @@ export const finalizeSchema = z.object({
   rawKey: z.string().max(300).nullable(),
   issues: z.array(issueSchema).max(50),
   /**
-   * The listing failed because the board does not exist: HTTP 404 or a redirect off the allowlist,
-   * on the first request. Counts toward dead.
+   * The listing failed because the board does not exist: HTTP 404 on the first request. Counts toward
+   * dead. A redirect off the allowlist is not a 404 (it can be egress being refused): it is a blocked run.
    */
   boardNotFound: z.boolean().default(false),
 });

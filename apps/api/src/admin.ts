@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import type { SourceConfig } from "@tallo/contracts";
-import { collectStatus, type Db, registerSources } from "@tallo/db";
+import { collectStatus, type Db, registerSources, reviveSources } from "@tallo/db";
 import { platformFor } from "@tallo/platforms";
 import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
@@ -23,6 +23,7 @@ const registerSchema = z.object({
 const collectSchema = z.object({
   sources: z.array(z.string().min(3).max(200)).min(1).max(100),
 });
+const reviveSchema = collectSchema;
 
 /**
  * Board registration and staged collection. Writes need the ingest token. Configs are trusted:
@@ -60,6 +61,12 @@ export function adminRoutes({
     const { sources } = c.req.valid("json");
     const { enqueued } = await enqueueNamed(collect, sources);
     return c.json({ requested: sources.length, enqueued });
+  });
+
+  /** Clear a board's dead status and 404 streak, and make it due now. */
+  routes.post("/v1/admin/sources/revive", write, zValidator("json", reviveSchema), async (c) => {
+    const { sources } = c.req.valid("json");
+    return c.json({ revived: await reviveSources(db, sources) });
   });
 
   routes.get("/v1/admin/collect/status", write, async (c) => {

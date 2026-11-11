@@ -49,7 +49,8 @@ with the same code (`packages/collect`), and it writes through the same HTTP ing
 - **Claim (cron, every 5 minutes)**: one statement moves up to `COLLECT_BATCH` (default 40) due boards' `next_due_at`
   forward by a 30-minute lease and returns them. Each becomes one `start` message on the queue `tallo-collect`. Two
   claimers never get the same board. A crashed collector frees its boards when the lease ends. The cron does nothing
-  unless `COLLECT_ENABLED` is `"1"` (the kill switch).
+  unless `COLLECT_ENABLED` is `"1"` (the kill switch). Boards with `params.egress: "local"` are never claimed, by the cron
+  or by name: they need the Mac's egress (see the runbook, "Boards that need the Mac's egress").
 - **Queue consumer**: one board per invocation (`max_batch_size` 1, `max_concurrency` 4, `max_retries` 2, then the
   dead-letter queue `tallo-collect-dlq`). It calls the same engine as the runner (`begin`, `advance`, `complete` in
   `packages/collect/src/engine.ts`) with the D1 and R2 bindings instead of HTTP.
@@ -62,12 +63,16 @@ with the same code (`packages/collect`), and it writes through the same HTTP ing
   boards (Greenhouse, Lever, Ashby, SmartRecruiters) use 8 in flight per host and no gap. Workday and Oracle Cloud use 2
   in flight and a 250 ms gap. The gap is enforced across invocations by a `HostGate` Durable Object per host (SQLite
   storage, one number: the next free time). Every gated request waits for a slot first; retries do not.
+- **Failure kinds**: a 404 on a board's first request is `not_found` and counts toward dead (three in a row). A redirect
+  off the host allowlist is `blocked` (issue code `blocked`): a failed run that never counts toward dead, because the
+  source did not answer rather than saying it is gone. Only a successful listing resets the not-found streak.
 - **Observability**: one JSON line per invocation (`source`, `platform`, `outcome`: `complete`, `partial`, `not_found`,
-  `continued`, `busy`, `skipped`; `listed`, `changed`, `requests`, `subrequests`, `wall_ms`). Status (ingest token):
+  `blocked`, `continued`, `busy`, `skipped`; `listed`, `changed`, `requests`, `subrequests`, `wall_ms`). Status (ingest token):
   `GET /v1/admin/collect/status` shows due counts by tier and platform, runs in flight, and the last 24 hours.
-- **Admin**: `POST /v1/admin/sources` (registers reviewed configs and the hot list; `tallo register`), and
-  `POST /v1/admin/collect` with `{sources: [...]}` (collects named boards now, even with the cron off). Both need the
-  ingest token.
+- **Admin**: `POST /v1/admin/sources` (registers reviewed configs and the hot list; `tallo register`),
+  `POST /v1/admin/collect` with `{sources: [...]}` (collects named boards now, even with the cron off), and
+  `POST /v1/admin/sources/revive` with `{sources: [...]}` (clears dead status and the 404 streak; `tallo revive`).
+  All need the ingest token.
 
 Limits: a Worker's subrequests per invocation are 10,000 on the paid plan; the slice budget is 800 so a slice has room.
 R2 and D1 calls, Durable Object calls and every outbound request count against it. A listing is not sliced. If one

@@ -218,8 +218,9 @@ describe("dead boards", () => {
     expect(row).toMatchObject({ status: "active", consecutiveFailures: 0 });
   });
 
-  it("a retired Workday tenant that redirects off the allowlist is board-not-found, and goes dead", async () => {
+  it("a redirect off the allowlist is a blocked run, not a 404: it never counts toward dead", async () => {
     const { app, api } = stack();
+    // Workday answers a refused egress with a redirect to community.workday.com.
     const workday = {
       id: "workday:acme",
       platform: "workday",
@@ -227,7 +228,7 @@ describe("dead boards", () => {
       company: "Acme",
       params: { wd: "wd5" },
     };
-    const retired: typeof fetch = async () =>
+    const refused: typeof fetch = async () =>
       new Response(null, {
         status: 302,
         headers: { location: "https://community.workday.com/retired" },
@@ -238,14 +239,46 @@ describe("dead boards", () => {
         log,
         runnerId: "test",
         version: "t",
-        fetch: retired,
+        fetch: refused,
       });
-      expect(result).toMatchObject({ listingComplete: false, boardNotFound: true });
+      expect(result).toMatchObject({ listingComplete: false, boardNotFound: false });
+      expect(result.issues[0]?.code).toBe("blocked");
     }
     const [row] = (await read(app, "/v1/sources")).filter(
       (s: { id: string }) => s.id === workday.id,
     );
-    expect(row).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+    expect(row).toMatchObject({ status: "active", consecutiveFailures: 0, lastStatus: "partial" });
+  });
+
+  it("a blocked run between two 404s does not reset the streak, and the next 404 still marks dead", async () => {
+    const { app, api } = stack();
+    const refused: typeof fetch = async () =>
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://community.workday.com/x" },
+      });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: refused });
+    expect(await sourceRow(app)).toMatchObject({ status: "active", consecutiveFailures: 2 });
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    expect(await sourceRow(app)).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("reviving a dead board clears its streak and makes it due again", async () => {
+    const { app, api } = stack();
+    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: greenhouse() });
+    for (let i = 0; i < 3; i++)
+      await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
+    expect(await sourceRow(app)).toMatchObject({ status: "dead" });
+
+    expect(await api.reviveSources([source.id, "greenhouse:nope"])).toEqual({
+      revived: [source.id],
+    });
+    expect(await sourceRow(app)).toMatchObject({ status: "active", consecutiveFailures: 0 });
+    // Back in the sync selection (dead boards are skipped without --include-dead).
+    const state = new Map((await api.sources()).map((r) => [r.id, r]));
+    expect(dueSources([source], state, { cutoff: Date.now() / 1000 + 1 })).toEqual([source]);
   });
 
   it("a failure between two 404s does not reset the streak", async () => {

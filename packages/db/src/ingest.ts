@@ -35,6 +35,22 @@ const slug = (name: string) =>
 const jsonIds = (ids: readonly (string | number)[]) =>
   sql`(SELECT value FROM json_each(${JSON.stringify(ids)}))`;
 
+/**
+ * Admin: put boards back in the schedule after a wrong verdict (a board marked dead that answers now,
+ * or one whose 404s came from a block). Clears the dead status and the 404 streak and makes each board
+ * due now. Only board health and the due time change: no run, posting or closure does.
+ * Returns the ids that exist.
+ */
+export async function reviveSources(db: Db, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .update(sources)
+    .set({ status: "active", consecutiveFailures: 0, nextDueAt: 0 })
+    .where(sql`${sources.id} IN ${jsonIds(ids)}`)
+    .returning({ id: sources.id });
+  return rows.map((r) => r.id);
+}
+
 async function run(db: Db, runId: string) {
   const row = (await db.select().from(runs).where(eq(runs.id, runId)).limit(1))[0];
   if (!row) throw new IngestError(404, `Unknown run ${runId}`);

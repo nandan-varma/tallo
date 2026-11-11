@@ -10,7 +10,8 @@
   "key": "abb/external_career_page",
   "company": "ABB",
   "params": {
-   "wd": "wd3"
+   "wd": "wd3",
+   "egress": "local"
   }
  },
  {
@@ -766,7 +767,8 @@
   "key": "cvshealth/CVS_Health_Careers",
   "company": "CVS Health",
   "params": {
-   "wd": "wd1"
+   "wd": "wd1",
+   "egress": "local"
   }
  },
  {
@@ -2369,7 +2371,8 @@
   "key": "target/targetcareers",
   "company": "Target",
   "params": {
-   "wd": "wd5"
+   "wd": "wd5",
+   "egress": "local"
   }
  },
  {
@@ -2418,7 +2421,8 @@
   "key": "tmobile/External",
   "company": "T-Mobile",
   "params": {
-   "wd": "wd1"
+   "wd": "wd1",
+   "egress": "local"
   }
  },
  {

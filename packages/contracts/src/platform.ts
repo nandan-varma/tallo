@@ -1,6 +1,15 @@
 import type { MappedJob } from "./job.ts";
 import type { Json } from "./json.ts";
 
+/**
+ * A board only the Mac runner can reach (`params.egress: "local"`). Some platforms redirect requests
+ * from the cloud's egress off their allowlist while answering the Mac normally, so the Worker never
+ * claims these boards. The runner collects them as before.
+ */
+export const LOCAL_EGRESS = "local";
+export const needsLocalEgress = (source: Pick<SourceConfig, "params">): boolean =>
+  source.params.egress === LOCAL_EGRESS;
+
 /** One configured recruiting surface (a board). Trusted configuration, never user input. */
 export interface SourceConfig {
   /** Stable identity: `${platform}:${key}`. Never changes when execution moves between runners. */
@@ -23,7 +32,8 @@ export interface RawPosting {
   detail?: Json;
 }
 
-type IssueCode = "http" | "schema" | "pagination" | "budget" | "detail";
+/** `blocked`: the request was refused by the egress guard (a redirect off the allowlist), not by the source. */
+type IssueCode = "http" | "schema" | "pagination" | "budget" | "detail" | "blocked";
 
 export interface Issue {
   code: IssueCode;
