@@ -61,6 +61,9 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
       client.post("v1/admin/sources", { json: { sources, hot } }).json<{ registered: number }>(),
     collectNow: (sources: string[]) =>
       client.post("v1/admin/collect", { json: { sources } }).json<{ enqueued: string[] }>(),
+    /** Clear dead status and the 404 streak of these boards, and make them due now. */
+    reviveSources: (sources: string[]) =>
+      client.post("v1/admin/sources/revive", { json: { sources } }).json<{ revived: string[] }>(),
     collectStatus: () => client.get("v1/admin/collect/status").json<unknown>(),
   };
 }

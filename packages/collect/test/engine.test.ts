@@ -170,3 +170,35 @@ describe("slices", () => {
     expect(calls.applied).toHaveLength(0);
   });
 });
+
+describe("how the first request fails", () => {
+  const firstFailure = (fetchImpl: typeof fetch) => {
+    const { ingest } = fakeIngest();
+    return begin({ ...options(ingest), fetch: fetchImpl }, { ...meta, source, startedAt: 1 });
+  };
+
+  it("a 404 on the first request says the board does not exist", async () => {
+    const begun = await firstFailure(async () => new Response("", { status: 404 }));
+    expect(begun).toMatchObject({
+      finished: { listingComplete: false, boardNotFound: true, issues: [{ code: "http" }] },
+    });
+  });
+
+  it("a redirect off the allowlist is a blocked run, never a board-not-found", async () => {
+    const begun = await firstFailure(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://community.workday.com/retired" },
+        }),
+    );
+    expect(begun).toMatchObject({
+      finished: { listingComplete: false, boardNotFound: false, issues: [{ code: "blocked" }] },
+    });
+  });
+
+  it("any other status is a plain failed run, not board-not-found", async () => {
+    const begun = await firstFailure(async () => new Response("", { status: 400 }));
+    expect(begun).toMatchObject({ finished: { boardNotFound: false, issues: [{ code: "http" }] } });
+  });
+});

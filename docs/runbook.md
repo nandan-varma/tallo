@@ -110,6 +110,15 @@ daily collector. At cutover, unload it: `launchctl unload ~/Library/LaunchAgents
 6. Turn the cron on: set `COLLECT_ENABLED` to `"1"` in both config files and deploy. The first tick claims 40 boards
    every five minutes (about 11,500 a day), so the first full pass takes about a day. Watch `GET /v1/admin/collect/status`.
 
+### Boards that need the Mac's egress
+
+Some platforms refuse requests from Cloudflare's egress: for these boards Workday answers the cloud with a redirect to
+`community.workday.com` (off the allowlist), while the same request from the Mac returns 200. Such a cloud run is `blocked`. Such a board carries `"egress": "local"` in its `params` in
+`sources/*.json`. The cloud never claims it (the cron and `POST /v1/admin/collect` both skip it, and a queued start is
+skipped with reason `local egress`). `tallo sync` still collects it from the Mac. The claim reads `params` from D1,
+so run `tallo register` after adding or removing the flag, before the next cron tick. Current tags: `abb/external_career_page`,
+`cvshealth/CVS_Health_Careers`, `target/targetcareers`, `tmobile/External`.
+
 ### Staged test (named boards, cron off)
 
 `POST /v1/admin/collect` collects named boards now, ignoring their due time, and works with the cron off. Use 20 boards:
@@ -195,15 +204,24 @@ A source with no complete run for 7 days is stale.
 
 ### Dead boards
 
-A listing whose first request returns HTTP 404, or redirects off the platform's host allowlist (a retired Workday
-tenant), means the board does not exist. Three runs in a row of that mark the source `dead` (`sources.status`,
-`sources.consecutive_failures`). A 404 later in a paginated listing is a failed run on a board that exists, so it
-does not count. Only a successful listing resets the count; a 500, a timeout or a partial run leaves it as it is.
-A dead source is skipped by `tallo sync` (its jobs stay as they are; nothing closes on a failed run).
+A listing whose first request returns HTTP 404 means the board does not exist. Three runs in a row of that mark the
+source `dead` (`sources.status`, `sources.consecutive_failures`). A 404 later in a paginated listing is a failed run
+on a board that exists, so it does not count. Only a successful listing resets the count; a 500, a timeout or a
+partial run leaves it as it is. A dead source is skipped by `tallo sync` (its jobs stay as they are; nothing closes
+on a failed run).
+
+A redirect off the platform's host allowlist is not a 404. It is a failed run with issue code `blocked` (the cloud
+log outcome is `blocked`), because it usually means the collecting host's egress was refused, not that the board
+moved. It never counts toward dead. So a retired Workday tenant that only redirects is not marked dead automatically:
+it is retried on the partial schedule, and someone removes it from `sources/*.json` after review.
 - `pnpm --filter @tallo/runner tallo sources --dead` lists dead boards with their 404 count and last run.
 - Review each one, then remove it from `sources/*.json` to stop tracking it.
 - `tallo sync --include-dead` (or `--source <id>`, which still needs the flag) retries them. A complete
   listing revives the board automatically.
+- `pnpm --filter @tallo/runner tallo revive <source-id...>` clears the dead status and the 404 count of boards marked
+  dead by mistake (for example, 404s from a block) and makes them due now, so the cloud cron or the next `sync`
+  collects them. It touches no run, posting or closure. Use it after a reviewed mistake, then check the board's
+  next run. The API route is `POST /v1/admin/sources/revive` (ingest token, `{"sources": [...]}`).
 
 ## Troubleshooting
 

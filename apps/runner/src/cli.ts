@@ -186,6 +186,21 @@ program
   });
 
 program
+  .command("revive <source...>")
+  .description(
+    "Clear the dead status and 404 count of boards marked dead by mistake; they are due again at once",
+  )
+  .action(async (ids: string[]) => {
+    const configured = new Set(loadSources(SOURCES_DIR).map((s) => s.id));
+    const unknown = ids.filter((id) => !configured.has(id));
+    if (unknown.length) throw new Error(`Not in sources/: ${unknown.join(", ")}`);
+    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+    const { revived } = await api.reviveSources(ids);
+    const missing = ids.filter((id) => !revived.includes(id));
+    log.info({ revived, ...(missing.length ? { missing } : {}) }, "revived");
+  });
+
+program
   .command("register")
   .description(
     "Send sources/*.json and sources/hot.json to the API (the Worker collects from them)",

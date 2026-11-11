@@ -14,6 +14,7 @@ import {
   purgeClosed,
   rawKey,
   reapStaleRuns,
+  reviveSources,
   schema,
   searchJobs,
   startRun,
@@ -327,6 +328,28 @@ describe("board health", () => {
     expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
     await failed(T + 3000, true);
     expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+  });
+
+  it("a blocked run (not a 404) never advances the streak", async () => {
+    await failed(T + 1000, true);
+    await failed(T + 2000, true);
+    await failed(T + 3000, false);
+    await failed(T + 4000, false);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 2 });
+  });
+
+  it("reviveSources clears a dead board and its streak, and makes it due now", async () => {
+    for (let i = 0; i < 3; i++) await failed(T + 1000 + i, true);
+    expect(await health()).toMatchObject({ status: "dead", consecutiveFailures: 3 });
+
+    expect(await reviveSources(db, [source.id, "greenhouse:nope"])).toEqual([source.id]);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(row?.nextDueAt).toBe(0);
+
+    // The streak really restarted: one more 404 is not dead.
+    await failed(T + 5000, true);
+    expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 1 });
   });
 
   it("a failure that is not a 404 leaves the streak alone, so it neither resets nor marks dead", async () => {

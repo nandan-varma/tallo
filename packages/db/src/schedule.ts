@@ -1,10 +1,16 @@
-import { leaseUntil, type SourceConfig, tierFor } from "@tallo/contracts";
-import { eq, gt, inArray, sql } from "drizzle-orm";
+import { LOCAL_EGRESS, leaseUntil, type SourceConfig, tierFor } from "@tallo/contracts";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { batch, type Db } from "./db.ts";
 import { runs, sources } from "./schema.ts";
 
 /** Statements per D1 batch when registering boards (one statement per board). */
 const REGISTER_BATCH = 100;
+
+/**
+ * Boards the cloud collector may claim: everything except those that need the Mac's egress
+ * (`params.egress: "local"`). The runner's own sync does not use this; it collects every board.
+ */
+const cloudEligible = sql`json_extract(${sources.params}, '$.egress') IS NOT ${LOCAL_EGRESS}`;
 
 export interface ClaimedSource {
   id: string;
@@ -25,7 +31,7 @@ export async function claimDue(db: Db, now: number, limit: number): Promise<Clai
     .update(sources)
     .set({ nextDueAt: leaseUntil(now) })
     .where(
-      sql`id IN (SELECT id FROM sources WHERE next_due_at <= ${now} ORDER BY next_due_at LIMIT ${limit}) AND next_due_at <= ${now}`,
+      sql`id IN (SELECT id FROM sources WHERE next_due_at <= ${now} AND ${cloudEligible} ORDER BY next_due_at LIMIT ${limit}) AND next_due_at <= ${now} AND ${cloudEligible}`,
     )
     .returning({
       id: sources.id,
@@ -45,7 +51,7 @@ export async function claimSources(db: Db, ids: string[], now: number): Promise<
   return db
     .update(sources)
     .set({ nextDueAt: leaseUntil(now) })
-    .where(inArray(sources.id, ids))
+    .where(and(inArray(sources.id, ids), cloudEligible))
     .returning({
       id: sources.id,
       platform: sources.platform,
@@ -129,7 +135,9 @@ export async function collectStatus(db: Db, now: number) {
       count: sql<number>`count(*)`,
     })
     .from(sources)
-    .where(sql`${sources.nextDueAt} <= ${now} AND ${sources.status} = 'active'`)
+    .where(
+      sql`${sources.nextDueAt} <= ${now} AND ${sources.status} = 'active' AND ${cloudEligible}`,
+    )
     .groupBy(sources.tier, sources.platform);
   const dead = await db
     .select({ count: sql<number>`count(*)` })
