@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template: apps/runner/launchd/local-egress.sh fills the __PLACEHOLDERS__ and installs it.
+  Runs the local-egress sync daily at 03:30 local time. Missed runs (Mac asleep) fire on wake.
+  Holds no secrets: the runner reads apps/runner/.env itself.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>fyi.nandan.tallo.local-egress</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PNPM__</string>
+    <string>--filter</string>
+    <string>@tallo/runner</string>
+    <string>tallo</string>
+    <string>sync</string>
+    <string>--local-egress</string>
+    <string>--per-host</string>
+    <string>2</string>
+    <string>--host-interval-ms</string>
+    <string>250</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__PATH__</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>__LOG__</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG__</string>
+</dict>
+</plist>

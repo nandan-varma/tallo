@@ -1,4 +1,8 @@
-import { emptyBackoffSeconds } from "@tallo/contracts";
+import { emptyBackoffSeconds, needsLocalEgress, type SourceConfig } from "@tallo/contracts";
+
+/** `tallo sync` staleness cutoff in hours: the default for the cloud-free path, and for `--local-egress`. */
+export const CLOUD_STALE_HOURS = 20;
+export const LOCAL_EGRESS_STALE_HOURS = 168;
 
 /** Which sources a sync run should collect, and which boards are dead or empty. Pure: no I/O. */
 
@@ -54,6 +58,14 @@ export function dueSources<T extends { id: string; platform: string }>(
     .filter((s) => options.source || !backedOff(s.id))
     .sort((a, b) => last(a.id) - last(b.id));
   return options.limit ? due.slice(0, options.limit) : due;
+}
+
+/**
+ * The boards only the Mac can reach (`params.egress: "local"`), for `tallo sync --local-egress`.
+ * Feed the result to `dueSources` like any other list, so the cutoff and back-off still apply.
+ */
+export function localEgressSources<T extends Pick<SourceConfig, "params">>(configured: T[]): T[] {
+  return configured.filter((s) => needsLocalEgress(s));
 }
 
 /** Sources the server has marked dead, by id. Remove them from `sources/` once reviewed. */
