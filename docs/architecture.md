@@ -44,8 +44,10 @@ Collection runs in the `tallo-api` Worker, from a queue. The Mac runner can stil
 with the same code (`packages/collect`), and it writes through the same HTTP ingest protocol below.
 - **Schedule (D1)**: `sources.next_due_at` (epoch seconds) and `sources.tier` (`hot`, `normal`, `rare`). Every board is
   collected once a week (`normal`, `rare`). Boards in `sources/hot.json` are `hot` and collected daily. A seen-dead board
-  waits 30 days. A partial run is retried after 6 hours, so a transient failure does not cost a week. The policy is one
-  pure function (`packages/contracts/src/schedule.ts`).
+  waits 30 days. A failed or partial run backs off 1h, 3h, 6h, then 24h for each further failure in a row
+  (`sources.failure_count`; a complete run resets it), so a transient failure does not cost a week and a board that
+  always fails costs one request a day. A board that has never listed anything waits 30 days after ten failures, and
+  stays active. The policy is one pure function (`packages/contracts/src/schedule.ts`).
 - **Claim (cron, every 5 minutes)**: one statement moves up to `COLLECT_BATCH` (default 40) due boards' `next_due_at`
   forward by a 30-minute lease and returns them. Each becomes one `start` message on the queue `tallo-collect`. Two
   claimers never get the same board. A crashed collector frees its boards when the lease ends. The cron does nothing

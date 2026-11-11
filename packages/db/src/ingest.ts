@@ -37,15 +37,15 @@ const jsonIds = (ids: readonly (string | number)[]) =>
 
 /**
  * Admin: put boards back in the schedule after a wrong verdict (a board marked dead that answers now,
- * or one whose 404s came from a block). Clears the dead status and the 404 streak and makes each board
- * due now. Only board health and the due time change: no run, posting or closure does.
+ * or one whose 404s came from a block). Clears the dead status, the 404 streak and the failure back-off,
+ * and makes each board due now. Only board health and the due time change: no run, posting or closure does.
  * Returns the ids that exist.
  */
 export async function reviveSources(db: Db, ids: string[]): Promise<string[]> {
   if (ids.length === 0) return [];
   const rows = await db
     .update(sources)
-    .set({ status: "active", consecutiveFailures: 0, nextDueAt: 0 })
+    .set({ status: "active", consecutiveFailures: 0, failureCount: 0, nextDueAt: 0 })
     .where(sql`${sources.id} IN ${jsonIds(ids)}`)
     .returning({ id: sources.id });
   return rows.map((r) => r.id);
@@ -273,6 +273,7 @@ export async function finalize(
       status: sources.status,
       tier: sources.tier,
       consecutiveFailures: sources.consecutiveFailures,
+      failureCount: sources.failureCount,
     })
     .from(sources)
     .where(eq(sources.id, current.sourceId))
@@ -391,11 +392,15 @@ export async function finalize(
       .set({
         lastStatus: status,
         ...health,
+        // Any run that did not list completely is a failed run; a complete one resets the back-off.
+        failureCount: fin.listingComplete ? 0 : sql`${sources.failureCount} + 1`,
         ...(listed ? { lastListedAt: now } : {}),
         nextDueAt: nextDueAt({
           tier: before?.tier ?? "normal",
           outcome: runOutcome(fin, before),
           finishedAt: fin.finishedAt,
+          failures: fin.listingComplete ? 0 : (before?.failureCount ?? 0) + 1,
+          neverListed: before?.lastListedAt == null,
         }),
       })
       .where(eq(sources.id, current.sourceId)),

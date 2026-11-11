@@ -1,0 +1,1 @@
+ALTER TABLE `sources` ADD `failure_count` integer DEFAULT 0 NOT NULL;

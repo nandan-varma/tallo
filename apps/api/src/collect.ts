@@ -20,6 +20,7 @@ import {
   applyJobs,
   claimDue,
   claimSources,
+  deferBusy,
   diff,
   finalize,
   IngestError,
@@ -190,9 +191,12 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
       startedAt: nowSeconds(env),
     });
   } catch (error) {
-    // Another run holds the board (the Mac runner, or an earlier message). Not a failure: ack it.
-    if (error instanceof IngestError && error.status === 409)
+    // Another run holds the board (the Mac runner, or an earlier message). Not a failure, but the message
+    // is acked, so the board is moved off "due now" and retried later (see deferBusy).
+    if (error instanceof IngestError && error.status === 409) {
+      await deferBusy(env.db, msg.sourceId, nowSeconds(env));
       return line({ ...fields, outcome: "busy" });
+    }
     throw error;
   }
   if ("finished" in begun) {
