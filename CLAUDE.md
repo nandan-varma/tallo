@@ -1,8 +1,9 @@
 # CLAUDE.md
 
-Tallo is a job discovery platform: it collects job postings from company ATS boards and
-links straight to the employer's application. The database stores what sources state; the AI assistant judges fit. v1 is private and for one user; the design keeps the
-door open to public use, other occupations and countries.
+Tallo is a public, read-only job-search API and a small web search page. It collects job postings from company
+ATS boards and links straight to the employer's application. The database stores what sources state; relevance is
+judged by whoever reads the results (a person, or their own AI). Nothing personal is stored. The design keeps the
+door open to other occupations and countries.
 
 Read `docs/PROGRESS.md` first when resuming. It says what is done, what is next and what is open.
 
@@ -10,18 +11,17 @@ Read `docs/PROGRESS.md` first when resuming. It says what is done, what is next 
 
 pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/Vite bundle).
 
-| Path                 | Role                                                                                                          |
-| -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `packages/contracts` | Shared types and zod schemas. Pure data. Never edited to add a platform.                                      |
-| `packages/http`      | Outbound HTTP (ky + p-queue): retries, per-host limits, https/allowlist/SSRF guard, size caps.                |
-| `packages/catalog`   | Pure normalization: HTML→text, hashing, dedupe keys, `prepareJob`. Derives nothing from text (no heuristics). |
-| `packages/platforms` | One folder per ATS: `list` + optional `detail` + pure `map` + `fingerprint`. Registered in `src/index.ts`.    |
-| `packages/resume`    | Resume text rendering, the tailoring fact guard (`.`), and the import/tailor/edit AI calls (`./ai`).          |
-| `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` (the only write path), `queries.ts`, `BlobStore`.       |
-| `apps/api`           | Hono Worker: internal read API + ingest endpoints. Bearer tokens. D1 + R2.                                    |
-| `apps/web`           | Astro SSR UI (private, access-key cookie). Talks to the API via service binding.                              |
-| `apps/runner`        | Mac CLI (`tallo sync                                                                                          | verify | sources`). Collects, maps, uploads. |
-| `sources/*.json`     | Board configs, one array per platform. Reviewed, trusted configuration.                                       |
+| Path                 | Role                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `packages/contracts` | Shared types and zod schemas. Pure data. Never edited to add a platform.                                          |
+| `packages/http`      | Outbound HTTP (ky + p-queue): retries, per-host limits, https/allowlist/SSRF guard, size caps.                    |
+| `packages/catalog`   | Pure normalization: HTML→text, hashing, dedupe keys, `prepareJob`. Derives nothing from text (no heuristics).     |
+| `packages/platforms` | One folder per ATS: `list` + optional `detail` + pure `map` + `fingerprint`. Registered in `src/index.ts`.        |
+| `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` (the only write path), `queries.ts`, `BlobStore`.           |
+| `apps/api`           | Hono Worker: read API (`/v1/jobs`, `/v1/jobs/search`, `/v1/jobs/:id`) + ingest endpoints. Bearer tokens. D1 + R2. |
+| `apps/web`           | Astro SSR pages: home and `/search` (plain HTML forms, no client JS). Talks to the API via service binding.       |
+| `apps/runner`        | Mac CLI (`tallo sync                                                                                              | verify | sources`). Collects, maps, uploads. |
+| `sources/*.json`     | Board configs, one array per platform. Reviewed, trusted configuration.                                           |
 
 ## Rules that must not be broken
 
@@ -35,12 +35,12 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
    (use `json_each` for id lists).
 4. **The database stays lean.** No descriptions, no raw payloads in D1. Description text is gzip in R2
    (`jd/<sha256>`); raw source payloads are per-run packs (`raw/<source>/<run>.ndjson.gz`).
-5. **Public/shared data never holds personal data.** Personal fit, preferences, resumes come later and
-   live in separate tables keyed by user.
+5. **No personal data exists.** The catalog and the site hold only what sources state; nothing is stored per
+   person.
 6. **Source config is trusted.** Never fetch a user-supplied URL. Every request passes the platform's
    host allowlist (`Platform.hosts`).
 7. **No heuristics in the database.** Facts are what a source stated (structured fields only); relevance, tech vs
-   non-tech, place, pay and seniority are judged by the assistant. Changing a platform's `map`: bump its `version`;
+   non-tech, place, pay and seniority are judged by the reader. Changing a platform's `map`: bump its `version`;
    the next sync re-fetches and re-maps every posting of that platform.
 8. Schema source of truth is `packages/db/src/schema.ts`; generate migrations with
    `pnpm --filter @tallo/db exec drizzle-kit generate`, never hand-edit generated SQL (FTS is a custom migration).

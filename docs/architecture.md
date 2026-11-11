@@ -2,15 +2,16 @@
 
 ## Goals and non-goals (v1)
 
-Browse jobs from ~9k company boards (the database stores what they state; the AI assistant judges fit), refreshed daily from this
-Mac, hosted cheaply on Cloudflare (about $5/month). Not in v1: public traffic, SEO, accounts,
-personal fit/resume features, vector search, closed-job history.
+Public, read-only job search over ~9k company boards (the database stores what they state; the reader judges fit),
+refreshed daily from this Mac, hosted cheaply on Cloudflare (about $5/month). The web offers a home page and `/search`;
+each result links to the employer's application. Not planned: accounts, any per-person data, AI in the product, SEO
+work, vector search, closed-job history. See `decisions.md` D15.
 
 ## Boundaries
 
 1. **Source evidence**: what a source returned (raw payloads, per run, short retention).
-2. **Shared catalog**: normalized, personal-free jobs. Lean rows in D1.
-3. **Personal layer** (v2): preferences, saved jobs, fit assessments, resumes. Separate tables per user.
+2. **Catalog**: normalized jobs with what each source stated. Lean rows in D1.
+3. **Read surface**: the API's job reads and the web search pages, both over the catalog only.
 
 Package boundaries are not deployment boundaries: one Worker serves the API, one serves the web UI.
 
@@ -126,49 +127,30 @@ NULL. Nothing is parsed from text: no heuristics in the database (see `decisions
 result's `pay` line: the first base pay the source stated with a rate interval, e.g. "USD 90000-95000 per hour".
 `inferred` on a value marks text-parsed data; no platform sets it today and the pay line never uses it.
 
-### Personal layer
-
-`profiles` (the person's free-text notes for the assistant), `applications` (the tracker; a snapshot of the posting is
-copied in because postings are purged after closing), `searches` (saved searches, `seen_at` drives "N new") and `resumes`
-(structured resume JSON, one row per user and posting; `job_id` 0 is the base resume, no foreign key so a copy outlives its posting). Neither is ever joined
-into catalog tables; `listResumes` looks up posting titles in a second query. v1 has one user (`DEFAULT_USER`).
-
 ## API layout
 
-`apps/api/src/app.ts` only mounts: `jobs.ts` (catalog reads), `assistant.ts` (chat, notes, the model getter), `applications.ts`,
-`searches.ts`, `resume.ts` (resume CRUD and the AI calls: import, tailor, edit, cover letter, fit, prep) and `ingest.ts`
-(runner protocol, admin). Every AI route goes through `resumeAi`/`assistant()`, so a missing key is a 503 and a model
-failure is a 502 with only the error name logged.
-
-## Resume builder
-
-`/resume` (base) and `/resume/<posting id>` (tailored copy; `?tailor=1` tailors on arrival) are one React island,
-`ResumeWorkspace`: section editor, assistant panel, live PDF. Autosave is debounced, one write at a time
-(`useResumeDoc`). API: `GET/PUT/DELETE /v1/resume[?job=]`, `GET /v1/resumes`, and `POST /v1/resume/{import,tailor,edit}`
-(`packages/resume/ai`, one `generateText` + `Output.object` each; the posting's description is read from R2, never fetched
-from a user URL). The web `/api/resume*` routes only relay with a byte cap (`lib/proxy.ts`). Rendering lives in
-`apps/web/src/lib/resume` (`pdf.tsx` document, `layout.ts` densities and font-safe text, `render.ts` fitting).
+`apps/api/src/app.ts` only mounts: `jobs.ts` (catalog reads: `GET /v1/jobs`, `POST /v1/jobs/search`, `GET /v1/jobs/:id`),
+`ingest.ts` (runner protocol, sources and runs for the status endpoint) and `admin.ts` (board registration, staged collection).
+`search.ts` holds the ranked search that `POST /v1/jobs/search` answers.
 
 ## Search
 
 `GET /v1/jobs`: FTS prefix match (`q` is required), newest first, keyset pagination on `(sort_at, id)`. There is no unfiltered
 feed: without `q` it would scan and sort every open job, and no index serves it (the feed and company indexes were dropped).
 The planner reads the FTS table for `q` and sorts the matches (checked on production with EXPLAIN QUERY PLAN).
-The assistant's results list is a ranked search (`rankedJobs`): title phrases ORed in one FTS MATCH, places and companies
+The results list is a ranked search (`rankedJobs`): title phrases ORed in one FTS MATCH, places and companies
 ANDed, the best 2000 candidates by bm25 (title x10, company x2, location x1), collapsed to one row per company and title,
 paged by offset up to 300. Visibility is one predicate (`visibleJobs`): open, canonical (`dup_of IS NULL`), from a source
-that listed within 14 days. There are no other filters; the assistant narrows by title phrases, companies and places
-(`docs/ai-search.md`). Search sits behind these query functions; vector/context search will be another implementation
-of the same query surface.
+that listed within 14 days. There are no other filters; the query narrows by title phrases, companies and places.
+Search sits behind these query functions; vector/context search would be another implementation of the same query surface.
 
 ## Cost (10 daily users, ~300k stored jobs)
 
-Workers Paid $5 + domain; D1 and R2 stay inside included allowances. AI enrichment is the real cost risk
-and is opt-in (see decisions).
+Workers Paid $5 + domain; D1 and R2 stay inside included allowances. No AI runs in the product (D15).
 
 ### D1 rows read and written: duplicate groups (estimates)
 
-Open rows about 487k (production read-only count, Oct 26, 2026; the count moves with syncs). Estimates; the method and assumptions are in `docs/ai-search.md`.
+Open rows about 487k (production read-only count, Oct 26, 2026; the count moves with syncs). Estimates. The method was recorded with the removed assistant design and is not kept in this repo.
 
 | Work                                                                                               | Rows read                                                                     | Rows written                                     |
 | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |

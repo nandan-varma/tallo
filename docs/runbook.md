@@ -15,7 +15,7 @@ Resource ids and URLs are recorded in `docs/PROGRESS.md`. Secrets are never comm
 ## Secrets
 
 - API: `READ_TOKEN`, `INGEST_TOKEN` (Wrangler secrets on `tallo-api`).
-- Web: `READ_TOKEN` (same value as the API's), `ACCESS_TOKEN` (the key you open the site with).
+- Web: `READ_TOKEN` (same value as the API's). The web pages are public; there is no access key.
 - Runner: `apps/runner/.env` with `TALLO_API_URL` and `TALLO_INGEST_TOKEN`.
 
 Rotate: generate a new value (`openssl rand -hex 32`), `wrangler secret put`, update `.env`.
@@ -225,7 +225,7 @@ conservative setting. Retries after a 429/5xx keep their per-host slot but do no
 `verify` uses its own limit of 4 and is not shared.
 
 Check health, read-only, with READ_TOKEN:
-- `GET /v1/sources/status` is the slim per-source view the status page uses: `lastRunAt`,
+- `GET /v1/sources/status` is the slim per-source view (the status page was removed with the pivot; the endpoint stays): `lastRunAt`,
   `lastCompleteRunAt`, `lastListedAt`, `lastStatus` and `freshness`, without board params or failure counters.
 - `GET /v1/sources` is the full record (adds `status` and `consecutiveFailures`). The runner's `sources --dead`
   reads it with the ingest token, which the API also accepts for reads.
