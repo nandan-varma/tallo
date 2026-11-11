@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("cloudflare:workers", () => ({
-  env: { READ_TOKEN: "read-token", API_URL: "http://api.test", API: undefined },
+  env: { API_URL: "http://api.test", API: undefined, PUBLIC_LIMIT: undefined },
 }));
 
+import { encodeCursor } from "@tallo/contracts";
 import { runSearch } from "@/lib/api";
 import { offsetFrom, safeHref, searchHref, specFrom, splitList, valuesFrom } from "@/lib/search";
 
@@ -87,22 +88,52 @@ describe("safeHref", () => {
 describe("runSearch", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("posts the spec with the page offset and size, using the read token", async () => {
-    const fetchMock = vi.fn(async () => Response.json({ hits: [], nextOffset: null }));
+  const apiPage = (results: unknown[], next: string | null) =>
+    Response.json({ results, next, note: "" });
+
+  it("asks the API for one page of results without any token", async () => {
+    const fetchMock = vi.fn(async () => apiPage([], null));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await runSearch({ queries: ["data engineer"], locations: ["remote"] }, 0);
+
+    expect(page).toEqual({ hits: [], nextOffset: null });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
+    expect(url).toBe("http://api.test/v1/search?title=data+engineer&location=remote&limit=20");
+    expect(new Headers(init?.headers).has("authorization")).toBe(false);
+  });
+
+  it("puts a cursor for the page on the URL, built for this query, and reads the next offset", async () => {
+    const hit = { id: "1", title: "Data Engineer" };
+    const fetchMock = vi.fn(async () =>
+      apiPage(
+        Array.from({ length: 20 }, () => hit),
+        "next",
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const page = await runSearch({ queries: ["data engineer"] }, 20);
 
-    expect(page).toEqual({ hits: [], nextOffset: null });
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("http://api.test/v1/jobs/search");
-    expect(init.method).toBe("POST");
-    expect(new Headers(init.headers).get("authorization")).toBe("Bearer read-token");
-    expect(JSON.parse(String(init.body))).toEqual({
-      queries: ["data engineer"],
-      offset: 20,
-      limit: 20,
-    });
+    expect(page.nextOffset).toBe(40);
+    expect(page.hits).toHaveLength(20);
+    const [url] = fetchMock.mock.calls[0] as unknown as [string];
+    const cursor = encodeCursor({ title: ["data engineer"], company: [], location: [] }, 20);
+    expect(new URL(url).searchParams.get("cursor")).toBe(cursor);
+  });
+
+  it("serves a repeat search from the edge cache, without calling the API", async () => {
+    const stored = new Map<string, Response>();
+    const cache = {
+      match: async (request: Request) => stored.get(request.url)?.clone(),
+      put: async (request: Request, response: Response) => void stored.set(request.url, response),
+    };
+    const upstream = vi.fn(async () => apiPage([], null));
+
+    await runSearch({ queries: ["data engineer"] }, 0, { upstream, cache });
+    await runSearch({ queries: ["data engineer"] }, 0, { upstream, cache });
+
+    expect(upstream).toHaveBeenCalledTimes(1);
   });
 
   it("throws on a failed answer, so the page shows its message", async () => {
@@ -110,6 +141,8 @@ describe("runSearch", () => {
       "fetch",
       vi.fn(async () => new Response("no", { status: 503 })),
     );
-    await expect(runSearch({ queries: ["data engineer"] }, 0)).rejects.toThrow("API 503");
+    await expect(runSearch({ queries: ["data engineer"] }, 0)).rejects.toThrow(
+      "API 503 for /v1/search",
+    );
   });
 });

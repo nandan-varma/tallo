@@ -1,28 +1,59 @@
 import { env } from "cloudflare:workers";
-import type { SearchPage, SearchSpec } from "@tallo/contracts";
+import {
+  encodeCursor,
+  type PublicSearchPage,
+  type SearchPage,
+  type SearchSpec,
+} from "@tallo/contracts";
+import { answer, type EdgeCache, type PublicDeps } from "@/lib/public";
 
 /**
- * One request to the internal API with the read token: the service binding in production, `API_URL` in
- * local dev.
+ * One request to the internal API: the service binding in production, `API_URL` in local dev. The API's public reads
+ * need no token.
  */
 export function upstream(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  headers.set("authorization", `Bearer ${env.READ_TOKEN}`);
-  const request = { ...init, headers };
   return env.API
-    ? env.API.fetch(new Request(`https://api.internal${path}`, request))
-    : fetch(`${env.API_URL}${path}`, request);
+    ? env.API.fetch(new Request(`https://api.internal${path}`, init))
+    : fetch(`${env.API_URL}${path}`, init);
 }
 
-/** One page of results for a search. Any non-2xx answer throws; the page shows a plain message. */
-export async function runSearch(spec: SearchSpec, offset: number): Promise<SearchPage> {
-  const response = await upstream("/v1/jobs/search", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...spec, offset, limit: PAGE_SIZE }),
-  });
-  if (!response.ok) throw new Error(`API ${response.status} for /v1/jobs/search`);
-  return (await response.json()) as SearchPage;
+/** The Workers edge cache. Typed by hand: the DOM typings have no `caches.default`. */
+const edgeCache = (): EdgeCache | undefined =>
+  typeof caches === "undefined" ? undefined : (caches as unknown as { default: EdgeCache }).default;
+
+/** The deps of the public proxy and of the search page, bound to this Worker's env. */
+export function publicDeps(): PublicDeps {
+  return { upstream, cache: edgeCache(), limiter: env.PUBLIC_LIMIT };
 }
 
 export const PAGE_SIZE = 20;
+
+/**
+ * One page of results for a search, through the same public answer everyone gets (edge cache included). The page's
+ * cursor is built from the same title, company and location values the API checks it against.
+ */
+export async function runSearch(
+  spec: SearchSpec,
+  offset: number,
+  deps: PublicDeps = publicDeps(),
+): Promise<SearchPage> {
+  const query = {
+    title: spec.queries,
+    company: spec.companies ?? [],
+    location: spec.locations ?? [],
+  };
+  const params = new URLSearchParams();
+  for (const name of ["title", "company", "location"] as const) {
+    for (const value of query[name]) params.append(name, value);
+  }
+  params.set("limit", String(PAGE_SIZE));
+  if (offset > 0) params.set("cursor", encodeCursor(query, offset));
+
+  const response = await answer(`/v1/search?${params}`, deps);
+  if (!response.ok) throw new Error(`API ${response.status} for /v1/search`);
+  const page = (await response.json()) as PublicSearchPage;
+  return {
+    hits: page.results,
+    nextOffset: page.next === null ? null : offset + page.results.length,
+  };
+}

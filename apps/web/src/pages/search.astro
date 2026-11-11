@@ -2,21 +2,29 @@
 import { JobResults } from "@/components/JobResults";
 import { SearchForm } from "@/components/SearchForm";
 import Base from "@/layouts/Base.astro";
-import { PAGE_SIZE, runSearch } from "@/lib/api";
+import { PAGE_SIZE, publicDeps, runSearch } from "@/lib/api";
+import { admit } from "@/lib/public";
 import { offsetFrom, searchHref, specFrom, valuesFrom } from "@/lib/search";
 
 const values = valuesFrom(Astro.url.searchParams);
 const offset = offsetFrom(Astro.url.searchParams);
 const spec = specFrom(values);
+const deps = publicDeps();
 
-// A failed search shows a plain message; the form stays usable.
+// The page counts against the same per-address budget as the public API. A failed search shows a plain message; the
+// form stays usable.
 let page: Awaited<ReturnType<typeof runSearch>> | null = null;
 let failed = false;
+let limited = false;
 if (spec) {
-  try {
-    page = await runSearch(spec, offset);
-  } catch {
-    failed = true;
+  if (await admit(Astro.request, deps.limiter)) {
+    try {
+      page = await runSearch(spec, offset, deps);
+    } catch {
+      failed = true;
+    }
+  } else {
+    limited = true;
   }
 }
 ---
@@ -24,6 +32,7 @@ if (spec) {
   <section class="mx-auto grid max-w-3xl gap-8 px-6 py-10">
     <SearchForm values={values} />
     {!spec && <p class="text-sm text-muted-foreground">Enter a job title to search.</p>}
+    {limited && <p role="alert" class="text-sm text-destructive">Too many searches from this address. Wait a minute, then try again.</p>}
     {failed && <p role="alert" class="text-sm text-destructive">The search is unavailable right now. Try again in a moment.</p>}
     {page && (
       <JobResults

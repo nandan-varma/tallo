@@ -5,6 +5,7 @@ import {
   descriptionChunk,
   encodeCursor,
   JOB_CACHE_CONTROL,
+  POSTING_ID_SOURCE,
   PUBLIC_MAX_URL_CHARS,
   type PublicError,
   type PublicSearchPage,
@@ -113,7 +114,8 @@ const longUrl = () =>
   );
 
 /** A positive whole id from the path, or null. */
-const jobId = (raw: string): number | null => (/^[1-9]\d{0,15}$/.test(raw) ? Number(raw) : null);
+const POSTING_ID = new RegExp(`^${POSTING_ID_SOURCE}$`);
+const jobId = (raw: string): number | null => (POSTING_ID.test(raw) ? Number(raw) : null);
 
 const badId = () =>
   publicError(

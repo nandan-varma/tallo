@@ -10,6 +10,15 @@ import { type JobHit, SEARCH_RESULT_CAP } from "./search.ts";
 /** The public origin, for the examples in llms.txt. Code never builds links from it. */
 export const PUBLIC_ORIGIN = "https://tallo.nandan.fyi";
 
+/**
+ * The only paths the public may read, GET only. `:id` is a posting id. The web Worker forwards exactly these to the
+ * API and answers 404 for everything else under `/v1`, admin and ingest included.
+ */
+export const PUBLIC_PATHS = ["/v1/search", "/v1/jobs/:id", "/v1/jobs/:id/description"] as const;
+
+/** A posting id in a path: a positive whole number with no leading zero, at most 16 digits. */
+export const POSTING_ID_SOURCE = "[1-9]\\d{0,15}";
+
 /** Longest path plus query the public API accepts, in characters. Longer is answered 414 before any query runs. */
 export const PUBLIC_MAX_URL_CHARS = 2048;
 
