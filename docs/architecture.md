@@ -129,16 +129,18 @@ result's `pay` line: the first base pay the source stated with a rate interval, 
 
 ## API layout
 
-`apps/api/src/app.ts` only mounts: `jobs.ts` (catalog reads: `GET /v1/jobs`, `POST /v1/jobs/search`, `GET /v1/jobs/:id`),
-`ingest.ts` (runner protocol, sources and runs for the status endpoint) and `admin.ts` (board registration, staged collection).
-`search.ts` holds the ranked search that `POST /v1/jobs/search` answers.
+`apps/api/src/app.ts` only mounts: `public.ts` (the public reads: `GET /v1/search`, `GET /v1/jobs/:id`,
+`GET /v1/jobs/:id/description`, no auth), `ingest.ts` (runner protocol, sources and runs, all INGEST_TOKEN) and `admin.ts`
+(board registration, staged collection). `search.ts` holds the ranked search that `GET /v1/search` answers.
+
+The public surface is GET-only and served through the web Worker, which keeps an allowlist, a per-address limit and an
+edge cache in front of it (see `docs/runbook.md`, "Public API"). The response shapes, limits and cursor rules are defined
+once in `packages/contracts/src/public-api.ts`; `/llms.txt` is generated from the same schemas.
 
 ## Search
 
-`GET /v1/jobs`: FTS prefix match (`q` is required), newest first, keyset pagination on `(sort_at, id)`. There is no unfiltered
-feed: without `q` it would scan and sort every open job, and no index serves it (the feed and company indexes were dropped).
-The planner reads the FTS table for `q` and sorts the matches (checked on production with EXPLAIN QUERY PLAN).
-The results list is a ranked search (`rankedJobs`): title phrases ORed in one FTS MATCH, places and companies
+The free-text feed (`GET /v1/jobs`) is retired: it was newest-first keyset paging over an FTS match, and nothing public needs
+it. `GET /v1/search` is the public search. The results list is a ranked search (`rankedJobs`): title phrases ORed in one FTS MATCH, places and companies
 ANDed, the best 2000 candidates by bm25 (title x10, company x2, location x1), collapsed to one row per company and title,
 paged by offset up to 300. Visibility is one predicate (`visibleJobs`): open, canonical (`dup_of IS NULL`), from a source
 that listed within 14 days. There are no other filters; the query narrows by title phrases, companies and places.
