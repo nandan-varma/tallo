@@ -2,6 +2,11 @@
 
 _Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-11-11: health check and dead-board prune
+
+- D1 read-only check: 8,688 boards, 0 due or overdue, 0 stuck runs, DLQ empty, 684,781 open jobs, 0 orphan jobs. Partials (146 of 353 runs in 3 days) are all Workday (stopped, 422/403) and Oracle Cloud (short page).
+- 31 boards confirmed dead by a live 404 removed from `sources/` and from D1 (546 jobs, 255 runs). Three dead rows answer 200 again (`overstory`, `remotecom`, `remotereferralboardinternaluseonly`) and stay; `workday:cvshealth` stays dead (not re-checked).
+
 ## Session 2026-10-29: reviewed AI recommendations
 
 - Issue #56: chat now publishes a reviewed shortlist rather than displaying the last broad title search. Publishing
