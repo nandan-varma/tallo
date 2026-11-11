@@ -1,4 +1,4 @@
-import { LOCAL_EGRESS, leaseUntil, type SourceConfig, tierFor } from "@tallo/contracts";
+import { LOCAL_EGRESS, leaseUntil, SCHEDULE, type SourceConfig, tierFor } from "@tallo/contracts";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { batch, type Db } from "./db.ts";
 import { runs, sources } from "./schema.ts";
@@ -59,6 +59,33 @@ export async function claimSources(db: Db, ids: string[], now: number): Promise<
       company: sources.company,
       params: sources.params,
     });
+}
+
+/**
+ * A 409 `busy` (another run holds the board) is not a failure, but its message is acked, so the board must
+ * not stay due: a due board is claimed again on the next tick and refused again. Move it to at least
+ * `busyRetry` from now. A later schedule (the holding run's finalize, or a longer lease) is kept.
+ */
+export async function deferBusy(db: Db, sourceId: string, now: number): Promise<void> {
+  await db
+    .update(sources)
+    .set({ nextDueAt: sql`max(${sources.nextDueAt}, ${now + SCHEDULE.busyRetry})` })
+    .where(eq(sources.id, sourceId));
+}
+
+/**
+ * Hourly repair. A board that is not dead is never scheduled further out than the longest policy
+ * interval, so a due time beyond it can only be a bad write, and the board would not be collected for
+ * months. Such boards are made due now. (A due board is claimed by the next five-minute tick, and a lease
+ * ends within thirty minutes, so no other stuck state needs a repair.)
+ */
+export async function repairSchedule(db: Db, now = Math.floor(Date.now() / 1000)): Promise<number> {
+  const rows = await db
+    .update(sources)
+    .set({ nextDueAt: now })
+    .where(and(eq(sources.status, "active"), gt(sources.nextDueAt, now + SCHEDULE.deadInterval)))
+    .returning({ id: sources.id });
+  return rows.length;
 }
 
 /** Read the config a claimed board needs to collect it. Null when the board was removed. */

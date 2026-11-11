@@ -154,6 +154,15 @@ Then check, with the ingest token: `GET /v1/admin/collect/status` (runs in fligh
   the staged route once the cause is fixed.
 - `outcome: "error"` lines carry the error message (up to 300 characters). `not_found` after three runs marks the board
   dead, and it is then collected every 30 days (`sources` `dead` in `GET /v1/admin/collect/status`).
+- Any run that does not list completely is a failed run, including a first request answered 403, 422 or a redirect off
+  the allowlist (`blocked`). It backs off 1h, 3h, 6h, then 24h for each further failure in a row (`sources.failure_count`,
+  reset by a complete run). A board that has never listed anything waits 30 days after ten failures but is not marked
+  dead: a 422 or 403 on a board that is simply misconfigured shows as a slow retry, not a dead board. To retry sooner
+  after a fix, use the admin revive route, which also resets the back-off.
+- `busy` (409: another run holds the board) is not a failure. The board is moved to at least 15 minutes from now, so it
+  is not claimed again on every tick while the other run lasts. A later schedule is kept.
+- The hourly cron repairs one case: an active board whose due time is more than 30 days out (a bad write) is made due
+  now. Without the repair it would not be collected for months.
 - Raw parts of a run that never closed stay under `work/<run>/` in R2 (small; cleanup is not automated yet).
 
 ### Local rehearsal (no Cloudflare resources)

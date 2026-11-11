@@ -27,6 +27,11 @@ export const sources = sqliteTable(
     lastStatus: text("last_status"),
     /** Consecutive runs whose listing 404'd. Any other outcome resets it to 0. */
     consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+    /**
+     * Failed or partial runs in a row (any run that did not list completely). A complete run resets it.
+     * Drives the back-off (contracts `schedule.ts`).
+     */
+    failureCount: integer("failure_count").notNull().default(0),
     /** `dead` boards are skipped by sync unless asked; a complete listing revives them. */
     status: text({ enum: ["active", "dead"] })
       .notNull()

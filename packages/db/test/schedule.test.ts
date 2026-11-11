@@ -5,8 +5,11 @@ import {
   claimDue,
   claimSources,
   collectStatus,
+  deferBusy,
   finalize,
   registerSources,
+  repairSchedule,
+  reviveSources,
   schema,
   sourceConfig,
   startRun,
@@ -15,6 +18,7 @@ import { testDb } from "../src/testing.ts";
 
 const T = 1_800_000_000;
 const DAY = 86400;
+const HOUR = 3600;
 let db: ReturnType<typeof testDb>;
 
 const config = (key: string, company = key): SourceConfig => ({
@@ -30,6 +34,12 @@ const dueOf = async (id: string) => {
     .select({ nextDueAt: schema.sources.nextDueAt, tier: schema.sources.tier })
     .from(schema.sources)
     .where(eq(schema.sources.id, id));
+  if (!row) throw new Error(`no source ${id}`);
+  return row;
+};
+
+const rowOf = async (id: string) => {
+  const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, id));
   if (!row) throw new Error(`no source ${id}`);
   return row;
 };
@@ -193,9 +203,57 @@ describe("finalize sets the next due time", () => {
     expect((await dueOf("greenhouse:d")).nextDueAt).toBe(T + DAY);
   });
 
-  it("a partial run is retried in six hours", async () => {
+  it("a partial run is retried in an hour, not a week later", async () => {
     await startAndFinish(config("a"), "run-a-0000002", { listingComplete: false, finishedAt: T });
-    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T + 6 * 3600);
+    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T + HOUR);
+    expect((await rowOf("greenhouse:a")).failureCount).toBe(1);
+  });
+
+  it("failures in a row back off 1h, 3h, 6h, then 24h", async () => {
+    const dues: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      await startAndFinish(config("a"), `run-a-bo${i}`, {
+        listingComplete: false,
+        finishedAt: T + i,
+      });
+      dues.push((await dueOf("greenhouse:a")).nextDueAt - (T + i));
+    }
+    expect(dues).toEqual([HOUR, 3 * HOUR, 6 * HOUR, 24 * HOUR, 24 * HOUR]);
+    expect((await rowOf("greenhouse:a")).failureCount).toBe(5);
+  });
+
+  it("a complete run resets the failure count and returns to the tier interval", async () => {
+    await startAndFinish(config("a"), "run-a-rs0001", { listingComplete: false, finishedAt: T });
+    await startAndFinish(config("a"), "run-a-rs0002", { listingComplete: false, finishedAt: T });
+    await startAndFinish(config("a"), "run-a-rs0003", { finishedAt: T });
+    expect(await rowOf("greenhouse:a")).toMatchObject({ failureCount: 0, status: "active" });
+    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T + 7 * DAY);
+  });
+
+  it("a board that never listed anything is checked every 30 days after ten failures, and stays active", async () => {
+    for (let i = 0; i < 10; i++) {
+      await startAndFinish(config("a"), `run-a-nv${String(i).padStart(2, "0")}`, {
+        listingComplete: false,
+        finishedAt: T + i,
+      });
+    }
+    const row = await rowOf("greenhouse:a");
+    expect(row).toMatchObject({ status: "active", failureCount: 10 });
+    expect(row.nextDueAt).toBe(T + 9 + 30 * DAY);
+  });
+
+  it("a board that listed before keeps the 24-hour cap after ten failures", async () => {
+    await db
+      .update(schema.sources)
+      .set({ lastListedAt: T - DAY })
+      .where(eq(schema.sources.id, "greenhouse:a"));
+    for (let i = 0; i < 10; i++) {
+      await startAndFinish(config("a"), `run-a-lb${String(i).padStart(2, "0")}`, {
+        listingComplete: false,
+        finishedAt: T + i,
+      });
+    }
+    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T + 9 + 24 * HOUR);
   });
 
   it("three 404 runs in a row mark the board dead and due in thirty days", async () => {
@@ -212,6 +270,68 @@ describe("finalize sets the next due time", () => {
       .where(eq(schema.sources.id, "greenhouse:b"));
     expect(row?.status).toBe("dead");
     expect((await dueOf("greenhouse:b")).nextDueAt).toBe(T + 2 + 30 * DAY);
+  });
+});
+
+describe("deferBusy", () => {
+  it("a busy board that is due now moves to fifteen minutes from now", async () => {
+    await deferBusy(db, "greenhouse:a", T);
+    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T + 15 * 60);
+  });
+
+  it("keeps a later schedule: a lease or a finalize's due time is never moved earlier", async () => {
+    await db
+      .update(schema.sources)
+      .set({ nextDueAt: T + 7 * DAY })
+      .where(eq(schema.sources.id, "greenhouse:a"));
+    await deferBusy(db, "greenhouse:a", T);
+    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T + 7 * DAY);
+  });
+
+  it("is not a failure: the failure count does not move", async () => {
+    await deferBusy(db, "greenhouse:a", T);
+    expect((await rowOf("greenhouse:a")).failureCount).toBe(0);
+  });
+});
+
+describe("repairSchedule", () => {
+  it("brings an active board scheduled beyond the longest interval back to due now", async () => {
+    await db
+      .update(schema.sources)
+      .set({ nextDueAt: T + 40 * DAY })
+      .where(eq(schema.sources.id, "greenhouse:a"));
+    expect(await repairSchedule(db, T)).toBe(1);
+    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T);
+  });
+
+  it("leaves every legitimate schedule alone, including a dead board's thirty days", async () => {
+    await db
+      .update(schema.sources)
+      .set({ nextDueAt: T + 30 * DAY, status: "active" })
+      .where(eq(schema.sources.id, "greenhouse:a"));
+    await db
+      .update(schema.sources)
+      .set({ nextDueAt: T + 40 * DAY, status: "dead" })
+      .where(eq(schema.sources.id, "greenhouse:b"));
+    await db
+      .update(schema.sources)
+      .set({ nextDueAt: T + 7 * DAY })
+      .where(eq(schema.sources.id, "greenhouse:c"));
+    expect(await repairSchedule(db, T)).toBe(0);
+    expect((await dueOf("greenhouse:a")).nextDueAt).toBe(T + 30 * DAY);
+    expect((await dueOf("greenhouse:b")).nextDueAt).toBe(T + 40 * DAY);
+    expect((await dueOf("greenhouse:c")).nextDueAt).toBe(T + 7 * DAY);
+  });
+});
+
+describe("reviveSources", () => {
+  it("a revived board starts its back-off from scratch", async () => {
+    await db
+      .update(schema.sources)
+      .set({ failureCount: 6, status: "dead" })
+      .where(eq(schema.sources.id, "greenhouse:a"));
+    await reviveSources(db, ["greenhouse:a"]);
+    expect(await rowOf("greenhouse:a")).toMatchObject({ failureCount: 0, status: "active" });
   });
 });
 

@@ -190,6 +190,9 @@ describe("handleCollect", () => {
       handleCollect({ kind: "start", sourceId: stripe.id, runId: "run-cloud-0003" }, env),
     ).resolves.toBeUndefined();
     expect(logs).toEqual([expect.objectContaining({ outcome: "busy" })]);
+    // The board was due now; it is rescheduled, not left to be claimed again on the next tick.
+    expect(await dueOf(db, stripe.id)).toBe(T + 15 * 60);
+    expect(await dueOf(db, stripe.id)).toBeGreaterThan(T);
   });
 
   it("a board that no longer exists is skipped", async () => {
@@ -221,9 +224,9 @@ describe("handleCollect", () => {
     await registerSources(db, [stripe], new Set());
     await handleCollect({ kind: "start", sourceId: stripe.id, runId: "run-cloud-0005" }, env);
     expect(logs).toEqual([expect.objectContaining({ outcome: "blocked" })]);
-    expect(await dueOf(db, stripe.id)).toBe(T + 6 * 3600);
+    expect(await dueOf(db, stripe.id)).toBe(T + 3600);
     const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, stripe.id));
-    expect(row).toMatchObject({ status: "active", consecutiveFailures: 0 });
+    expect(row).toMatchObject({ status: "active", consecutiveFailures: 0, failureCount: 1 });
   });
 
   it("a failed listing is a failed run: it closes nothing and does not throw", async () => {
@@ -234,8 +237,27 @@ describe("handleCollect", () => {
     await registerSources(db, [stripe], new Set());
     await handleCollect({ kind: "start", sourceId: stripe.id, runId: "run-cloud-0004" }, env);
     expect(logs).toEqual([expect.objectContaining({ outcome: "partial" })]);
-    expect(await dueOf(db, stripe.id)).toBe(T + 6 * 3600);
+    expect(await dueOf(db, stripe.id)).toBe(T + 3600);
   });
+
+  it.each([403, 422])(
+    "a first request answered %i is a failed run that backs off, not a flat retry",
+    async (status) => {
+      const { env, db, logs } = harness({ fetch: async () => new Response("", { status }) });
+      await registerSources(db, [stripe], new Set());
+      const runId = `run-first-${status}`;
+      await handleCollect({ kind: "start", sourceId: stripe.id, runId }, env);
+      expect(logs).toEqual([expect.objectContaining({ outcome: "partial" })]);
+      expect(await dueOf(db, stripe.id)).toBe(T + 3600);
+      // The second failure waits three hours, the third six, and the fourth a day.
+      for (const [i, wait] of [[2, 3 * 3600] as const, [3, 6 * 3600] as const, [4, DAY] as const]) {
+        await handleCollect({ kind: "start", sourceId: stripe.id, runId: `${runId}-${i}` }, env);
+        expect(await dueOf(db, stripe.id)).toBe(T + wait);
+      }
+      const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, stripe.id));
+      expect(row).toMatchObject({ status: "active", failureCount: 4 });
+    },
+  );
 });
 
 describe("admin routes", () => {

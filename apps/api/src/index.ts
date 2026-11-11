@@ -1,7 +1,14 @@
 import type { Role } from "@tallo/ai";
 import type { CollectMessage } from "@tallo/collect";
 import type { BlobStore } from "@tallo/db";
-import { pruneRuns, purgeClosed, reapStaleRuns, rebuildDuplicates, schema } from "@tallo/db";
+import {
+  pruneRuns,
+  purgeClosed,
+  reapStaleRuns,
+  rebuildDuplicates,
+  repairSchedule,
+  schema,
+} from "@tallo/db";
 import { drizzle } from "drizzle-orm/d1";
 import { type AiBindings, assistantBudget, assistantModel } from "./ai.ts";
 import { createApp } from "./app.ts";
@@ -91,7 +98,7 @@ export default {
   /**
    * The five-minute cron enqueues due boards. The hourly one does housekeeping: mark runs abandoned
    * by a killed collector as partial, drop jobs closed for 30+ days and their orphaned description
-   * blobs, and regroup duplicate postings.
+   * blobs, regroup duplicate postings, and bring back into the schedule any board stranded far in the future.
    */
   async scheduled(event: ScheduledController, env: Env) {
     if (event.cron === COLLECT_CRON) {
@@ -100,6 +107,7 @@ export default {
     }
     const { db, blobs } = deps(env);
     await reapStaleRuns(db);
+    await repairSchedule(db);
     await purgeClosed(db, blobs);
     await pruneRuns(db, blobs);
     let next: string | null = "";
