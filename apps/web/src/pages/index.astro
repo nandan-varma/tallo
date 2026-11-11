@@ -1,13 +1,18 @@
 ---
-import { Assistant } from "@/components/assistant/Assistant";
+import { SearchForm } from "@/components/SearchForm";
 import Base from "@/layouts/Base.astro";
-import { getResume } from "@/lib/api";
+import { valuesFrom } from "@/lib/search";
 
-// A missing resume only changes the empty state, so a failed read must not take the page down.
-const resume = await getResume().catch(() => null);
-const job = Astro.url.searchParams.get("job");
-const initialJob = job && /^\d+$/.test(job) ? job : null;
+const empty = valuesFrom(new URLSearchParams());
 ---
-<Base title="Tallo">
-  <Assistant client:only="react" hasResume={resume !== null} initialJob={initialJob} />
+<Base title="Tallo · Find jobs">
+  <section class="mx-auto grid max-w-3xl gap-8 px-6 py-16">
+    <div class="grid gap-3">
+      <h1 class="text-3xl font-semibold tracking-tight">Find the role, apply on the employer's page.</h1>
+      <p class="text-muted-foreground">
+        Tallo collects postings straight from company job boards. Every result links to the employer's own application.
+      </p>
+    </div>
+    <SearchForm values={empty} autoFocus />
+  </section>
 </Base>

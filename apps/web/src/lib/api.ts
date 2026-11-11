@@ -1,10 +1,9 @@
 import { env } from "cloudflare:workers";
-import type { JobDetail, ResumeRecord, ResumeSummary } from "@tallo/contracts";
-import type { RunRecord, SourceRecord } from "@/lib/status";
+import type { SearchPage, SearchSpec } from "@tallo/contracts";
 
 /**
  * One request to the internal API with the read token: the service binding in production, `API_URL` in
- * local dev. The proxy routes use it directly; reads that may be cached go through `call`.
+ * local dev.
  */
 export function upstream(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
@@ -15,67 +14,15 @@ export function upstream(path: string, init: RequestInit = {}): Promise<Response
     : fetch(`${env.API_URL}${path}`, request);
 }
 
-const inFlight = new Map<string, Promise<unknown>>();
-// Cloudflare exposes a default edge cache in addition to the standard CacheStorage API.
-const edgeCache = caches as CacheStorage & { default: Cache };
-
-/**
- * Calls the internal API through a Worker-local cache. The web worker runs auth
- * before a page or endpoint can call this, so cached API payloads never become
- * publicly reachable. Keeping the cache here avoids repeat D1 reads (and R2
- * reads for descriptions) across server renders and the hydrated detail route.
- */
-async function call<T>(path: string, maxAgeSeconds: number): Promise<T | null> {
-  const cacheKey = new Request(`https://tallo-cache.internal${path}`);
-  const cached = await edgeCache.default.match(cacheKey);
-  if (cached) return (await cached.json()) as T;
-
-  const existing = inFlight.get(path) as Promise<T | null> | undefined;
-  if (existing) return existing;
-
-  const request = (async () => {
-    const response = await upstream(path);
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`API ${response.status} for ${path}`);
-
-    const cacheResponse = new Response(response.clone().body, {
-      headers: {
-        "cache-control": `public, max-age=${maxAgeSeconds}`,
-        "content-type": "application/json; charset=utf-8",
-      },
-    });
-    await edgeCache.default.put(cacheKey, cacheResponse);
-    return (await response.json()) as T;
-  })();
-
-  inFlight.set(path, request);
-  try {
-    return await request;
-  } finally {
-    inFlight.delete(path);
-  }
+/** One page of results for a search. Any non-2xx answer throws; the page shows a plain message. */
+export async function runSearch(spec: SearchSpec, offset: number): Promise<SearchPage> {
+  const response = await upstream("/v1/jobs/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...spec, offset, limit: PAGE_SIZE }),
+  });
+  if (!response.ok) throw new Error(`API ${response.status} for /v1/jobs/search`);
+  return (await response.json()) as SearchPage;
 }
 
-/** Detail descriptions change only when the source job changes, so a longer TTL is safe. */
-export const getJob = (id: number) => call<JobDetail>(`/v1/jobs/${id}`, 300);
-
-/** Operational reads for the status page. Short TTL: collection state changes over hours, not seconds. */
-export const listSources = () =>
-  call<SourceRecord[]>("/v1/sources/status", 60).then((rows) => rows ?? []);
-
-export const listAttentionRuns = (limit = 50) =>
-  call<RunRecord[]>(`/v1/runs?attention=true&limit=${limit}`, 60).then((rows) => rows ?? []);
-
-/** Personal data read straight from the API (never cached). Any non-2xx throws. */
-async function own<T>(path: string): Promise<T> {
-  const response = await upstream(path);
-  if (!response.ok) throw new Error(`API ${response.status} for ${path}`);
-  return (await response.json()) as T;
-}
-
-/** A saved resume (the base one, or the copy tailored to `jobId`). */
-export function getResume(jobId: number | null = null): Promise<ResumeRecord | null> {
-  return own<ResumeRecord | null>(jobId ? `/v1/resume?job=${jobId}` : "/v1/resume");
-}
-
-export const listResumes = () => own<ResumeSummary[]>("/v1/resumes");
+export const PAGE_SIZE = 20;
