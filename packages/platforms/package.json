@@ -12,6 +12,7 @@
   "dependencies": {
     "@tallo/catalog": "workspace:*",
     "@tallo/contracts": "workspace:*",
+    "fast-xml-parser": "^5.12.1",
     "p-queue": "^10.0.0"
   }
 }
