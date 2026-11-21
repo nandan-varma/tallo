@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:tt="https://teamtailor.com/locations">
+  <channel>
+    <title>Dustin </title>
+    <description>Open positions</description>
+    <link>https://dustin.teamtailor.com/jobs</link>
+        <item>
+      <title>Inside Sales Representative</title>
+      <description>&lt;p&gt;Wil jij het verschil maken voor klanten én collega's in een dynamische internationale omgeving, waar je complexe orders coördineert, dagelijks schakelt met verschillende afdelingen en samen met een betrokken team zorgt voor een vlekkeloze klantbeleving van bestelling tot levering?&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Dit maakt de positie als Inside Sales Representative uniek&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;p&gt;Je krijgt de vrijheid om je eigen brancheteam te behere</description>
+      <pubDate>Thu, 19 Nov 2026 16:19:27 +0100</pubDate>
+      <link>https://jobs.dustin.com/jobs/8770427-inside-sales-representative</link>
+      <remoteStatus>hybrid</remoteStatus>
+      <guid>cfbf9ee6-527a-4579-8f6d-88083859f5a4</guid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>Nijmegen, Netherlands</tt:name>
+          <tt:address>Wijchenseweg 20</tt:address>
+          <tt:zip>6537 TL</tt:zip>
+          <tt:city>Nijmegen</tt:city>
+          <tt:country>Netherlands</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Operations</tt:department>
+      <tt:role>Order executive</tt:role>
+    </item>
+    <item>
+      <title>APAC Data Centre SOC Regional Operations Manager</title>
+      <description>&lt;p&gt;&lt;strong&gt;Securitas Group&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;The APAC Data Centre SOC Regional Operations Manager leads consistent, compliant and high-performing Security Operations Centre (SOC) operations across the client’s APAC data centre portfolio. The role provides operational leadership to geographically dispersed SOC managers and supervisors, ensuring that service standards, audit readiness, incident response and continuous-improvement expectations are met or exceeded.&lt;/p</description>
+      <pubDate>Mon, 16 Nov 2026 12:22:08 +0100</pubDate>
+      <link>https://securitas.teamtailor.com/jobs/8747457-apac-data-centre-soc-regional-operations-manager</link>
+      <remoteStatus>none</remoteStatus>
+      <guid>2f68b5aa-5261-48a3-ab3a-af31943bc9ca</guid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>India</tt:name>
+          <tt:address>468-469</tt:address>
+          <tt:zip>122016</tt:zip>
+          <tt:city>Gurugram</tt:city>
+          <tt:country>India</tt:country>
+        </tt:location>
+        <tt:location>
+          <tt:name>Singapore</tt:name>
+          <tt:address>51 Changi Business Park Central 2</tt:address>
+          <tt:zip>486066</tt:zip>
+          <tt:city>Singapore</tt:city>
+          <tt:country>Singapore</tt:country>
+        </tt:location>
+        <tt:location>
+          <tt:name>Melbourne</tt:name>
+          <tt:address>79 Chifley Dr</tt:address>
+          <tt:zip>3072</tt:zip>
+          <tt:city>Preston</tt:city>
+          <tt:country>Australia</tt:country>
+        </tt:location>
+        <tt:location>
+          <tt:name/>
+          <tt:address>Mayfair Platinum</tt:address>
+          <tt:zip>2000</tt:zip>
+          <tt:city>Sydney</tt:city>
+          <tt:country>Australia</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Security Services</tt:department>
+      <tt:role/>
+    </item>
+  </channel>
+</rss>
