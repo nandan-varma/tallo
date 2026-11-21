@@ -63,12 +63,16 @@ function reply(status: number, body: PublicError, headers: Record<string, string
   return Response.json(body, { status, headers: { "cache-control": "no-store", ...headers } });
 }
 
-/** Whether this address may make another request. Fails open when no limiter is bound (local development). */
+/**
+ * Whether this address may make another request. Fails open when no limiter is bound (local development), and fails
+ * closed when a limiter is bound but the edge did not supply an address: callers without a trustworthy key must not
+ * share one unlimited or cross-caller bucket. Only `cf-connecting-ip` is used; other forwarding headers are spoofable.
+ */
 export async function admit(request: Request, limiter: Limiter | undefined): Promise<boolean> {
   if (!limiter) return true;
-  const { success } = await limiter.limit({
-    key: request.headers.get("cf-connecting-ip") ?? "unknown",
-  });
+  const address = request.headers.get("cf-connecting-ip")?.trim();
+  if (!address) return false;
+  const { success } = await limiter.limit({ key: address });
   return success;
 }
 
@@ -77,10 +81,12 @@ export async function admit(request: Request, limiter: Limiter | undefined): Pro
  * API's own Cache-Control decides how long.
  */
 export async function answer(pathAndQuery: string, deps: PublicDeps): Promise<Response> {
-  const key = cacheKeyOf(pathAndQuery);
+  // Every caller shares one spelling of a question, so the public proxy and the search page share its cache entry.
+  const canonical = normalizedPathAndQuery(new URL(pathAndQuery, PUBLIC_ORIGIN));
+  const key = cacheKeyOf(canonical);
   const cached = await deps.cache?.match(key);
   if (cached) return cached;
-  const response = await deps.upstream(pathAndQuery);
+  const response = await deps.upstream(canonical);
   if (response.status === 200 && deps.cache) {
     try {
       await deps.cache.put(key, response.clone());

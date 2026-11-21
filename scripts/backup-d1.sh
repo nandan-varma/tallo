@@ -26,6 +26,43 @@ DB_NAME="${TALLO_D1_NAME:-tallo}"
 BACKUP_ROOT="${TALLO_BACKUP_DIR:-$HOME/Backups/tallo}"
 KEEP="${TALLO_BACKUP_KEEP:-8}"
 
+# Resolve a path through every existing component without requiring the leaf to exist. Symlinks are followed, so a
+# backup root that points into the repository is caught before anything is created there.
+canonical_path() {
+  local path="$1" suffix=""
+  case "$path" in /*) ;; *) return 1 ;; esac
+  while [ ! -e "$path" ] && [ "$path" != "/" ]; do
+    suffix="/$(basename "$path")$suffix"
+    path="$(dirname "$path")"
+  done
+  [ -e "$path" ] || return 1
+  printf '%s%s\n' "$(cd "$path" && pwd -P)" "$suffix"
+}
+
+case "$BACKUP_ROOT" in
+  /*) ;;
+  *)
+    echo "TALLO_BACKUP_DIR must be an absolute path: $BACKUP_ROOT" >&2
+    exit 2
+    ;;
+esac
+
+REPO_REAL="$(cd "$REPO" && pwd -P)"
+if ! ROOT_REAL="$(canonical_path "$BACKUP_ROOT")"; then
+  echo "cannot resolve TALLO_BACKUP_DIR: $BACKUP_ROOT" >&2
+  exit 2
+fi
+case "$ROOT_REAL" in
+  "$REPO_REAL" | "$REPO_REAL"/*)
+    echo "TALLO_BACKUP_DIR must be outside the repository: $BACKUP_ROOT" >&2
+    exit 2
+    ;;
+esac
+if [ -L "$BACKUP_ROOT" ]; then
+  echo "warning: TALLO_BACKUP_DIR is a symbolic link; using its target for retention: $ROOT_REAL" >&2
+fi
+BACKUP_ROOT="$ROOT_REAL"
+
 case "$KEEP" in
   '' | *[!0-9]* | 0)
     echo "TALLO_BACKUP_KEEP must be a whole number of at least 1" >&2
@@ -66,9 +103,9 @@ run() {
   fi
   mkdir -p "$BACKUP_ROOT"
   work="$(mktemp -d "$BACKUP_ROOT/.tallo-d1-$stamp.XXXXXX")"
-  # A failed run must leave nothing behind; a finished run has already moved $work to $dest.
-  # shellcheck disable=SC2064
-  trap "rm -rf '$work'" EXIT
+  # A failed run must leave nothing behind; a finished run has already moved $work to $dest. The trap expands the path
+  # at cleanup time, in double quotes, so spaces, globs and single quotes in the backup root are safe.
+  trap 'rm -rf -- "$work"' EXIT
 
   cd "$REPO"
   # Read-only listing. Node parses the JSON so the script needs no jq.
@@ -105,7 +142,7 @@ run() {
   # Names sort by UTC stamp, so reverse order is newest first. -type d never matches a symlink.
   find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'tallo-d1-*' | sort -r | tail -n +"$((KEEP + 1))" \
     | while IFS= read -r old; do
-      rm -rf "$old"
+      rm -rf -- "$old"
       echo "pruned: $old"
     done
 }

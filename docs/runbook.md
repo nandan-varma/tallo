@@ -28,7 +28,9 @@ Resource ids and URLs are recorded in `docs/PROGRESS.md`. Secrets are never comm
 prerendered page generated from the API's schemas.
 - Rate limit: the `PUBLIC_LIMIT` binding in `apps/web/wrangler.jsonc` (`namespace_id` `1001`, 60 requests per 60 seconds per
   address). Counters are per Cloudflare location, so the effective global ceiling is higher. The binding is verified against
-  the Workers docs; its behaviour in production is not yet observed (check the 429 rate in logs after deploy).
+  the Workers docs; its behaviour in production is not yet observed (check the 429 rate in logs after deploy). Only
+  `cf-connecting-ip` is trusted; a request with no such address is refused while the binding is present, rather than
+  sharing an `unknown` bucket. Cached answers still count against the address, because the budget is about requests.
 - Edge cache: 200 answers are stored under the public URL with sorted parameters (`caches.default`), for the lifetimes the API
   sets (search 5 minutes, postings 1 hour). Errors are never cached.
 - Closed: `tallo-api.nandan.fyi` (the API's custom domain, which the runner ingests through) refuses the three public reads
@@ -274,8 +276,10 @@ scripts/backup-d1.sh run       # take a backup now (needs wrangler logged in to 
 
 A backup lands in `~/Backups/tallo/tallo-d1-<UTC stamp>/` (outside the repo, so it cannot be committed) as
 `tallo.sql.gz`, `time-travel.json` (the restore bookmark at that moment) and `meta.txt`. A failed run leaves nothing
-behind. The newest 8 are kept (`TALLO_BACKUP_KEEP`); only `tallo-d1-*` directories directly under the backup directory are
-pruned. Override the location with `TALLO_BACKUP_DIR`.
+behind, including when the path contains spaces or quotes. The newest 8 are kept (`TALLO_BACKUP_KEEP`); only
+`tallo-d1-*` directories directly under the backup directory are pruned. Override the location with `TALLO_BACKUP_DIR`,
+which must be an absolute path outside the repository; a symbolic-link root is resolved (with a warning) so retention
+still prunes its target.
 
 The weekly job is `apps/runner/launchd/backup.sh` (Sundays 00:30, before the full sync; logs
 `~/Library/Logs/tallo/backup.log`). It uses this Mac's own wrangler login, no token in the plist. Same

@@ -139,6 +139,20 @@ describe("request limits", () => {
     expect(limiter.limit).toHaveBeenCalledWith({ key: "198.51.100.2" });
     expect(await admit(get("/v1/search"), undefined)).toBe(true);
   });
+
+  it("refuses a request without a trustworthy address when a limiter is bound", async () => {
+    const limiter: Limiter = { limit: vi.fn(async () => ({ success: true })) };
+    expect(await admit(get("/v1/search"), limiter)).toBe(false);
+    expect(
+      await admit(get("/v1/search", { headers: { "x-forwarded-for": "203.0.113.9" } }), limiter),
+    ).toBe(false);
+    expect(limiter.limit).not.toHaveBeenCalled();
+
+    const { upstream, deps: d } = deps({ limiter });
+    const response = await handlePublic(get("/v1/search?title=ab"), d);
+    expect(response.status).toBe(429);
+    expect(upstream).not.toHaveBeenCalled();
+  });
 });
 
 describe("forwarding and the edge cache", () => {
@@ -194,8 +208,10 @@ describe("forwarding and the edge cache", () => {
     const cache = memoryCache();
     const limiter: Limiter = { limit: vi.fn(async () => ({ success: true })) };
     const { deps: d } = deps({ cache, limiter });
-    await handlePublic(get("/v1/search?title=ab"), d);
-    await handlePublic(get("/v1/search?title=ab"), d);
+    const request = () =>
+      get("/v1/search?title=ab", { headers: { "cf-connecting-ip": "203.0.113.7" } });
+    await handlePublic(request(), d);
+    await handlePublic(request(), d);
     // Every request counts against the address, cached or not: the budget is about requests, not database reads.
     expect(limiter.limit).toHaveBeenCalledTimes(2);
   });
