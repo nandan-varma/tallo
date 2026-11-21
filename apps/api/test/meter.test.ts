@@ -3,6 +3,9 @@ import { type D1Like, measure, meterD1 } from "../src/meter.ts";
 
 interface Answer {
   results: unknown[];
+  /** What raw() gives, one array per row; with `columns`, raw({ columnNames: true }) puts them first. Defaults to results. */
+  rawRows?: unknown[][];
+  columns?: string[];
   meta?: { rows_read?: number; rows_written?: number };
 }
 
@@ -22,9 +25,10 @@ function fakeD1(answers: Record<string, Answer>) {
         calls.push({ sql, values });
         return answer.results[0] ?? null;
       },
-      raw: async () => {
+      raw: async (options?: { columnNames?: boolean }) => {
         calls.push({ sql, values });
-        return answer.results;
+        const rows = answer.rawRows ?? answer.results;
+        return options?.columnNames && answer.columns ? [answer.columns, ...rows] : rows;
       },
     };
   };
@@ -55,15 +59,84 @@ describe("meterD1", () => {
     expect(cost).toEqual({ statements: 2, rows_read: 42, rows_written: 3, rows_returned: 2 });
   });
 
-  it("counts a raw() read as a statement and its rows, with no meta, so rows_read stays unknown", async () => {
-    const { d1 } = fakeD1({ "SELECT 2": { results: [[1], [2], [3]] } });
+  it("reads a raw() select through all() once its columns are known to be distinct: D1's meta, rows as arrays", async () => {
+    const { d1, calls } = fakeD1({
+      "SELECT 2": {
+        results: [
+          { id: 1, name: "a" },
+          { id: 2, name: "b" },
+        ],
+        rawRows: [
+          [1, "a"],
+          [2, "b"],
+        ],
+        columns: ["id", "name"],
+        meta: { rows_read: 9 },
+      },
+    });
+    const db = meterD1(d1);
+    const read = async () => {
+      let rows: unknown[] = [];
+      const cost = await measure(async () => {
+        rows = await db.prepare("SELECT 2").bind().raw();
+      });
+      return { rows, cost };
+    };
+
+    // The first call learns the names through raw(): the original data, no meta.
+    const first = await read();
+    expect(first.cost.rows_read).toBeNull();
+    // After that the measured path gives the same rows with D1's meta.
+    const second = await read();
+    expect(second.rows).toEqual(first.rows);
+    expect(second.rows).toEqual([
+      [1, "a"],
+      [2, "b"],
+    ]);
+    expect(second.cost).toEqual({
+      statements: 1,
+      rows_read: 9,
+      rows_written: null,
+      rows_returned: 2,
+    });
+    expect(calls.filter((c) => c.sql === "SELECT 2")).toHaveLength(2);
+  });
+
+  it("never drops a duplicate column name: such a statement keeps D1's raw() answer, rows_read unknown", async () => {
+    // `SELECT jobs.id, sources.id`: all() would collapse the two ids into one key.
+    const answer: Answer = {
+      results: [{ id: 2 }],
+      rawRows: [[1, 2]],
+      columns: ["id", "id"],
+      meta: { rows_read: 9 },
+    };
+    const { d1 } = fakeD1({ "SELECT 9": answer });
+    const db = meterD1(d1);
+    const run = async () => {
+      let rows: unknown[] = [];
+      const cost = await measure(async () => {
+        rows = await db.prepare("SELECT 9").bind().raw();
+      });
+      return { rows, cost };
+    };
+
+    const unmeasured = await db.prepare("SELECT 9").bind().raw();
+    for (const call of [await run(), await run(), await run()]) {
+      expect(call.rows).toEqual(unmeasured);
+      expect(call.rows).toEqual([[1, 2]]);
+      expect(call.cost.rows_read).toBeNull();
+    }
+  });
+
+  it("leaves raw() with options, and raw() outside a measured request, as D1 answers it", async () => {
+    const { d1 } = fakeD1({ "SELECT 8": { results: [[1], [2]] } });
     const db = meterD1(d1);
 
+    expect(await db.prepare("SELECT 8").bind().raw()).toEqual([[1], [2]]);
     const cost = await measure(async () => {
-      await db.prepare("SELECT 2").bind().raw();
+      await db.prepare("SELECT 8").bind().raw({ columnNames: true });
     });
-
-    expect(cost).toEqual({ statements: 1, rows_read: null, rows_written: null, rows_returned: 3 });
+    expect(cost).toEqual({ statements: 1, rows_read: null, rows_written: null, rows_returned: 2 });
   });
 
   it("reads a batch's meta per statement, and runs the wrapped statements it was given", async () => {

@@ -13,25 +13,6 @@ import type { Db } from "./db.ts";
 import type { JobRow } from "./schema.ts";
 import { companies, jobs, runs, sources, titleTokens } from "./schema.ts";
 
-/** Catalog search: free text, paging, and the stale-source switch. The database filters nothing else. */
-export const searchSchema = z.object({
-  q: z.string().trim().max(200).optional(),
-  /** Include jobs from sources that stopped listing for STALE_HIDE_DAYS. */
-  includeStale: z.coerce.boolean().optional(),
-  cursor: z
-    .string()
-    .regex(/^\d+\.\d+$/)
-    .optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
-});
-export type Search = z.infer<typeof searchSchema>;
-
-/** Safe FTS5 expression: every term must match, the last as a prefix. */
-function ftsQuery(q: string): string | undefined {
-  const terms = q.toLowerCase().match(/[\p{L}\p{N}]+/gu);
-  return terms?.map((t, i) => `"${t}"${i === terms.length - 1 ? "*" : ""}`).join(" ");
-}
-
 /**
  * `column : (A OR B)` for one FTS column. Each entry must contain all of its words (AND), as whole tokens with no
  * prefix: ["Seattle", "San Francisco"] is Seattle or (San AND Francisco). Words are quoted and only letters and
@@ -132,12 +113,36 @@ function candidateFilter(spec: RankedSpec, now: number): SQL[] {
 }
 
 /**
- * The best `RANK_CANDIDATES` rows for a MATCH that pass `filter`, by bm25 (BM25_WEIGHTS), ties by rowid. A bounded
- * subquery: however broad the terms, no more rows than this are read from the index.
+ * How many of the best-scoring FTS matches a ranked search looks at before it filters and cuts to `RANK_CANDIDATES`:
+ * five times the candidates, so the rows `visibleJobs` removes (closed, duplicate, stale source) do not thin the
+ * window. Output is identical whenever a search has no more matches than this.
  */
-function candidatesFor(match: string, filter: SQL[]) {
+export const RANK_WINDOW = RANK_CANDIDATES * 5;
+
+/**
+ * The filters that are selective on their own (a date window, countries, remote). A spec that uses one keeps the filter
+ * inside the cut: the survivors may all rank below any fixed window of the raw matches.
+ */
+function selective(spec: RankedSpec): boolean {
+  return (
+    spec.postedWithin !== undefined || (spec.countries?.length ?? 0) > 0 || spec.remote === true
+  );
+}
+
+/**
+ * The best `RANK_CANDIDATES` rows for a MATCH that pass `filter`, by bm25 (BM25_WEIGHTS), ties by rowid.
+ *
+ * With `window`, the cut comes first: the best `window` matches are taken from the FTS index on rowid and bm25 alone,
+ * and only those rows are looked up in `jobs` to be filtered. Reads of `jobs` are bounded by the window however broad
+ * the terms (FTS itself must still score every match). Without it (selective filters), the filter runs inside the cut
+ * and `jobs` is read once per match.
+ */
+function candidatesFor(match: string, filter: SQL[], window?: number) {
   const score = sql`bm25(jobs_fts, ${sql.raw(BM25_WEIGHTS.join(", "))})`;
-  return sql`(SELECT jobs_fts.rowid AS id, ${score} AS score FROM jobs_fts JOIN jobs ON jobs.id = jobs_fts.rowid WHERE jobs_fts MATCH ${match} AND ${and(...filter)} ORDER BY ${score}, jobs_fts.rowid LIMIT ${RANK_CANDIDATES})`;
+  if (window === undefined) {
+    return sql`(SELECT jobs_fts.rowid AS id, ${score} AS score FROM jobs_fts JOIN jobs ON jobs.id = jobs_fts.rowid WHERE jobs_fts MATCH ${match} AND ${and(...filter)} ORDER BY ${score}, jobs_fts.rowid LIMIT ${RANK_CANDIDATES})`;
+  }
+  return sql`(SELECT top.id AS id, top.score AS score FROM (SELECT jobs_fts.rowid AS id, ${score} AS score FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY ${score}, jobs_fts.rowid LIMIT ${window}) AS top JOIN jobs ON jobs.id = top.id WHERE ${and(...filter)} ORDER BY top.score, top.id LIMIT ${RANK_CANDIDATES})`;
 }
 
 /**
@@ -215,43 +220,38 @@ function listedJobs(now: number): SQL[] {
 }
 
 /**
- * Newest first, keyset-paged: `GET /v1/jobs` (which requires `q`). Free text is prefix-matched on its last word.
- * Text with no searchable word matches nothing, the same as `rankedJobs`.
+ * Phase 1 of a date-sorted search, unexecuted (the plan tests read its SQL): the ids of one page, ordered by `sort_at`
+ * (then id), `added` by id. Ids only, so no per-row subquery runs for rows that are sorted away.
  */
-export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.now() / 1000)) {
-  const match = input.q ? ftsQuery(input.q) : undefined;
-  if (input.q && !match) return { jobs: [], nextCursor: null };
-  const where: (SQL | undefined)[] = [
-    ...visibleJobs(now, input),
-    match
-      ? sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`
-      : undefined,
-  ];
-  if (input.cursor) {
-    const [at, id] = input.cursor.split(".").map(Number);
-    where.push(sql`(${jobs.sortAt}, ${jobs.id}) < (${at}, ${id})`);
-  }
-  const rows = await db
-    .select(summary)
+export function dateIdsQuery(
+  db: Db,
+  match: string,
+  spec: RankedSpec,
+  sort: Exclude<SearchSort, "relevance">,
+  page: { limit: number; offset: number },
+  now: number,
+) {
+  const filter = listedJobs(now);
+  filter.push(...fieldFilters(spec, now));
+  if (sort === "posted") filter.push(sql`${jobs.postedAt} IS NOT NULL`);
+  const remote = remoteOrPlaces(spec);
+  if (remote) filter.push(remote);
+  return db
+    .select({ id: jobs.id })
     .from(jobs)
-    .where(and(...where))
-    .orderBy(desc(jobs.sortAt), desc(jobs.id))
-    .limit(input.limit + 1);
-  const page = rows.slice(0, input.limit).map(({ facts, ...row }) => ({
-    ...row,
-    pay: payOf(facts),
-  }));
-  const last = page.at(-1);
-  return {
-    jobs: page,
-    nextCursor: rows.length > input.limit && last ? `${last.sortAt}.${last.id}` : null,
-  };
+    .where(
+      and(sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`, ...filter),
+    )
+    .orderBy(...(sort === "added" ? [desc(jobs.id)] : [desc(jobs.sortAt), desc(jobs.id)]))
+    .limit(page.limit)
+    .offset(page.offset);
 }
 
 /**
  * The results of a date-sorted search: `recent` and `posted` by `sort_at` (then id), `added` by id. The same FTS
  * match, source freshness and place/remote filters as the ranked search, but no bm25 candidate cut and no grouping:
- * each open location is its own row, with `locations` still counting its open `dup_of` siblings.
+ * each open location is its own row, with `locations` still counting its open `dup_of` siblings. Two phases: the page
+ * of ids, then the full rows of those ids (the `locations` count runs for the page only).
  */
 async function dateJobs(
   db: Db,
@@ -262,11 +262,8 @@ async function dateJobs(
 ) {
   const match = rankedMatch(spec);
   if (!match) return [];
-  const filter = listedJobs(now);
-  filter.push(...fieldFilters(spec, now));
-  if (sort === "posted") filter.push(sql`${jobs.postedAt} IS NOT NULL`);
-  const remote = remoteOrPlaces(spec);
-  if (remote) filter.push(remote);
+  const ids = (await dateIdsQuery(db, match, spec, sort, page, now)).map((row) => row.id);
+  if (ids.length === 0) return [];
   const rows = await db
     .select({
       ...summary,
@@ -275,17 +272,46 @@ async function dateJobs(
     })
     .from(jobs)
     .innerJoin(sources, eq(sources.id, jobs.sourceId))
-    .where(
-      and(sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`, ...filter),
+    .where(sql`${jobs.id} IN (SELECT value FROM json_each(${JSON.stringify(ids)}))`);
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  // A row that vanished between the phases (a purge) is left out, as a row the site no longer shows would be.
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    if (!row) return [];
+    const { facts, variants: _variants, ...rest } = row;
+    return [
+      {
+        ...rest,
+        pay: payOf(facts),
+        compensation: (facts.compensation as Money[] | undefined) ?? [],
+      },
+    ];
+  });
+}
+
+/** Phase 1 of a ranked search, unexecuted (the plan tests read its SQL). `window` overrides `RANK_WINDOW`. */
+export function leadersQuery(
+  db: Db,
+  match: string,
+  spec: RankedSpec,
+  page: { limit: number; offset: number },
+  now: number,
+  window = RANK_WINDOW,
+) {
+  const candidates = candidatesFor(
+    match,
+    candidateFilter(spec, now),
+    selective(spec) ? undefined : window,
+  );
+  return db
+    .select({ id: sql<number>`leader.id`, score: sql<number>`leader.score` })
+    .from(
+      sql`(SELECT cand.id AS id, cand.score AS score, row_number() OVER (PARTITION BY ${groupKey} ORDER BY cand.score, cand.id) AS rn FROM ${candidates} AS cand INNER JOIN jobs ON jobs.id = cand.id INNER JOIN sources ON sources.id = jobs.source_id) AS leader`,
     )
-    .orderBy(...(sort === "added" ? [desc(jobs.id)] : [desc(jobs.sortAt), desc(jobs.id)]))
+    .where(sql`leader.rn = 1`)
+    .orderBy(sql`leader.score`, sql`leader.id`)
     .limit(page.limit)
     .offset(page.offset);
-  return rows.map(({ facts, variants: _variants, ...row }) => ({
-    ...row,
-    pay: payOf(facts),
-    compensation: (facts.compensation as Money[] | undefined) ?? [],
-  }));
 }
 
 /**
@@ -306,15 +332,7 @@ export async function rankedJobs(
   if (!match) return [];
   // Phase 1, the leaders: each group's best candidate (lowest bm25, then lowest id), ordered and paged on ids and scores
   // only. The candidate cut is bounded, so this reads no facts or excerpts.
-  const leaders = await db
-    .select({ id: sql<number>`leader.id`, score: sql<number>`leader.score` })
-    .from(
-      sql`(SELECT cand.id AS id, cand.score AS score, row_number() OVER (PARTITION BY ${groupKey} ORDER BY cand.score, cand.id) AS rn FROM ${candidatesFor(match, candidateFilter(spec, now))} AS cand INNER JOIN jobs ON jobs.id = cand.id INNER JOIN sources ON sources.id = jobs.source_id) AS leader`,
-    )
-    .where(sql`leader.rn = 1`)
-    .orderBy(sql`leader.score`, sql`leader.id`)
-    .limit(page.limit)
-    .offset(page.offset);
+  const leaders = await leadersQuery(db, match, spec, page, now);
   if (leaders.length === 0) return [];
 
   // Phase 2, the page: the full rows of at most `limit` leaders, read by id.
@@ -351,20 +369,6 @@ export async function rankedJobs(
       },
     ];
   });
-}
-
-export async function getJob(db: Db, id: number) {
-  const row = (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
-  return row ? { ...row, pay: payOf(row.facts) } : undefined;
-}
-
-/**
- * The job a public read may show: open, and from a source search still shows. A closed posting or a hidden source
- * answers undefined, as it does in search. A duplicate listing that is still open answers, as its own location.
- */
-export async function openJob(db: Db, id: number, now = Math.floor(Date.now() / 1000)) {
-  const state = await jobState(db, id, now);
-  return state.kind === "ok" ? state.job : undefined;
 }
 
 /**
@@ -412,8 +416,8 @@ export async function listCompanies(
 
 /**
  * The company rows for a prefix, `limit + 1` of them so the caller can tell truncation. The range is on lower(name),
- * which `companies_lower_name_idx` indexes. The order stays by name, as it always was: the sort is over the matched
- * prefix only.
+ * which `companies_lower_name_idx` indexes. The order is the same expression, then the name for ties: the index
+ * delivers rows already in order, so SQLite sorts only within ties and stops at the limit, however broad the prefix.
  */
 export function companiesQuery(db: Db, { prefix, limit }: { prefix?: string; limit: number }) {
   const from = (prefix ?? "").trim().toLowerCase();
@@ -423,7 +427,7 @@ export function companiesQuery(db: Db, { prefix, limit }: { prefix?: string; lim
     .where(
       sql`lower(${companies.name}) >= ${from} AND lower(${companies.name}) < ${`${from}\uffff`}`,
     )
-    .orderBy(companies.name)
+    .orderBy(sql`lower(${companies.name})`, companies.name)
     .limit(limit + 1);
 }
 

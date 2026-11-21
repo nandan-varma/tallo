@@ -1,16 +1,14 @@
 import { RETIRE_MAX_ROWS } from "@tallo/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  getJob,
   jdKey,
   memoryBlobs,
   rawKey,
   rebuildDuplicates,
   retireSources,
   schema,
-  searchJobs,
 } from "../src/index.ts";
-import { testDb } from "../src/testing.ts";
+import { getJob, testDb, visibleList } from "../src/testing.ts";
 
 const NOW = 2_000_000_000;
 const OLD = "greenhouse:old";
@@ -131,7 +129,7 @@ async function scenario() {
 }
 
 const visible = async () =>
-  (await searchJobs(db, { limit: 100 }, NOW)).jobs.map((j) => j.id).sort((a, b) => a - b);
+  (await visibleList(db, { limit: 100 }, NOW)).jobs.map((j) => j.id).sort((a, b) => a - b);
 
 describe("source retirement", () => {
   it("previews exactly what the write does, and a dry run changes nothing", async () => {
