@@ -7,7 +7,7 @@
   "observability": { "enabled": true },
   "limits": { "cpu_ms": 120000 },
   "routes": [{ "pattern": "tallo-api.nandan.fyi", "custom_domain": true }],
-  "triggers": { "crons": ["17 * * * *", "*/5 * * * *"] },
+  "triggers": { "crons": ["17 * * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
@@ -33,7 +33,7 @@
   "durable_objects": { "bindings": [{ "name": "HOST_GATE", "class_name": "HostGate" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostGate"] }],
   "vars": {
-    "COLLECT_ENABLED": "1",
+    "COLLECT_ENABLED": "0",
     "COLLECT_BATCH": "3000",
     "COLLECT_SLICE_SUBREQUESTS": "800",
     "COLLECT_SLICE_MS": "300000"
