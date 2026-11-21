@@ -33,7 +33,10 @@ describe("icims", () => {
     const { ctx, urls } = text((url) =>
       url.includes("pr=0")
         ? html("icims-list.html")
-        : html("icims-list.html").replace(/<link rel="next"[^>]*\/>/, ""),
+        : html("icims-list.html")
+            .replace(/<link rel="next"[^>]*\/>/, "")
+            .replace(/3771/g, "13771")
+            .replace(/3770/g, "13770"),
     );
     const { items, result } = await drain(icims.list(src, ctx));
     expect(urls).toEqual([
@@ -69,6 +72,54 @@ describe("icims", () => {
     await expect(drain(icims.list(src, text(() => noLink).ctx))).rejects.toBeInstanceOf(
       SchemaError,
     );
+  });
+
+  it("never claims a complete portal listing after its posting budget is exhausted", async () => {
+    const { ctx } = text(lastPage);
+    ctx.maxPostings = 1;
+    await expect(drain(icims.list(src, ctx))).rejects.toThrow(/budget/i);
+  });
+
+  it("rejects repeated Jibe pages rather than counting duplicates toward completeness", async () => {
+    const fx = fixture("icims-jibe-list") as { jobs: Json[]; totalCount: number };
+    const ctx: CollectContext = {
+      http: {
+        getJson: async (url: string) => ({
+          status: 200,
+          url,
+          data: { jobs: fx.jobs, totalCount: 4 },
+        }),
+      } as unknown as Http,
+      maxPostings: 100,
+      record: () => {},
+    };
+    await expect(drain(icims.list(jibe, ctx))).rejects.toThrow(/repeated/i);
+  });
+
+  it("keeps unknown original card markup and the entire detail response", async () => {
+    const list = lastPage().replace(
+      "AP Accountant I",
+      '<custom-field data-extra="yes">Unknown source value</custom-field>AP Accountant I',
+    );
+    const { items } = await drain(icims.list(src, text(() => list).ctx));
+    expect(obj(items[0]?.listing).rawHtml).toContain('data-extra="yes"');
+    const detailBody = `${html("icims-job.html")}<custom-field data-unmapped="retained">Extra</custom-field>`;
+    const detail = await icims.detail?.(src, items[0] as RawPosting, text(() => detailBody).ctx);
+    expect(obj(detail).rawHtml).toBe(detailBody);
+  });
+
+  it("normalizes only the relative date in raw-HTML fingerprints", async () => {
+    const list = lastPage();
+    const first = (await drain(icims.list(src, text(() => list).ctx))).items[0]!;
+    const relative = list.replace(/1 day ago/g, "2 days ago");
+    const later = (await drain(icims.list(src, text(() => relative).ctx))).items[0]!;
+    expect(icims.fingerprint?.(first.listing)).toEqual(icims.fingerprint?.(later.listing));
+    const changed = list.replace(
+      'class="iCIMS_JobCardItem"',
+      'class="iCIMS_JobCardItem" data-source-extra="changed"',
+    );
+    const other = (await drain(icims.list(src, text(() => changed).ctx))).items[0]!;
+    expect(icims.fingerprint?.(first.listing)).not.toEqual(icims.fingerprint?.(other.listing));
   });
 
   it("fingerprints without the relative posted date", () => {
@@ -163,7 +214,18 @@ describe("icims", () => {
         return {
           status: 200,
           url,
-          data: { jobs: page === 1 ? fx.jobs : [fx.jobs[0]!], totalCount: 3 },
+          data: {
+            jobs:
+              page === 1
+                ? fx.jobs
+                : [
+                    {
+                      ...obj(fx.jobs[0]),
+                      data: { ...obj(obj(fx.jobs[0]).data), req_id: "new-page-id" },
+                    },
+                  ],
+            totalCount: 3,
+          },
         };
       },
       postJson: async () => {

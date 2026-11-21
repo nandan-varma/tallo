@@ -11,6 +11,13 @@ import type {
 } from "@tallo/contracts";
 import { arr, isObject, obj, str } from "@tallo/contracts";
 
+/** Bound entity work across every value in one XML response. */
+export const XML_ENTITIES = { maxTotalExpansions: 100_000 };
+
+/** A source label embedded inside generated HTML is text, never markup. */
+export const htmlText = (value: string): string =>
+  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
 /** The source answered, but not in the shape we know. Aborts the run; never implies closure. */
 export class SchemaError extends Error {}
 

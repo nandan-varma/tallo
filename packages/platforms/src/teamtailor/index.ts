@@ -1,7 +1,7 @@
 import type { Json, JsonObject, Platform, SourceConfig, WorkMode } from "@tallo/contracts";
 import { arr, isObject, obj, str } from "@tallo/contracts";
-import { XMLParser } from "fast-xml-parser";
-import { describe, locations, lookup, requireKey, SchemaError } from "../kit.ts";
+import { XMLParser, XMLValidator } from "fast-xml-parser";
+import { describe, locations, lookup, requireKey, SchemaError, XML_ENTITIES } from "../kit.ts";
 
 /**
  * Teamtailor career sites publish their open jobs as one RSS feed, description included:
@@ -17,6 +17,7 @@ const PAGE = 100;
 
 // Text stays text: zip codes keep leading zeros, nothing becomes a number or boolean.
 const parser = new XMLParser({
+  processEntities: XML_ENTITIES,
   parseTagValue: false,
   parseAttributeValue: false,
   ignoreAttributes: true,
@@ -25,6 +26,7 @@ const parser = new XMLParser({
 
 /** Parse a feed into its item objects. Anything that is not an RSS channel is a schema error. */
 export function parseFeed(xml: string): JsonObject[] {
+  if (XMLValidator.validate(xml) !== true) throw new SchemaError("Invalid Teamtailor XML");
   let doc: unknown;
   try {
     doc = parser.parse(xml);
@@ -50,7 +52,7 @@ export const teamtailor: Platform = {
   id: "teamtailor",
   version: 1,
   hosts: ["*.teamtailor.com"],
-  validate: (source) => requireKey(source, /^[a-z0-9][a-z0-9-]*$/i),
+  validate: (source) => requireKey(source, /^[a-z0-9][a-z0-9-]*(?:\.na)?$/i),
 
   async *list(source, ctx) {
     const seen = new Set<string>();
