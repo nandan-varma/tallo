@@ -40,9 +40,16 @@ function pay(ranges: unknown): Money[] {
   });
 }
 
+/** Some boards fill `requisition_id` with a placeholder instead of an id; that states nothing. */
+function requisitionId(value: unknown): string | undefined {
+  const text = str(value)?.trim();
+  if (!text || /^see opening id$/i.test(text)) return undefined;
+  return text;
+}
+
 export const greenhouse: Platform = {
   id: "greenhouse",
-  version: 2,
+  version: 3,
   hosts: ["boards-api.greenhouse.io", "boards-api.eu.greenhouse.io"],
   validate: (source) => requireKey(source),
 
@@ -79,10 +86,13 @@ export const greenhouse: Platform = {
       applyUrl: str(j("absolute_url")),
       description: describe(j("content")),
       locations: locations([{ text: place }, ...offices.map((text) => ({ text }))]),
-      workMode: workModeOf(metadata["Workplace Type"]) ?? workModeOf(metadata["Work Type"]),
+      workMode:
+        workModeOf(metadata["Workplace Type"]) ??
+        workModeOf(metadata["Work Type"]) ??
+        workModeOf(metadata["Location Type"]),
       department: departments[0],
       employmentType: str(metadata["Employment Type"]) ?? str(metadata["Job Type"]),
-      requisitionId: str(j("requisition_id")),
+      requisitionId: requisitionId(j("requisition_id")),
       postedAt: str(j("first_published")),
       updatedAt: str(j("updated_at")),
       expiresAt: str(j("application_deadline")),

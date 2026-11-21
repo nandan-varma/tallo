@@ -193,6 +193,64 @@ describe("icims", () => {
     expect(job.description).toBe("");
   });
 
+  it("maps each JSON-LD address of a multi-place posting with its own structure", async () => {
+    const { ctx } = text(() => html("icims-job.html"));
+    const { items } = await drain(icims.list(src, text(lastPage).ctx));
+    const first = items[0] as RawPosting;
+    const detail = obj(await icims.detail?.(src, first, ctx));
+    const address = (locality: string, region: string, country: string) => ({
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: locality,
+        addressRegion: region,
+        addressCountry: country,
+      },
+    });
+    const job = icims.map(
+      {
+        ...first,
+        detail: {
+          ...detail,
+          jsonLd: {
+            ...obj(detail.jsonLd),
+            jobLocation: [address("Austin", "TX", "US"), address("Toronto", "ON", "CA")],
+          },
+        },
+      },
+      src,
+    );
+    expect(job.locations.map((l) => [l.city, l.region, l.countryCode])).toEqual([
+      ["Austin", "TX", "US"],
+      ["Toronto", "ON", "CA"],
+    ]);
+    expect(job.locations[0]?.primary).toBe(true);
+  });
+
+  it("uses the job-level category as the department when the page states one", async () => {
+    const { ctx } = text(() => html("icims-job-sections.html"));
+    const { items } = await drain(icims.list(src, text(lastPage).ctx));
+    const first = items[0] as RawPosting;
+    const detail = await icims.detail?.(src, first, ctx);
+    expect(icims.map({ ...first, detail }, src).department).toBe("Accounting");
+  });
+
+  it("falls back to occupationalCategory for the department when no Category field exists", async () => {
+    // icims-job.html has a Category header; remove it so only the JSON-LD occupationalCategory remains.
+    const page = html("icims-job.html").replace(
+      /<div class="iCIMS_JobHeaderTag">\s*<dt class="iCIMS_JobHeaderField">Category<\/dt>[\s\S]*?<\/div>/,
+      "",
+    );
+    expect(page).not.toContain("Category</dt>");
+    const { ctx } = text(() => page);
+    const { items } = await drain(icims.list(src, text(lastPage).ctx));
+    const first = items[0] as RawPosting;
+    const detail = await icims.detail?.(src, first, ctx);
+    expect(obj(detail).fields).not.toContainEqual(expect.objectContaining({ label: "Category" }));
+    const job = icims.map({ ...first, detail }, src);
+    expect(job.department).toBe("Accounting");
+  });
+
   it("falls back to the job page ad sections without JSON-LD", async () => {
     const { ctx } = text(() => html("icims-job-sections.html"));
     const { items } = await drain(icims.list(src, text(lastPage).ctx));

@@ -15,7 +15,7 @@ const INTERVALS: Record<string, PayInterval> = {
 
 export const lever: Platform = {
   id: "lever",
-  version: 2,
+  version: 3,
   hosts: ["api.lever.co", "api.eu.lever.co"],
   validate: (source) => requireKey(source),
 
@@ -50,6 +50,12 @@ export const lever: Platform = {
     const places = arr(categories.allLocations).length
       ? arr(categories.allLocations)
       : [categories.location];
+    // `country` is one code for the posting, so it hints the primary place only.
+    const countryCode = str(j.country);
+    const placeTexts = places.flatMap((text) => {
+      const stated = str(text);
+      return stated ? [stated] : [];
+    });
     return {
       postingId,
       title: str(j.text) ?? "",
@@ -57,7 +63,7 @@ export const lever: Platform = {
       applyUrl: str(j.applyUrl),
       description: describe(j.description, ...lists, j.additional),
       locations: locations(
-        places.map((text) => ({ text, hints: { countryCode: str(j.country) } })),
+        placeTexts.map((text, index) => ({ text, hints: index === 0 ? { countryCode } : {} })),
       ),
       workMode: workModeOf(j.workplaceType),
       department: str(categories.department),
