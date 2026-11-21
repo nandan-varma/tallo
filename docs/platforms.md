@@ -128,23 +128,22 @@ employment type or experience. Stena had one posting with no `tt:location` (warn
 
 ## Field mappings from the 2026-11-21 audit (#138)
 
-Structured fields the sources state that the mappers now read. Every platform whose `map` changed bumped its
+Structured fields the sources state that the mappers now read. Every platform whose `map` output changed bumped its
 `version`, so the next sync re-maps its postings. Nothing here is parsed from text.
 
-| Platform    | Version | Now read                                                                                                                                                                        | Deliberately left                                                                                                     |
-| ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| greenhouse  | 3       | Board `metadata` "Location Type" as work mode, after "Workplace Type" and "Work Type". `requisition_id` "See Opening ID" (placeholder on some Stripe jobs) is stored as absent. |                                                                                                                       |
-| lever       | 3       | `country` hints the primary location only; later places stay without a country.                                                                                                 |                                                                                                                       |
-| oraclecloud | 3       | `workLocation[0].TownOrCity` as the primary city.                                                                                                                               | `Region1`/`Region2` (district names and codes such as "0200", not ISO regions).                                       |
-| icims       | 4       | Each JSON-LD `jobLocation[].address` when a posting lists several, with its own city, region and country. `Category` header field, else `occupationalCategory`, as department.  |                                                                                                                       |
-| workday     | 4       | `jobRequisitionLocation.country.alpha2Code` as the primary location's country code; the posting's country name is the fallback.                                                 | `remoteType` stays in extras. The API was in maintenance during the audit; map it once a live board shows its values. |
-| apple       | 2       | `standardWeeklyHours` from the search row when the detail does not state it (13 of 20 rows).                                                                                    |                                                                                                                       |
-| jobvite     | 2       | Work mode through the shared `workModeOf`: "Hybrid Remote" now reads as hybrid.                                                                                                 |                                                                                                                       |
-| amazon      | 2       | Work mode through the shared `workModeOf`. Its mapper is unchanged; the bump covers the shared reader's new token rule for values the fixtures do not contain.                  |                                                                                                                       |
+| Platform    | Version | Now read                                                                                                                                                                        | Deliberately left                                                                                                                          |
+| ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| greenhouse  | 3       | Board `metadata` "Location Type" as work mode, after "Workplace Type" and "Work Type". `requisition_id` "See Opening ID" (placeholder on some Stripe jobs) is stored as absent. |                                                                                                                                            |
+| lever       | 3       | `country` hints the primary location only; later places stay without a country.                                                                                                 |                                                                                                                                            |
+| oraclecloud | 3       | `workLocation[0].TownOrCity` as the primary city.                                                                                                                               | `Region1`/`Region2` (district names and codes such as "0200", not ISO regions).                                                            |
+| icims       | 4       | Each JSON-LD `jobLocation[].address` when a posting lists several, with its own city, region and country. `Category` header field, else `occupationalCategory`, as department.  | `occupationalCategory` is an occupation class, not a department; it is used only where the page has no Category field, as the issue asked. |
+| workday     | 4       | `jobRequisitionLocation.country.alpha2Code` as the primary location's country code; the posting's country name is the fallback.                                                 | `remoteType` stays in extras until a live board shows its values (the API was in maintenance during the audit).                            |
+| apple       | 2       | `standardWeeklyHours` from the search row when the detail does not state it (13 of 20 rows).                                                                                    |                                                                                                                                            |
 
-Shared work-mode reader (`kit.ts`, `workModeOf`): the words that name a mode decide it, with precedence
-hybrid > remote > onsite. "Hybrid (Travel-Required)" and "Hybrid Remote" read as hybrid; before they read as
-unknown. Enum-only sources (ashby, lever `workplaceType`) read the same values as before.
+Shared work-mode reader (`kit.ts`, `workModeOf`): a mode is read only when the source's words name exactly one mode
+family (hybrid, remote or onsite) and nothing negates it ("non", "not", "no"). "Hybrid (Travel-Required)" reads as
+hybrid. "Remote or On-Site", "Hybrid Remote" and "Non-Remote" read as unknown, because the source does not state one
+mode. Among the values seen in fixtures or the audit, only Greenhouse output changes under this rule, so jobvite and amazon keep their versions.
 
-Not done, on purpose: SmartRecruiters `false`/`false` as onsite (ambiguous with "Flexible"); BambooHR
-`locationType` codes (unverified); pay parsed from prose; country or city derived from text-only sources.
+Not done, on purpose: SmartRecruiters `false`/`false` as onsite (ambiguous with "Flexible"); BambooHR `locationType`
+codes (unverified); pay parsed from prose; country or city derived from text-only sources.

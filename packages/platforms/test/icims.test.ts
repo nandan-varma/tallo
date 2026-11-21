@@ -236,11 +236,19 @@ describe("icims", () => {
   });
 
   it("falls back to occupationalCategory for the department when no Category field exists", async () => {
-    const { ctx } = text(() => html("icims-job.html"));
+    // icims-job.html has a Category header; remove it so only the JSON-LD occupationalCategory remains.
+    const page = html("icims-job.html").replace(
+      /<div class="iCIMS_JobHeaderTag">\s*<dt class="iCIMS_JobHeaderField">Category<\/dt>[\s\S]*?<\/div>/,
+      "",
+    );
+    expect(page).not.toContain("Category</dt>");
+    const { ctx } = text(() => page);
     const { items } = await drain(icims.list(src, text(lastPage).ctx));
     const first = items[0] as RawPosting;
     const detail = await icims.detail?.(src, first, ctx);
-    expect(icims.map({ ...first, detail }, src).department).toBe("Accounting");
+    expect(obj(detail).fields).not.toContainEqual(expect.objectContaining({ label: "Category" }));
+    const job = icims.map({ ...first, detail }, src);
+    expect(job.department).toBe("Accounting");
   });
 
   it("falls back to the job page ad sections without JSON-LD", async () => {

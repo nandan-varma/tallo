@@ -12,12 +12,8 @@ describe("workModeOf", () => {
     ["On Site", "onsite"],
     ["In Office", "onsite"],
     ["In-Person", "onsite"],
-    // A value that states a mode plus other words keeps the stated mode (Jobvite, Greenhouse).
-    ["Hybrid Remote", "hybrid"],
+    // One mode stated with other words: the mode is kept (Greenhouse "Hybrid (Travel-Required)").
     ["Hybrid (Travel-Required)", "hybrid"],
-    // Precedence when a source states more than one: hybrid > remote > onsite.
-    ["Remote or On-Site", "remote"],
-    ["Hybrid / On-Site", "hybrid"],
   ] as const)("reads the mode words in %s as %s", (value, expected) => {
     expect(workModeOf(value)).toBe(expected);
   });
@@ -31,7 +27,19 @@ describe("workModeOf", () => {
     ["Office", undefined],
     ["Online", undefined],
     ["Unspecified", undefined],
-  ])("leaves a value that names no mode (%s) undefined", (value, expected) => {
+    // More than one mode stated: the source does not state one mode, so nothing is read.
+    ["Remote or On-Site", undefined],
+    ["Onsite or remote", undefined],
+    ["Hybrid / On-Site", undefined],
+    // "Hybrid Remote" (Jobvite's shape) states two modes; it is not a single stated hybrid token.
+    ["Hybrid Remote", undefined],
+    // Negation: the source says the mode does not apply.
+    ["Non-Remote", undefined],
+    ["Not remote", undefined],
+    ["Not Hybrid", undefined],
+    ["Not on-site", undefined],
+    ["No remote", undefined],
+  ])("leaves a value that does not state exactly one mode (%s) undefined", (value, expected) => {
     expect(workModeOf(value)).toBe(expected);
   });
 });

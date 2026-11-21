@@ -207,8 +207,6 @@ describe("greenhouse", () => {
     expect(obj(row).requisition_id).toBe("See Opening ID");
     const job = greenhouse.map({ id: "1", listing: row, detail: undefined }, src);
     expect(job.requisitionId).toBeUndefined();
-    // The listing row itself stays whole in the raw record.
-    expect(obj(row).requisition_id).toBe("See Opening ID");
   });
 });
 

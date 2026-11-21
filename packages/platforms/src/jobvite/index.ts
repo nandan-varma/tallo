@@ -36,7 +36,7 @@ function feedDate(value: unknown): string | undefined {
 
 export const jobvite: Platform = {
   id: "jobvite",
-  version: 2,
+  version: 1,
   hosts: ["app.jobvite.com"],
   validate: (source) => requireKey(source, /^[A-Za-z0-9]{6,16}$/),
 
