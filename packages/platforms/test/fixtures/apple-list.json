@@ -1,0 +1,89 @@
+{
+ "res": {
+  "searchResults": [
+   {
+    "id": "PIPE-114438346",
+    "jobSummary": "Apple Retail is where the best of Apple comes together. We bring our expertise to help people do what they love, delivering an only-at-Apple experience. We believe inclusion is a shared responsibility and we work together to foster a culture where everyone belongs and is inspired to do their best work.\n\nAs a Specialist, you build brand loyalty and create owners of Apple products and services. You\u2019re dedicated to selling and delivering a customer service experience that is unlike any other. A Specialist is curious \u2014 you ask questions to learn about our customers\u2019 needs, customizing recommendations to enrich their lives.",
+    "locations": [
+     {
+      "postLocationId": "postLocation-THA",
+      "city": "",
+      "stateProvince": "",
+      "countryName": "Thailand",
+      "metro": "",
+      "region": "",
+      "name": "Thailand",
+      "countryID": "iso-country-THA",
+      "level": 1
+     }
+    ],
+    "positionId": "114438346",
+    "postingDate": "Nov 21, 2026",
+    "postingTitle": "TH - Specialist: Part-Time, Seasonal",
+    "localeInfo": {
+     "languageCode": "en_US",
+     "dateFormat": "MMM D, YYYY",
+     "defaultLocaleCode": "en-us"
+    },
+    "postDateInGMT": "2026-11-21T07:20:16.024039340Z",
+    "transformedPostingTitle": "th-specialist-part-time-seasonal",
+    "reqId": "PIPE-114438346",
+    "managedPipelineRole": true,
+    "standardWeeklyHours": 40,
+    "team": {
+     "teamName": "Apple Retail",
+     "teamID": "teamsAndSubTeams-APPST",
+     "teamCode": "APPST"
+    },
+    "type": "PIPE",
+    "homeOffice": false,
+    "jobPositionId": "PIPE-114438346",
+    "isMultiLocation": false,
+    "postExternal": true
+   },
+   {
+    "id": "PIPE-114438210",
+    "jobSummary": "Apple Retail is where the best of Apple comes together. We bring our expertise to help people do what they love, delivering an only-at-Apple experience. At Apple, we believe inclusion is a shared responsibility and we work together to foster a culture where everyone belongs and is inspired to do their best work.\n\nAs a Technical Specialist, you offer technical support and skilled troubleshooting for all customers while also generating excitement for Apple\u2019s products and services. You deliver exceptional service and empower customers to get the most out of their Apple products. \n\nA Technical Specialist also makes sure customers are educated about repair options and Apple products and services.",
+    "locations": [
+     {
+      "postLocationId": "postLocation-JPNC",
+      "city": "",
+      "stateProvince": "",
+      "countryName": "Japan",
+      "metro": "",
+      "region": "",
+      "name": "Japan",
+      "countryID": "iso-country-JPN",
+      "level": 1
+     }
+    ],
+    "positionId": "114438210",
+    "postingDate": "Nov 21, 2026",
+    "postingTitle": "JP-Technical Specialist",
+    "localeInfo": {
+     "languageCode": "en_US",
+     "dateFormat": "MMM D, YYYY",
+     "defaultLocaleCode": "en-us"
+    },
+    "postDateInGMT": "2026-11-21T07:20:16.024046265Z",
+    "transformedPostingTitle": "jp-technical-specialist",
+    "reqId": "PIPE-114438210",
+    "managedPipelineRole": true,
+    "standardWeeklyHours": 40,
+    "team": {
+     "teamName": "Apple Retail",
+     "teamID": "teamsAndSubTeams-APPST",
+     "teamCode": "APPST"
+    },
+    "type": "PIPE",
+    "homeOffice": false,
+    "jobPositionId": "PIPE-114438210",
+    "isMultiLocation": false,
+    "postExternal": true
+   }
+  ],
+  "totalRecords": 2,
+  "talentLimitDetails": {},
+  "talentRolesInfoById": {}
+ }
+}

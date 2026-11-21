@@ -1,7 +1,9 @@
 import type { Platform, SourceConfig } from "@tallo/contracts";
 import { amazon } from "./amazon/index.ts";
+import { apple } from "./apple/index.ts";
 import { ashby } from "./ashby/index.ts";
 import { bamboohr } from "./bamboohr/index.ts";
+import { google } from "./google/index.ts";
 import { greenhouse } from "./greenhouse/index.ts";
 import { icims } from "./icims/index.ts";
 import { jobvite } from "./jobvite/index.ts";
@@ -34,6 +36,8 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     recruitee,
     teamtailor,
     bamboohr,
+    google,
+    apple,
     meta,
   ].map((p) => [p.id, p]),
 );
@@ -50,8 +54,10 @@ export const allowedHosts = (): string[] => Object.values(platforms).flatMap((p)
 export * from "./kit.ts";
 export {
   amazon,
+  apple,
   ashby,
   bamboohr,
+  google,
   greenhouse,
   icims,
   jobvite,

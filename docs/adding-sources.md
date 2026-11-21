@@ -11,6 +11,8 @@ is `<platform>:<key>`.
 | ashby           | board name (`jobs.ashbyhq.com/<key>`)      | none                                                                     |
 | smartrecruiters | company identifier                         | none                                                                     |
 | workday         | `tenant/site`                              | `wd` (e.g. `wd5`), from `https://<tenant>.<wd>.myworkdayjobs.com/<site>` |
+| google          | `careers` (one board per company site)     | none                                                                     |
+| apple           | `careers` (one board per company site)     | none                                                                     |
 
 ## For an exploration agent (given a list of careers URLs)
 
