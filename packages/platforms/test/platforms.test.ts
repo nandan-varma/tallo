@@ -1,4 +1,4 @@
-import type { CollectContext, Json, RawPosting } from "@tallo/contracts";
+import type { CollectContext, HttpInit, HttpResponse, Json, RawPosting } from "@tallo/contracts";
 import { arr, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import {
@@ -14,6 +14,93 @@ import {
 import { drain, fakeCtx, fixture, source } from "./helpers.ts";
 
 const jobs = (name: string, key: string): Json[] => obj(fixture(name))[key] as Json[];
+
+/** A ctx whose Http answers 304 to a matching If-None-Match and 200 with an ETag otherwise. */
+function etagCtx(etag: string, body: Json, validator?: string) {
+  const sent: (Record<string, string> | undefined)[] = [];
+  const respond = async (url: string, init?: HttpInit): Promise<HttpResponse> => {
+    sent.push(init?.headers);
+    return init?.headers?.["if-none-match"] === etag
+      ? { status: 304, url, data: null, etag }
+      : { status: 200, url, data: body, etag };
+  };
+  const ctx: CollectContext = {
+    http: {
+      getJson: respond,
+      postJson: async () => fail("no POST"),
+      getText: async () => fail("no text"),
+    },
+    maxPostings: 1000,
+    record() {},
+    ...(validator ? { validator } : {}),
+  };
+  return { ctx, sent };
+}
+const fail = (msg: string): never => {
+  throw new Error(msg);
+};
+
+describe.each([
+  ["greenhouse", greenhouse, "greenhouse-list"],
+  ["ashby", ashby, "ashby-list"],
+] as const)("%s conditional listing", (name, platform, fixtureName) => {
+  const src = source(name, "acme");
+  it("sends no validator on a first run and returns the response ETag", async () => {
+    const { ctx, sent } = etagCtx('W/"v1"', fixture(fixtureName));
+    const { items, result } = await drain(platform.list(src, ctx));
+    expect(sent[0]?.["if-none-match"]).toBeUndefined();
+    expect(items.length).toBeGreaterThan(0);
+    expect(result).toMatchObject({ complete: true, validator: 'W/"v1"' });
+    expect(result.notModified).toBeUndefined();
+  });
+  it("sends the stored validator and reports a 304 as notModified without yielding", async () => {
+    const { ctx, sent } = etagCtx('W/"v1"', fixture(fixtureName), 'W/"v1"');
+    const { items, result } = await drain(platform.list(src, ctx));
+    expect(sent[0]?.["if-none-match"]).toBe('W/"v1"');
+    expect(items).toEqual([]);
+    expect(result).toEqual({
+      complete: true,
+      emptyIsAuthoritative: false,
+      notModified: true,
+      validator: 'W/"v1"',
+    });
+  });
+  it("lists in full when the board changed since the stored validator", async () => {
+    const { ctx } = etagCtx('W/"v2"', fixture(fixtureName), 'W/"v1"');
+    const { items, result } = await drain(platform.list(src, ctx));
+    expect(items.length).toBeGreaterThan(0);
+    expect(result).toMatchObject({ validator: 'W/"v2"' });
+  });
+});
+
+describe("platforms without a verified conditional listing", () => {
+  it.each([
+    ["lever", lever, "lever-list"],
+    ["smartrecruiters", smartrecruiters, null],
+  ] as const)("%s never sends a validator", async (name, platform, fixtureName) => {
+    const sent: unknown[] = [];
+    const ctx: CollectContext = {
+      http: {
+        getJson: async (url, init) => {
+          sent.push(init?.headers);
+          return {
+            status: 200,
+            url,
+            data: fixtureName ? fixture(fixtureName) : { content: [], totalFound: 0 },
+          };
+        },
+        postJson: async () => fail("no POST"),
+        getText: async () => fail("no text"),
+      },
+      maxPostings: 1000,
+      record() {},
+      validator: 'W/"v1"',
+    };
+    const { result } = await drain(platform.list(source(name, "acme"), ctx));
+    expect(sent.every((h) => h === undefined)).toBe(true);
+    expect(result.validator).toBeUndefined();
+  });
+});
 
 describe("registry", () => {
   it("rejects unknown platforms and bad keys", () => {

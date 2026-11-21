@@ -9,6 +9,7 @@ import type {
   Listing,
   RawPosting,
   SourceConfig,
+  StartedRun,
 } from "@tallo/contracts";
 import { createHostLimiter, createHttp, type HostLimiter, HttpError } from "@tallo/http";
 import { platformFor } from "@tallo/platforms";
@@ -20,7 +21,7 @@ import { policyFor } from "./policy.ts";
  * D1 and R2 bindings. Both call the same `packages/db` ingest functions on the server side.
  */
 export interface Ingest {
-  startRun(run: CreateRun): Promise<unknown>;
+  startRun(run: CreateRun): Promise<StartedRun>;
   diff(runId: string, postings: { id: string; hash: string }[]): Promise<string[]>;
   missingBlobs(hashes: string[]): Promise<string[]>;
   putJd(hash: string, gz: Uint8Array): Promise<unknown>;
@@ -97,6 +98,17 @@ export const emptyProgress = (): Progress => ({
   rawParts: [],
 });
 
+/**
+ * The stored validator is only good for the code that produced the data it vouches for: a changed
+ * platform `map` or catalog rule must re-fetch everything (CLAUDE.md rule 7), so the versions are
+ * part of it. A validator from other versions is simply not sent.
+ */
+const validatorTag = (platform: { version: number }) => `${platform.version}.${PREPARE_VERSION}|`;
+const rawValidator = (stored: string | null, platform: { version: number }) =>
+  stored?.startsWith(validatorTag(platform))
+    ? stored.slice(validatorTag(platform).length)
+    : undefined;
+
 export const planKey = (runId: string) => `work/${runId}/plan.json`;
 const rawPartKey = (runId: string, offset: number) => `work/${runId}/raw-${offset}.ndjson.gz`;
 
@@ -153,19 +165,20 @@ export async function begin(
   const counter = { requests: 0 };
   const issues: Issue[] = [];
   const http = httpFor(source, options, counter);
-  const ctx: CollectContext = {
-    http,
-    maxPostings: options.maxPostings ?? 200_000,
-    record: (issue) => void issues.push(issue),
-  };
-
-  await ingest.startRun({
+  const started = await ingest.startRun({
     runId,
     source,
     runnerId: meta.runnerId,
     collectorVersion: meta.version,
     startedAt: meta.startedAt,
   });
+  const validator = rawValidator(started?.validator ?? null, platform);
+  const ctx: CollectContext = {
+    http,
+    maxPostings: options.maxPostings ?? 200_000,
+    record: (issue) => void issues.push(issue),
+    ...(validator ? { validator } : {}),
+  };
 
   // 1. List. Any failure is a failed run: nothing is inferred about closures.
   const listed: RawPosting[] = [];
@@ -209,8 +222,39 @@ export async function begin(
       rawKey: null,
       issues: issues.slice(0, ISSUE_CAP),
       boardNotFound,
+      notModified: false,
     });
     return { finished };
+  }
+
+  // A 304 is only legal for a validator we sent. It lists nothing and changes nothing: no diff, no details.
+  if (listing.notModified) {
+    if (!validator || listing.validator !== validator) {
+      listing = { complete: false, emptyIsAuthoritative: false };
+      issues.push({
+        code: "http",
+        message: "Listing answered 304 to a validator that was not sent",
+      });
+    } else {
+      return {
+        plan: {
+          runId,
+          source,
+          runnerId: meta.runnerId,
+          version: meta.version,
+          startedAt: meta.startedAt,
+          listed: 0,
+          seenIds: [],
+          listing,
+          changed: [],
+        },
+        progress: {
+          ...emptyProgress(),
+          requests: counter.requests,
+          issues: issues.slice(0, ISSUE_CAP),
+        },
+      };
+    }
   }
 
   // 2. Which postings are new or changed? The fingerprint ignores volatile fields.
@@ -373,6 +417,10 @@ export async function complete(
     rawKey,
     issues: progress.issues.slice(0, ISSUE_CAP),
     boardNotFound: false,
+    notModified: plan.listing.notModified === true,
+    validator: plan.listing.validator
+      ? `${validatorTag(platformFor(plan.source))}${plan.listing.validator}`
+      : null,
   };
   const outcome = await finishRun(options.ingest, plan.runId, body, plan.changed.length);
   // Only after the run is closed: a retry of a failed finalize must still find its parts.
@@ -421,6 +469,7 @@ export async function collectSource(
         { code: "http" as const, message: `Upload failed: ${message(error)}` },
       ].slice(0, ISSUE_CAP),
       boardNotFound: false,
+      notModified: false,
     });
   }
 }

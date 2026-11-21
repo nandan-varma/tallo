@@ -57,8 +57,8 @@ export function ingestRoutes({
   });
 
   routes.post("/v1/runs", write, zValidator("json", createRunSchema), async (c) => {
-    await startRun(db, c.req.valid("json"));
-    return c.json({ runId: c.req.valid("json").runId }, 201);
+    const { validator } = await startRun(db, c.req.valid("json"));
+    return c.json({ runId: c.req.valid("json").runId, validator }, 201);
   });
 
   routes.post("/v1/runs/:id/diff", write, zValidator("json", diffSchema), async (c) =>

@@ -43,7 +43,7 @@ function fakeIngest(over: Partial<Ingest> = {}) {
   };
   const blobs = new Set<string>();
   const ingest: Ingest = {
-    startRun: async () => undefined,
+    startRun: async () => ({ validator: null }),
     diff: async (_runId, postings) => postings.map((p) => p.id),
     missingBlobs: async (hashes) => hashes.filter((h) => !blobs.has(h)),
     putJd: async (hash) => void blobs.add(hash),
@@ -200,5 +200,105 @@ describe("how the first request fails", () => {
   it("any other status is a plain failed run, not board-not-found", async () => {
     const begun = await firstFailure(async () => new Response("", { status: 400 }));
     expect(begun).toMatchObject({ finished: { boardNotFound: false, issues: [{ code: "http" }] } });
+  });
+});
+
+describe("conditional listing", () => {
+  const ETAG = 'W/"abc"';
+  /** Fake Greenhouse that honors If-None-Match and records the requests it served. */
+  function board() {
+    const served: { url: string; inm: string | null; status: number }[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      const url = new URL(request.url);
+      const inm = request.headers.get("if-none-match");
+      if (!url.pathname.endsWith("/jobs")) {
+        served.push({ url: url.pathname, inm, status: 200 });
+        return new Response(fx("greenhouse-detail"));
+      }
+      const status = inm === ETAG ? 304 : 200;
+      served.push({ url: url.pathname, inm, status });
+      return status === 304
+        ? new Response(null, { status, headers: { etag: ETAG } })
+        : new Response(fx("greenhouse-list"), { headers: { etag: ETAG } });
+    };
+    return { fetchImpl, served };
+  }
+  const stored = (validator: string | null): Partial<Ingest> => ({
+    startRun: async () => ({ validator }),
+  });
+  // The engine versions the validator with the platform and prepare versions; read it off a real run.
+  async function tagged() {
+    const { fetchImpl } = board();
+    const { ingest, calls } = fakeIngest();
+    await collectSource(source, meta, { ...options(ingest), fetch: fetchImpl });
+    return calls.finalize[0]!.validator!;
+  }
+
+  it("stores the ETag, versioned, after a complete run", async () => {
+    expect(await tagged()).toMatch(/^\d+\.\d+\|W\/"abc"$/);
+  });
+
+  it("an unchanged board costs one request: no diff, no details, no uploads, run still recorded", async () => {
+    const validator = await tagged();
+    const { fetchImpl, served } = board();
+    const diffs: unknown[] = [];
+    const { ingest, calls } = fakeIngest({
+      ...stored(validator),
+      diff: async (...args) => {
+        diffs.push(args);
+        return [];
+      },
+    });
+    const result = await collectSource(source, meta, { ...options(ingest), fetch: fetchImpl });
+    expect(served).toEqual([{ url: "/v1/boards/stripe/jobs", inm: ETAG, status: 304 }]);
+    expect(diffs).toEqual([]);
+    expect(calls.applied).toEqual([]);
+    expect(calls.raw).toEqual([]);
+    expect(result).toMatchObject({
+      listingComplete: true,
+      detailsComplete: true,
+      notModified: true,
+      seenIds: [],
+      requests: 1,
+      changed: 0,
+      validator,
+    });
+    expect(calls.finalize).toHaveLength(1);
+  });
+
+  it("a changed board is listed in full and stores the new validator", async () => {
+    const old = (await tagged()).replace(ETAG, 'W/"old"');
+    const { fetchImpl, served } = board();
+    const { ingest, calls } = fakeIngest(stored(old));
+    const result = await collectSource(source, meta, { ...options(ingest), fetch: fetchImpl });
+    expect(served[0]).toMatchObject({ inm: 'W/"old"', status: 200 });
+    expect(result).toMatchObject({ notModified: false, changed: 2 });
+    expect(calls.finalize[0]!.seenIds.length).toBeGreaterThan(0);
+  });
+
+  it("a validator from other platform or prepare versions is not sent (a map change re-fetches)", async () => {
+    const validator = (await tagged()).replace(/^\d+\.\d+/, "0.0");
+    const { fetchImpl, served } = board();
+    const { ingest } = fakeIngest(stored(validator));
+    const result = await collectSource(source, meta, { ...options(ingest), fetch: fetchImpl });
+    expect(served[0]).toMatchObject({ inm: null, status: 200 });
+    expect(result).toMatchObject({ notModified: false, changed: 2 });
+  });
+
+  it("a 304 nobody asked for fails the run and never claims a complete listing", async () => {
+    const fetchImpl: typeof fetch = async () => new Response(null, { status: 304 });
+    const { ingest } = fakeIngest(stored(null));
+    const result = await collectSource(source, meta, { ...options(ingest), fetch: fetchImpl });
+    expect(result).toMatchObject({ listingComplete: false, notModified: false });
+  });
+
+  it("a failed listing sends no validator for the server to keep", async () => {
+    const validator = await tagged();
+    const fetchImpl: typeof fetch = async () => new Response("boom", { status: 500 });
+    const { ingest } = fakeIngest(stored(validator));
+    const result = await collectSource(source, meta, { ...options(ingest), fetch: fetchImpl });
+    expect(result).toMatchObject({ listingComplete: false, notModified: false });
+    expect(result.validator ?? null).toBeNull();
   });
 });

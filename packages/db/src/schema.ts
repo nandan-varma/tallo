@@ -25,6 +25,11 @@ export const sources = sqliteTable(
      * Drives the back-off (contracts `schedule.ts`).
      */
     failureCount: integer("failure_count").notNull().default(0),
+    /**
+     * Opaque validator (the engine versions it) of the last listing that was complete and fully
+     * applied; NULL after any other run, or when the platform has none. A matching 304 skips the run's work.
+     */
+    listingValidator: text("listing_validator"),
     /** `dead` boards are skipped by sync unless asked; a complete listing revives them. */
     status: text({ enum: ["active", "dead"] })
       .notNull()

@@ -1,5 +1,14 @@
 import { htmlToText, sourceLocation } from "@tallo/catalog";
-import type { JobLocation, Json, JsonObject, SourceConfig, WorkMode } from "@tallo/contracts";
+import type {
+  CollectContext,
+  HttpResponse,
+  JobLocation,
+  Json,
+  JsonObject,
+  Listing,
+  SourceConfig,
+  WorkMode,
+} from "@tallo/contracts";
 import { arr, isObject, obj, str } from "@tallo/contracts";
 
 /** The source answered, but not in the shape we know. Aborts the run; never implies closure. */
@@ -9,6 +18,30 @@ export function rows(value: unknown, label: string): JsonObject[] {
   if (!Array.isArray(value) || !value.every(isObject))
     throw new SchemaError(`Expected array of objects at ${label}`);
   return value as JsonObject[];
+}
+
+/**
+ * GET a whole-board listing, conditional on the stored validator when there is one. Only for hosts
+ * verified to answer `If-None-Match` with 304 (see docs/platforms.md); the answer is either the full
+ * listing (200) or "unchanged" (304, no body).
+ */
+export function conditional(ctx: CollectContext, url: string): Promise<HttpResponse> {
+  return ctx.http.getJson(url, {
+    ...(ctx.validator ? { headers: { "if-none-match": ctx.validator } } : {}),
+    okStatuses: [304],
+  });
+}
+
+/** The listing result for a 304: the board is as it was at the last complete run; nothing is yielded. */
+export function notModified(ctx: CollectContext): Listing {
+  if (!ctx.validator)
+    throw new SchemaError("304 answered a listing request that sent no validator");
+  return {
+    complete: true,
+    emptyIsAuthoritative: false,
+    notModified: true,
+    validator: ctx.validator,
+  };
 }
 
 export function requireKey(source: SourceConfig, pattern = /^[A-Za-z0-9][\w.-]*$/): void {

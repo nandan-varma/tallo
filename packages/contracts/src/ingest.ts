@@ -78,14 +78,32 @@ export const finalizeSchema = z.object({
    * dead. A redirect off the allowlist is not a 404 (it can be egress being refused): it is a blocked run.
    */
   boardNotFound: z.boolean().default(false),
+  /**
+   * The listing answered 304 to the validator stored by the last complete run: nothing was listed and
+   * nothing changed. The run counts as a complete listing for freshness and scheduling, but never
+   * closes, ages or reopens a job. The server accepts it only when `validator` equals the stored one.
+   */
+  notModified: z.boolean().default(false),
+  /**
+   * The listing validator to keep for the next run (versioned by the engine, opaque here). Stored only
+   * when the listing was complete and every posting was applied; any other run clears the stored one.
+   */
+  validator: z.string().max(400).nullish(),
 });
 export type Finalize = z.infer<typeof finalizeSchema>;
+/** What a caller may pass: the fields with a default can be left out. */
+export type FinalizeInput = z.input<typeof finalizeSchema>;
 
 export interface FinalizeResult {
   status: "complete" | "partial";
   closureApplied: boolean;
   closed: number;
   reopened: number;
+}
+
+/** What `startRun` tells the collector: the validator stored for the source, if one is still valid. */
+export interface StartedRun {
+  validator: string | null;
 }
 
 export const CLOSE_AFTER_ABSENT_RUNS = 2;

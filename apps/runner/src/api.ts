@@ -1,4 +1,11 @@
-import type { CreateRun, Finalize, FinalizeResult, JobFacts, SourceConfig } from "@tallo/contracts";
+import type {
+  CreateRun,
+  Finalize,
+  FinalizeResult,
+  JobFacts,
+  SourceConfig,
+  StartedRun,
+} from "@tallo/contracts";
 import ky from "ky";
 import type { SourceState } from "./due.ts";
 
@@ -17,7 +24,7 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
     retry: { limit: 3, methods: ["get", "post", "put"] },
   });
   return {
-    startRun: (run: CreateRun) => client.post("v1/runs", { json: run }).then(() => undefined),
+    startRun: (run: CreateRun) => client.post("v1/runs", { json: run }).json<StartedRun>(),
     diff: (runId: string, postings: { id: string; hash: string }[]) =>
       client
         .post(`v1/runs/${runId}/diff`, { json: { postings } })

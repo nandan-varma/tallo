@@ -132,6 +132,11 @@ async function readCapped(response: Response, max: number, url: string): Promise
   );
 }
 
+const etagOf = (response: Response) => {
+  const etag = response.headers.get("etag");
+  return etag ? { etag } : {};
+};
+
 export function createHttp(options: HttpOptions): Http {
   const maxBytes = options.maxResponseBytes ?? 64 * 1024 * 1024;
   const limiter =
@@ -208,6 +213,11 @@ export function createHttp(options: HttpOptions): Http {
               !(status >= 300 && status < 400) && !init?.okStatuses?.includes(status),
           });
         });
+        // A 304 is the answer to a conditional request, not a redirect; only when the caller allows it.
+        if (response.status === 304 && init?.okStatuses?.includes(304)) {
+          await response.body?.cancel();
+          return { status: 304, url: url.href, data: "", ...etagOf(response) };
+        }
         if (response.status >= 300 && response.status < 400) {
           const location = response.headers.get("location");
           await response.body?.cancel();
@@ -232,6 +242,7 @@ export function createHttp(options: HttpOptions): Http {
             status: response.status,
             url: url.href,
             data: await readCapped(response, maxBytes, url.href),
+            ...etagOf(response),
           };
         }
         await response.body?.cancel();

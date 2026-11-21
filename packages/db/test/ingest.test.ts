@@ -127,7 +127,7 @@ describe("ingest", () => {
         { runId: run, source, runnerId: "mac", collectorVersion: "t", startedAt: T + 1000 },
         T + 1000,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ validator: null });
   });
 
   it("pages with a stable keyset cursor", async () => {

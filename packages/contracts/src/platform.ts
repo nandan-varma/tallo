@@ -50,12 +50,25 @@ export interface Listing {
   complete: boolean;
   /** True only if an empty listing proves the board really has no jobs. */
   emptyIsAuthoritative: boolean;
+  /**
+   * Validator (an ETag) for the listing this run read. The runner stores it and sends it back as
+   * `CollectContext.validator`. Only set for a whole listing that one response covers.
+   */
+  validator?: string;
+  /**
+   * The listing answered 304 to the stored validator: the board is what the last complete, fully
+   * applied run stored, and no postings were yielded. Only legal when `CollectContext.validator`
+   * was sent. The run then neither diffs nor closes anything (see `Finalize.notModified`).
+   */
+  notModified?: boolean;
 }
 
 export interface HttpResponse<T = Json> {
   status: number;
   url: string;
   data: T;
+  /** The response ETag, when the server sent one. */
+  etag?: string;
 }
 
 /** The only I/O a platform sees. Implemented by @tallo/http; trivially faked in tests. */
@@ -74,6 +87,12 @@ export interface HttpInit {
 export interface CollectContext {
   http: Http;
   signal?: AbortSignal;
+  /**
+   * The raw ETag stored from this source's last complete, fully applied run (see `Listing.validator`),
+   * already checked against the platform and prepare versions. Only platforms whose listing call
+   * honors `If-None-Match` use it.
+   */
+  validator?: string;
   /** Safety valve for runaway pagination, per source. */
   maxPostings: number;
   record(issue: Issue): void;
