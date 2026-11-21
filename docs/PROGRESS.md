@@ -11,6 +11,23 @@ _Last updated: 2026-11-21; current handoff below. Historical notes: 2026-10-28 (
   failed posting is absent, only it is fetched again, and a changed posting keeps its old hash until its detail succeeds.
 - No live sync was run. Re-running the three boards after the upstream limits settle is the main agent's call.
 
+## Session 2026-11-21 (unattended): audit round
+
+- Merged and deployed: #136 (country/postedWithin filters, llms examples), #144 (public read cost P0, migration 0024), #151
+  (ingest correctness: unproven empty listings count as failed runs, purge/blob race, atomic reap; migration 0025),
+  #152 (isolated hourly housekeeping with job/subrequest budgets and a persisted regroup cursor, migration 0026, HTTP body
+  timeout, 16 MB Worker response cap, JD/raw upload caps, claimSources via json_each), #153 (unicode company slugs with hash
+  fallback; per-posting field bounds on every ingest path). Merged, not deployed to a sync: #143 field mappings (platform
+  versions bumped for Greenhouse, Lever, Oracle, iCIMS, Workday, Apple, so the next sync re-fetches them). #149 pins that
+  failed detail fetches are re-fetched.
+- #150 (FTS-first 10k candidate cut, two-phase date sort, companies lower(name) order, real rows_read) was deployed, followed
+  by 503 "Database busy" on broad queries, rolled back and reverted (#154). The same 503s then appeared after the next
+  deploy without #150 and cleared within a minute, so the cause is unproven. Re-land #150 alone and canary broad terms for
+  several minutes. Issue #147 stays open.
+- After every deploy, canary broad terms (`title=engineer`, `manager`, `analyst`) and expect a short transient of 503s.
+- Open: Jobvite "Hybrid Remote" work mode (no live evidence of a single token), #142 Google slot, #137 Apple resume (needs
+  a throttled Mac sync), `pruneRuns` blob deletes are capped at 1000 per hour, Worker 16 MB cap only evidenced on Greenhouse.
+
 ## Session 2026-11-21: public API cost P0 (issue #141, branch `perf/public-api-cost`)
 
 - `rankedJobs` is three queries: leaders (id and score per group, paged on those), the page's rows by id, and one grouped
