@@ -109,8 +109,9 @@ async function fixture() {
     await db.insert(schema.jobs).values(rows.slice(i, i + 50));
   }
   // Duplicate groups: a fifth of the rows become siblings of a lower id (open or closed siblings alike).
-  const ids = (await db.select({ id: schema.jobs.id }).from(schema.jobs).orderBy(schema.jobs.id))
-    .map((r) => r.id);
+  const ids = (
+    await db.select({ id: schema.jobs.id }).from(schema.jobs).orderBy(schema.jobs.id)
+  ).map((r) => r.id);
   for (let i = 5; i < ids.length; i += 5) {
     const canonical = ids[(i * 7) % (i - 1)] as number;
     await db

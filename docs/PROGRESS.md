@@ -2,6 +2,21 @@
 
 _Last updated: 2026-11-21; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-11-21: public API cost P0 (issue #141, branch `perf/public-api-cost`)
+
+- `rankedJobs` is three queries: leaders (id and score per group, paged on those), the page's rows by id, and one grouped
+  sibling count. `excerpt` no longer leaves the relevance path. Output is byte-identical: `apps/api/test/golden/ranking.json`
+  was recorded from origin/main before the rewrite and is not regenerated (it is excluded from biome for that reason).
+- Stale sources are one non-correlated set (`sources_last_listed_idx`), not a probe per candidate.
+- Migration `0024_public_api_cost` (NEW, for remote apply): `sources_last_listed_idx`, `companies_lower_name_idx`. Both
+  additive; no backfill.
+- `listVariants` already seeks (MULTI-INDEX OR on the primary key and `jobs_dup_of_idx`): no rewrite, pinned by
+  `packages/db/test/plans.test.ts`. `/v1/companies` keeps its name order; the index serves the range.
+- Public reads: one JSON log line per request from the proxy (route, offset bucket, ms, cache, origin cost). The origin
+  reports cost in `x-tallo-cost`; the proxy strips it. `rows_read` is null on drizzle's select path (raw(), no meta).
+- Edge caches the stable negatives: closed and source-hidden for 60 s, unknown for 1 h (`NEGATIVE_CACHE_CONTROL`).
+  Parameter errors stay `no-store`.
+
 ## Session 2026-11-21: group 3 field audit (workable place fallback)
 
 - The read-only audit of personio, recruitee, teamtailor, workable and bamboohr found one real gap: Workable's

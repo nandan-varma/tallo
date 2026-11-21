@@ -39,7 +39,11 @@ export const sources = sqliteTable(
     /** Collection frequency class, from the reviewed hot list. See contracts `schedule.ts`. */
     tier: text({ enum: TIERS }).notNull().default("rare"),
   },
-  (t) => [index("sources_next_due_idx").on(t.nextDueAt)],
+  (t) => [
+    index("sources_next_due_idx").on(t.nextDueAt),
+    // Search hides postings from sources that stopped listing: its stale set is read by this column (queries.ts).
+    index("sources_last_listed_idx").on(t.lastListedAt),
+  ],
 );
 
 /**
@@ -154,11 +158,16 @@ export type JobRow = typeof jobs.$inferSelect;
  * Company names seen in the catalog, maintained by `ingest.ts` for `/v1/companies`. One row per company slug; the
  * name is the latest spelling a source stated. Small by construction (thousands, not one per posting).
  */
-export const companies = sqliteTable("companies", {
-  slug: text().primaryKey(),
-  name: text().notNull(),
-  updatedAt: integer("updated_at").notNull(),
-});
+export const companies = sqliteTable(
+  "companies",
+  {
+    slug: text().primaryKey(),
+    name: text().notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  // `/v1/companies` matches a prefix of lower(name): this index is the range it seeks.
+  (t) => [index("companies_lower_name_idx").on(sql`lower(${t.name})`)],
+);
 
 /**
  * Title words observed in the catalog, maintained by `ingest.ts` for `/v1/titles`. Raw lowercase tokens (the same

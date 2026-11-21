@@ -23,7 +23,12 @@ const edgeCache = (): EdgeCache | undefined =>
 
 /** The deps of the public proxy and of the search page, bound to this Worker's env. */
 export function publicDeps(): PublicDeps {
-  return { upstream, cache: edgeCache(), limiter: env.PUBLIC_LIMIT };
+  return {
+    upstream,
+    cache: edgeCache(),
+    limiter: env.PUBLIC_LIMIT,
+    log: (line) => console.log(JSON.stringify(line)),
+  };
 }
 
 export const PAGE_SIZE = 20;

@@ -1,7 +1,11 @@
+import { NEGATIVE_CACHE_CONTROL } from "@tallo/contracts";
 import { jdKey, schema } from "@tallo/db";
+import { d1Like } from "@tallo/db/testing";
 import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
+import { type D1Like, meterD1 } from "../src/meter.ts";
 import { type Blobs, type Db, SOURCE, seed, setup } from "./fixtures.ts";
 import { INGEST } from "./support.ts";
 
@@ -52,7 +56,7 @@ describe("GET /v1/jobs/:id", () => {
     }
     const missing = await server.request("/v1/jobs/999");
     expect(missing.status).toBe(404);
-    expect(missing.headers.get("cache-control")).toBe("no-store");
+    expect(missing.headers.get("cache-control")).toBe(NEGATIVE_CACHE_CONTROL.unknown);
     const body = (await json(missing)) as { error: { code: string; hint: string } };
     expect(body.error.code).toBe("unknown");
     expect(body.error.hint).toContain("/v1/search");
@@ -69,13 +73,76 @@ describe("GET /v1/jobs/:id", () => {
     const server = app(db, blobs);
     const closedResponse = await server.request(`/v1/jobs/${closed}`);
     expect(closedResponse.status).toBe(410);
+    expect(closedResponse.headers.get("cache-control")).toBe(NEGATIVE_CACHE_CONTROL.closed);
     expect(((await json(closedResponse)) as { error: { code: string } }).error.code).toBe("closed");
     expect((await server.request(`/v1/jobs/${open}`)).status).toBe(200);
 
     await db.update(schema.sources).set({ lastListedAt: 1 }).where(eq(schema.sources.id, SOURCE));
     const hidden = await server.request(`/v1/jobs/${open}`);
     expect(hidden.status).toBe(404);
+    expect(hidden.headers.get("cache-control")).toBe(NEGATIVE_CACHE_CONTROL.source_hidden);
     expect(((await json(hidden)) as { error: { code: string } }).error.code).toBe("source_hidden");
+  });
+
+  it("publishes the negative TTLs the edge cache relies on", () => {
+    // A minute for states that can change back (a closed posting, a hidden source), an hour for an id with no row.
+    expect(NEGATIVE_CACHE_CONTROL).toEqual({
+      closed: "public, max-age=60, s-maxage=60",
+      source_hidden: "public, max-age=60, s-maxage=60",
+      unknown: "public, max-age=3600, s-maxage=3600",
+    });
+  });
+
+  it("gives the description route the same negative TTLs as the job page", async () => {
+    const { db, blobs } = setup();
+    const closed = await seed(db, blobs, { postingId: "1", title: "Data Engineer", closed: true });
+    const server = app(db, blobs);
+    const closedAnswer = await server.request(`/v1/jobs/${closed}/description`);
+    expect(closedAnswer.status).toBe(410);
+    expect(closedAnswer.headers.get("cache-control")).toBe(NEGATIVE_CACHE_CONTROL.closed);
+    const unknownAnswer = await server.request("/v1/jobs/99999/description");
+    expect(unknownAnswer.status).toBe(404);
+    expect(unknownAnswer.headers.get("cache-control")).toBe(NEGATIVE_CACHE_CONTROL.unknown);
+  });
+
+  it("keeps parameter errors uncached", async () => {
+    const { db, blobs } = setup();
+    const id = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    const server = app(db, blobs);
+    expect((await server.request("/v1/jobs/abc")).headers.get("cache-control")).toBe("no-store");
+    expect(
+      (await server.request(`/v1/jobs/${id}/description?offset=-1`)).headers.get("cache-control"),
+    ).toBe("no-store");
+  });
+
+  it("reports what each public read cost the database in the cost header", async () => {
+    const { db, blobs } = setup();
+    const id = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
+    // The same drizzle-over-D1 path production takes, over the test database.
+    const metered = createApp({
+      // The binding's Workers type is not loaded in the test config; the structural D1Like is what the meter needs.
+      db: drizzle(meterD1(d1Like(db) as D1Like) as never, { schema }) as unknown as Db,
+      blobs,
+      ingestToken: INGEST,
+    });
+    for (const path of ["/v1/search?title=data+engineer", `/v1/jobs/${id}`]) {
+      const response = await metered.request(path);
+      const cost = JSON.parse(response.headers.get("x-tallo-cost") ?? "null");
+      expect(cost, path).toMatchObject({
+        statements: expect.any(Number),
+        rows_returned: expect.any(Number),
+      });
+      expect(cost.statements, path).toBeGreaterThan(0);
+      expect(cost.rows_returned, path).toBeGreaterThan(0);
+      // Drizzle's select path reads through D1's raw(), which carries no meta: rows_read stays unknown, not zero.
+      expect(cost.rows_read, path).toBeNull();
+    }
+  });
+
+  it("sends no cost header from routes that are not public reads", async () => {
+    const { db, blobs } = setup();
+    const response = await app(db, blobs).request("/health");
+    expect(response.headers.get("x-tallo-cost")).toBeNull();
   });
 
   it("answers a null description, not a guess, when its blob is gone", async () => {

@@ -19,6 +19,7 @@ import {
   handleCollect,
 } from "./collect.ts";
 import type { HostGate } from "./host-gate.ts";
+import { meterD1 } from "./meter.ts";
 
 export { HostGate } from "./host-gate.ts";
 
@@ -74,7 +75,7 @@ const collectEnv = (env: Env): CollectEnv => ({
 });
 
 const deps = (env: Env) => ({
-  db: drizzle(env.DB, { schema }),
+  db: drizzle(meterD1(env.DB), { schema }),
   blobs: r2(env.BLOBS),
   ingestToken: env.INGEST_TOKEN,
   readsBlockedHost: env.READS_BLOCKED_HOST,

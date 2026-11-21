@@ -11,6 +11,7 @@
       "!.claude",
       "!**/.pi",
       "!**/fixtures",
+      "!**/test/golden",
       "!sources",
       "!**/*.astro",
       "!**/*.css",

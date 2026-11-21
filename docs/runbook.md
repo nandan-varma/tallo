@@ -34,7 +34,14 @@ prerendered page generated from the API's schemas.
   `cf-connecting-ip` is trusted; a request with no such address is refused while the binding is present, rather than
   sharing an `unknown` bucket. Cached answers still count against the address, because the budget is about requests.
 - Edge cache: 200 answers are stored under the public URL with sorted parameters (`caches.default`), for the lifetimes the API
-  sets (search 5 minutes, postings 1 hour). Errors are never cached.
+  sets (search 5 minutes, postings 1 hour). Three stable negative answers are stored too, each for the TTL the API sets
+  (`NEGATIVE_CACHE_CONTROL` in contracts): closed and source-hidden postings for 60 seconds, an unknown id for an hour.
+  Parameter errors and every other error are never cached. The zone's browser TTL applies to these as to every `/v1/*`
+  answer (see above).
+- Request log: the proxy writes one JSON line per public request (`event: "public_request"`: route, status, ms, cache
+  `hit`/`miss`/`none`, offset bucket, and the origin's `statements`, `rows_read`, `rows_written`, `rows_returned`). A null
+  figure is unknown, not zero: drizzle's select path reads through D1's `raw()`, which carries no `meta`, so `rows_read`
+  is null for those reads until they are routed through a call that reports it.
 - Closed: `tallo-api.nandan.fyi` (the API's custom domain, which the runner ingests through) refuses the public reads
   with 404. The guard is `READS_BLOCKED_HOST`, set to the same value in `apps/api/wrangler.jsonc` and
   `apps/api/cloudflare.config.ts` (`apps/api/test/config.test.ts` checks both and that it is a route of the Worker). Ingest,
