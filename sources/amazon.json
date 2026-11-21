@@ -1,9 +1,10 @@
 [
- {
-  "key": "amazon",
-  "company": "Amazon",
-  "params": {
-   "category": "Software Development"
+  {
+    "key": "amazon",
+    "company": "Amazon",
+    "params": {
+      "category": "Software Development",
+      "egress": "local"
+    }
   }
- }
 ]

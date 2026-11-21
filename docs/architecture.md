@@ -3,7 +3,7 @@
 ## Goals and non-goals (v1)
 
 Public, read-only job search over ~9k company boards (the database stores what they state; the reader judges fit),
-refreshed daily from this Mac, hosted cheaply on Cloudflare (about $5/month). The web offers a home page and `/search`;
+refreshed weekly by a cloud collector (hot boards daily; boards that refuse Cloudflare's egress from a Mac), hosted cheaply on Cloudflare (about $5/month). The web offers a home page and `/search`;
 each result links to the employer's application. Not planned: accounts, any per-person data, AI in the product, SEO
 work, vector search, closed-job history. See `decisions.md` D15.
 
@@ -91,7 +91,7 @@ is reaped as partial (nothing closes). Such a board is collected by the Mac runn
 1. `POST /v1/runs` start (idempotent on `runId`; one running run per source, stale after 2h).
 2. List, then `POST /v1/runs/:id/diff` with `{id, sourceHash}` for every listed posting. `sourceHash` =
    sha256(fingerprint + platform version). Server answers which are new/changed.
-3. Detail + map + `prepareJob` for changed postings only (Mac CPU, free).
+3. Detail + map + `prepareJob` for changed postings only (Worker CPU).
 4. `POST /v1/blobs/check`, `PUT /v1/blobs/jd/:hash` for missing descriptions (hash verified server-side).
 5. `POST /v1/runs/:id/jobs` in batches of ≤100 (upsert; refuses jobs whose blob is missing).
 6. `PUT /v1/runs/:id/raw` the run's raw pack of changed postings.

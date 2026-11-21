@@ -99,7 +99,7 @@ or a VPS. Schema source of truth is TypeScript; FTS5 is a custom migration.
 **D4. Hono API, Astro web, one Worker each.** Web reaches the API through a service binding. The API uses bearer
 tokens; the web pages are public (the access-key cookie was removed in D15).
 
-**D3. Mac is the only runner in v1.** Coordination is a `runs` table, an idempotent `runId` and one running run per
+**D3. (Superseded: collection runs in the cloud; the Mac keeps only `egress: local` boards.) Mac is the only runner in v1.** Coordination is a `runs` table, an idempotent `runId` and one running run per
 source; no leases or queues until a second runner exists.
 
 **D2. Link out, never repost.** Every job carries the employer's apply URL; full description text is stored for

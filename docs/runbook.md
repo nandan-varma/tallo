@@ -1,430 +1,116 @@
 # Runbook
 
-## Environments
+## Where things run
 
-| Piece    | Where                                                                                               |
-| -------- | --------------------------------------------------------------------------------------------------- |
-| Web      | Worker `tallo-web` → https://tallo.nandan.fyi                                                       |
-| API      | Worker `tallo-api` → https://tallo-api.nandan.fyi (runner ingests here; web uses a service binding) |
-| Database | D1 `tallo`                                                                                          |
-| Blobs    | R2 bucket `tallo-blobs` (private)                                                                   |
-| Runner   | this Mac, `apps/runner`, daily via launchd                                                          |
+| Piece    | Where                                                                                     |
+| -------- | ----------------------------------------------------------------------------------------- |
+| Web      | Worker `tallo-web` at https://tallo.nandan.fyi (pages, public `/v1/*` proxy, `/llms.txt`) |
+| API      | Worker `tallo-api` at https://tallo-api.nandan.fyi (ingest + admin; public reads refused) |
+| Database | D1 `tallo` (001b036c-2e15-45c8-9284-edb9d374b849)                                         |
+| Blobs    | R2 `tallo-blobs` (private): descriptions `jd/<sha256>`, raw packs `raw/<source>/<run>`    |
+| Queue    | `tallo-collect` (dead letters: `tallo-collect-dlq`), Durable Object `HostGate`            |
+| Mac      | launchd: boards that refuse Cloudflare's egress (`local-egress`) and the weekly D1 backup |
 
-Resource ids and URLs are recorded in `docs/PROGRESS.md`. Secrets are never committed.
+Secrets: API `INGEST_TOKEN` (Wrangler secret). The web has none. The runner reads `apps/runner/.env`
+(`TALLO_API_URL`, `TALLO_INGEST_TOKEN`). Rotate with `openssl rand -hex 32`, `wrangler secret put`, update `.env`.
 
-## Secrets
-
-- API: `INGEST_TOKEN` (Wrangler secret on `tallo-api`). The public reads need no token.
-- Web: no secrets. The public pages and the public API proxy are open; there is no access key.
-- Runner: `apps/runner/.env` with `TALLO_API_URL` and `TALLO_INGEST_TOKEN`.
-- Retired bindings were removed on 2026-11-20: `READ_TOKEN` on both Workers, `ACCESS_TOKEN` on the web,
-  and `OPENCODE_API_KEY` on the API. The API now has only `INGEST_TOKEN`; the web has no secrets.
-
-## Public API (issue #75)
-
-The zone's **Browser Cache TTL** is 14400 seconds (`cf zones settings get browser_cache_ttl -z nandan.fyi`), so a cached `/v1/*` answer reaches a browser with `max-age=14400` while the Worker's edge cache still honors the API's `s-maxage` (300 s search, 3600 s postings and discovery). Revalidate client-side when freshness matters. A scoped Cache Rule could set the browser TTL to respect the origin for `tallo.nandan.fyi/v1/*`; the zone-wide setting is shared with other hostnames, so it is not changed here.
-
-`https://tallo.nandan.fyi/v1/*` is served by the web Worker, which forwards only the paths in `PUBLIC_PATHS`
-(`packages/contracts`: search, job, description, companies, titles, OpenAPI), matched in
-`apps/web/src/lib/public.ts`). Everything else under `/v1` answers 404 there, admin and ingest included. `/llms.txt` is a
-prerendered page generated from the API's schemas.
-- Rate limit: the `PUBLIC_LIMIT` binding in `apps/web/wrangler.jsonc` (`namespace_id` `1001`, 60 requests per 60 seconds per
-  address). Counters are per Cloudflare location, so the effective global ceiling is higher. The binding is verified against
-  the Workers docs; its behaviour in production is not yet observed (check the 429 rate in logs after deploy). Only
-  `cf-connecting-ip` is trusted; a request with no such address is refused while the binding is present, rather than
-  sharing an `unknown` bucket. Cached answers still count against the address, because the budget is about requests.
-- Edge cache: 200 answers are stored under the public URL with sorted parameters (`caches.default`), for the lifetimes the API
-  sets (search 5 minutes, postings 1 hour). Three stable negative answers are stored too, each for the TTL the API sets
-  (`NEGATIVE_CACHE_CONTROL` in contracts): closed and source-hidden postings for 60 seconds, an unknown id for an hour.
-  Parameter errors and every other error are never cached. The zone's browser TTL applies to these as to every `/v1/*`
-  answer (see above).
-- Request log: the proxy writes one JSON line per public request (`event: "public_request"`: route, status, ms, cache
-  `hit`/`miss`/`none`, offset bucket, and the origin's `statements`, `rows_read`, `rows_written`, `rows_returned`). A null
-  figure is unknown, not zero: drizzle's select path reads through D1's `raw()`, which carries no `meta`, so `rows_read`
-  is null for those reads until they are routed through a call that reports it.
-- Closed: `tallo-api.nandan.fyi` (the API's custom domain, which the runner ingests through) refuses the public reads
-  with 404. The guard is `READS_BLOCKED_HOST`, set to the same value in `apps/api/wrangler.jsonc` and
-  `apps/api/cloudflare.config.ts` (`apps/api/test/config.test.ts` checks both and that it is a route of the Worker). Ingest,
-  admin and `/health` stay on that domain. The web reaches the API through its service binding on `https://api.internal`,
-  which the guard does not match. An unset var allows the reads everywhere (tests and local development).
-- `workers.dev`: `tallo-api` has routes, so `workers_dev` is inferred off on the next deploy. Confirm in the dashboard that
-  the `*.workers.dev` URL is disabled for `tallo-api`; a re-enabled subdomain would serve the public reads outside the guard.
-
-Rotate: generate a new value (`openssl rand -hex 32`), `wrangler secret put`, update `.env`.
-
-## Deploy
+## Release
 
 ```sh
-pnpm check
-pnpm --filter @tallo/db exec drizzle-kit generate  # generate from schema.ts
-cf d1 migrations list 001b036c-2e15-45c8-9284-edb9d374b849 --dir packages/db/drizzle
-cf d1 migrations apply 001b036c-2e15-45c8-9284-edb9d374b849 --dir packages/db/drizzle
-pnpm --filter @tallo/api run deploy
-pnpm --filter @tallo/web run deploy
+pnpm release      # check, apply D1 migrations, deploy API, deploy web, smoke test
 ```
 
-API deployment uses `cf` and `apps/api/cloudflare.config.ts`; its build delegates to Wrangler.
-Keep the API Wrangler config aligned for existing local development commands. Migration files
-are generated by Drizzle and applied by `cf` using the existing `d1_migrations` ledger.
+`pnpm release` stops at the first failure. The last step, `scripts/smoke.ts`, fails when the live `/llms.txt` differs from
+what this commit generates (the web Worker prerenders it, so a web deploy is what updates it), when a canary search
+(`engineer`, `manager`, `analyst`, a company, a remote search, a date sort) is not a 200 in 8 seconds, or when the
+API host answers public reads. A short run of 503 "Database busy" right after a deploy is retried; a lasting one fails the release.
 
-Migrations are forward-only. D1 Time Travel is the backup for the catalog; the catalog is also rebuildable
-from raw packs plus a full sweep.
+Schema changes: edit `packages/db/src/schema.ts`, run `pnpm --filter @tallo/db exec drizzle-kit generate`, never edit
+generated SQL (FTS is a custom migration). Migrations are forward-only and applied before the API is deployed, so write
+them additive (new column or index) and make the old code tolerate them. The API's config is `apps/api/wrangler.jsonc`
+only; `wrangler d1 migrations list tallo --remote` shows what is pending.
 
-### Order for the write-cost migrations (0014 indexes, 0015 FTS trigger)
+## Public API
 
-Neither migration changes a column, so both API versions run against both schemas. Only the cost differs:
-- `0014_write_cost_indexes`: creates `jobs_jd_hash_idx` (one index entry per row, about 509k entries written on production,
-  roughly 0.5M rows written), creates `jobs_closed_idx` (closed rows only, a small write), and drops `jobs_feed_idx` and
-  `jobs_company_idx` (no row writes). Until it runs, the new API's purge scans `jobs`, as the old one did.
-- `0015_fts_update_when`: drops and recreates the `jobs_fts_au` trigger with a `WHEN` guard. No row writes.
+`https://tallo.nandan.fyi/v1/*` is served by the web Worker, which forwards only `PUBLIC_PATHS` (`packages/contracts`) to the
+API over a service binding. Everything else under `/v1` is 404 there. `tallo-api.nandan.fyi` refuses the public reads
+(`READS_BLOCKED_HOST`, checked by `apps/api/test/config.test.ts`), so the proxy's rate limit and cache cannot be bypassed.
+- Rate limit: `PUBLIC_LIMIT` in `apps/web/wrangler.jsonc`, 60 requests a minute per `cf-connecting-ip`. Counters are per
+  Cloudflare location. A request with no address is refused.
+- Edge cache: 200 answers for the lifetimes the API sets (search 5 min, postings and discovery 1 h); closed and hidden
+  postings 60 s, unknown ids 1 h. Parameter errors are never cached.
+- Log: one JSON line per public request (`event: "public_request"`): route, status, ms, cache, offset bucket and the origin's cost.
+- Search cost: the ranked search cuts the best 10,000 index entries by bm25 before it joins rows (`FTS_WINDOW`), then keeps
+  the best 2,000 that are visible. Date sorts page ids first, then read that page. A broad word ("manager", 160k matches)
+  costs about 150 ms. If 503s return, look at `wrangler tail tallo-api` and the `rows_read` in the request log first.
+- Confirm in the dashboard that the `*.workers.dev` URL is off for `tallo-api` (it has routes, so it should be).
 
-Order: `cf d1 migrations apply` for both (apply when no full sync is running, so the index build is not competing with
-writes), then deploy the API. Then check the plans on production: `EXPLAIN QUERY PLAN` for the closed-row select must show
-`jobs_closed_idx`, and for the hash lookup `jobs_jd_hash_idx`. (At the time, the web called `POST /v1/jobs/search`; that
-route and the free-text `GET /v1/jobs` are gone since the public API change, which deploys the API and web together.)
+## Collection
 
-### Order for the read-cost migrations (0016 runs indexes, 0017 regroup cursor)
+Boards are listed in `sources/*.json`. `tallo register` upserts them into D1 (`sources`); removing a board from the files
+does not delete its row (see "Retire a board").
 
-Neither changes a column. Both are small: `0016` creates two indexes on `runs` (`runs_started_idx`, and the partial
-`runs_pack_idx` over packs only); `0017` creates the one-row `regroup_state` table.
-- The new API's hourly cron writes `regroup_state` at the end of every regroup pass. If `0017` is not applied, the regroup
-  throws and the cron fails after the purge, so apply `0017` before deploying the API (not after).
-- The old API runs against both schemas: it does not read `regroup_state`, and the indexes only make its queries cheaper.
-
-Order: `cf d1 migrations apply` for `0016` and `0017` (check first with `wrangler d1 migrations list tallo --remote`, which
-lists only what is pending), then deploy the API. Then check the plans on production: `EXPLAIN QUERY PLAN` for the
-retention selects must show `runs_started_idx` and `runs_pack_idx` (no `SCAN runs` without `USING`). After the first
-hourly pass, `regroup_state` holds one row. No sync needs to be stopped; no full regroup is needed.
-
-### Order for the no-heuristics change (migration 0013, platform version 2)
-
-The migration drops the flag and pay columns, so the old API cannot run against the new schema and the new API cannot
-run against the old one (`classifier_version` is NOT NULL). Do these back to back, with no sync running:
-1. Stop the daily sync (launchd) and wait for any running `tallo sync` to finish.
-2. `cf d1 migrations apply` for `0013_equal_toro`. On a 500k-row table it ran in about 2.4 s locally (SQLite `DROP COLUMN`).
-3. Deploy the API (`pnpm --filter @tallo/api run deploy`), then the web.
-4. Re-enable the sync. Platform version 2 means the next sync re-fetches and re-maps every posting, so run a full pass
-   (`tallo sync`) once to replace the old text-derived facts. Until then, old rows keep their stored facts.
-5. Then `tallo dedupe`. Duplicate groups no longer split on the old hidden flag, so postings that were grouped apart
-   only because of it merge only in a full regroup. Until then they show as separate rows, never as lost ones.
-
-## Cloud collection (queue)
-
-**Status: OFF since 2026-11-21 (issue #77).** `COLLECT_ENABLED` is `"0"` and the `*/5 * * * *` collect cron is not in
-either config file; only the hourly housekeeping cron (`17 * * * *`) runs. The Mac runner is the only collector. To turn
-cloud collection back on: restore `"*/5 * * * *"` in `triggers.crons` (`wrangler.jsonc`) and the matching
-`triggers.scheduled` entry (`cloudflare.config.ts`), set `COLLECT_ENABLED` to `"1"` in both, and deploy (step 6 below).
-
-Collection moves into the API Worker (design: `docs/architecture.md`, "Where collection runs"). The Mac runner keeps
-`tallo sync` and `tallo register` for manual use. Until cloud collection has run clean, the launchd job below remains the
-daily collector. At cutover, unload it: `launchctl unload ~/Library/LaunchAgents/fyi.nandan.tallo.sync.plist`.
-
-### Resources and config
-
-- Queues (create once, before the first deploy that declares them):
-
-  ```sh
-  pnpm --filter @tallo/api exec wrangler queues create tallo-collect
-  pnpm --filter @tallo/api exec wrangler queues create tallo-collect-dlq
-  ```
-- Durable Object `HostGate`: created by the first deploy (migration tag `v1`, `new_sqlite_classes`). No command.
-- Variables (in `apps/api/wrangler.jsonc` and `apps/api/cloudflare.config.ts`; keep them equal):
-  - `COLLECT_ENABLED`: the kill switch. Committed as `"0"`. Only `"1"` lets the five-minute cron enqueue work.
-  - `COLLECT_BATCH` (boards claimed per tick, default 40), `COLLECT_SLICE_SUBREQUESTS` (800), `COLLECT_SLICE_MS` (300000).
-- Queue consumer: batch size 1, `max_concurrency` 4, `max_retries` 2, dead-letter `tallo-collect-dlq`. Changing
-  `max_concurrency` is an edit to both config files and a deploy.
-
-### Rollout order (first time)
-
-1. Apply migration `0018` remotely (additive: `sources.next_due_at`, `sources.tier` and an index; existing boards get
-   `next_due_at = 0`, so they are due at the first tick). List first, then apply:
-   `cf d1 migrations list 001b036c-2e15-45c8-9284-edb9d374b849 --dir packages/db/drizzle`, then `... migrations apply ...`.
-2. Create the two queues (above).
-3. Deploy the API with `COLLECT_ENABLED` `"0"`: `pnpm --filter @tallo/api run deploy`.
-4. Register the reviewed boards and the hot list (idempotent; a board keeps its schedule when re-registered):
-   `pnpm --filter @tallo/runner tallo register` (needs `TALLO_API_URL` and `TALLO_INGEST_TOKEN`).
-5. Staged test, with the cron still off (see below).
-6. Turn the cron on: set `COLLECT_ENABLED` to `"1"` in both config files and deploy. The first tick claims 40 boards
-   every five minutes (about 11,500 a day), so the first full pass takes about a day. Watch `GET /v1/admin/collect/status`.
-
-### Boards that need the Mac's egress
-
-Some platforms refuse requests from Cloudflare's egress: for these boards Workday answers the cloud with a redirect to
-`community.workday.com` (off the allowlist), while the same request from the Mac returns 200. Such a cloud run is `blocked`. Such a board carries `"egress": "local"` in its `params` in
-`sources/*.json`. The cloud never claims it (the cron and `POST /v1/admin/collect` both skip it, and a queued start is
-skipped with reason `local egress`). `tallo sync` still collects it from the Mac. The claim reads `params` from D1,
-so run `tallo register` after adding or removing the flag, before the next cron tick. Current tags: `abb/external_career_page`,
-`cvshealth/CVS_Health_Careers`, `target/targetcareers`, `tmobile/External`.
-
-### Staged test (named boards, cron off)
-
-`POST /v1/admin/collect` collects named boards now, ignoring their due time, and works with the cron off. Use 20 boards:
-two per platform (Greenhouse, Lever, Ashby, SmartRecruiters, Workday, Oracle Cloud), mixing one small and one large
-listing where the platform has both, plus one `hot` board. Put them in a file and send:
+**Cloud (default).** Every five minutes the API Worker claims due boards (`sources.next_due_at`, 30-minute lease), puts
+them on the `tallo-collect` queue, and a consumer collects, maps and ingests each one. A `HostGate` Durable Object spaces
+requests per host. A board is due weekly (`hot.json` boards daily, dead boards every 30 days). After a failed or partial run
+it backs off 1 h, 3 h, 6 h, then 24 h. Postings from a board that has not listed completely for 14 days stop showing in
+search, so collection must keep running: check it weekly.
 
 ```sh
-curl -s -X POST https://tallo-api.nandan.fyi/v1/admin/collect \
-  -H "authorization: Bearer $TALLO_INGEST_TOKEN" -H "content-type: application/json" \
-  -d @staged.json   # {"sources": ["greenhouse:stripe", "lever:...", ...]}
+curl -H "authorization: Bearer $TALLO_INGEST_TOKEN" https://tallo-api.nandan.fyi/v1/admin/collect/status
 ```
 
-Then check, with the ingest token: `GET /v1/admin/collect/status` (runs in flight, last 24 hours) and the log lines
-(`pnpm dlx wrangler tail tallo-api --format json`, filter on `"outcome"`). Every board should end `complete`, or
-`partial` with a reason in its `issues`. A `not_found` means the board moved (check `sources/`). Pass criteria: no
-`error` lines, every `complete` board's `changed` count is 0 on a second pass, and `GET /v1/search?title=...` returns its jobs.
+It reports `dueNow`, `inFlight` and the last 24 hours. Healthy: `dueNow` near zero and falling after the first pass.
+- Settings (`apps/api/wrangler.jsonc`): `COLLECT_ENABLED` (kill switch: `"0"` and deploy), `COLLECT_BATCH` (boards claimed per
+  tick, 40), `COLLECT_SLICE_SUBREQUESTS`, `COLLECT_SLICE_MS`, consumer `max_concurrency` (8). A weekly pass of ~9k boards needs
+  only about 4 boards a tick, so raise concurrency only for a catch-up and put it back.
+- Dead letters: after 2 retries a message goes to `tallo-collect-dlq`. Nothing consumes it. The hourly cron reaps runs left
+  `running` for 2 hours as partial; the board then backs off. Inspect with `wrangler queues` and the `runs` table.
+- A board whose listing alone needs more than ~10,000 subrequests fails in the cloud; give it `"egress": "local"` and let the Mac do it.
 
-### Kill switch and rollback
-
-- Stop new collection: set `COLLECT_ENABLED` to `"0"` in both config files and deploy. For an immediate stop without a
-  deploy, set it in the dashboard (Worker `tallo-api`, Settings, Variables) too; a deploy overwrites a dashboard value
-  with the file's, so make the file match.
-- Stop work already queued: `pnpm --filter @tallo/api exec wrangler queues pause-delivery tallo-collect`, and
-  `resume-delivery` to undo. Check the exact subcommand with `wrangler queues --help` first.
-- Roll back the code: redeploy the previous API (revert the collection commits). The schema change is additive and the old
-  API ignores the new columns, so no migration rollback is needed. Runs left `running` are reaped as `partial` by the hourly
-  cron within two hours. Nothing closes on them, but each counts as a failed run for its board (back-off), unless a
-  newer run of that board exists.
-- The Mac launchd job keeps working throughout. Both collectors can run; a board another run holds is refused (`busy`).
-
-### Failures and dead letters
-
-- A message that fails three times goes to `tallo-collect-dlq`. Its run is reaped as partial and counts as a failure (the board backs off). Re-collect the board with
-  the staged route once the cause is fixed.
-- `outcome: "error"` lines carry the error message (up to 300 characters). `not_found` after three runs marks the board
-  dead, and it is then collected every 30 days (`sources` `dead` in `GET /v1/admin/collect/status`).
-- Any run that does not list completely is a failed run, including a first request answered 403, 422 or a redirect off
-  the allowlist (`blocked`). It backs off 1h, 3h, 6h, then 24h for each further failure in a row (`sources.failure_count`,
-  reset by a complete run). A board that has never listed anything waits 30 days after ten failures but is not marked
-  dead: a 422 or 403 on a board that is simply misconfigured shows as a slow retry, not a dead board. To retry sooner
-  after a fix, use the admin revive route, which also resets the back-off.
-- `busy` (409: another run holds the board) is not a failure. The board is moved to at least 15 minutes from now, so it
-  is not claimed again on every tick while the other run lasts. A later schedule is kept.
-- The hourly cron repairs one case: an active board whose due time is more than 30 days out (a bad write) is made due
-  now. Without the repair it would not be collected for months.
-- The plan and raw parts of a continuing run that never closed stay under `work/<run>/` in R2 (small; cleanup is not automated yet). Single-slice runs write none.
-
-### Local rehearsal (no Cloudflare resources)
-
-`wrangler dev` runs the Worker, D1, R2, the queue and the Durable Object locally. This is how the change was checked:
+**Mac (boards that refuse Cloudflare).** A board with `"egress": "local"` in its `params` (Workday tenants that redirect
+the cloud, and the large single-host platforms: Amazon, Apple, Google, Meta, Netflix) is never claimed by the cloud. The
+launchd job `fyi.nandan.tallo.local-egress` runs `tallo sync --local-egress` daily at 03:30:
 
 ```sh
-cd apps/api
-printf 'INGEST_TOKEN=devingest\n' > .dev.vars   # gitignored; never commit it
-pnpm exec wrangler d1 migrations apply tallo --local
-pnpm exec wrangler dev --port 8787 --var COLLECT_ENABLED:1
-# in another shell: the admin routes against http://localhost:8787, then the cron:
-curl "http://localhost:8787/cdn-cgi/handler/scheduled?cron=*%2F5+*+*+*+*"
+apps/runner/launchd/local-egress.sh print|install|uninstall     # logs: ~/Library/Logs/tallo/local-egress.log
+pnpm --filter @tallo/runner tallo sync -p greenhouse -n 20      # collect by hand
+pnpm --filter @tallo/runner tallo verify greenhouse:stripe      # dry run: fields the mapper never reads
+pnpm --filter @tallo/runner tallo register                      # after editing sources/*.json or egress flags
 ```
 
-Outbound requests go to the real boards (read-only GETs). The local D1 and R2 are not production.
-
-## Daily collection (launchd)
-
-`~/Library/LaunchAgents/fyi.nandan.tallo.sync.plist` runs `pnpm --filter @tallo/runner tallo sync` at 06:30
-(that job is no longer in the repo; the weekly job below replaces it). The Mac may sleep: the job runs on wake.
-`sync` skips sources completed within `--stale-hours` (default 20), so reruns are cheap and idempotent.
-This is the collector until cloud collection is verified (see "Cloud collection").
-
-### Local-egress boards (launchd)
-
-Boards with `params.egress: "local"` (see "Boards that need the Mac's egress") are never claimed by the cloud, so only
-this Mac collects them. `tallo sync --local-egress` selects only those boards and keeps the rest of `sync` as it is:
-the same due check, the oldest complete run first, dead boards skipped, and the same per-host limiter. Its staleness
-cutoff defaults to 168 hours (weekly); `--stale-hours` still overrides it.
-
-The job is `apps/runner/launchd/fyi.nandan.tallo.local-egress.plist`, a template that `apps/runner/launchd/local-egress.sh`
-fills in. It runs daily at 03:30 local time with `--per-host 2 --host-interval-ms 250`. Missed runs (Mac asleep) fire on
-wake. The plist holds no secrets; the runner reads `apps/runner/.env`. Logs go to `~/Library/Logs/tallo/local-egress.log`.
-
-```sh
-apps/runner/launchd/local-egress.sh print      # render to stdout, changes nothing
-apps/runner/launchd/local-egress.sh install    # write ~/Library/LaunchAgents/fyi.nandan.tallo.local-egress.plist and load it
-apps/runner/launchd/local-egress.sh uninstall  # unload and remove it
-```
-
-Install from the clone the job should run from: the plist pins that repo path, plus the absolute `pnpm` and `node`
-locations. Re-run `install` after moving the repo or upgrading node or pnpm. Check a run with
-`tail -n 50 ~/Library/Logs/tallo/local-egress.log`, then `pnpm --filter @tallo/runner tallo sources --dead` for dead boards.
-To run it by hand: `pnpm --filter @tallo/runner tallo sync --local-egress`.
-
-### Weekly full sync (launchd)
-
-Cloud collection is off (#77), so this Mac is the only collector. `apps/runner/launchd/full-sync.sh` manages a weekly
-job that runs `tallo sync --stale-hours 144 --per-host 4 --host-interval-ms 100` on Sundays at 01:00 local time. It
-covers every configured board; `--stale-hours 144` (six days) means a board collected within the last six days is
-skipped, so a start that drifts by hours still picks up everything due weekly and a rerun is cheap. A missed run (Mac
-asleep) fires on wake. The plist holds no secrets (the runner reads `apps/runner/.env`). Logs:
-`~/Library/Logs/tallo/full-sync.log`.
-
-Nothing is installed automatically. The default action only prints:
-
-```sh
-apps/runner/launchd/full-sync.sh             # render the plist to stdout, changes nothing (same as `print`)
-apps/runner/launchd/full-sync.sh install     # write ~/Library/LaunchAgents/fyi.nandan.tallo.full-sync.plist and load it
-apps/runner/launchd/full-sync.sh uninstall   # unload and remove it
-```
-
-Same install rules as the local-egress job: install from the clone it should run from, re-run `install` after moving
-the repo or upgrading node or pnpm. Local-egress boards are included in the weekly run; the daily local-egress job and
-this one never collide because a board another run holds is refused (`busy`).
-
-### Backup and restore (D1)
-
-Two layers. D1 Time Travel is the primary backup (point-in-time restore, 30 days). `scripts/backup-d1.sh` adds a
-weekly local export that survives losing the Cloudflare account state.
-
-**FTS caveat (#17).** `wrangler d1 export` refuses a database that holds virtual tables, and `jobs_fts` is an FTS5
-table. The script therefore lists the real tables (everything except `jobs_fts*`, `sqlite_*` and `_cf_*`) and exports only
-those with `--table`. The FTS index is derived from `jobs`, so it is rebuilt after a restore, not backed up. The backup
-holds the catalog tables; descriptions live in R2 (`jd/<sha256>`) and raw packs in R2, which are not copied here.
-
-```sh
-scripts/backup-d1.sh           # print the plan, call nothing (default)
-scripts/backup-d1.sh run       # take a backup now (needs wrangler logged in to Cloudflare)
-```
-
-A backup lands in `~/Backups/tallo/tallo-d1-<UTC stamp>/` (outside the repo, so it cannot be committed) as
-`tallo.sql.gz`, `time-travel.json` (the restore bookmark at that moment) and `meta.txt`. A failed run leaves nothing
-behind, including when the path contains spaces or quotes. The newest 8 are kept (`TALLO_BACKUP_KEEP`); only
-`tallo-d1-*` directories directly under the backup directory are pruned. Override the location with `TALLO_BACKUP_DIR`,
-which must be an absolute path outside the repository; a symbolic-link root is resolved (with a warning) so retention
-still prunes its target.
-
-The weekly job is `apps/runner/launchd/backup.sh` (Sundays 00:30, before the full sync; logs
-`~/Library/Logs/tallo/backup.log`). It uses this Mac's own wrangler login, no token in the plist. Same
-`print` (default) / `install` / `uninstall` as above.
-
-Restore paths, best first:
-1. **Time Travel** (data back to a moment, in place): record the current bookmark first, since a restore is itself
-   undone only by restoring to that bookmark: `wrangler d1 time-travel info tallo --json`, then
-   `wrangler d1 time-travel restore tallo --bookmark <bookmark>`. FTS comes back with it.
-2. **From a local export** (empty database): `gunzip -c tallo.sql.gz >restore.sql`, then
-   `wrangler d1 execute <new-db> --remote --file restore.sql`. The file creates the real tables with their data and the
-   `d1_migrations` ledger, but not the FTS table or its triggers. Recreate them from the migrations that define them
-   (`packages/db/drizzle/0001_fts.sql`, then `0015_fts_update_when.sql`, via `--file`), then rebuild the index:
-   `wrangler d1 execute <new-db> --remote --command "INSERT INTO jobs_fts(jobs_fts) VALUES ('rebuild')"`. Check
-   `pnpm --filter @tallo/api exec wrangler d1 migrations list <new-db> --remote` reports nothing pending.
-3. **Rebuild from sources**: raw packs in R2 plus a full sweep (`tallo sync --stale-hours 0`) recreate the catalog.
-
-Status of the commands: the export, listing and bookmark commands were taken from `wrangler ... --help` and the script
-is tested against a stub wrangler. It has not been run against production and path 2 has not been rehearsed; do both
-once, against a scratch D1 database, before relying on them.
-
-### Politeness (per-host limits)
-
-Many sources share a few hosts (thousands of Greenhouse/Ashby boards). One limiter per process caps every
-source's requests to a host together, however many sources run in parallel (`--concurrency`).
-
-| Flag                 | Env                      | Default | Meaning                                            |
-| -------------------- | ------------------------ | ------- | -------------------------------------------------- |
-| `--per-host <n>`     | `TALLO_PER_HOST`         | `8`     | Max in-flight requests to one host, across sources |
-| `--host-interval-ms` | `TALLO_HOST_INTERVAL_MS` | `0`     | Min gap in ms between new request starts to a host |
-
-Flags win over env. Invalid values (non-numeric, below the minimum) fail before any network call. Raise
-`--host-interval-ms` (e.g. `250`) if a host starts returning 429s; `--per-host 1` with a gap is the most
-conservative setting. Retries after a 429/5xx keep their per-host slot but do not wait for the gap.
-`verify` uses its own limit of 4 and is not shared.
-
-Check health, read-only, with the ingest token (the sources and runs reads need it):
-### Throughput (threads, concurrency, platform exclusion)
-
-`tallo sync` overlaps work at three levels. Boards run in parallel (`--concurrency`, default 16); within a board,
-detail fetches run in parallel, and each batch of 100 postings is uploaded and applied while later details are still
-being fetched (at most two batches wait, so memory stays bounded). The CPU-heavy steps (fingerprint hashing, map with
-HTML to text, `prepareJob`, description gzip) run in a `worker_threads` pool, so the event loop only does network I/O.
-Requests share one undici agent (keep-alive across boards, HTTP/2 where the host offers it), also used for the ingest API.
-
-| Flag                      | Env             | Default           | Meaning                                                     |
-| ------------------------- | --------------- | ----------------- | ----------------------------------------------------------- |
-| `-c, --concurrency <n>`   |                 | `16`              | Boards in flight at once                                    |
-| `--threads <n>`           | `TALLO_THREADS` | `min(4, cores-1)` | CPU worker threads; `0` runs those steps on the main thread |
-| `--exclude-platform <id>` |                 | none              | Skip a platform; repeat the flag for several                |
-
-Per-host limits still apply across all boards, so more threads or boards never raise the load on one host. When one
-host is the bottleneck (a single Greenhouse host at `--per-host 8`), throughput is bounded by that limit and threads
-change little; they matter when many hosts run at once. `apps/runner/bench/pipeline.ts` is an offline benchmark
-(fixtures, fake network and API with fixed latency, no real host) for comparing settings.
-
-Check health, read-only, with READ_TOKEN:
-- `GET /v1/sources/status` is the slim per-source view (the status page was removed with the pivot; the endpoint stays): `lastRunAt`,
-  `lastCompleteRunAt`, `lastListedAt`, `lastStatus` and `freshness`, without board params or failure counters.
-- `GET /v1/sources` is the full record (adds `status` and `consecutiveFailures`). The runner's `sources --dead`
-  reads it with the ingest token, which the API also accepts for reads.
-- `GET /v1/runs?attention=true&limit=50` lists recent runs that ended partial or reported issues (`limit` 1 to 200).
-
-A source with no complete run for 7 days is stale.
+**Change a mapper.** Bump that platform's `version`; the next sync of each board re-fetches and re-maps its postings.
 
 ### Dead boards
 
-A listing whose first request returns HTTP 404 means the board does not exist. Three runs in a row of that mark the
-source `dead` (`sources.status`, `sources.consecutive_failures`). A 404 later in a paginated listing is a failed run
-on a board that exists, so it does not count. Only a successful listing resets the count; a 500, a timeout or a
-partial run leaves it as it is. A dead source is skipped by `tallo sync` (its jobs stay as they are; nothing closes
-on a failed run).
+Three first-request 404s in a row mark a board dead (checked every 30 days; a complete listing revives it).
+`tallo sources --dead` lists them. Boards confirmed gone are removed from `sources/*.json`.
 
-A redirect off the platform's host allowlist is not a 404. It is a failed run with issue code `blocked` (the cloud
-log outcome is `blocked`), because it usually means the collecting host's egress was refused, not that the board
-moved. It never counts toward dead. So a retired Workday tenant that only redirects is not marked dead automatically:
-it is retried on the partial schedule, and someone removes it from `sources/*.json` after review.
-- `pnpm --filter @tallo/runner tallo sources --dead` lists dead boards with their 404 count and last run.
-- Review each one, then remove it from `sources/*.json` to stop tracking it.
-- `tallo sync --include-dead` (or `--source <id>`, which still needs the flag) retries them. A complete
-  listing revives the board automatically.
-- `pnpm --filter @tallo/runner tallo revive <source-id...>` clears the dead status and the 404 count of boards marked
-  dead by mistake (for example, 404s from a block) and makes them due now, so the cloud cron or the next `sync`
-  collects them. It touches no run, posting or closure. Use it after a reviewed mistake, then check the board's
-  next run. The API route is `POST /v1/admin/sources/revive` (ingest token, `{"sources": [...]}`).
+### Retire a board
 
-### Retiring a board from the catalog
+Delete it from `sources/*.json`, then `tallo retire <platform:key>` (it removes the catalog rows, keeps run history and R2
+objects). It refuses a board that is still configured.
 
-Removing a board from `sources/*.json` stops new runs but leaves its `sources` row, postings and history. Review it,
-remove the config, then retire the stored rows explicitly:
-1. Remove the board from its `sources/<platform>.json` file and commit that reviewed change first. `tallo sources` must
-   no longer list it. The command refuses any id that is still configured, so a typo cannot delete a live board.
-2. Preview with `pnpm --filter @tallo/runner tallo retire <source-id...> --dry-run` (the API requires an explicit
-   `dryRun`). The preview reports the sources, the number of postings, the retiring sources' own raw-pack keys and the
-   descriptions no stored row references any more. It writes nothing.
-3. Apply with the same command without `--dry-run`. The API route is `POST /v1/admin/sources/retire` (ingest token):
-   `{"sources": ["<platform>:<key>", ...], "dryRun": false}`.
+### Retention
 
-One call accepts at most 10 source ids and 5000 jobs or historical runs in total; split a larger reviewed batch. A
-source with a running run is refused with 409 before any write, so finish or let the run be reaped first. Unknown and
-already-retired ids are idempotent and reported as an empty result.
+Hourly (`:17`): reap stuck runs, purge jobs closed 30+ days and orphaned description blobs, prune run history and raw
+packs (two packs per source, 30 days of other runs, at most 1,000 blob deletes an hour), regroup duplicates, repair
+boards stranded far in the future. Duplicates are one canonical row (`dup_of`); the hidden-source rule is 14 days.
 
-Retirement deletes only the named sources' `sources` rows and postings, in one D1 batch. Before deleting, that batch
-unlinks surviving duplicate postings that pointed at a retiring canonical (`dup_of` is cleared and `updated_at` is
-stamped), then the dedupe regroup picks the next surviving canonical. If the regroup fails, those postings stay visible
-and unlinked; the hourly incremental regroup repairs them from `updated_at`. Historical runs and every R2 object are
-kept: raw packs stay under `raw/<source>/`, descriptions under `jd/<sha256>`. The returned raw keys and orphan JD
-hashes are audit and optional cleanup candidates only; this command never deletes blobs, and a description shared with
-a surviving posting is not listed as an orphan.
+## Backup and restore
+
+D1 Time Travel (30 days) is the primary backup. `scripts/backup-d1.sh run` also exports the real tables to
+`~/Backups/tallo/` (the FTS index is derived: it is not exported). Weekly job: `apps/runner/launchd/backup.sh install`.
+
+Restore: record the bookmark (`wrangler d1 time-travel info tallo --json`), then
+`wrangler d1 time-travel restore tallo --bookmark <id>`. From an export: create a scratch D1, apply migrations, import the
+SQL, then `INSERT INTO jobs_fts(jobs_fts) VALUES ('rebuild')`. Descriptions and raw packs live in R2 and are not in the export.
+The catalog can also be rebuilt by a full collection pass.
 
 ## Troubleshooting
 
-- _Run stuck "running"_: a run older than 2h no longer blocks the source, and the hourly cron marks it `partial`
-  (issue code `stopped`). Nothing closes on it.
-- _Workday posting without externalPath_: skipped and recorded as a `schema` issue; the listing is marked
-  incomplete, so closure waits until the board lists every posting with a path again.
-- _Source fails every run_: `tallo verify <id>`; 404 means the board moved or died. After three 404 runs it is
-  marked dead and skipped; see "Dead boards".
-- _Workday incomplete_: expected for slices that cannot be split; closure is skipped, jobs stay open.
-- _Unexpected closures after a mapper change_: closures only come from complete listings; check `runs` for
-  the source and whether its listing really shrank.
-
-## Raw pack and run retention
-
-The hourly API cron keeps the newest two finalized raw packs per source (complete or partial),
-ordered by run start time and id. It deletes older packs before clearing their run references,
-so storage failures can be retried safely. Unfinalized packs are removed after 30 days.
-Run rows older than 30 days are deleted once their pack is removed; the two retained pack
-references are exempt so later sweeps can still prune them. Source health and jobs are unchanged.
-Each invocation removes at most 1,000 packs and 1,000 expired run rows; a backlog drains over
-subsequent hourly invocations.
-
-The hourly schedule permits up to 24,000 pack deletions and run deletions per day, exceeding
-the configured roughly 9,000-board daily sweep. Raw uploads record their key before writing R2
-so interrupted uploads can be removed after 30 days.
-
-Apply migration `0003` before deploying: `runs.raw_uploaded` distinguishes successful packs
-from upload intent, so failed uploads cannot displace retained packs. Existing tracked packs
-are treated as uploaded. Packs orphaned before upload tracking was introduced are not reclaimed.
+- **Search returns 503 "Database busy".** D1 shed load. Retry after the `Retry-After` header; if it persists check
+  `wrangler tail`, `GET /v1/admin/collect/status` and whether a bulk run is writing.
+- **Nothing new is showing.** `collect/status` (is `COLLECT_ENABLED` `"1"` and the `*/5` cron deployed?), then `tallo sources`.
+- **A board keeps failing.** `GET /v1/runs?source=<platform:key>` (ingest token) for its issues; `tallo verify` reproduces it.
+- **llms.txt is stale.** Deploy the web (`pnpm release`); it is prerendered at build time.

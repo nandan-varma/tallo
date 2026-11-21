@@ -1,28 +1,31 @@
 # Tallo
 
-Job discovery that links straight to the employer. Tallo collects postings from company ATS boards
-(Greenhouse, Lever, Ashby, SmartRecruiters, Workday, more to come), keeps a lean searchable catalog,
-and never reposts: every job has an apply link to the employer's own page.
-
-Scope: public read-only job search (home and `/search` pages, the `/v1` public API and `/llms.txt`), daily refresh from a Mac. See `docs/architecture.md` and `docs/decisions.md` (D15).
+A public, read-only job-search API and a small search page. Tallo collects postings from company ATS boards
+(about 9,000 boards on 19 platforms), keeps what each source states, and links every result straight to the employer's
+own application page. It stores nothing about people and judges nothing: relevance is the reader's call.
+- Site: https://tallo.nandan.fyi (home, `/search`)
+- API: `GET /v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, `/v1/companies`, `/v1/titles`, `/v1/openapi.json`
+- For AI readers: https://tallo.nandan.fyi/llms.txt (generated from the API's own schemas)
 
 ```
-Mac runner ──collect/map──▶ API Worker ──▶ D1 (facts) + R2 (descriptions, raw packs) ◀── Astro web
+sources/*.json ──▶ cloud collector (queue) ──▶ ingest ──▶ D1 (facts) + R2 (descriptions, raw packs) ◀── API ◀── web
+                   Mac runner (egress: local boards) ──┘
 ```
 
-## Quick start
+## Develop
 
 ```sh
 pnpm install
-pnpm check                                  # lint, typecheck, tests
+pnpm check          # lint, typecheck, tests
+pnpm release        # check, migrate D1, deploy API then web, smoke test
 
 # local stack
 cd apps/api && printf 'INGEST_TOKEN=dev-ingest\n' > .dev.vars
 pnpm exec wrangler d1 migrations apply tallo --local && pnpm dev          # API on :8787
 cd ../runner && TALLO_API_URL=http://localhost:8787 TALLO_INGEST_TOKEN=dev-ingest \
   pnpm tallo sync -p greenhouse -n 10
-cd ../web && printf 'API_URL=http://localhost:8787\n' > .dev.vars
-pnpm dev                                    # open http://localhost:4321/
+cd ../web && printf 'API_URL=http://localhost:8787\n' > .dev.vars && pnpm dev   # http://localhost:4321/
 ```
 
-Docs live in `docs/`. Agents: start with `CLAUDE.md`.
+Docs: `docs/runbook.md` (operate), `docs/architecture.md` (design), `docs/adding-a-platform.md`,
+`docs/adding-sources.md`, `docs/decisions.md` (why). Agents: start with `CLAUDE.md`.

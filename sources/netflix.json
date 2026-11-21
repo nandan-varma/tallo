@@ -1,6 +1,9 @@
 [
- {
-  "key": "netflix.com",
-  "company": "Netflix"
- }
+  {
+    "key": "netflix.com",
+    "company": "Netflix",
+    "params": {
+      "egress": "local"
+    }
+  }
 ]
