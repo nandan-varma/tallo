@@ -183,9 +183,13 @@ describe("api", () => {
     });
     expect(detail).not.toHaveProperty("jdHash");
     expect(detail).not.toHaveProperty("facts");
+    const companies = await (await call("/v1/companies?prefix=ac", null)).json();
+    expect(companies).toMatchObject({ count: 1, companies: [{ name: "Acme", slug: "acme" }] });
+    const titles = await (await call("/v1/titles?prefix=soft", null)).json();
+    expect(titles).toMatchObject({ count: 1, titles: ["software"], truncated: false });
     const missing = await call("/v1/jobs/999", null);
     expect(missing.status).toBe(404);
-    expect(await missing.json()).toMatchObject({ error: { code: "not_found" } });
+    expect(await missing.json()).toMatchObject({ error: { code: "unknown" } });
   });
 
   it("serves the slim status view of sources and filters run history", async () => {

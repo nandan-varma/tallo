@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { openApiDocument } from "../src/openapi.ts";
 import {
   DESCRIPTION_CHUNK,
   DESCRIPTION_MAX_CHUNK,
   decodeCursor,
   descriptionChunk,
   encodeCursor,
+  PUBLIC_PATHS,
   publicDescriptionSchema,
   publicSearchSchema,
   searchNote,
@@ -134,9 +136,51 @@ describe("description query schema", () => {
 
 describe("searchNote", () => {
   it("says what the list is and whether there is more", () => {
-    expect(searchNote(0, false)).toContain("No open postings");
-    expect(searchNote(3, true)).toContain("next as cursor");
-    expect(searchNote(3, false)).toContain("last page");
-    expect(searchNote(3, true)).toContain("300");
+    expect(searchNote({ count: 0, hasMore: false, capped: false, offset: 0 })).toContain(
+      "No open postings",
+    );
+    expect(searchNote({ count: 3, hasMore: true, capped: false, offset: 0 })).toContain(
+      "next as cursor",
+    );
+    expect(searchNote({ count: 3, hasMore: false, capped: false, offset: 0 })).toContain(
+      "last page",
+    );
+    expect(searchNote({ count: 0, hasMore: false, capped: false, offset: 10 })).toContain(
+      "No more open postings",
+    );
+    expect(searchNote({ count: 0, hasMore: false, capped: true, offset: 300 })).toContain(
+      "no page at offset 300",
+    );
+    expect(searchNote({ count: 10, hasMore: false, capped: true, offset: 290 })).toContain(
+      "300-result cap",
+    );
+  });
+});
+
+describe("search schema", () => {
+  it("accepts a company without a title, but neither alone is not enough", () => {
+    expect(publicSearchSchema.parse({ company: ["Stripe"] }).title).toEqual([]);
+    expect(publicSearchSchema.parse({ title: ["backend engineer"] }).company).toEqual([]);
+    expect(publicSearchSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe("openapi", () => {
+  it("documents every public path and derives the response components", () => {
+    const doc = openApiDocument() as {
+      paths: Record<string, unknown>;
+      components: { schemas: Record<string, unknown> };
+    };
+    for (const path of PUBLIC_PATHS) expect(doc.paths[path.replace(":id", "{id}")]).toBeDefined();
+    for (const name of [
+      "PublicError",
+      "JobHit",
+      "PublicSearchPage",
+      "PublicJob",
+      "PublicDescriptionResponse",
+      "PublicCompanyList",
+      "PublicTitleList",
+    ])
+      expect(doc.components.schemas[name]).toBeDefined();
   });
 });

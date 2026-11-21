@@ -76,7 +76,14 @@ describe("the allowlist", () => {
   });
 
   it("derives from the shared path list, so each documented template has a matching example", () => {
-    const examples = ["/v1/search", "/v1/jobs/42", "/v1/jobs/42/description"];
+    const examples = [
+      "/v1/search",
+      "/v1/jobs/42",
+      "/v1/jobs/42/description",
+      "/v1/companies",
+      "/v1/titles",
+      "/v1/openapi.json",
+    ];
     expect(PUBLIC_PATHS).toHaveLength(examples.length);
     for (const example of examples) expect(isPublicPath(example)).toBe(true);
   });
@@ -101,7 +108,7 @@ describe("the allowlist", () => {
     const { upstream, deps: d } = deps();
     const response = await handlePublic(get("/v1/search?title=ab", { method: "POST" }), d);
     expect(response.status).toBe(405);
-    expect(response.headers.get("allow")).toBe("GET");
+    expect(response.headers.get("allow")).toBe("GET, OPTIONS");
     expect(upstream).not.toHaveBeenCalled();
   });
 });

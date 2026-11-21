@@ -37,6 +37,12 @@ describe("search ranking", () => {
       company: "Acme",
       workMode: "remote",
       pay: "USD 150000-180000 per year",
+      compensation: [
+        expect.objectContaining({ currency: "USD", min: 150000, max: 180000, interval: "year" }),
+      ],
+      employmentType: null,
+      countryCode: null,
+      sourceLastListedAt: expect.any(String),
       locations: 1,
     });
     expect(unpaid?.pay).toBeNull();
@@ -70,9 +76,23 @@ describe("search ranking", () => {
 
   it("collapses one company and title across locations into one hit with the count", async () => {
     const { db, blobs } = setup();
-    await seed(db, blobs, { postingId: "1", title: "Data Engineer", location: "Seattle, WA" });
-    await seed(db, blobs, { postingId: "2", title: "Data Engineer", location: "Boston, MA" });
-    await seed(db, blobs, { postingId: "3", title: "Data Engineer", location: "Austin, TX" });
+    const canonical = await seed(db, blobs, {
+      postingId: "1",
+      title: "Data Engineer",
+      location: "Seattle, WA",
+    });
+    await seed(db, blobs, {
+      postingId: "2",
+      title: "Data Engineer",
+      location: "Boston, MA",
+      dupOf: canonical,
+    });
+    await seed(db, blobs, {
+      postingId: "3",
+      title: "Data Engineer",
+      location: "Austin, TX",
+      dupOf: canonical,
+    });
     await seed(db, blobs, { postingId: "4", title: "Data Engineer", company: "Other" });
 
     const hits = await hitsOf(db, { queries: ["data engineer"] }, 40);
@@ -258,9 +278,12 @@ describe("searchPage", () => {
 
   it("answers an empty page for phrases with no searchable word", async () => {
     const db = await catalog();
-    expect(await searchPage(db, { queries: ['"" **'], offset: 0, limit: 10 })).toEqual({
+    expect(await searchPage(db, { queries: ['"" **'], offset: 0, limit: 10 })).toMatchObject({
       hits: [],
       nextOffset: null,
+      count: 0,
+      hasMore: false,
+      capped: false,
     });
   });
 
@@ -278,10 +301,37 @@ describe("searchPage", () => {
     expect(last.nextOffset).toBeNull();
   });
 
+  it("reports the page flags, the place expansion and asOf", async () => {
+    const db = await catalog();
+    const page = await searchPage(db, {
+      queries: ["data engineer"],
+      locations: ["remote"],
+      offset: 0,
+      limit: 1,
+    });
+    expect(page).toMatchObject({
+      count: expect.any(Number),
+      hasMore: expect.any(Boolean),
+      capped: false,
+      expanded: { locations: [], remote: true },
+      asOf: expect.any(String),
+    });
+    expect(page.nextOffset === null).toBe(page.hasMore === false);
+  });
+
   it("returns the hits with their location count and the same ranking the results list shows", async () => {
     const { db, blobs } = setup();
-    await seed(db, blobs, { postingId: "1", title: "Data Engineer", location: "Seattle, WA" });
-    await seed(db, blobs, { postingId: "2", title: "Data Engineer", location: "Boston, MA" });
+    const canonical = await seed(db, blobs, {
+      postingId: "1",
+      title: "Data Engineer",
+      location: "Seattle, WA",
+    });
+    await seed(db, blobs, {
+      postingId: "2",
+      title: "Data Engineer",
+      location: "Boston, MA",
+      dupOf: canonical,
+    });
     const page = await searchPage(db, { queries: ["data engineer"], offset: 0, limit: 20 });
     expect(page.hits).toEqual([expect.objectContaining({ title: "Data Engineer", locations: 2 })]);
   });
@@ -419,8 +469,7 @@ describe("GET /v1/search", () => {
     } while (next !== null);
     expect(total).toBe(300);
     expect(pages).toBe(12);
-    expect(last?.note).toContain("last page");
-    expect(last?.note).toContain("300");
+    expect(last?.note).toContain("300-result cap");
   });
 
   it("answers a note when nothing matches, and refuses a URL over 2 KB before any query", async () => {
@@ -431,9 +480,13 @@ describe("GET /v1/search", () => {
       next: null;
       note: string;
     };
-    expect(none).toEqual({
+    expect(none).toMatchObject({
+      apiVersion: "2",
       results: [],
+      count: 0,
       next: null,
+      hasMore: false,
+      capped: false,
       note: expect.stringContaining("No open postings"),
     });
 

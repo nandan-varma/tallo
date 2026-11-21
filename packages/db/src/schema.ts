@@ -147,3 +147,21 @@ export const jobs = sqliteTable(
 );
 
 export type JobRow = typeof jobs.$inferSelect;
+
+/**
+ * Company names seen in the catalog, maintained by `ingest.ts` for `/v1/companies`. One row per company slug; the
+ * name is the latest spelling a source stated. Small by construction (thousands, not one per posting).
+ */
+export const companies = sqliteTable("companies", {
+  slug: text().primaryKey(),
+  name: text().notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/**
+ * Title words observed in the catalog, maintained by `ingest.ts` for `/v1/titles`. Raw lowercase tokens (the same
+ * normalisation everywhere), no stemming: this is discovery vocabulary, not a search index.
+ */
+export const titleTokens = sqliteTable("title_tokens", {
+  token: text().primaryKey(),
+});

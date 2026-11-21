@@ -3,7 +3,8 @@ import type { SQL } from "drizzle-orm";
 import { and, desc, eq, getTableColumns, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "./db.ts";
-import { jobs, runs, sources } from "./schema.ts";
+import type { JobRow } from "./schema.ts";
+import { companies, jobs, runs, sources, titleTokens } from "./schema.ts";
 
 /** Catalog search: free text, paging, and the stale-source switch. The database filters nothing else. */
 export const searchSchema = z.object({
@@ -210,15 +211,22 @@ export async function rankedJobs(
     .select({
       ...summary,
       score: sql<number>`min(cand.score)`,
-      locations: sql<number>`count(*)`,
+      // The open siblings of this canonical row, this one included: the same `dup_of` group `listVariants` lists.
+      locations: summary.variants,
+      sourceLastListedAt: sources.lastListedAt,
     })
     .from(sql`${candidatesFor(match, candidateFilter(spec, now))} AS cand`)
     .innerJoin(jobs, sql`${jobs.id} = cand.id`)
+    .innerJoin(sources, eq(sources.id, jobs.sourceId))
     .groupBy(groupKey)
     .orderBy(sql`score`, jobs.id)
     .limit(page.limit)
     .offset(page.offset);
-  return rows.map(({ facts, ...row }) => ({ ...row, pay: payOf(facts) }));
+  return rows.map(({ facts, variants: _variants, ...row }) => ({
+    ...row,
+    pay: payOf(facts),
+    compensation: (facts.compensation as Money[] | undefined) ?? [],
+  }));
 }
 
 export async function getJob(db: Db, id: number) {
@@ -231,14 +239,77 @@ export async function getJob(db: Db, id: number) {
  * answers undefined, as it does in search. A duplicate listing that is still open answers, as its own location.
  */
 export async function openJob(db: Db, id: number, now = Math.floor(Date.now() / 1000)) {
+  const state = await jobState(db, id, now);
+  return state.kind === "ok" ? state.job : undefined;
+}
+
+/**
+ * Why a posting is or is not readable. The three negative states are facts about the row, never guesses:
+ * `closed` has a closed_at, `source_hidden` exists from a board that stopped listing, `unknown` has no row.
+ */
+export type JobState =
+  | { kind: "ok"; job: JobRow & { pay: string | null; sourceLastListedAt: number | null } }
+  | { kind: "closed" }
+  | { kind: "source_hidden" }
+  | { kind: "unknown" };
+
+/** The state of one posting for a public read: open, closed, from a hidden source, or absent. */
+export async function jobState(
+  db: Db,
+  id: number,
+  now = Math.floor(Date.now() / 1000),
+): Promise<JobState> {
   const row = (
     await db
-      .select()
+      .select({ job: jobs, lastListedAt: sources.lastListedAt })
       .from(jobs)
-      .where(and(eq(jobs.id, id), isNull(jobs.closedAt), sourceListed(now)))
+      .leftJoin(sources, eq(sources.id, jobs.sourceId))
+      .where(eq(jobs.id, id))
       .limit(1)
   )[0];
-  return row ? { ...row, pay: payOf(row.facts) } : undefined;
+  if (!row) return { kind: "unknown" };
+  if (row.job.closedAt !== null) return { kind: "closed" };
+  if (row.lastListedAt === null || row.lastListedAt < now - STALE_HIDE_DAYS * 86400)
+    return { kind: "source_hidden" };
+  return {
+    kind: "ok",
+    job: { ...row.job, pay: payOf(row.job.facts), sourceLastListedAt: row.lastListedAt },
+  };
+}
+
+/** Company names and slugs for `/v1/companies`: a small aggregate table, not a scan of `jobs`. */
+export async function listCompanies(
+  db: Db,
+  { prefix, limit }: { prefix?: string; limit: number },
+): Promise<{ companies: { name: string; slug: string }[]; truncated: boolean }> {
+  const from = (prefix ?? "").trim().toLowerCase();
+  const rows = await db
+    .select({ name: companies.name, slug: companies.slug })
+    .from(companies)
+    .where(
+      sql`lower(${companies.name}) >= ${from} AND lower(${companies.name}) < ${`${from}\uffff`}`,
+    )
+    .orderBy(companies.name)
+    .limit(limit + 1);
+  return { companies: rows.slice(0, limit), truncated: rows.length > limit };
+}
+
+/** Title words for `/v1/titles`, from the observed-token table (raw words, not FTS stems). */
+export async function listTitleTokens(
+  db: Db,
+  { prefix, limit }: { prefix?: string; limit: number },
+): Promise<{ titles: string[]; truncated: boolean }> {
+  const from = (prefix ?? "").trim().toLowerCase();
+  const rows = await db
+    .select({ token: titleTokens.token })
+    .from(titleTokens)
+    .where(sql`${titleTokens.token} >= ${from} AND ${titleTokens.token} < ${`${from}\uffff`}`)
+    .orderBy(titleTokens.token)
+    .limit(limit + 1);
+  return {
+    titles: rows.slice(0, limit).map((r) => r.token),
+    truncated: rows.length > limit,
+  };
 }
 
 /**

@@ -54,7 +54,7 @@ describe("GET /v1/jobs/:id", () => {
     expect(missing.status).toBe(404);
     expect(missing.headers.get("cache-control")).toBe("no-store");
     const body = (await json(missing)) as { error: { code: string; hint: string } };
-    expect(body.error.code).toBe("not_found");
+    expect(body.error.code).toBe("unknown");
     expect(body.error.hint).toContain("/v1/search");
   });
 
@@ -67,11 +67,15 @@ describe("GET /v1/jobs/:id", () => {
       company: "Other",
     });
     const server = app(db, blobs);
-    expect((await server.request(`/v1/jobs/${closed}`)).status).toBe(404);
+    const closedResponse = await server.request(`/v1/jobs/${closed}`);
+    expect(closedResponse.status).toBe(410);
+    expect(((await json(closedResponse)) as { error: { code: string } }).error.code).toBe("closed");
     expect((await server.request(`/v1/jobs/${open}`)).status).toBe(200);
 
     await db.update(schema.sources).set({ lastListedAt: 1 }).where(eq(schema.sources.id, SOURCE));
-    expect((await server.request(`/v1/jobs/${open}`)).status).toBe(404);
+    const hidden = await server.request(`/v1/jobs/${open}`);
+    expect(hidden.status).toBe(404);
+    expect(((await json(hidden)) as { error: { code: string } }).error.code).toBe("source_hidden");
   });
 
   it("answers a null description, not a guess, when its blob is gone", async () => {
@@ -149,7 +153,20 @@ describe("GET /v1/jobs/:id/description", () => {
     expect(((await json(typo)) as { error: { code: string } }).error.code).toBe(
       "unknown_parameter",
     );
-    expect((await server.request(`/v1/jobs/${closed}/description`)).status).toBe(404);
+    expect((await server.request(`/v1/jobs/${closed}/description`)).status).toBe(410);
+  });
+});
+
+describe("public CORS", () => {
+  it("answers preflight and marks every public answer", async () => {
+    const { db, blobs } = setup();
+    const server = app(db, blobs);
+    const preflight = await server.request("/v1/search", { method: "OPTIONS" });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("*");
+    expect(preflight.headers.get("access-control-allow-methods")).toContain("GET");
+    const answer = await server.request("/v1/search?title=data+engineer");
+    expect(answer.headers.get("access-control-allow-origin")).toBe("*");
   });
 });
 

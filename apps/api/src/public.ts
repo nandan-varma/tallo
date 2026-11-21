@@ -5,21 +5,36 @@ import {
   descriptionChunk,
   encodeCursor,
   JOB_CACHE_CONTROL,
+  openApiDocument,
   POSTING_ID_SOURCE,
+  PUBLIC_API_VERSION,
   PUBLIC_MAX_URL_CHARS,
+  type PublicCompanyList,
+  type PublicDescriptionResponse,
   type PublicError,
+  type PublicJob,
   type PublicSearchPage,
+  type PublicTitleList,
   publicDescriptionSchema,
+  publicDiscoverySchema,
   publicError,
   publicSearchSchema,
   SEARCH_CACHE_CONTROL,
   searchNote,
 } from "@tallo/contracts";
-import { type BlobStore, type Db, jdKey, listVariants, openJob } from "@tallo/db";
+import {
+  type BlobStore,
+  type Db,
+  jdKey,
+  jobState,
+  listCompanies,
+  listTitleTokens,
+  listVariants,
+} from "@tallo/db";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { z } from "zod";
-import { locationOf, postedOf, searchPage } from "./search.ts";
+import { locationOf, postedOf, searchPage, seenAt } from "./search.ts";
 
 /** Reads a posting's description from its gzipped blob in R2; null when the blob is gone. */
 export const descriptionReader = (blobs: BlobStore) => async (jdHash: string) => {
@@ -48,6 +63,11 @@ const DESCRIPTION_HINTS: Record<string, string> = {
     "A whole number from 0 up to descriptionChars, the description's length: /v1/jobs/123/description?offset=4000",
   limit:
     "A whole number from 1 to 8000 (default 4000): /v1/jobs/123/description?offset=4000&limit=8000",
+};
+
+const DISCOVERY_HINTS: Record<string, string> = {
+  prefix: "A short start of a name, 1 to 40 characters: /v1/companies?prefix=goog",
+  limit: "A whole number from 1 to 50: /v1/companies?prefix=goog&limit=10",
 };
 
 type Parsed<S extends z.ZodObject> =
@@ -99,7 +119,7 @@ function readQuery<S extends z.ZodObject>(
 }
 
 /** Errors are never cached: a corrected request must not be answered from an old mistake. */
-function fail(c: Context, status: 400 | 404 | 414, body: PublicError) {
+function fail(c: Context, status: 400 | 404 | 410 | 414, body: PublicError) {
   c.header("cache-control", "no-store");
   return c.json(body, status);
 }
@@ -145,16 +165,30 @@ const badId = () =>
     "Use the id of a search result, for example /v1/jobs/123.",
   );
 
-const notFound = (id: number) =>
+const closed = (id: number) =>
   publicError(
-    "not_found",
-    `No open posting has id ${id}.`,
-    "The posting may have closed, or its source may have stopped listing. Search again for current postings: /v1/search?title=backend+engineer",
+    "closed",
+    `Posting ${id} is closed.`,
+    "Search again for current postings: /v1/search?title=backend+engineer. Do not retry this id.",
+  );
+
+const sourceHidden = (id: number) =>
+  publicError(
+    "source_hidden",
+    `Posting ${id} is not shown because its source stopped listing.`,
+    "The catalog hides postings from boards that have not listed for a while. Search again for current postings.",
+  );
+
+const unknown = (id: number) =>
+  publicError(
+    "unknown",
+    `No posting has id ${id}.`,
+    "Use an id from a search result (/v1/search?title=backend+engineer). Ids are opaque strings; pass one back unchanged.",
   );
 
 /**
- * The public read routes: search, one posting, and its description in chunks. No auth. Only these three paths are
- * served to the public; the web Worker forwards exactly these (see `apps/web/src/lib/public.ts`).
+ * The public read routes: search, one posting, its description, and discovery. No auth. Only these paths are served
+ * to the public; the web Worker forwards exactly these (see `apps/web/src/lib/public.ts`).
  */
 export function publicRoutes({
   db,
@@ -170,6 +204,20 @@ export function publicRoutes({
   const descriptionOf = descriptionReader(blobs);
   const hidden = hiddenOn(blockedHost);
 
+  // Public, credential-free, GET only: `*` is the honest origin policy. Preflight is answered here too.
+  routes.use("*", async (c, next) => {
+    c.header("access-control-allow-origin", "*");
+    c.header("access-control-allow-methods", "GET, OPTIONS");
+    c.header("access-control-allow-headers", "content-type");
+    await next();
+  });
+  routes.options("*", (c) => c.body(null, 204));
+
+  routes.get("/v1/openapi.json", hidden, (c) => {
+    c.header("cache-control", "public, max-age=3600, s-maxage=3600");
+    return c.json(openApiDocument());
+  });
+
   routes.get("/v1/search", hidden, async (c) => {
     const url = new URL(c.req.url);
     if (tooLong(url)) return fail(c, 414, longUrl());
@@ -177,6 +225,17 @@ export function publicRoutes({
     if (!parsed.ok) return fail(c, 400, parsed.body);
 
     const { title, company, location, limit, cursor } = parsed.value;
+    if (title.length === 0 && company.length === 0) {
+      return fail(
+        c,
+        400,
+        publicError(
+          "invalid_parameter",
+          "title: give at least one title or company value.",
+          "Repeat title (1 to 8 values) or company (up to 4): /v1/search?title=backend+engineer or /v1/search?company=Stripe",
+        ),
+      );
+    }
     const query = { title, company, location };
     let offset = 0;
     if (cursor !== undefined) {
@@ -204,9 +263,21 @@ export function publicRoutes({
     });
     const next = page.nextOffset === null ? null : encodeCursor(query, page.nextOffset);
     const body: PublicSearchPage = {
+      apiVersion: PUBLIC_API_VERSION,
       results: page.hits,
+      count: page.count,
       next,
-      note: searchNote(page.hits.length, next !== null),
+      hasMore: page.hasMore,
+      capped: page.capped,
+      expandedLocations: page.expanded.locations,
+      remote: page.expanded.remote,
+      asOf: page.asOf,
+      note: searchNote({
+        count: page.count,
+        hasMore: page.hasMore,
+        capped: page.capped,
+        offset,
+      }),
     };
     c.header("cache-control", SEARCH_CACHE_CONTROL);
     return c.json(body);
@@ -217,36 +288,48 @@ export function publicRoutes({
     if (tooLong(url)) return fail(c, 414, longUrl());
     const id = jobId(c.req.param("id"));
     if (id === null) return fail(c, 400, badId());
-    const job = await openJob(db, id);
-    if (!job) return fail(c, 404, notFound(id));
+    const state = await jobState(db, id);
+    if (state.kind !== "ok") {
+      if (state.kind === "closed") return fail(c, 410, closed(id));
+      if (state.kind === "source_hidden") return fail(c, 404, sourceHidden(id));
+      return fail(c, 404, unknown(id));
+    }
+    const job = state.job;
 
     const text = await descriptionOf(job.jdHash);
     const chunk = text === null ? null : descriptionChunk(text, 0, DESCRIPTION_CHUNK);
     const variants = await listVariants(db, job);
-    c.header("cache-control", JOB_CACHE_CONTROL);
-    return c.json({
+    const body: PublicJob = {
+      apiVersion: PUBLIC_API_VERSION,
       id: String(job.id),
       title: job.title,
       company: job.company,
       location: locationOf(job),
-      workMode: job.workMode,
+      workMode: job.workMode as PublicJob["workMode"],
       pay: job.pay,
+      compensation: Array.isArray(job.facts.compensation)
+        ? (job.facts.compensation as PublicJob["compensation"])
+        : [],
       postedAt: postedOf(job.postedAt),
       department: job.department,
       employmentType: job.employmentType,
+      countryCode: job.countryCode,
       applyUrl: job.applyUrl ?? job.url,
+      sourceLastListedAt: seenAt(job.sourceLastListedAt),
       /** Every open location of this posting, this one included. */
       variants: variants.map((v) => ({
         id: String(v.id),
         location: locationOf(v),
-        workMode: v.workMode,
+        workMode: v.workMode as PublicJob["workMode"],
         postedAt: postedOf(v.postedAt),
         applyUrl: v.applyUrl ?? v.url,
       })),
       descriptionChars: text === null ? null : text.length,
       description: chunk?.text ?? null,
       descriptionNext: chunk?.next ?? null,
-    });
+    };
+    c.header("cache-control", JOB_CACHE_CONTROL);
+    return c.json(body);
   });
 
   routes.get("/v1/jobs/:id/description", hidden, async (c) => {
@@ -257,15 +340,20 @@ export function publicRoutes({
     const parsed = readQuery(url, publicDescriptionSchema, DESCRIPTION_HINTS);
     if (!parsed.ok) return fail(c, 400, parsed.body);
 
-    const job = await openJob(db, id);
-    if (!job) return fail(c, 404, notFound(id));
+    const state = await jobState(db, id);
+    if (state.kind !== "ok") {
+      if (state.kind === "closed") return fail(c, 410, closed(id));
+      if (state.kind === "source_hidden") return fail(c, 404, sourceHidden(id));
+      return fail(c, 404, unknown(id));
+    }
+    const job = state.job;
     const text = await descriptionOf(job.jdHash);
     if (text === null) {
       return fail(
         c,
         404,
         publicError(
-          "not_found",
+          "description_missing",
           `Posting ${id} has no stored description.`,
           `Use the job page for its facts and apply link: /v1/jobs/${id}`,
         ),
@@ -285,13 +373,51 @@ export function publicRoutes({
     }
     const chunk = descriptionChunk(text, offset, limit);
     c.header("cache-control", JOB_CACHE_CONTROL);
-    return c.json({
+    const body: PublicDescriptionResponse = {
+      apiVersion: PUBLIC_API_VERSION,
       id: String(job.id),
       offset,
       descriptionChars: text.length,
       description: chunk.text,
       descriptionNext: chunk.next,
-    });
+    };
+    return c.json(body);
+  });
+
+  routes.get("/v1/companies", hidden, async (c) => {
+    const url = new URL(c.req.url);
+    if (tooLong(url)) return fail(c, 414, longUrl());
+    const parsed = readQuery(url, publicDiscoverySchema, DISCOVERY_HINTS);
+    if (!parsed.ok) return fail(c, 400, parsed.body);
+    const { prefix, limit } = parsed.value;
+    const page = await listCompanies(db, { prefix, limit });
+    const body: PublicCompanyList = {
+      apiVersion: PUBLIC_API_VERSION,
+      asOf: new Date().toISOString(),
+      count: page.companies.length,
+      companies: page.companies,
+      truncated: page.truncated,
+    };
+    c.header("cache-control", JOB_CACHE_CONTROL);
+    return c.json(body);
+  });
+
+  routes.get("/v1/titles", hidden, async (c) => {
+    const url = new URL(c.req.url);
+    if (tooLong(url)) return fail(c, 414, longUrl());
+    const parsed = readQuery(url, publicDiscoverySchema, DISCOVERY_HINTS);
+    if (!parsed.ok) return fail(c, 400, parsed.body);
+    const { prefix, limit } = parsed.value;
+    const page = await listTitleTokens(db, { prefix, limit });
+    const body: PublicTitleList = {
+      apiVersion: PUBLIC_API_VERSION,
+      asOf: new Date().toISOString(),
+      count: page.titles.length,
+      titles: page.titles,
+      truncated: page.truncated,
+    };
+    c.header("cache-control", JOB_CACHE_CONTROL);
+    return c.json(body);
   });
 
   return routes;

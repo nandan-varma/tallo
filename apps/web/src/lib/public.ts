@@ -58,9 +58,33 @@ export function normalizedPathAndQuery(url: URL): string {
 
 const cacheKeyOf = (pathAndQuery: string) => new Request(`${PUBLIC_ORIGIN}${pathAndQuery}`);
 
+/** The public reads are credential-free, GET-only, and cached at the edge: `*` is the honest origin policy. */
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-headers": "content-type",
+  "access-control-max-age": "86400",
+} as const;
+
+/** A stored response may predate a header change, so every answer leaves through this. */
+function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(CORS)) {
+    if (name !== "access-control-max-age") headers.set(name, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 /** A JSON error the proxy answers itself. Never cached: a corrected request must not meet an old mistake. */
 function reply(status: number, body: PublicError, headers: Record<string, string> = {}): Response {
-  return Response.json(body, { status, headers: { "cache-control": "no-store", ...headers } });
+  return Response.json(body, {
+    status,
+    headers: { "cache-control": "no-store", ...CORS, ...headers },
+  });
 }
 
 /**
@@ -106,9 +130,12 @@ export async function handlePublic(request: Request, deps: PublicDeps): Promise<
       publicError(
         "not_found",
         "This path is not part of the public API.",
-        "The public API is GET /v1/search, GET /v1/jobs/:id and GET /v1/jobs/:id/description. Read /llms.txt.",
+        "The public API is GET /v1/search, /v1/jobs/:id, /v1/jobs/:id/description, /v1/companies, /v1/titles and /v1/openapi.json. Read /llms.txt.",
       ),
     );
+  }
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
   }
   if (request.method !== "GET") {
     return reply(
@@ -118,7 +145,7 @@ export async function handlePublic(request: Request, deps: PublicDeps): Promise<
         `${request.method} is not allowed here.`,
         "Use GET. The public API only reads.",
       ),
-      { allow: "GET" },
+      { allow: "GET, OPTIONS" },
     );
   }
   if (url.pathname.length + url.search.length > PUBLIC_MAX_URL_CHARS) {
@@ -142,5 +169,5 @@ export async function handlePublic(request: Request, deps: PublicDeps): Promise<
       { "retry-after": "60" },
     );
   }
-  return answer(normalizedPathAndQuery(url), deps);
+  return withCors(await answer(normalizedPathAndQuery(url), deps));
 }

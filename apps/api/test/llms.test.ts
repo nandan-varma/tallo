@@ -1,7 +1,9 @@
 import {
   llmsText,
   PUBLIC_ORIGIN,
+  PUBLIC_PATHS,
   publicDescriptionSchema,
+  publicDiscoverySchema,
   publicSearchSchema,
 } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
@@ -22,7 +24,7 @@ describe("llms.txt matches the public API", () => {
     const { db, blobs } = setup();
     const app = createApp({ db, blobs, ingestToken: INGEST });
     const documented = [...llmsText().matchAll(/^### GET (\S+)$/gm)].map((m) => m[1]);
-    expect(documented).toEqual(["/v1/search", "/v1/jobs/:id", "/v1/jobs/:id/description"]);
+    expect(documented).toEqual([...PUBLIC_PATHS]);
     const served = new Set(app.routes.filter((r) => r.method === "GET").map((r) => r.path));
     for (const path of documented) expect(served.has(path as string), path).toBe(true);
   });
@@ -45,6 +47,13 @@ describe("llms.txt matches the public API", () => {
       };
       expect(body.error?.code, name).not.toBe("unknown_parameter");
     }
+    for (const name of Object.keys(publicDiscoverySchema.shape)) {
+      expect(text, name).toContain(`- ${name}: `);
+      const body = (await (await app.request(`/v1/companies?${name}=x`)).json()) as {
+        error?: { code: string };
+      };
+      expect(body.error?.code, name).not.toBe("unknown_parameter");
+    }
   });
 
   it("runs every example and gets a JSON answer from a real route", async () => {
@@ -59,17 +68,16 @@ describe("llms.txt matches the public API", () => {
     const examples = [...llmsText().matchAll(/"(https:\/\/tallo\.nandan\.fyi[^"]*)"/g)].map((m) =>
       String(m[1]).replace(PUBLIC_ORIGIN, ""),
     );
-    expect(examples).toHaveLength(3);
+    expect(examples).toHaveLength(6);
     for (const path of examples) {
       const response = await app.request(path);
       expect(response.headers.get("content-type"), path).toContain("application/json");
-      const body = (await response.json()) as { error?: { code: string }; results?: unknown[] };
-      // The search answers 200. The job examples name an id this empty catalog does not hold: their own JSON 404.
-      if (response.status === 200) {
-        expect(body.results, path).toBeDefined();
-      } else {
+      const body = (await response.json()) as { error?: { code: string } };
+      // The job examples name an id this empty catalog does not hold: their own JSON 404.
+      if (response.status === 200) expect(body.error, path).toBeUndefined();
+      else {
         expect(response.status, path).toBe(404);
-        expect(body.error?.code, path).toBe("not_found");
+        expect(body.error?.code, path).toBe("unknown");
       }
     }
   });
@@ -95,18 +103,32 @@ describe("llms.txt matches the public API", () => {
       [
         "applyUrl",
         "company",
+        "compensation",
+        "countryCode",
         "department",
+        "employmentType",
         "id",
         "location",
         "locations",
         "postedAt",
         "pay",
+        "sourceLastListedAt",
         "title",
         "workMode",
       ].sort(),
     );
     const documentedSearch = responseLine(text, "### GET /v1/search");
-    for (const key of [...hitFields, "results", "next", "note"]) {
+    for (const key of [
+      ...hitFields,
+      "count",
+      "next",
+      "hasMore",
+      "capped",
+      "expandedLocations",
+      "remote",
+      "asOf",
+      "note",
+    ]) {
       expect(documentedSearch, key).toContain(`"${key}"`);
     }
 

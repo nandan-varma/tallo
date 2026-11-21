@@ -12,9 +12,13 @@ const hit = (overrides: Partial<JobHit> & { id: string }): JobHit => ({
   location: "Seattle, WA",
   workMode: "hybrid",
   pay: "USD 150000-180000 per year",
+  compensation: [],
   postedAt: "2026-10-20",
   department: null,
+  employmentType: null,
+  countryCode: null,
   applyUrl: `https://boards.example.com/acme/apply/${overrides.id}`,
+  sourceLastListedAt: "2026-11-20T00:00:00.000Z",
   locations: 1,
   ...overrides,
 });
