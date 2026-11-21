@@ -42,7 +42,7 @@ function ingestFor(events: string[], over: Partial<Ingest> = {}) {
   const applied: number[] = [];
   const finalized: { listingComplete: boolean; seenIds: string[] }[] = [];
   const ingest: Ingest = {
-    startRun: async () => undefined,
+    startRun: async () => ({ validator: null }),
     diff: async (_r, postings) => postings.map((p) => p.id),
     missingBlobs: async (hashes) => hashes,
     putJd: async () => undefined,

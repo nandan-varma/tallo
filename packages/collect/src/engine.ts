@@ -1,4 +1,4 @@
-import { gunzip, gzip } from "@tallo/catalog";
+import { gunzip, gzip, PREPARE_VERSION } from "@tallo/catalog";
 import type {
   CollectContext,
   CreateRun,
@@ -411,10 +411,9 @@ export async function advance(
   const rawParts = [...progress.rawParts];
   const offset = progress.offset + started;
   let rawTail: Uint8Array | undefined;
-  if (raw.length) {
+  if (lines.length) {
     // One newline-terminated line per posting, so parts join into valid ndjson.
-    const lines = raw.map((p) => `${JSON.stringify(p)}\n`).join("");
-    const part = await gzip(new TextEncoder().encode(lines));
+    const part = await gzip(new TextEncoder().encode(lines.join("")));
     if (offset >= plan.changed.length) {
       // The run ends here: `complete` runs in this invocation, so the bytes need no round trip.
       rawTail = part;
@@ -423,11 +422,6 @@ export async function advance(
       await options.scratch.put(key, part);
       rawParts.push(key);
     }
-  if (lines.length) {
-    const key = rawPartKey(plan.runId, progress.offset);
-    // One newline-terminated line per posting, so parts join into valid ndjson.
-    await options.scratch.put(key, await gzip(new TextEncoder().encode(lines.join(""))));
-    rawParts.push(key);
   }
   return {
     offset,
