@@ -384,13 +384,13 @@ describe("board health", () => {
     for (let i = 1; i <= 3; i++) await failed(T + i * 1000, true);
     expect(await health()).toMatchObject({ status: "dead" });
     const run = await start(T + 4000);
-    await finalize(db, run, fin([]), T + 4000);
+    await finalize(db, run, fin(["1"]), T + 4000);
     expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
   });
 
   it("a complete run never counts as a 404 even if the flag is set", async () => {
     const run = await start(T + 1000);
-    await finalize(db, run, fin([], { boardNotFound: true }), T + 1000);
+    await finalize(db, run, fin(["1"], { boardNotFound: true }), T + 1000);
     expect(await health()).toMatchObject({ status: "active", consecutiveFailures: 0 });
   });
 
