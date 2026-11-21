@@ -13,6 +13,7 @@ interface Seed {
   location?: string;
   workMode?: "remote" | "onsite" | "hybrid" | null;
   sortAt?: number;
+  postedAt?: number | null;
   closedAt?: number | null;
   dupOf?: number | null;
   sourceId?: string;
@@ -53,6 +54,7 @@ async function seed(db: Db, args: Seed): Promise<number> {
       sourceHash: "s",
       facts: { platform: "greenhouse" },
       sortAt: args.sortAt ?? counter,
+      postedAt: args.postedAt ?? null,
       firstSeenAt: 1,
       updatedAt: 1,
       locationText: args.location ?? "Remote, US",
@@ -94,6 +96,172 @@ describe("ftsScope", () => {
     await seed(db, { title: "Engineer" });
     expect(await rankedJobs(db, { titles: ["eng"] }, page, NOW)).toEqual([]);
     expect(titles(await rankedJobs(db, { titles: ["engineer"] }, page, NOW))).toEqual(["Engineer"]);
+  });
+});
+
+describe("date sorts", () => {
+  it("recent orders by sort_at descending, with id descending as the tiebreak", async () => {
+    const db = testDb();
+    const oldest = await seed(db, { title: "Data Engineer", sortAt: 10 });
+    const tiedFirst = await seed(db, { title: "Data Engineer", sortAt: 20 });
+    const tiedSecond = await seed(db, { title: "Data Engineer", sortAt: 20 });
+    const newest = await seed(db, { title: "Data Engineer", sortAt: 30 });
+
+    const rows = await rankedJobs(db, { titles: ["data engineer"], sort: "recent" }, page, NOW);
+
+    expect(ids(rows)).toEqual([newest, tiedSecond, tiedFirst, oldest]);
+  });
+
+  it("posted orders by the same date but excludes every posting without a stated date", async () => {
+    const db = testDb();
+    const undated = await seed(db, { title: "Data Engineer", sortAt: 99 });
+    const older = await seed(db, { title: "Data Engineer", sortAt: 10, postedAt: 10 });
+    const newer = await seed(db, { title: "Data Engineer", sortAt: 30, postedAt: 30 });
+
+    const rows = await rankedJobs(db, { titles: ["data engineer"], sort: "posted" }, page, NOW);
+
+    expect(ids(rows)).toEqual([newer, older]);
+    expect(ids(rows)).not.toContain(undated);
+  });
+
+  it("added orders by catalog id descending", async () => {
+    const db = testDb();
+    const first = await seed(db, { title: "Data Engineer", sortAt: 99 });
+    const second = await seed(db, { title: "Data Engineer", sortAt: 1 });
+    const third = await seed(db, { title: "Data Engineer", sortAt: 50 });
+
+    const rows = await rankedJobs(db, { titles: ["data engineer"], sort: "added" }, page, NOW);
+
+    expect(ids(rows)).toEqual([third, second, first]);
+  });
+
+  it("does not collapse duplicate locations, and each row keeps its own sibling count", async () => {
+    const db = testDb();
+    const canonical = await seed(db, {
+      title: "Data Engineer",
+      company: "Acme",
+      location: "Seattle, WA",
+      requisitionId: "R1",
+      sortAt: 20,
+    });
+    const sibling = await seed(db, {
+      title: "Data Engineer",
+      company: "Acme",
+      location: "Boston, MA",
+      requisitionId: "R1",
+      dupOf: canonical,
+      sortAt: 15,
+    });
+    const third = await seed(db, {
+      title: "Data Engineer",
+      company: "Acme",
+      location: "Austin, TX",
+      requisitionId: "R1",
+      dupOf: canonical,
+      sortAt: 10,
+    });
+    const other = await seed(db, {
+      title: "Data Engineer",
+      company: "Other",
+      location: "Seattle, WA",
+      sortAt: 1,
+    });
+
+    const rows = await rankedJobs(db, { titles: ["data engineer"], sort: "recent" }, page, NOW);
+
+    expect(rows.map((row) => row.id)).toEqual([canonical, sibling, third, other]);
+    const acme = rows.find((row) => row.id === sibling);
+    expect(acme).toMatchObject({ locations: 3, locationText: "Boston, MA" });
+    expect(rows.find((row) => row.id === third)).toMatchObject({ locations: 3 });
+    expect(rows.find((row) => row.id === other)).toMatchObject({ locations: 1 });
+  });
+
+  it("keeps the relevance visibility, place and remote filters", async () => {
+    const db = testDb();
+    const seattle = await seed(db, {
+      title: "Data Engineer",
+      company: "A",
+      location: "Seattle, WA",
+      workMode: "onsite",
+      sortAt: 50,
+    });
+    const remote = await seed(db, {
+      title: "Data Engineer",
+      company: "B",
+      location: "Anywhere",
+      workMode: "remote",
+      sortAt: 40,
+    });
+    const boston = await seed(db, {
+      title: "Data Engineer",
+      company: "C",
+      location: "Boston, MA",
+      workMode: "onsite",
+      sortAt: 60,
+    });
+    await seed(db, { title: "Data Engineer", company: "Closed", closedAt: 5, sortAt: 70 });
+    await db.insert(schema.sources).values({
+      id: "greenhouse:stale",
+      platform: "greenhouse",
+      key: "stale",
+      company: "Stale",
+      companySlug: "stale",
+      params: {},
+      lastListedAt: NOW - 30 * DAY,
+    });
+    await seed(db, {
+      title: "Data Engineer",
+      company: "Stale",
+      sourceId: "greenhouse:stale",
+      sortAt: 80,
+    });
+
+    expect(
+      ids(await rankedJobs(db, { titles: ["data engineer"], sort: "recent" }, page, NOW)),
+    ).toEqual([boston, seattle, remote]);
+    expect(
+      ids(
+        await rankedJobs(
+          db,
+          { titles: ["data engineer"], sort: "recent", locations: ["Seattle"] },
+          page,
+          NOW,
+        ),
+      ),
+    ).toEqual([seattle]);
+    expect(
+      ids(
+        await rankedJobs(
+          db,
+          { titles: ["data engineer"], sort: "recent", locations: ["Seattle"], remote: true },
+          page,
+          NOW,
+        ),
+      ).sort(),
+    ).toEqual([seattle, remote].sort());
+  });
+
+  it("pages the date sorts by offset like relevance", async () => {
+    const db = testDb();
+    const expected: number[] = [];
+    for (let i = 1; i <= 5; i++)
+      expected.unshift(await seed(db, { title: "Data Engineer", company: `Co ${i}`, sortAt: i }));
+    const first = await rankedJobs(
+      db,
+      { titles: ["data engineer"], sort: "recent" },
+      { limit: 2, offset: 0 },
+      NOW,
+    );
+    const second = await rankedJobs(
+      db,
+      { titles: ["data engineer"], sort: "recent" },
+      { limit: 2, offset: 2 },
+      NOW,
+    );
+    expect(first).toHaveLength(2);
+    expect(second).toHaveLength(2);
+    expect(ids([...first, ...second])).toEqual(expected.slice(0, 4));
+    expect(new Set(ids([...first, ...second])).size).toBe(4);
   });
 });
 

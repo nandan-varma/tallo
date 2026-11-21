@@ -41,6 +41,7 @@ export async function runSearch(
     title: spec.queries,
     company: spec.companies ?? [],
     location: spec.locations ?? [],
+    sort: "relevance" as const,
   };
   const params = new URLSearchParams();
   for (const name of ["title", "company", "location"] as const) {

@@ -1,4 +1,11 @@
-import { type Money, payText, STALE_FLAG_DAYS, STALE_HIDE_DAYS } from "@tallo/contracts";
+import {
+  type Money,
+  payText,
+  SEARCH_DEFAULT_SORT,
+  type SearchSort,
+  STALE_FLAG_DAYS,
+  STALE_HIDE_DAYS,
+} from "@tallo/contracts";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, getTableColumns, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -56,6 +63,8 @@ export interface RankedSpec {
   companies?: string[];
   locations?: string[];
   remote?: boolean;
+  /** Result order. Date sorts bypass the relevance candidate window and do not collapse duplicate rows. */
+  sort?: SearchSort;
 }
 
 /**
@@ -139,6 +148,12 @@ const summary = {
   variants: sql<number>`(SELECT count(*) FROM jobs AS dup WHERE dup.dup_of = "jobs"."id" AND dup.closed_at IS NULL) + 1`,
 };
 
+/**
+ * Open rows of this row's `dup_of` group, this row included. A date sort lists every location, so a sibling row
+ * must count its whole group rather than only the rows whose `dup_of` points at the sibling.
+ */
+const groupLocations = sql<number>`(SELECT count(*) FROM jobs AS dup WHERE (dup.id = coalesce("jobs"."dup_of", "jobs"."id") OR dup.dup_of = coalesce("jobs"."dup_of", "jobs"."id")) AND dup.closed_at IS NULL)`;
+
 /** The pay line of a row, from its stored facts (see `payText`). */
 export const payOf = (facts: Record<string, unknown>) =>
   payText(facts.compensation as Money[] | undefined);
@@ -158,6 +173,14 @@ export function visibleJobs(now: number, { includeStale = false } = {}): SQL[] {
 /** The source of the row has listed recently enough that search shows its postings (see `STALE_HIDE_DAYS`). */
 function sourceListed(now: number): SQL {
   return sql`NOT EXISTS (SELECT 1 FROM sources WHERE sources.id = ${jobs.sourceId} AND coalesce(sources.last_listed_at, 0) < ${now - STALE_HIDE_DAYS * 86400})`;
+}
+
+/**
+ * What a date-sorted search shows: every open listing from a source that listed recently. Unlike `visibleJobs`,
+ * duplicate locations stay separate rows: `recent` and `posted` list each open location as its own hit.
+ */
+function listedJobs(now: number): SQL[] {
+  return [sql`${jobs.closedAt} IS NULL`, sourceListed(now)];
 }
 
 /**
@@ -195,8 +218,48 @@ export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.no
 }
 
 /**
- * The ranked results for a spec: most relevant first. One row per `groupKey` (a requisition, else a company and title):
- * the best-ranked location, with `locations` = how many of the candidates share that key. Only what the site shows.
+ * The results of a date-sorted search: `recent` and `posted` by `sort_at` (then id), `added` by id. The same FTS
+ * match, source freshness and place/remote filters as the ranked search, but no bm25 candidate cut and no grouping:
+ * each open location is its own row, with `locations` still counting its open `dup_of` siblings.
+ */
+async function dateJobs(
+  db: Db,
+  spec: RankedSpec,
+  sort: Exclude<SearchSort, "relevance">,
+  page: { limit: number; offset: number },
+  now: number,
+) {
+  const match = rankedMatch(spec);
+  if (!match) return [];
+  const filter = listedJobs(now);
+  if (sort === "posted") filter.push(sql`${jobs.postedAt} IS NOT NULL`);
+  const remote = remoteOrPlaces(spec);
+  if (remote) filter.push(remote);
+  const rows = await db
+    .select({
+      ...summary,
+      locations: groupLocations,
+      sourceLastListedAt: sources.lastListedAt,
+    })
+    .from(jobs)
+    .innerJoin(sources, eq(sources.id, jobs.sourceId))
+    .where(
+      and(sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`, ...filter),
+    )
+    .orderBy(...(sort === "added" ? [desc(jobs.id)] : [desc(jobs.sortAt), desc(jobs.id)]))
+    .limit(page.limit)
+    .offset(page.offset);
+  return rows.map(({ facts, variants: _variants, ...row }) => ({
+    ...row,
+    pay: payOf(facts),
+    compensation: (facts.compensation as Money[] | undefined) ?? [],
+  }));
+}
+
+/**
+ * The results for a spec: most relevant first by default. `relevance` returns one row per `groupKey` (a requisition,
+ * else a company and title): the best-ranked location, with `locations` = how many of the candidates share that key.
+ * `recent`, `posted` and `added` order by date or insertion and list every open location. Only what the site shows.
  * Paged by offset (rank has no keyset); the caller caps the total. No searchable word means no rows.
  */
 export async function rankedJobs(
@@ -205,6 +268,8 @@ export async function rankedJobs(
   page: { limit: number; offset: number },
   now = Math.floor(Date.now() / 1000),
 ) {
+  const sort = spec.sort ?? SEARCH_DEFAULT_SORT;
+  if (sort !== "relevance") return dateJobs(db, spec, sort, page, now);
   const match = rankedMatch(spec);
   if (!match) return [];
   const rows = await db

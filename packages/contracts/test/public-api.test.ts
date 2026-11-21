@@ -12,7 +12,12 @@ import {
   searchNote,
 } from "../src/public-api.ts";
 
-const query = { title: ["backend engineer"], company: [], location: ["remote"] };
+const query = {
+  title: ["backend engineer"],
+  company: [],
+  location: ["remote"],
+  sort: "relevance" as const,
+};
 
 describe("search cursor", () => {
   it("round-trips the offset for the same query", () => {
@@ -32,6 +37,14 @@ describe("search cursor", () => {
     expect(decodeCursor(cursor, { ...query, title: ["platform engineer"] })).toBeNull();
     expect(decodeCursor(cursor, { ...query, company: ["Stripe"] })).toBeNull();
     expect(decodeCursor(cursor, { ...query, location: ["NYC"] })).toBeNull();
+  });
+
+  it("is bound to the sort, so a cursor cannot switch order", () => {
+    const cursor = encodeCursor(query, 20);
+    expect(decodeCursor(cursor, { ...query, sort: "recent" })).toBeNull();
+    expect(decodeCursor(cursor, { ...query, sort: "posted" })).toBeNull();
+    expect(decodeCursor(cursor, { ...query, sort: "added" })).toBeNull();
+    expect(decodeCursor(encodeCursor({ ...query, sort: "recent" }, 20), query)).toBeNull();
   });
 
   it("accepts only the one spelling of each cursor, so no edit of its last character passes", () => {
@@ -102,8 +115,18 @@ describe("search query schema", () => {
       title: ["backend engineer"],
       company: [],
       location: [],
+      sort: "relevance",
       limit: 10,
     });
+  });
+
+  it("accepts the four sort modes, defaults to relevance and refuses any other", () => {
+    for (const sort of ["relevance", "recent", "posted", "added"]) {
+      expect(parse({ title: ["ab"], sort }).data?.sort).toBe(sort);
+    }
+    expect(parse({ title: ["ab"] }).data?.sort).toBe("relevance");
+    expect(parse({ title: ["ab"], sort: "newest" }).success).toBe(false);
+    expect(parse({ title: ["ab"], sort: "RELEVANCE" }).success).toBe(false);
   });
 
   it("trims values and refuses ones with no letter or digit", () => {
@@ -172,6 +195,11 @@ describe("openapi", () => {
       components: { schemas: Record<string, unknown> };
     };
     for (const path of PUBLIC_PATHS) expect(doc.paths[path.replace(":id", "{id}")]).toBeDefined();
+    const search = doc.paths["/v1/search"] as {
+      get: { parameters: { name: string; schema: { enum?: string[] } }[] };
+    };
+    const sort = search.get.parameters.find((parameter) => parameter.name === "sort");
+    expect(sort?.schema.enum).toEqual(["relevance", "recent", "posted", "added"]);
     for (const name of [
       "PublicError",
       "JobHit",

@@ -2,6 +2,17 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
+**D18. Server-side search sorting (2026-11-22).** `GET /v1/search` takes `sort`: `relevance` (default, unchanged
+bm25 ranking), `recent` (`sort_at DESC, id DESC`), `posted` (the same order, but only rows with a source-stated
+`posted_at`) and `added` (`id DESC`). `sort_at` is the source's posted date, else first-seen, so `recent` has a
+deliberately mixed and documented meaning; `posted` never substitutes first-seen. Date modes still use the FTS MATCH
+for title/company and the same visibility and place/remote filters, but skip the 2000-candidate bm25 cut. They also do
+not collapse duplicate locations: each open location is its own hit, while `locations` still counts its open `dup_of`
+siblings. One index, `jobs_sort_at_idx (sort_at, id)`, serves both date sorts and the `posted_at IS NOT NULL` filter;
+`added` needs no index. Cursors now bind `sort` in their checksum, so cursors minted before this change fail once with
+`invalid_cursor`. Reason: a caller who wants recent postings should not have to fetch and re-sort capped relevance
+pages, and no posted date is invented for a source that stated none.
+
 **D17. Agent-facing public contract v2 (2026-11-21).** Response `apiVersion` is `"2"`. Search hits add
 `compensation` (the source's stated bands verbatim), `employmentType`, `countryCode` and `sourceLastListedAt` (the
 board's last complete listing, not a per-posting sighting). `locations` now means the open `dup_of` siblings of the

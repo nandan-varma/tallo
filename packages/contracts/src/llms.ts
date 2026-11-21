@@ -112,6 +112,15 @@ An error answer is {"error": {"code", "message", "hint"}}. The message says what
 3. Fetch /v1/jobs/:id only for postings on the shortlist.
 4. Read more of a description only when the first chunk does not settle the question.
 
+## Sorting
+
+- **relevance** (default): best title, company and place match first. This is the ranked search: it collapses one company, title and requisition across locations, so a role in several cities is one hit.
+- **recent**: newest first by the source's posted date, or when Tallo first saw the posting if the source stated no date. The date therefore has a mixed meaning. Every open location is its own hit; its locations field still counts the open siblings of that role, this one included.
+- **posted**: the same newest-first order, but only postings where the source stated a posted date. Undated postings are not listed, and Tallo never substitutes the first-seen date here. Every open location is its own hit.
+- **added**: most recently added to the catalog first (roughly the order Tallo first saw the posting). Every open location is its own hit.
+
+added is the cheapest (catalog id order, no extra sort). recent and posted order by sort_at and can use its index; for narrow searches SQLite may still sort the matched set. relevance ranks a bounded candidate window by bm25. All modes page with next and stop at the same ${SEARCH_RESULT_CAP}-result cap. A cursor is bound to its sort: keep sort unchanged while paging, or start again without cursor. Posted dates are always what the source stated; null or an absent date is never guessed.
+
 ## Limits
 
 - Search limit: 1 to ${SEARCH_MAX_LIMIT}, default ${SEARCH_DEFAULT_LIMIT}. Description chunk: 1 to ${DESCRIPTION_MAX_CHUNK}, default ${DESCRIPTION_CHUNK}. Discovery limit: 1 to ${DISCOVERY_MAX_RESULTS}.

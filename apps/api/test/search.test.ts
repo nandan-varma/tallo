@@ -413,6 +413,8 @@ describe("GET /v1/search", () => {
     expect((await error("title=ab&limit=abc")).message).toMatch(/^limit: /);
     expect((await error("title=ab&q=engineer")).code).toBe("unknown_parameter");
     expect((await error(`title=ab&cursor=${"x".repeat(101)}`)).message).toMatch(/^cursor: /);
+    expect((await error("title=ab&sort=newest")).message).toMatch(/^sort: /);
+    expect((await error("title=ab&sort=RELEVANCE")).message).toMatch(/^sort: /);
   });
 
   it("rejects a tampered cursor, a cursor from another search, and one past the cap", async () => {
@@ -470,6 +472,112 @@ describe("GET /v1/search", () => {
     expect(total).toBe(300);
     expect(pages).toBe(12);
     expect(last?.note).toContain("300-result cap");
+  });
+
+  it("orders recent by the source's posted date without collapsing duplicate locations", async () => {
+    const { db, blobs } = setup();
+    const older = await seed(db, blobs, {
+      postingId: "1",
+      title: "Data Engineer",
+      company: "Acme",
+      sortAt: 10,
+      postedAt: 10,
+    });
+    const newerSibling = await seed(db, blobs, {
+      postingId: "2",
+      title: "Data Engineer",
+      company: "Acme",
+      sortAt: 30,
+      postedAt: 30,
+      dupOf: older,
+    });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+
+    const body = (await (await get(app, "title=data+engineer&sort=recent")).json()) as {
+      results: { id: string; locations: number }[];
+      count: number;
+      note: string;
+    };
+
+    expect(body.results).toEqual([
+      expect.objectContaining({ id: String(newerSibling), locations: 2 }),
+      expect.objectContaining({ id: String(older), locations: 2 }),
+    ]);
+    expect(body.count).toBe(2);
+    expect(body.note).toContain("Newest first");
+  });
+
+  it("excludes undated postings from posted, but not from recent or added", async () => {
+    const { db, blobs } = setup();
+    const dated = await seed(db, blobs, {
+      postingId: "1",
+      title: "Data Engineer",
+      company: "Dated",
+      sortAt: 10,
+      postedAt: 10,
+    });
+    await seed(db, blobs, {
+      postingId: "2",
+      title: "Data Engineer",
+      company: "Undated",
+      sortAt: 20,
+    });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+
+    const posted = (await (await get(app, "title=data+engineer&sort=posted")).json()) as {
+      results: { id: string }[];
+      note: string;
+    };
+    expect(posted.results.map((hit) => hit.id)).toEqual([String(dated)]);
+    expect(posted.note).toContain("without a source-stated date are not listed");
+
+    const recent = (await (await get(app, "title=data+engineer&sort=recent")).json()) as {
+      results: unknown[];
+    };
+    expect(recent.results).toHaveLength(2);
+    const added = (await (await get(app, "title=data+engineer&sort=added")).json()) as {
+      note: string;
+    };
+    expect(added.note).toContain("Most recently added");
+  });
+
+  it("keeps relevance the default and lets a cursor page within one sort only", async () => {
+    const { db, blobs } = setup();
+    const tightOld = await seed(db, blobs, {
+      postingId: "1",
+      title: "Data Engineer",
+      sortAt: 1,
+    });
+    const looseNew = await seed(db, blobs, {
+      postingId: "2",
+      title: "Senior Staff Data Engineer Platform Infrastructure Team",
+      company: "Other",
+      sortAt: 99,
+    });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+
+    const defaultFirst = (await (await get(app, "title=data+engineer")).json()) as {
+      results: { id: string }[];
+    };
+    expect(defaultFirst.results[0]?.id).toBe(String(tightOld));
+    const recentFirst = (await (await get(app, "title=data+engineer&sort=recent")).json()) as {
+      results: { id: string }[];
+    };
+    expect(recentFirst.results[0]?.id).toBe(String(looseNew));
+
+    const first = (await (await get(app, "title=data+engineer&sort=recent&limit=1")).json()) as {
+      next: string;
+    };
+    const second = (await (
+      await get(app, `title=data+engineer&sort=recent&limit=1&cursor=${first.next}`)
+    ).json()) as { results: { id: string }[] };
+    expect(second.results[0]?.id).toBe(String(tightOld));
+
+    const switched = await get(app, `title=data+engineer&sort=added&limit=1&cursor=${first.next}`);
+    expect(switched.status).toBe(400);
+    expect(((await switched.json()) as { error: { code: string } }).error.code).toBe(
+      "invalid_cursor",
+    );
   });
 
   it("answers a note when nothing matches, and refuses a URL over 2 KB before any query", async () => {

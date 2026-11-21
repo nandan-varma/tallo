@@ -5,6 +5,15 @@ import { moneySchema } from "./job.ts";
 export const SEARCH_RESULT_CAP = 300;
 
 /**
+ * How a search orders its results. `relevance` is the ranked search; `recent` and `posted` order by `sort_at`
+ * (the source's posted date, else first seen) and `added` by catalog insertion order.
+ */
+export const SEARCH_SORTS = ["relevance", "recent", "posted", "added"] as const;
+export type SearchSort = (typeof SEARCH_SORTS)[number];
+export const SEARCH_DEFAULT_SORT: SearchSort = "relevance";
+export const searchSortSchema = z.enum(SEARCH_SORTS);
+
+/**
  * What a search is: title phrases, optionally the companies and the places. The results list is the database's
  * answer to it, so the list depends only on what the person typed. Places are the person's own words; the server
  * expands them.
@@ -13,6 +22,8 @@ export interface SearchSpec {
   queries: string[];
   companies?: string[];
   locations?: string[];
+  /** How to order the results. Default `relevance`. */
+  sort?: SearchSort;
 }
 
 /** What the server did with the place words, so a caller does not have to guess. */

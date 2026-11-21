@@ -1,0 +1,1 @@
+CREATE INDEX `jobs_sort_at_idx` ON `jobs` (`sort_at`,`id`);
