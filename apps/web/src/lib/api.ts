@@ -42,7 +42,8 @@ export async function runSearch(
     title: spec.queries,
     company: spec.companies ?? [],
     location: spec.locations ?? [],
-    country: spec.countries ?? [],
+    // The API checks the cursor against uppercased, capped codes; bind the same values.
+    country: (spec.countries ?? []).slice(0, 8).map((code) => code.toUpperCase()),
     postedWithin: spec.postedWithin,
     sort: "relevance" as const,
   };

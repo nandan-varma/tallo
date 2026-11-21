@@ -144,6 +144,20 @@ describe("runSearch", () => {
     expect(new URL(url).searchParams.get("cursor")).toBe(cursor);
   });
 
+  it("binds the cursor to uppercased country codes, as the API checks it", async () => {
+    const fetchMock = vi.fn(async () => apiPage([{ id: "1", title: "Data Engineer" }], null));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runSearch({ queries: ["data engineer"], countries: ["us"] }, 20);
+
+    const [url] = fetchMock.mock.calls[0] as unknown as [string];
+    const cursor = encodeCursor(
+      { title: ["data engineer"], company: [], location: [], country: ["US"], sort: "relevance" },
+      20,
+    );
+    expect(new URL(url).searchParams.get("cursor")).toBe(cursor);
+  });
+
   it("serves a repeat search from the edge cache, without calling the API", async () => {
     const stored = new Map<string, Response>();
     const cache = {
