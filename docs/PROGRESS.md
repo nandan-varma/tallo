@@ -2,6 +2,36 @@
 
 _Last updated: 2026-11-20; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-11-20: production outcome
+
+- Recovery changes merged: #110 (`bd3837e`, adapters and restored tests), #115 (`379dfd8`, D1 retry
+  response and research), #118 (`cf67e0d`, structured-country mapping). All PR checks passed.
+  Latest full local check: 547 tests, no skips. Astro production build and API builds passed.
+- Migrations 0020 and 0021 are applied remotely. Latest API deploy: `c0868408-7933-45bf-94bf-f8c10cedc933`;
+  web deploy: `5519de0e-0409-4aa5-bba1-4c95918dc8e0`. Public search and llms.txt return 200;
+  direct API reads and public admin paths return 404. API secrets: INGEST_TOKEN only. Web secrets: none.
+- The authorized one-off Mac sweep excludes Workday and Oracle Cloud. No recurring job was installed.
+  All 25 iCIMS and all 26 Jobvite boards completed successfully, verified from production source state.
+  Liberty Mutual's original 400 was fixed and all 227 postings ingested successfully on retry.
+- Final production source-state audit: **7,962 eligible boards attempted across 11 platforms;
+  7,958 listings completed, 4 boards returned 404** (`ashby:cedar`, `greenhouse:goodjobgames`,
+  `greenhouse:kunai`, `greenhouse:tula`; #119). Existing dead/empty-board back-offs were respected.
+  Two individual untitled Ashby postings were skipped on otherwise complete boards (#120).
+  Latest-run issue audit shows no remaining running runs from this session.
+- Dominos completed all 25,136 listings (4,989 new postings, 5,241 source requests); SpaceX completed
+  2,821 listings. The final CLI run had 2,397 sources and 4 incomplete listings, all the 404s above.
+  Source-state totals above deduplicate the interrupted/retried CLI runs.
+- Early attempts were interrupted after D1 overload. Their running runs were finalized through ingest as
+  partial with closureApplied=false. The corrected API returns 503/Retry-After 10 for overload; the
+  ingest client is tested to wait the full window. Source collection stayed on this Mac.
+- Cloud collection remains OFF (live admin status verified false); hourly housekeeping stays enabled.
+  Keep the expensive platforms excluded until the research follow-ups are evaluated.
+- Deferred work: #111 raw-pack re-mapping, #112 Oracle listing parameters, #113 Workday early splitting,
+  #114 D1 workload investigation, #116 complete iCIMS raw HTML, #119 retired source configs,
+  #120 untitled source postings.
+  HirePro remains blocked (#81, captcha-gated listing token). The obsolete classifier task (#13) was
+  closed because the current architecture explicitly excludes classifier heuristics.
+
 ## Session 2026-11-20: finish interrupted integration
 
 - Restored the worker-pool integration test (#108). Its failure was a removed `/v1/jobs` route in the test,
