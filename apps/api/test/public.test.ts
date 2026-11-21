@@ -125,8 +125,18 @@ describe("GET /v1/jobs/:id", () => {
       blobs,
       ingestToken: INGEST,
     });
-    for (const path of ["/v1/search?title=data+engineer", `/v1/jobs/${id}`]) {
+    const bodies = new Map<string, string>();
+    for (const [pass, path] of [
+      [1, "/v1/search?title=data+engineer"],
+      [1, `/v1/jobs/${id}`],
+      [2, "/v1/search?title=data+engineer"],
+      [2, `/v1/jobs/${id}`],
+    ] as const) {
       const response = await metered.request(path);
+      const body = await response.clone().text();
+      // The measured read returns exactly what the first (unmeasured) one did.
+      expect(body, path).toBe(bodies.get(path) ?? body);
+      bodies.set(path, body);
       const cost = JSON.parse(response.headers.get("x-tallo-cost") ?? "null");
       expect(cost, path).toMatchObject({
         statements: expect.any(Number),
@@ -135,7 +145,8 @@ describe("GET /v1/jobs/:id", () => {
       expect(cost.statements, path).toBeGreaterThan(0);
       expect(cost.rows_returned, path).toBeGreaterThan(0);
       // Drizzle reads through D1's raw(), which carries no meta; the meter runs it through all() so rows_read is real.
-      expect(cost.rows_read, path).toBeGreaterThan(0);
+      // The first pass learns each statement's column names and reads unmeasured; the second is measured.
+      if (pass === 2) expect(cost.rows_read, path).toBeGreaterThan(0);
     }
   });
 

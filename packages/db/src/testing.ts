@@ -44,10 +44,12 @@ export function d1Like(db: Db): unknown {
       const row = engine.prepare(sql).get(...(values as never[])) ?? null;
       return column === undefined || row === null ? row : (row[column] ?? null);
     },
-    raw: async () => {
+    raw: async (options?: { columnNames?: boolean }) => {
       const stmt = engine.prepare(sql);
+      const names = stmt.columns().map((column) => column.name);
       stmt.setReturnArrays(true);
-      return stmt.all(...(values as never[]));
+      const rows = stmt.all(...(values as never[]));
+      return options?.columnNames ? [names, ...rows] : rows;
     },
   });
   return {

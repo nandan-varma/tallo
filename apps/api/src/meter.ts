@@ -63,9 +63,12 @@ interface ResultLike {
 /** Each wrapper statement's underlying statement, so `batch` can take the wrappers it was handed. */
 const inner = new WeakMap<object, StatementLike>();
 
-function wrapStatement(statement: StatementLike): StatementLike {
+/** Per SQL text: whether its result columns are all distinctly named (true), or not (false). Unknown until seen. */
+const distinct = new Map<string, boolean>();
+
+function wrapStatement(statement: StatementLike, query: string): StatementLike {
   const wrapped: StatementLike = {
-    bind: (...values: unknown[]) => wrapStatement(statement.bind(...values)),
+    bind: (...values: unknown[]) => wrapStatement(statement.bind(...values), query),
     all: async () => {
       const result = await statement.all();
       record(result.meta, result.results?.length ?? 0);
@@ -82,12 +85,32 @@ function wrapStatement(statement: StatementLike): StatementLike {
       return row;
     },
     raw: async (options?: unknown) => {
-      // Drizzle reads every select through `raw()`, which D1 answers without meta. In a measured request the statement
-      // runs through `all()` instead (the same query and cost), so its `rows_read` is real, and each row is handed back
-      // as the array `raw()` would give. That is lossless only while the result columns have distinct names (an object
-      // keeps one value per name); the public reads select uniquely named columns, and a new read with two same-named columns must not run measured. `raw` options are passed through.
+      // Drizzle reads every select through `raw()`, which D1 answers without meta. In a measured request a statement
+      // whose result columns are known to be distinct runs through `all()` instead (same query), so `rows_read` is
+      // real; its objects become the arrays `raw()` gives. An object keeps one value per name, so a statement whose
+      // columns are not known to be distinct never takes that path: its first measured call reads through
+      // `raw({ columnNames: true })` (the original data, rows_read stays null) to learn the names, and any duplicate or
+      // unreadable shape keeps it on `raw()` for good.
       if (options !== undefined || !scope.getStore()) {
         const rows = await statement.raw(options);
+        record(undefined, rows.length);
+        return rows;
+      }
+      if (distinct.get(query) !== true) {
+        if (distinct.get(query) === undefined) {
+          const named = await statement.raw({ columnNames: true });
+          const names = named[0];
+          const ok =
+            Array.isArray(names) &&
+            names.length > 0 &&
+            names.every((name) => typeof name === "string") &&
+            new Set(names).size === names.length;
+          if (Array.isArray(names)) distinct.set(query, ok);
+          const rows = Array.isArray(names) ? named.slice(1) : named;
+          record(undefined, rows.length);
+          return rows;
+        }
+        const rows = await statement.raw();
         record(undefined, rows.length);
         return rows;
       }
@@ -109,7 +132,7 @@ export function meterD1<T extends D1Like>(d1: T): T {
   return new Proxy(d1, {
     get(target, prop) {
       if (prop === "prepare") {
-        return (query: string) => wrapStatement(target.prepare(query));
+        return (query: string) => wrapStatement(target.prepare(query), query);
       }
       if (prop === "batch") {
         return async (statements: StatementLike[]) => {
