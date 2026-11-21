@@ -1,6 +1,7 @@
 import type { Platform, SourceConfig } from "@tallo/contracts";
 import { ashby } from "./ashby/index.ts";
 import { greenhouse } from "./greenhouse/index.ts";
+import { jobvite } from "./jobvite/index.ts";
 import { lever } from "./lever/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
 import { smartrecruiters } from "./smartrecruiters/index.ts";
@@ -8,7 +9,7 @@ import { workday } from "./workday/index.ts";
 
 /** Register a platform here once; nothing else needs to change. */
 export const platforms: Record<string, Platform> = Object.fromEntries(
-  [greenhouse, lever, ashby, smartrecruiters, workday, oraclecloud].map((p) => [p.id, p]),
+  [greenhouse, lever, ashby, smartrecruiters, workday, oraclecloud, jobvite].map((p) => [p.id, p]),
 );
 
 export function platformFor(source: SourceConfig): Platform {
@@ -21,4 +22,4 @@ export function platformFor(source: SourceConfig): Platform {
 export const allowedHosts = (): string[] => Object.values(platforms).flatMap((p) => p.hosts);
 
 export * from "./kit.ts";
-export { ashby, greenhouse, lever, oraclecloud, smartrecruiters, workday };
+export { ashby, greenhouse, jobvite, lever, oraclecloud, smartrecruiters, workday };

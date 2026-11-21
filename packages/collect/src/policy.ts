@@ -16,6 +16,9 @@ export interface HostPolicy {
 const FAST: HostPolicy = { concurrency: 4, gapMs: 0 };
 const TENANT: HostPolicy = { concurrency: 2, gapMs: 250 };
 
+/** Jobvite's feed host answers 429 (Cloudflare 1015) after a few large responses: one at a time, spaced. */
+const JOBVITE: HostPolicy = { concurrency: 1, gapMs: 3000 };
+
 export const POLICY: Record<string, HostPolicy> = {
   greenhouse: FAST,
   lever: FAST,
@@ -23,6 +26,7 @@ export const POLICY: Record<string, HostPolicy> = {
   smartrecruiters: FAST,
   workday: TENANT,
   oraclecloud: TENANT,
+  jobvite: JOBVITE,
 };
 
 /** Unknown platforms get the careful policy. */

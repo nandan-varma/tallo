@@ -15,6 +15,7 @@ sites and long-tail ATS.
 | smartrecruiters                                   | 1    | shipped, live-verified              | yes (job ad)                | unknown company answers 200 empty                                                                            |
 | workday                                           | 2    | shipped, live-verified on 6 tenants | yes (description)           | 2,000-result cap handled by facet splitting; unsplittable slices and premature short pages report incomplete |
 | oraclecloud                                       | 3    | shipped, live-verified on 7 boards  | yes (description, dates)    | `siteNumber` (+`sitePath`), `defaultSite: true` on host default; 10k cap, see below                          |
+| jobvite                                           | 3    | shipped, live-verified on 26 boards | no (feed has the text)      | XML feed `app.jobvite.com/CompanyJobs/Xml.aspx?c=<id>`, key is the company id; see below                     |
 | eightfold, icims                                  | 3    | todo                                |                             |                                                                                                              |
 | workable, recruitee, gem, rippling                | 3    | todo                                |                             | candidates once sources are found                                                                            |
 | amazon, apple, google, microsoft, meta, uber, ... | 3    | todo                                |                             | one adapter per company site; browser-walled sites need a managed browser                                    |
@@ -49,6 +50,25 @@ Live behaviour (checked with curl and `tallo verify`, November 2026):
 All: title, apply/job URL, description text, locations (as the source names them, with country/region/city only when the
 source gives those fields), work mode, department, employment type, posted/updated dates, requisition id when present,
 pay when structured (in the source's own interval), source extras. Nothing is inferred from text.
+
+Jobvite: the `jobs.jobvite.com/<slug>` pages are HTML only (their `/api/job` answers 302). The public feed
+`https://app.jobvite.com/CompanyJobs/Xml.aspx?c=<company id>` lists every open posting with its full description in one
+response, so there is no detail call. The board key is the company id (`q` + 7 characters): read it from the careers page
+source (`getCompanyId()` on classic pages, `companyEId` on newer ones) or from the `c=` of any of its apply links. Notes:
+- An unknown id answers a 302 to a Jobvite HTML page, and a retired feed can answer an empty body (Blackbaud): both
+  fail as `SchemaError`. A valid `<result />` means no jobs but is not authoritative.
+- Fields are per customer (custom fields appear as `x0020`-escaped tags such as `hiring_x0020_manager`); the parser keeps
+  them all in the raw listing. Mapped: title, `detail-url`, `apply-url`, `description`, `location`, `department` (else
+  `category`), `jobtype`, `requisitionid`, `date` (MM/DD/YYYY, stored as `YYYY-MM-DD`; an impossible date is dropped),
+  `remote_x0020_type` (work mode only when it states exactly remote/hybrid/onsite), extras `region`, `company`,
+  `parentId`, `externalJobPostingId`. No pay or experience fields exist in the feed.
+- Left in raw on purpose: `hiring_x0020_manager` (a named person; not mapped), `briefdescription` (a prefix of the
+  description), `start_x0020_date` and other custom admin fields, `id` (read as the posting id, not through `map`).
+- Rows with a `parentId` are per-location variants of one requisition (same `detail-url`, own `id`); each is kept.
+- Rate limit: Cloudflare answers 429 (error 1015) on `app.jobvite.com` after about five large feeds in a minute.
+  The policy is one request at a time, 3 s apart; feeds are up to 6 MB (Nutanix).
+- Unseeded (zero postings when checked): Nashville General Hospital, Unishippers, CJ Logistics America. Blackbaud's
+  feed is empty. Pulsepoint and WebMD share Internet Brands' id (`q5FaVfwz`), so only that board is seeded.
 
 Oracle Cloud (`params.siteNumber`): hosts are `*.fa.oraclecloud.com`, `*.fa.us2.oraclecloud.com` and `*.fa.ocs.oraclecloud.com`.
 An unknown siteNumber silently returns the host's default board, so `list()` probes a site that cannot exist and
