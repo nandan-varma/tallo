@@ -138,7 +138,7 @@ describe("runSearch", () => {
     expect(page.hits).toHaveLength(20);
     const [url] = fetchMock.mock.calls[0] as unknown as [string];
     const cursor = encodeCursor(
-      { title: ["data engineer"], company: [], location: [], sort: "relevance" },
+      { title: ["data engineer"], company: [], location: [], country: [], sort: "relevance" },
       20,
     );
     expect(new URL(url).searchParams.get("cursor")).toBe(cursor);

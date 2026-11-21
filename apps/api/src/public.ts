@@ -43,7 +43,7 @@ export const descriptionReader = (blobs: BlobStore) => async (jdHash: string) =>
 };
 
 /** Names of the query parameters that repeat in the URL. Every other parameter takes one value. */
-const REPEATED = new Set(["title", "company", "location"]);
+const REPEATED = new Set(["title", "company", "location", "country"]);
 
 /** What to type instead, per parameter: shown to the caller when that parameter is wrong. */
 const SEARCH_HINTS: Record<string, string> = {
@@ -53,10 +53,14 @@ const SEARCH_HINTS: Record<string, string> = {
     "Repeat company up to 4 times, 2 to 80 characters each: /v1/search?title=backend+engineer&company=Stripe",
   location:
     "Repeat location up to 8 times, 2 to 60 characters each, in the person's own words: /v1/search?title=backend+engineer&location=NYC&location=remote",
+  country:
+    "Repeat country up to 8 times with two-letter ISO 3166-1 alpha-2 codes: /v1/search?title=backend+engineer&country=US&country=CA",
+  postedWithin:
+    "A whole number of days from 1 to 365: /v1/search?title=backend+engineer&postedWithin=30",
   limit: "A whole number from 1 to 25 (default 10): /v1/search?title=backend+engineer&limit=25",
   sort: "One of relevance (default), recent, posted or added: /v1/search?title=backend+engineer&sort=recent",
   cursor:
-    "Pass the next value from the previous response, unchanged, with the same title, company, location and sort.",
+    "Pass the next value from the previous response, unchanged, with the same title, company, location, country, postedWithin and sort.",
 };
 
 const DESCRIPTION_HINTS: Record<string, string> = {
@@ -225,7 +229,7 @@ export function publicRoutes({
     const parsed = readQuery(url, publicSearchSchema, SEARCH_HINTS);
     if (!parsed.ok) return fail(c, 400, parsed.body);
 
-    const { title, company, location, sort, limit, cursor } = parsed.value;
+    const { title, company, location, country, postedWithin, sort, limit, cursor } = parsed.value;
     if (title.length === 0 && company.length === 0) {
       return fail(
         c,
@@ -237,7 +241,7 @@ export function publicRoutes({
         ),
       );
     }
-    const query = { title, company, location, sort };
+    const query = { title, company, location, country, postedWithin, sort };
     let offset = 0;
     if (cursor !== undefined) {
       const decoded = decodeCursor(cursor, query);
@@ -248,7 +252,7 @@ export function publicRoutes({
           publicError(
             "invalid_cursor",
             "cursor: this is not a cursor for this search.",
-            "Pass the next value from the last response, unchanged, with the same title, company, location and sort. Omit cursor to start over.",
+            "Pass the next value from the last response, unchanged, with the same title, company, location, country, postedWithin and sort. Omit cursor to start over.",
           ),
         );
       }
@@ -259,6 +263,8 @@ export function publicRoutes({
       queries: title,
       companies: company,
       locations: location,
+      countries: country,
+      postedWithin,
       sort,
       offset,
       limit,

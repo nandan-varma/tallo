@@ -154,7 +154,9 @@ included, exactly the group `/v1/jobs/:id` lists as `variants`. Visibility is on
 canonical (`dup_of IS NULL`), from a source that listed within 14 days. There are no other filters; the query narrows by title phrases, companies and places.
 The same search also takes `sort`: `recent` and `posted` order every open location by `sort_at, id` (the stated posted
 date, else first seen), `posted` adds `posted_at IS NOT NULL`, and `added` orders by `id`; all three skip the bm25
-candidate cut and the duplicate collapse. `jobs_sort_at_idx (sort_at, id)` serves the two date orders and the posted
+candidate cut and the duplicate collapse. Two structured filters, `country` and `postedWithin`, apply to every sort and
+are bound into the cursor checksum: `country` keeps rows whose source stated one of the codes (null never matches; no
+inference from text), and `postedWithin` bounds `sort_at`, the same value `recent` orders by. Neither adds an index. `jobs_sort_at_idx (sort_at, id)` serves the two date orders and the posted
 filter; `added` uses the primary key. `relevance` remains the default. Search sits behind these query functions;
 vector/context search would be another implementation of the same query surface.
 

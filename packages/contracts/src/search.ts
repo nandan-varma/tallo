@@ -22,6 +22,10 @@ export interface SearchSpec {
   queries: string[];
   companies?: string[];
   locations?: string[];
+  /** ISO 3166-1 alpha-2 codes to keep (case-insensitive); null country codes never match. */
+  countries?: string[];
+  /** Keep postings whose `sort_at` is this many days old or newer (1 to 365). */
+  postedWithin?: number;
   /** How to order the results. Default `relevance`. */
   sort?: SearchSort;
 }
@@ -42,25 +46,70 @@ export const jobHitSchema = z.object({
   id: z.string(),
   title: z.string(),
   company: z.string(),
-  location: z.string().nullable(),
-  workMode: z.enum(["remote", "hybrid", "onsite"]).nullable(),
+  location: z
+    .string()
+    .nullable()
+    .describe(
+      "The place text the source gave, else its city, region and country code; null when the source stated no place. Never inferred from other text.",
+    ),
+  workMode: z
+    .enum(["remote", "hybrid", "onsite"])
+    .nullable()
+    .describe(
+      "The work mode the source stated: remote, hybrid, onsite, or null when it stated none. Never inferred from location text.",
+    ),
   /** The source's stated base pay with its own interval ("USD 90000-95000 per hour"), or null. */
-  pay: z.string().nullable(),
+  pay: z
+    .string()
+    .nullable()
+    .describe(
+      "The source's stated base pay with its own interval (for example USD 90000-95000 per year), or null when the source stated none. Never estimated or converted.",
+    ),
   /** The stated pay bands verbatim (no conversion, no annualization). Empty when the source stated none. */
-  compensation: z.array(moneySchema),
+  compensation: z
+    .array(moneySchema)
+    .describe(
+      "The source's stated pay bands verbatim (min, max, currency, interval, component, region, text), never converted or annualized. Empty when the source stated none; it is not derived from pay text.",
+    ),
   /** `YYYY-MM-DD`, or null. */
-  postedAt: z.string().nullable(),
-  department: z.string().nullable(),
-  employmentType: z.string().nullable(),
+  postedAt: z
+    .string()
+    .nullable()
+    .describe(
+      "The posted date the source states, as YYYY-MM-DD, or null when the source stated none. Some large feeds omit it. It is never guessed; recent and postedWithin fall back to when Tallo first saw the posting.",
+    ),
+  department: z
+    .string()
+    .nullable()
+    .describe(
+      "The source's own department label, or null when it stated none. Not a normalized category.",
+    ),
+  employmentType: z
+    .string()
+    .nullable()
+    .describe(
+      "The source's own employment type label (for example Full-time), or null when it stated none. Not a normalized category.",
+    ),
   /** ISO 3166-1 alpha-2 for the primary location, or null. */
-  countryCode: z.string().length(2).nullable(),
+  countryCode: z
+    .string()
+    .length(2)
+    .nullable()
+    .describe(
+      "ISO 3166-1 alpha-2 for the primary location, or null when the source stated no country code. Coverage is partial (about 74% overall; some large boards state only free text), and it is never inferred from location text.",
+    ),
   /** Where to apply: the employer's own application page (the source's apply link, else its posting page), or null. */
   applyUrl: z.string().nullable(),
   /**
    * ISO 8601 UTC time of the board's last complete listing that this posting came from. This is the board's
    * freshness, not proof this posting was in that listing; null when the source has never listed.
    */
-  sourceLastListedAt: z.string().nullable(),
+  sourceLastListedAt: z
+    .string()
+    .nullable()
+    .describe(
+      "ISO 8601 UTC time of the board's last complete listing, or null when it has never listed. This is the board's freshness, not a per-posting sighting or proof that this posting was in that listing.",
+    ),
   /**
    * Open postings of the same `dup_of` group (the same role at several places), this one included.
    * Deterministic: it is the same group the job page lists in `variants`.
