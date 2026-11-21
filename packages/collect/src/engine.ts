@@ -26,7 +26,15 @@ export interface Ingest {
   diff(runId: string, postings: { id: string; hash: string }[]): Promise<string[]>;
   missingBlobs(hashes: string[]): Promise<string[]>;
   putJd(hash: string, gz: Uint8Array): Promise<unknown>;
-  applyJobs(runId: string, jobs: JobFacts[]): Promise<{ applied: number; missingBlobs: string[] }>;
+  applyJobs(
+    runId: string,
+    jobs: JobFacts[],
+  ): Promise<{
+    applied: number;
+    missingBlobs: string[];
+    /** Postings the server could not store (optional: an older server does not say). */
+    invalid?: { postingId: string; reason: string }[];
+  }>;
   putRaw(runId: string, gz: Uint8Array): Promise<string>;
   finalize(runId: string, body: Finalize): Promise<FinalizeResult>;
 }
@@ -97,6 +105,8 @@ export type Outcome = Finalize & { changed: number };
 
 /** Issues kept on the run row. */
 export const ISSUE_CAP = 50;
+/** Postings with a bounded field reported per slice: enough to see the pattern, not enough to hide other issues. */
+const MAX_BOUND_REPORTS = 5;
 const BATCH = 100;
 const clock = (options: { now?: () => number }) => options.now?.() ?? Math.floor(Date.now() / 1000);
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -363,6 +373,10 @@ export async function advance(
       plan.runId,
       batch.map((p) => p.facts),
     );
+    for (const bad of result.invalid ?? []) {
+      detailsComplete = false;
+      issues.push({ code: "schema", message: bad.reason.slice(0, 500), postingId: bad.postingId });
+    }
     if (result.missingBlobs.length)
       throw new Error(`Server still missing ${result.missingBlobs.length} blobs`);
   };
@@ -381,6 +395,7 @@ export async function advance(
   };
 
   let started = 0;
+  let boundedReports = 0;
   const queue = new PQueue({
     concurrency: options.detailConcurrency ?? policyFor(platform.id).concurrency,
   });
@@ -396,6 +411,13 @@ export async function advance(
           const done = await cpu.prepare(plan.source, full, hash);
           lines.push(done.line);
           ready.push({ facts: done.facts, jd: done.jd });
+          // A bounded field is not a failed posting: report the first few, never fail the batch.
+          if (done.notes?.length && boundedReports++ < MAX_BOUND_REPORTS)
+            issues.push({
+              code: "schema",
+              message: done.notes.join("; ").slice(0, 500),
+              postingId: posting.id,
+            });
         } catch (error) {
           detailsComplete = false;
           issues.push({ code: "detail", message: message(error), postingId: posting.id });

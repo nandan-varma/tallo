@@ -13,6 +13,7 @@ import type { SourceState } from "./due.ts";
 export interface ApplyResult {
   applied: number;
   missingBlobs: string[];
+  invalid?: { postingId: string; reason: string }[];
 }
 
 /** Typed client for the Tallo ingest API. Retries are handled by ky. */
