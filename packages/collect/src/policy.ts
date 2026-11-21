@@ -27,6 +27,8 @@ export const POLICY: Record<string, HostPolicy> = {
   workday: TENANT,
   oraclecloud: TENANT,
   personio: TENANT,
+  // One RSS feed per board (up to ~0.4 MB), on each company's own subdomain.
+  teamtailor: FAST,
 };
 
 /** Unknown platforms get the careful policy. */
