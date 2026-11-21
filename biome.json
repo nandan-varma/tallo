@@ -9,6 +9,7 @@
       "!**/.wrangler",
       "!**/.cloudflare",
       "!.claude",
+      "!**/.pi",
       "!**/fixtures",
       "!sources",
       "!**/*.astro",
