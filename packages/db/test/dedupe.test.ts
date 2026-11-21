@@ -4,16 +4,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   backfillDedupeKeys,
   finalize,
-  getJob,
   listVariants,
   rebuildDuplicates,
   schema,
-  searchJobs,
-  searchSchema,
   startRun,
 } from "../src/index.ts";
 import { crossedKeys } from "../src/ingest.ts";
-import { testDb } from "../src/testing.ts";
+import { getJob, searchJobs, searchSchema, testDb } from "../src/testing.ts";
 
 const DAY = 86400;
 const NOW = 2_000_000_000;

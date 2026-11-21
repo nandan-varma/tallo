@@ -40,7 +40,7 @@ import { measure } from "./meter.ts";
 import { locationOf, postedOf, searchPage, seenAt } from "./search.ts";
 
 /** Reads a posting's description from its gzipped blob in R2; null when the blob is gone. */
-export const descriptionReader = (blobs: BlobStore) => async (jdHash: string) => {
+const descriptionReader = (blobs: BlobStore) => async (jdHash: string) => {
   const blob = await blobs.get(jdKey(jdHash));
   return blob ? new TextDecoder().decode(await gunzip(blob)) : null;
 };

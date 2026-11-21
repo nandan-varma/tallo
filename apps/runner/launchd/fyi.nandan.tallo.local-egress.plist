@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Template: apps/runner/launchd/local-egress.sh fills the __PLACEHOLDERS__ and installs it.
+  Template: apps/runner/launchd/local-egress.sh fills in the paths below and installs it.
   Runs the local-egress sync daily at 03:30 local time. Missed runs (Mac asleep) fire on wake.
   Holds no secrets: the runner reads apps/runner/.env itself.
 -->

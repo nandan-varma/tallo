@@ -1,8 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import { and, desc, eq, type SQL, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
+import { z } from "zod";
 import type { Db } from "./db.ts";
+import { ftsQuery, payOf, summary, visibleJobs } from "./queries.ts";
 import * as schema from "./schema.ts";
+import { jobs } from "./schema.ts";
 
 const MIGRATIONS = new URL("../drizzle/", import.meta.url);
 
@@ -144,4 +148,58 @@ export function testDb() {
   reads.set(db, read);
   engines.set(db, sqlite);
   return db;
+}
+
+// Read helpers the tests use to look at what ingest wrote. No route uses them.
+
+/** Catalog search: free text, paging, and the stale-source switch. The database filters nothing else. */
+export const searchSchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  /** Include jobs from sources that stopped listing for STALE_HIDE_DAYS. */
+  includeStale: z.coerce.boolean().optional(),
+  cursor: z
+    .string()
+    .regex(/^\d+\.\d+$/)
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+export type Search = z.infer<typeof searchSchema>;
+
+/**
+ * Newest first, keyset-paged: `GET /v1/jobs` (which requires `q`). Free text is prefix-matched on its last word.
+ * Text with no searchable word matches nothing, the same as `rankedJobs`.
+ */
+export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.now() / 1000)) {
+  const match = input.q ? ftsQuery(input.q) : undefined;
+  if (input.q && !match) return { jobs: [], nextCursor: null };
+  const where: (SQL | undefined)[] = [
+    ...visibleJobs(now, input),
+    match
+      ? sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`
+      : undefined,
+  ];
+  if (input.cursor) {
+    const [at, id] = input.cursor.split(".").map(Number);
+    where.push(sql`(${jobs.sortAt}, ${jobs.id}) < (${at}, ${id})`);
+  }
+  const rows = await db
+    .select(summary)
+    .from(jobs)
+    .where(and(...where))
+    .orderBy(desc(jobs.sortAt), desc(jobs.id))
+    .limit(input.limit + 1);
+  const page = rows.slice(0, input.limit).map(({ facts, ...row }) => ({
+    ...row,
+    pay: payOf(facts),
+  }));
+  const last = page.at(-1);
+  return {
+    jobs: page,
+    nextCursor: rows.length > input.limit && last ? `${last.sortAt}.${last.id}` : null,
+  };
+}
+
+export async function getJob(db: Db, id: number) {
+  const row = (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
+  return row ? { ...row, pay: payOf(row.facts) } : undefined;
 }

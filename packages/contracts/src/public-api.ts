@@ -264,7 +264,7 @@ export const publicJobSchema = z.object({
     .length(2)
     .nullable()
     .describe(
-      "ISO 3166-1 alpha-2 for the primary location, or null when the source stated no country code. Coverage is partial (about 74% overall; some large boards state only free text), and it is never inferred from location text.",
+      "ISO 3166-1 alpha-2 for the primary location, or null when the source stated no country code. Coverage is partial (some large boards state only free text), and it is never inferred from location text.",
     ),
   applyUrl: z.string().nullable(),
   sourceLastListedAt: z

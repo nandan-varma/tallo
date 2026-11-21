@@ -268,13 +268,13 @@ The message says what was wrong and the hint shows the fix.
 - **posted**: the same newest-first order, but only postings where the source stated a posted date. Undated postings are not listed, and Tallo never substitutes the first-seen date here. Every open location is its own hit.
 - **added**: most recently added to the catalog first (roughly the order Tallo first saw the posting). Every open location is its own hit.
 
-added is the cheapest (catalog id order, no extra sort). recent and posted order by sort_at and can use its index; for narrow searches SQLite may still sort the matched set. relevance ranks a bounded candidate window by bm25. All modes page with next and stop at the same ${SEARCH_RESULT_CAP}-result cap, and every mode applies country and postedWithin. A cursor is bound to its whole query: keep title, company, location, country, postedWithin and sort unchanged while paging, or start again without cursor. Posted dates are always what the source stated; null or an absent date is never guessed.
+All modes page with next and stop at the same ${SEARCH_RESULT_CAP}-result cap, and every mode applies country and postedWithin. A cursor is bound to its whole query: keep title, company, location, country, postedWithin and sort unchanged while paging, or start again without cursor. Posted dates are always what the source stated; null or an absent date is never guessed.
 
 ## Field availability
 
 Not every source states every field. countryCode, postedAt, pay and compensation, workMode, employmentType, city and region, and department may be null or empty because the source stated nothing. (A source's team label is stored where it gives one, but these responses do not return it.) Null always means unknown: Tallo never infers a country, a date, pay or a work mode from location or description text.
 
-- **countryCode is partial**: about 74% of postings have one overall, and some large boards state locations as free text only. A country filter therefore excludes postings whose source stated no code.
+- **countryCode is partial**: many postings have none, and some large boards state locations as free text only. A country filter therefore excludes postings whose source stated no code.
 - **postedAt is omitted by some large feeds.** recent and postedWithin fall back to when Tallo first saw the posting; posted lists only postings with a source-stated date.
 - **sourceLastListedAt is the board's last complete listing**, not a per-posting sighting.
 

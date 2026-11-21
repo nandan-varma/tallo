@@ -10,10 +10,6 @@ import {
 import type { Db, RankedSpec } from "@tallo/db";
 import { rankedJobs } from "@tallo/db";
 
-const MAX_QUERIES = 8;
-const MAX_COMPANIES = 4;
-const MAX_QUERY_CHARS = 200;
-
 /**
  * The ranked search a spec asks for. The titles and companies are the words given; the places are expanded here, on
  * the server, from the person's own words (see `expandPlaces`).
@@ -21,13 +17,11 @@ const MAX_QUERY_CHARS = 200;
 export function rankedSpec(spec: SearchSpec): RankedSpec {
   const places = expandPlaces(spec.locations ?? []);
   return {
-    titles: spec.queries.slice(0, MAX_QUERIES).map((q) => q.slice(0, MAX_QUERY_CHARS)),
-    companies: (spec.companies ?? [])
-      .slice(0, MAX_COMPANIES)
-      .map((c) => c.slice(0, MAX_QUERY_CHARS)),
+    titles: spec.queries,
+    companies: spec.companies ?? [],
     locations: places.locations,
     remote: places.remote,
-    countries: (spec.countries ?? []).slice(0, 8).map((code) => code.toUpperCase()),
+    countries: (spec.countries ?? []).map((code) => code.toUpperCase()),
     postedWithin: spec.postedWithin,
     sort: spec.sort ?? SEARCH_DEFAULT_SORT,
   };

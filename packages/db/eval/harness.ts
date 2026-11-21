@@ -133,7 +133,7 @@ export interface Report {
 /** A pre-computed truth, keyed by case id, so before and after runs compare against the same snapshot. */
 export type TruthCache = Record<string, number>;
 
-export async function runCase(
+async function runCase(
   db: Db,
   c: EvalCase,
   now: number,

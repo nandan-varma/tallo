@@ -25,7 +25,7 @@ const parser = new XMLParser({
 });
 
 /** Parse a feed into its item objects. Anything that is not an RSS channel is a schema error. */
-export function parseFeed(xml: string): JsonObject[] {
+function parseFeed(xml: string): JsonObject[] {
   if (XMLValidator.validate(xml) !== true) throw new SchemaError("Invalid Teamtailor XML");
   let doc: unknown;
   try {

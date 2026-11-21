@@ -44,7 +44,7 @@ export interface PublicLogLine {
 }
 
 /** What the API reported for an answer (see `PUBLIC_COST_HEADER`). */
-export interface UpstreamCost {
+interface UpstreamCost {
   statements: number | null;
   rows_read: number | null;
   rows_written: number | null;

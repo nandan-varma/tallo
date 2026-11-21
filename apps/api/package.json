@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
-    "deploy": "cf deploy",
+    "migrate": "wrangler d1 migrations apply tallo --remote",
+    "deploy": "wrangler deploy",
     "types": "wrangler types"
   },
   "dependencies": {
@@ -23,7 +24,6 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261022.1",
-    "cf": "1.0.0-beta.13",
     "wrangler": "^4.152.0"
   },
   "exports": {

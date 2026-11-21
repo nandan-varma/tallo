@@ -96,7 +96,7 @@ export const jobHitSchema = z.object({
     .length(2)
     .nullable()
     .describe(
-      "ISO 3166-1 alpha-2 for the primary location, or null when the source stated no country code. Coverage is partial (about 74% overall; some large boards state only free text), and it is never inferred from location text.",
+      "ISO 3166-1 alpha-2 for the primary location, or null when the source stated no country code. Coverage is partial (some large boards state only free text), and it is never inferred from location text.",
     ),
   /** Where to apply: the employer's own application page (the source's apply link, else its posting page), or null. */
   applyUrl: z.string().nullable(),

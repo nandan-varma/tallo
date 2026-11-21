@@ -11,7 +11,8 @@
     "test": "vitest run",
     "lint": "biome check .",
     "fix": "biome check --write .",
-    "check": "pnpm lint && pnpm -r typecheck && pnpm test"
+    "check": "pnpm lint && pnpm -r typecheck && pnpm test",
+    "release": "pnpm check && pnpm --filter @tallo/api migrate && pnpm --filter @tallo/api deploy && pnpm --filter @tallo/web deploy && node scripts/smoke.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.2",

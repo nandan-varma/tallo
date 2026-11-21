@@ -10,10 +10,9 @@ import {
   purgeClosed,
   rebuildDuplicates,
   schema,
-  searchJobs,
   startRun,
 } from "../src/index.ts";
-import { testDb, writeCost } from "../src/testing.ts";
+import { searchJobs, testDb, writeCost } from "../src/testing.ts";
 
 // Guards the write-cost fixes (docs/architecture.md, "Write cost"). Each test fails on the code it guards.
 
