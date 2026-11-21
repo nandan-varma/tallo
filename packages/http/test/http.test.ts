@@ -154,6 +154,38 @@ describe("createHttp", () => {
     expect(f).toHaveBeenCalledTimes(2);
   });
 
+  it("a body that stalls after the headers is a network failure, and its stream is cancelled", async () => {
+    let cancelled = false;
+    const stalled = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("[1,"));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const f = vi.fn<typeof fetch>().mockResolvedValue(new Response(stalled, { status: 200 }));
+    await expect(
+      make(f, { timeoutMs: 5_000, bodyTimeoutMs: 20 }).getText("https://api.example.com/"),
+    ).rejects.toMatchObject({ kind: "network" });
+    expect(cancelled).toBe(true);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("a body that arrives in time is read whole, with no body timeout in the way", async () => {
+    const slow = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(new TextEncoder().encode("ok"));
+        await new Promise((r) => setTimeout(r, 5));
+        controller.enqueue(new TextEncoder().encode("!"));
+        controller.close();
+      },
+    });
+    const f = vi.fn<typeof fetch>().mockResolvedValue(new Response(slow, { status: 200 }));
+    const res = await make(f, { bodyTimeoutMs: 1_000 }).getText("https://api.example.com/");
+    expect(res.data).toBe("ok!");
+  });
+
   it("rejects oversized and non-JSON bodies", async () => {
     const big = vi.fn<typeof fetch>().mockResolvedValue(new Response("x".repeat(100)));
     await expect(

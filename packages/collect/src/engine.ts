@@ -59,6 +59,8 @@ export interface EngineOptions {
   detailConcurrency?: number;
   /** Where hashing, map, prepare and gzip run. Default: this thread. The runner passes a thread pool. */
   cpu?: Cpu;
+  /** Largest response body a request may return. Default: the HTTP client's (64 MB). The Worker lowers it. */
+  maxResponseBytes?: number;
 }
 
 /** What `begin` decided: the listing, the diff and the work that remains. Immutable once written. */
@@ -137,6 +139,9 @@ function httpFor(source: SourceConfig, options: EngineOptions, counter: { reques
   const platform = platformFor(source);
   return createHttp({
     ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(options.maxResponseBytes !== undefined
+      ? { maxResponseBytes: options.maxResponseBytes }
+      : {}),
     allowedHosts: platform.hosts,
     limiter:
       options.limiter ??

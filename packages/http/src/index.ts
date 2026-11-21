@@ -66,6 +66,11 @@ interface HttpOptions {
   /** Only used when no `limiter` is passed. Gates new requests; retries (ky) run inside the slot without this gap. */
   minHostIntervalMs?: number;
   maxResponseBytes?: number;
+  /**
+   * Time allowed for reading the body, after the headers arrived. ky's `timeoutMs` covers headers only, so
+   * a host that sends headers and then trickles the body would otherwise hold the request open. Default: timeoutMs.
+   */
+  bodyTimeoutMs?: number;
   /** Hostnames (or "*.suffix" patterns) requests may reach. Empty blocks everything. */
   allowedHosts: string[];
   signal?: AbortSignal;
@@ -109,7 +114,16 @@ function isPrivateHost(hostname: string): boolean {
   );
 }
 
-async function readCapped(response: Response, max: number, url: string): Promise<string> {
+/**
+ * Reads the body up to `max` bytes, within `timeoutMs`. On either limit the body stream is cancelled, which
+ * releases the connection, so a stalled or oversized body cannot hold memory or a socket.
+ */
+async function readCapped(
+  response: Response,
+  max: number,
+  url: string,
+  timeoutMs: number,
+): Promise<string> {
   const declared = Number(response.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > max)
     throw new HttpError("blocked", `Response exceeds ${max} bytes`, url, response.status);
@@ -117,15 +131,34 @@ async function readCapped(response: Response, max: number, url: string): Promise
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel();
-      throw new HttpError("blocked", `Response exceeds ${max} bytes`, url, response.status);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      // Reject before cancelling: cancelling settles the pending read as done, which must not win the race.
+      reject(
+        new HttpError(
+          "network",
+          `Response body not read within ${timeoutMs} ms`,
+          url,
+          response.status,
+        ),
+      );
+      reader.cancel().catch(() => {});
+    }, timeoutMs);
+  });
+  try {
+    for (;;) {
+      const { done, value } = await Promise.race([reader.read(), expired]);
+      if (done) break;
+      total += value.byteLength;
+      if (total > max) {
+        await reader.cancel();
+        throw new HttpError("blocked", `Response exceeds ${max} bytes`, url, response.status);
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
   return new TextDecoder().decode(
     await new Blob(chunks as Uint8Array<ArrayBuffer>[]).arrayBuffer(),
@@ -139,6 +172,7 @@ const etagOf = (response: Response) => {
 
 export function createHttp(options: HttpOptions): Http {
   const maxBytes = options.maxResponseBytes ?? 64 * 1024 * 1024;
+  const bodyTimeoutMs = options.bodyTimeoutMs ?? options.timeoutMs ?? 30_000;
   const limiter =
     options.limiter ??
     createHostLimiter({
@@ -241,7 +275,7 @@ export function createHttp(options: HttpOptions): Http {
           return {
             status: response.status,
             url: url.href,
-            data: await readCapped(response, maxBytes, url.href),
+            data: await readCapped(response, maxBytes, url.href, bodyTimeoutMs),
             ...etagOf(response),
           };
         }

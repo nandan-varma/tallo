@@ -42,6 +42,11 @@ export const DEFAULT_SLICE_SUBREQUESTS = 800;
 export const SLICE_POSTINGS = 100;
 export const DEFAULT_SLICE_MS = 5 * 60_000;
 export const DEFAULT_BATCH = 40;
+/**
+ * Largest response body the Worker reads. A 128 MB isolate holds a body several times over while parsing it, so
+ * the cloud collector refuses bigger ones (the Mac runner keeps the client's default).
+ */
+export const WORKER_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 
 export interface CollectEnv {
   db: Db;
@@ -151,6 +156,7 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
     scratch,
     log: { info() {}, warn() {}, error() {} },
     now: () => nowSeconds(env),
+    maxResponseBytes: WORKER_MAX_RESPONSE_BYTES,
     ...(env.fetch ? { fetch: env.fetch } : {}),
     limiter: gatedLimiter(
       counted,

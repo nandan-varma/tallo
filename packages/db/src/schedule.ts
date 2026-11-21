@@ -1,5 +1,5 @@
 import { LOCAL_EGRESS, leaseUntil, SCHEDULE, type SourceConfig, tierFor } from "@tallo/contracts";
-import { and, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { batch, type Db } from "./db.ts";
 import { runs, sources } from "./schema.ts";
 
@@ -48,10 +48,17 @@ export async function claimDue(db: Db, now: number, limit: number): Promise<Clai
  */
 export async function claimSources(db: Db, ids: string[], now: number): Promise<ClaimedSource[]> {
   if (ids.length === 0) return [];
+  // The ids travel as one JSON array, not one bound parameter each: D1 refuses a statement with more
+  // than 100 bound parameters, and the admin path accepts up to 100 ids per call (as reviveSources does).
   return db
     .update(sources)
     .set({ nextDueAt: leaseUntil(now) })
-    .where(and(inArray(sources.id, ids), cloudEligible))
+    .where(
+      and(
+        sql`${sources.id} IN (SELECT value FROM json_each(${JSON.stringify(ids)}))`,
+        cloudEligible,
+      ),
+    )
     .returning({
       id: sources.id,
       platform: sources.platform,

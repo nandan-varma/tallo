@@ -1,6 +1,8 @@
 import type { SourceConfig } from "@tallo/contracts";
 import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { Db } from "../src/db.ts";
 import {
   claimDue,
   claimSources,
@@ -14,7 +16,7 @@ import {
   sourceConfig,
   startRun,
 } from "../src/index.ts";
-import { testDb } from "../src/testing.ts";
+import { d1Like, testDb } from "../src/testing.ts";
 
 const T = 1_800_000_000;
 const DAY = 86400;
@@ -118,7 +120,44 @@ describe("claimDue", () => {
   });
 });
 
+/**
+ * The same SQLite as `db`, reached through a D1-shaped binding that refuses any statement with more
+ * than 100 bound parameters, as D1 does. node:sqlite has no such limit, so a test cannot see it otherwise.
+ */
+function d1Limited(inner: Db): Db {
+  const d1 = d1Like(inner) as {
+    prepare(sql: string): Record<string, unknown> & { bind(...values: unknown[]): unknown };
+    batch(statements: unknown[]): unknown;
+  };
+  const binding = {
+    prepare: (sql: string) => {
+      const stmt = d1.prepare(sql);
+      return {
+        ...stmt,
+        bind: (...values: unknown[]) => {
+          if (values.length > 100)
+            throw new Error(`D1: ${values.length} bound parameters (max 100)`);
+          return stmt.bind(...values);
+        },
+      };
+    },
+    batch: d1.batch,
+  };
+  return drizzle(binding as never, { schema }) as unknown as Db;
+}
+
 describe("claimSources", () => {
+  it("claims more than 100 named boards in one statement, within D1's bound-parameter limit", async () => {
+    const configs = Array.from({ length: 150 }, (_, i) => config(`bulk${i}`));
+    await registerSources(db, configs, new Set());
+    const ids = configs.map((c) => c.id);
+    const claimed = await claimSources(d1Limited(db), ids, T);
+    expect(claimed.map((s) => s.id).sort()).toEqual([...ids].sort());
+    expect(await claimDue(db, T, 1000)).not.toContainEqual(
+      expect.objectContaining({ id: "greenhouse:bulk0" }),
+    );
+  });
+
   it("claims named boards regardless of due time, and leases them", async () => {
     await db
       .update(schema.sources)

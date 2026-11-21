@@ -1,6 +1,7 @@
 import { gzip, prepareJob, sha256 } from "@tallo/catalog";
 import { memoryBlobs, schema } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
+import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.ts";
 
@@ -394,5 +395,81 @@ describe("api", () => {
         })
       ).status,
     ).toBe(200);
+  });
+});
+
+describe("ingest body limits", () => {
+  const MB = 1024 * 1024;
+
+  async function startRun(call: ReturnType<typeof setup>["call"], runId: string) {
+    const res = await call("/v1/runs", INGEST, {
+      method: "POST",
+      json: { runId, source, runnerId: "mac", collectorVersion: "t", startedAt: now() },
+    });
+    expect(res.status).toBe(201);
+  }
+
+  it("refuses a JD upload whose declared length is over the cap, before reading it", async () => {
+    const { call } = setup();
+    const res = await call(`/v1/blobs/jd/${"a".repeat(64)}`, INGEST, {
+      method: "PUT",
+      headers: { "content-length": String(26 * MB) },
+      body: new Uint8Array([1, 2, 3]),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it("refuses a JD upload that streams past the cap without declaring a length", async () => {
+    const { call } = setup();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(26 * MB));
+        controller.close();
+      },
+    });
+    const res = await call(`/v1/blobs/jd/${"a".repeat(64)}`, INGEST, {
+      method: "PUT",
+      body,
+      duplex: "half",
+    } as RequestInit);
+    expect(res.status).toBe(413);
+  });
+
+  it("refuses a gzip bomb: a small JD upload that inflates past the cap", async () => {
+    const { call } = setup();
+    // 26 MB of zeros is a few tens of kilobytes gzipped: small on the wire, over the cap once inflated.
+    const bomb = await gzip(new Uint8Array(26 * MB));
+    expect(bomb.byteLength).toBeLessThan(1 * MB);
+    const res = await call(`/v1/blobs/jd/${"a".repeat(64)}`, INGEST, {
+      method: "PUT",
+      body: bomb,
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it("refuses a raw pack for a run that is no longer running, and stores nothing", async () => {
+    const { call, db } = setup();
+    const runId = "run-raw-finished";
+    await startRun(call, runId);
+    await db.update(schema.runs).set({ status: "partial" }).where(eq(schema.runs.id, runId));
+    const raw = await gzip(new TextEncoder().encode('{"id":"7"}\n'));
+    const res = await call(`/v1/runs/${runId}/raw`, INGEST, { method: "PUT", body: raw });
+    expect(res.status).toBe(409);
+    const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, runId));
+    expect(row?.rawKey).toBeNull();
+  });
+
+  it("refuses a raw pack whose declared length is over the cap, for a running run", async () => {
+    const { call, db } = setup();
+    const runId = "run-raw-big";
+    await startRun(call, runId);
+    const res = await call(`/v1/runs/${runId}/raw`, INGEST, {
+      method: "PUT",
+      headers: { "content-length": String(26 * MB) },
+      body: new Uint8Array([1]),
+    });
+    expect(res.status).toBe(413);
+    const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, runId));
+    expect(row).toMatchObject({ rawKey: null });
   });
 });
