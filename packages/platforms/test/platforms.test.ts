@@ -7,6 +7,7 @@ import {
   lever,
   oraclecloud,
   platformFor,
+  recruitee,
   SchemaError,
   smartrecruiters,
   workable,
@@ -924,5 +925,78 @@ describe("oraclecloud", () => {
         }),
       ),
     ).toThrow(/defaultSite/);
+  });
+});
+
+describe("recruitee", () => {
+  const src = source("recruitee", "deephealth");
+  it("lists every offer from one request, untouched", async () => {
+    const { ctx, urls } = fakeCtx(() => fixture("recruitee-list"));
+    const { items, result } = await drain(recruitee.list(src, ctx));
+    expect(urls).toEqual(["https://deephealth.recruitee.com/api/offers/"]);
+    expect(items).toHaveLength(2);
+    expect(items[0]?.id).toBe("2824483");
+    expect(obj(items[0]?.listing).careers_apply_url).toBeTruthy();
+    expect(result).toEqual({ complete: true, emptyIsAuthoritative: true });
+  });
+  it("maps structured fields, string salary amounts and the stated interval", async () => {
+    const { ctx } = fakeCtx(() => fixture("recruitee-list"));
+    const { items } = await drain(recruitee.list(src, ctx));
+    const job = recruitee.map(items[0]!, src);
+    expect(job.title).toBe("Clinical Research Scientist");
+    expect(job.compensation).toEqual([
+      { min: 110000, max: 130000, currency: "USD", interval: "year", component: "base" },
+    ]);
+    expect(job.employmentType).toBe("fulltime_permanent");
+    expect(job.postedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/);
+    expect(job.description.length).toBeGreaterThan(300);
+    expect(job.locations.length).toBeGreaterThan(0);
+    expect(job.extras.experience_code).toBeTruthy();
+    expect(job.experience).toEqual([]);
+    // remote and hybrid are both flagged: no single work mode is stated
+    expect(job.workMode).toBeUndefined();
+  });
+  it("has no pay when the source states none, and an unstated interval is unknown", async () => {
+    const { ctx } = fakeCtx(() => fixture("recruitee-list"));
+    const { items } = await drain(recruitee.list(src, ctx));
+    const job = recruitee.map(items[1]!, src);
+    expect(job.compensation).toEqual([]);
+    expect(job.workMode).toBe("hybrid");
+    expect(job.locations[0]).toMatchObject({ city: "Amsterdam", countryCode: "NL", primary: true });
+    const listing = {
+      ...obj(items[1]?.listing),
+      salary: { min: "3500", max: "4200", period: null, currency: "EUR" },
+    };
+    const priced = recruitee.map({ id: "x", listing }, src);
+    expect(priced.compensation).toEqual([
+      { min: 3500, max: 4200, currency: "EUR", interval: "unknown", component: "base" },
+    ]);
+  });
+  it("falls back to the offer-level place when a listed location has no name or city", () => {
+    const listing = {
+      title: "t",
+      location: "Krakow, Malopolskie, Poland",
+      city: "Krakow",
+      country: "Poland",
+      country_code: "PL",
+      locations: [{ id: 1, state: "Malopolskie", country: "Poland", country_code: "PL" }],
+    };
+    const job = recruitee.map({ id: "x", listing }, src);
+    expect(job.locations).toHaveLength(1);
+    expect(job.locations[0]).toMatchObject({ city: "Krakow", countryCode: "PL" });
+  });
+  it("treats an empty board as authoritative and a malformed response as a failed run", async () => {
+    const empty = fakeCtx(() => ({ offers: [] }));
+    const { items, result } = await drain(recruitee.list(src, empty.ctx));
+    expect(items).toHaveLength(0);
+    expect(result.emptyIsAuthoritative).toBe(true);
+    const bad = fakeCtx(() => ({ error: "nope" }));
+    await expect(drain(recruitee.list(src, bad.ctx))).rejects.toThrow(SchemaError);
+  });
+  it("ignores display order in the fingerprint and rejects bad keys", () => {
+    const a = recruitee.fingerprint?.({ id: 1, position: 1, title: "t" });
+    const b = recruitee.fingerprint?.({ id: 1, position: 9, title: "t" });
+    expect(a).toEqual(b);
+    expect(() => platformFor(source("recruitee", "a.evil.com"))).toThrow(/Invalid/);
   });
 });
