@@ -1,6 +1,9 @@
 [
   {
     "key": "careers",
-    "company": "Apple"
+    "company": "Apple",
+    "params": {
+      "egress": "local"
+    }
   }
 ]

@@ -13,7 +13,7 @@ const entrySchema = z.array(
 );
 
 /** The reviewed hot list: an array of source ids (see `loadHot`). Not a platform file. */
-export const HOT_FILE = "hot.json";
+const HOT_FILE = "hot.json";
 
 /**
  * Retirement is for boards already removed from `sources/`. Refuse any still-configured id so a typo

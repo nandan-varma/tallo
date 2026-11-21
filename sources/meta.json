@@ -1,6 +1,9 @@
 [
- {
-  "key": "meta",
-  "company": "Meta"
- }
+  {
+    "key": "meta",
+    "company": "Meta",
+    "params": {
+      "egress": "local"
+    }
+  }
 ]

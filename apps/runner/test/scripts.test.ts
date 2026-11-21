@@ -169,7 +169,7 @@ describe("backup-d1.sh", () => {
   });
 });
 
-describe.each(["full-sync", "backup"])("%s launchd job", (job) => {
+describe.each(["local-egress", "backup"])("%s launchd job", (job) => {
   const script = join(LAUNCHD, `${job}.sh`);
   const run = (args: string[]) =>
     spawnSync("bash", [script, ...args], {
@@ -177,8 +177,8 @@ describe.each(["full-sync", "backup"])("%s launchd job", (job) => {
       env: { PATH: process.env.PATH ?? "", HOME: home },
     });
 
-  it("prints a filled-in plist by default and installs nothing", () => {
-    const r = run([]);
+  it("prints a filled-in plist and installs nothing", () => {
+    const r = run(["print"]);
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toContain(`fyi.nandan.tallo.${job}`);
     expect(r.stdout).not.toMatch(/__[A-Z]+__/);
@@ -187,22 +187,9 @@ describe.each(["full-sync", "backup"])("%s launchd job", (job) => {
       /token|secret|password|api[_-]?key/i,
     );
     expect(readdirSync(home)).toEqual([]);
-    expect(run(["print"]).stdout).toBe(r.stdout);
   });
 
   it("rejects an unknown command", () => {
     expect(run(["nope"]).status).toBe(2);
-  });
-});
-
-describe("full-sync plist", () => {
-  it("runs a weekly sync that treats a board as due after six days", () => {
-    const r = spawnSync("bash", [join(LAUNCHD, "full-sync.sh"), "print"], {
-      encoding: "utf8",
-      env: { PATH: process.env.PATH ?? "", HOME: home },
-    });
-    expect(r.stdout).toMatch(/<string>--stale-hours<\/string>\s*<string>144<\/string>/);
-    expect(r.stdout).toMatch(/<key>Weekday<\/key>\s*<integer>0<\/integer>/);
-    expect(r.stdout).not.toContain("--local-egress");
   });
 });

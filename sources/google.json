@@ -1,6 +1,9 @@
 [
   {
     "key": "careers",
-    "company": "Google"
+    "company": "Google",
+    "params": {
+      "egress": "local"
+    }
   }
 ]

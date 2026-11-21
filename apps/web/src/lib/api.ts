@@ -11,7 +11,7 @@ import { answer, type EdgeCache, type PublicDeps } from "@/lib/public";
  * One request to the internal API: the service binding in production, `API_URL` in local dev. The API's public reads
  * need no token.
  */
-export function upstream(path: string, init: RequestInit = {}): Promise<Response> {
+function upstream(path: string, init: RequestInit = {}): Promise<Response> {
   return env.API
     ? env.API.fetch(new Request(`https://api.internal${path}`, init))
     : fetch(`${env.API_URL}${path}`, init);

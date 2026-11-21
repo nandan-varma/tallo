@@ -13,21 +13,8 @@ import type { Db } from "./db.ts";
 import type { JobRow } from "./schema.ts";
 import { companies, jobs, runs, sources, titleTokens } from "./schema.ts";
 
-/** Catalog search: free text, paging, and the stale-source switch. The database filters nothing else. */
-export const searchSchema = z.object({
-  q: z.string().trim().max(200).optional(),
-  /** Include jobs from sources that stopped listing for STALE_HIDE_DAYS. */
-  includeStale: z.coerce.boolean().optional(),
-  cursor: z
-    .string()
-    .regex(/^\d+\.\d+$/)
-    .optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
-});
-export type Search = z.infer<typeof searchSchema>;
-
 /** Safe FTS5 expression: every term must match, the last as a prefix. */
-function ftsQuery(q: string): string | undefined {
+export function ftsQuery(q: string): string | undefined {
   const terms = q.toLowerCase().match(/[\p{L}\p{N}]+/gu);
   return terms?.map((t, i) => `"${t}"${i === terms.length - 1 ? "*" : ""}`).join(" ");
 }
@@ -132,12 +119,20 @@ function candidateFilter(spec: RankedSpec, now: number): SQL[] {
 }
 
 /**
- * The best `RANK_CANDIDATES` rows for a MATCH that pass `filter`, by bm25 (BM25_WEIGHTS), ties by rowid. A bounded
- * subquery: however broad the terms, no more rows than this are read from the index.
+ * How many best-by-bm25 index entries the candidate cut takes before the row filters run. FTS5 must score every match
+ * to order them, but reading and joining only this many rows keeps a broad term ("manager": 160k matches) at about
+ * 150 ms instead of 5 s on D1. A filter that removes most of this window (closed, duplicate or stale rows, a narrow
+ * country or date window) leaves fewer than `RANK_CANDIDATES` candidates; no more than the window is ever considered.
+ */
+export const FTS_WINDOW = 10000;
+
+/**
+ * The best `RANK_CANDIDATES` rows for a MATCH that pass `filter`, by bm25 (BM25_WEIGHTS), ties by rowid. The cut on
+ * the index comes first (`FTS_WINDOW`), then the row filter, so the work is bounded however broad the terms.
  */
 function candidatesFor(match: string, filter: SQL[]) {
   const score = sql`bm25(jobs_fts, ${sql.raw(BM25_WEIGHTS.join(", "))})`;
-  return sql`(SELECT jobs_fts.rowid AS id, ${score} AS score FROM jobs_fts JOIN jobs ON jobs.id = jobs_fts.rowid WHERE jobs_fts MATCH ${match} AND ${and(...filter)} ORDER BY ${score}, jobs_fts.rowid LIMIT ${RANK_CANDIDATES})`;
+  return sql`(SELECT w.id AS id, w.score AS score FROM (SELECT rowid AS id, ${score} AS score FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY score, rowid LIMIT ${FTS_WINDOW}) AS w JOIN jobs ON jobs.id = w.id WHERE ${and(...filter)} ORDER BY w.score, w.id LIMIT ${RANK_CANDIDATES})`;
 }
 
 /**
@@ -148,7 +143,7 @@ function candidatesFor(match: string, filter: SQL[]) {
  */
 export const groupKey = sql`${jobs.companySlug} || char(31) || lower(${jobs.title}) || char(31) || coalesce(${jobs.sourceId} || char(31) || ${jobs.requisitionId}, '')`;
 
-const summary = {
+export const summary = {
   id: jobs.id,
   title: jobs.title,
   applyUrl: jobs.applyUrl,
@@ -215,40 +210,6 @@ function listedJobs(now: number): SQL[] {
 }
 
 /**
- * Newest first, keyset-paged: `GET /v1/jobs` (which requires `q`). Free text is prefix-matched on its last word.
- * Text with no searchable word matches nothing, the same as `rankedJobs`.
- */
-export async function searchJobs(db: Db, input: Search, now = Math.floor(Date.now() / 1000)) {
-  const match = input.q ? ftsQuery(input.q) : undefined;
-  if (input.q && !match) return { jobs: [], nextCursor: null };
-  const where: (SQL | undefined)[] = [
-    ...visibleJobs(now, input),
-    match
-      ? sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`
-      : undefined,
-  ];
-  if (input.cursor) {
-    const [at, id] = input.cursor.split(".").map(Number);
-    where.push(sql`(${jobs.sortAt}, ${jobs.id}) < (${at}, ${id})`);
-  }
-  const rows = await db
-    .select(summary)
-    .from(jobs)
-    .where(and(...where))
-    .orderBy(desc(jobs.sortAt), desc(jobs.id))
-    .limit(input.limit + 1);
-  const page = rows.slice(0, input.limit).map(({ facts, ...row }) => ({
-    ...row,
-    pay: payOf(facts),
-  }));
-  const last = page.at(-1);
-  return {
-    jobs: page,
-    nextCursor: rows.length > input.limit && last ? `${last.sortAt}.${last.id}` : null,
-  };
-}
-
-/**
  * The results of a date-sorted search: `recent` and `posted` by `sort_at` (then id), `added` by id. The same FTS
  * match, source freshness and place/remote filters as the ranked search, but no bm25 candidate cut and no grouping:
  * each open location is its own row, with `locations` still counting its open `dup_of` siblings.
@@ -267,7 +228,22 @@ async function dateJobs(
   if (sort === "posted") filter.push(sql`${jobs.postedAt} IS NOT NULL`);
   const remote = remoteOrPlaces(spec);
   if (remote) filter.push(remote);
-  const rows = await db
+  // Phase 1: the page's ids, ordered on the sort keys only (no facts, no per-row sibling count).
+  const order = sort === "added" ? [desc(jobs.id)] : [desc(jobs.sortAt), desc(jobs.id)];
+  const ids = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .innerJoin(sources, eq(sources.id, jobs.sourceId))
+    .where(
+      and(sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`, ...filter),
+    )
+    .orderBy(...order)
+    .limit(page.limit)
+    .offset(page.offset);
+  if (ids.length === 0) return [];
+  // Phase 2: the rows of that page, read by id and put back in order.
+  const list = JSON.stringify(ids.map(({ id }) => id));
+  const found = await db
     .select({
       ...summary,
       locations: groupLocations,
@@ -275,17 +251,20 @@ async function dateJobs(
     })
     .from(jobs)
     .innerJoin(sources, eq(sources.id, jobs.sourceId))
-    .where(
-      and(sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`, ...filter),
-    )
-    .orderBy(...(sort === "added" ? [desc(jobs.id)] : [desc(jobs.sortAt), desc(jobs.id)]))
-    .limit(page.limit)
-    .offset(page.offset);
-  return rows.map(({ facts, variants: _variants, ...row }) => ({
-    ...row,
-    pay: payOf(facts),
-    compensation: (facts.compensation as Money[] | undefined) ?? [],
-  }));
+    .where(sql`${jobs.id} IN (SELECT value FROM json_each(${list}))`);
+  const byId = new Map(found.map((row) => [row.id, row]));
+  return ids.flatMap(({ id }) => {
+    const row = byId.get(id);
+    if (!row) return [];
+    const { facts, variants: _variants, ...rest } = row;
+    return [
+      {
+        ...rest,
+        pay: payOf(facts),
+        compensation: (facts.compensation as Money[] | undefined) ?? [],
+      },
+    ];
+  });
 }
 
 /**
@@ -351,20 +330,6 @@ export async function rankedJobs(
       },
     ];
   });
-}
-
-export async function getJob(db: Db, id: number) {
-  const row = (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
-  return row ? { ...row, pay: payOf(row.facts) } : undefined;
-}
-
-/**
- * The job a public read may show: open, and from a source search still shows. A closed posting or a hidden source
- * answers undefined, as it does in search. A duplicate listing that is still open answers, as its own location.
- */
-export async function openJob(db: Db, id: number, now = Math.floor(Date.now() / 1000)) {
-  const state = await jobState(db, id, now);
-  return state.kind === "ok" ? state.job : undefined;
 }
 
 /**

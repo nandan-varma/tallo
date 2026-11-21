@@ -5,7 +5,7 @@ ATS boards and links straight to the employer's application. The database stores
 judged by whoever reads the results (a person, or their own AI). Nothing personal is stored. The design keeps the
 door open to other occupations and countries.
 
-Read `docs/PROGRESS.md` first when resuming. It says what is done, what is next and what is open.
+Read `docs/PROGRESS.md` first when resuming: what exists, what is settled, what is accepted as a limit.
 
 ## Shape
 
@@ -20,7 +20,7 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
 | `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` (the only write path), `queries.ts`, `BlobStore`.                                                |
 | `apps/api`           | Hono Worker: public read API (`/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, no auth) + ingest/admin (INGEST_TOKEN). D1 + R2.               |
 | `apps/web`           | Astro SSR pages (home, `/search`, `/llms.txt`) and the public proxy `/v1/*` (allowlist, rate limit, edge cache). Talks to the API via service binding. |
-| `apps/runner`        | Mac CLI (`tallo sync                                                                                                                                   | verify | sources`). Collects, maps, uploads. |
+| `apps/runner`        | Mac CLI (`tallo sync`, `verify`, `register`, ...). Collects the `egress: local` boards, runs by hand.                                                  |
 | `sources/*.json`     | Board configs, one array per platform. Reviewed, trusted configuration.                                                                                |
 
 ## Rules that must not be broken
@@ -49,6 +49,7 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
 
 ```
 pnpm check                      # lint + typecheck + tests (run before every commit)
+pnpm release                    # check, migrate D1, deploy API then web, smoke test (scripts/smoke.ts)
 pnpm test                       # vitest, all packages
 pnpm fix                        # biome autofix
 pnpm --filter @tallo/runner tallo sync -p greenhouse -n 20     # collect + upload (needs TALLO_* env)
@@ -70,17 +71,10 @@ Secrets live in Wrangler secrets / `.dev.vars` / `.env`, all gitignored. Never c
   native HTML forms and links over client state; add `client:*` only when interactivity truly needs it.
 - Tests sit next to the package (`test/`), use recorded fixtures for platforms, and fake `Http`/`fetch`
   instead of the network. Live checks go through `tallo verify`, not the test suite.
-- Commit messages: imperative, no AI attribution lines. Work on a branch, open a PR, link the issue.
-
-## Team workflow
-
-Stateless and GitHub-native: issues are the backlog, labels are status, PRs and comments are handoffs. Read
-`docs/workflow.md` (lifecycle, labels, comment formats, guardrails). Roles are defined in `.claude/agents/`;
-reviews follow `docs/review-checklist.md`; the main agent's duties are in `docs/orchestration.md`. Update
-`docs/PROGRESS.md` at the end of every session. To resume: `gh issue list`, `gh pr list`, `docs/PROGRESS.md`.
+- Commit messages: imperative, no AI attribution lines. Work on a branch and open a PR.
 
 ## Deeper docs
 
-`docs/architecture.md` (design, data model, protocol) · `docs/workflow.md` · `docs/adding-a-platform.md` ·
+`docs/architecture.md` (design, data model, protocol) · `docs/adding-a-platform.md` ·
 `docs/adding-sources.md` · `docs/runbook.md` (deploy, secrets, schedule) · `docs/platforms.md` (status) ·
 `docs/decisions.md` (why).

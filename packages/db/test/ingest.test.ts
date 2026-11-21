@@ -6,7 +6,6 @@ import {
   applyJobs,
   diff,
   finalize,
-  getJob,
   jdKey,
   listSources,
   memoryBlobs,
@@ -16,11 +15,10 @@ import {
   reapStaleRuns,
   reviveSources,
   schema,
-  searchJobs,
   startRun,
   storeRawPack,
 } from "../src/index.ts";
-import { testDb } from "../src/testing.ts";
+import { getJob, searchJobs, testDb } from "../src/testing.ts";
 
 const source: SourceConfig = {
   id: "greenhouse:acme",

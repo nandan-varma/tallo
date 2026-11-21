@@ -13,7 +13,6 @@
     "@tallo/catalog": "workspace:*",
     "@tallo/contracts": "workspace:*",
     "fast-xml-parser": "^5.12.1",
-    "node-html-parser": "^9.0.7",
-    "p-queue": "^10.0.0"
+    "node-html-parser": "^9.0.7"
   }
 }

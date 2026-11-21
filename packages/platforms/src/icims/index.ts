@@ -21,7 +21,7 @@ import { describe, htmlText, locations, lookup, rows, SchemaError } from "../kit
  *   the custom domain): the Jibe site serves JSON at `/api/jobs`, description included. Such a source
  *   sets `params.jibeHost` to one of {@link JIBE_HOSTS}; the key stays the iCIMS tenant.
  */
-export const JIBE_HOSTS = [
+const JIBE_HOSTS = [
   "www.github.careers",
   "jobs.wakemed.org",
   "jobs.statefarm.com",

@@ -1,16 +1,14 @@
 import { RETIRE_MAX_ROWS } from "@tallo/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  getJob,
   jdKey,
   memoryBlobs,
   rawKey,
   rebuildDuplicates,
   retireSources,
   schema,
-  searchJobs,
 } from "../src/index.ts";
-import { testDb } from "../src/testing.ts";
+import { getJob, searchJobs, testDb } from "../src/testing.ts";
 
 const NOW = 2_000_000_000;
 const OLD = "greenhouse:old";

@@ -39,7 +39,7 @@ import { createHostLimiter, type HostLimiter } from "@tallo/http";
  * well under the budget even before the budget check runs.
  */
 export const DEFAULT_SLICE_SUBREQUESTS = 800;
-export const SLICE_POSTINGS = 100;
+const SLICE_POSTINGS = 100;
 export const DEFAULT_SLICE_MS = 5 * 60_000;
 export const DEFAULT_BATCH = 40;
 /**
@@ -76,7 +76,7 @@ const nowMs = (env: CollectEnv) => env.now?.() ?? Date.now();
 const nowSeconds = (env: CollectEnv) => Math.floor(nowMs(env) / 1000);
 
 /** The write side of ingest over the D1 and R2 bindings: the same functions the HTTP routes call. */
-export function directIngest(db: Db, blobs: BlobStore): Ingest {
+function directIngest(db: Db, blobs: BlobStore): Ingest {
   return {
     startRun: (run) => startRun(db, run),
     diff: (runId, postings) => diff(db, runId, postings),
