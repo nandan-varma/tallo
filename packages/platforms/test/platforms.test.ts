@@ -249,6 +249,37 @@ describe("workable", () => {
     expect(job.locations[0]).toMatchObject({ text: "Netherlands", countryCode: "NL" });
     expect(job.locations[0]?.city).toBeUndefined();
   });
+  it("falls back to the job-level place when every per-place entry is blank", async () => {
+    const { ctx } = fakeCtx(() => fixture("workable-list"));
+    const { items } = await drain(workable.list(src, ctx));
+    const job = items[0]!;
+    const [first, second] = jobs("workable-list", "jobs");
+    const noPlaces = workable.map({ id: job.id, listing: { ...obj(first), locations: [] } }, src);
+    expect(noPlaces.locations).toEqual([
+      {
+        text: "Paris, Île-de-France, France",
+        city: "Paris",
+        region: "Île-de-France",
+        country: "France",
+        countryCode: "FR",
+        remote: true,
+        primary: true,
+      },
+    ]);
+    const blankPlace = workable.map(
+      {
+        id: job.id,
+        listing: { ...obj(second), locations: [{ city: "", region: "", country: "" }] },
+      },
+      src,
+    );
+    expect(blankPlace.locations[0]).toMatchObject({
+      text: "Netherlands",
+      countryCode: "NL",
+      primary: true,
+    });
+    expect(blankPlace.locations[0]?.city).toBeUndefined();
+  });
   it("fails on a malformed response and keeps an empty board non-authoritative", async () => {
     await expect(drain(workable.list(src, fakeCtx(() => ({ jobs: "x" })).ctx))).rejects.toThrow(
       SchemaError,

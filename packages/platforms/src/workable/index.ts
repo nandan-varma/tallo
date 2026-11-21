@@ -1,10 +1,10 @@
-import type { Platform } from "@tallo/contracts";
+import type { JobLocation, Platform } from "@tallo/contracts";
 import { arr, id, obj, str } from "@tallo/contracts";
 import { describe, locations, lookup, requireKey, rows, SchemaError } from "../kit.ts";
 
 export const workable: Platform = {
   id: "workable",
-  version: 1,
+  version: 2,
   hosts: ["apply.workable.com"],
   validate: (source) => requireKey(source),
 
@@ -28,7 +28,8 @@ export const workable: Platform = {
   map({ id: postingId, listing }) {
     const j = lookup(listing);
     const remote = j("telecommuting") === true;
-    const places = arr(j("locations"))
+    const text = (key: string) => str(j(key)) || undefined;
+    const places: { text: unknown; hints: Partial<JobLocation> }[] = arr(j("locations"))
       .map(obj)
       // `hidden` only hides the place from the careers page; the source still states it.
       .map((l) => ({
@@ -41,7 +42,17 @@ export const workable: Platform = {
           ...(remote ? { remote: true } : {}),
         },
       }));
-    const text = (key: string) => str(j(key)) || undefined;
+    // The widget also states the place at the job level; use it when every per-place entry is blank.
+    if (places.every((place) => !place.text))
+      places.push({
+        text: [text("city"), text("state"), text("country")].filter(Boolean).join(", "),
+        hints: {
+          city: text("city"),
+          region: text("state"),
+          country: text("country"),
+          ...(remote ? { remote: true } : {}),
+        },
+      });
     return {
       postingId,
       title: str(j("title")) ?? "",

@@ -1,6 +1,19 @@
 # Progress
 
-_Last updated: 2026-11-20; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+_Last updated: 2026-11-21; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+
+## Session 2026-11-21: group 3 field audit (workable place fallback)
+
+- The read-only audit of personio, recruitee, teamtailor, workable and bamboohr found one real gap: Workable's
+  mapper read only `locations[]`, so a posting whose per-place entries are absent or blank lost the job-level
+  `city`/`state`/`country` the widget states. `workable.map` now uses those job-level fields only when every
+  `locations[]` entry has no text. `version` bumped 1 → 2 so retained postings re-map.
+- Regression covers both shapes (missing `locations`, one all-blank entry) in `platforms.test.ts`.
+- Deliberately unchanged: Workable `created_at`, Recruitee `state_code`, BambooHR `locationType`/`jobCategoryId`/
+  `postalCode` and Teamtailor `address`/`zip` have no typed home (or, for `locationType`, unverified semantics),
+  so they stay in raw/extras; mapping them would not improve search and would force a platform-wide re-fetch.
+- `pnpm check`: 670 tests pass. Full audit at /tmp/tallo-fields-group3.md; handoff at
+  /tmp/tallo-fields-group3-handoff.md. No production access, no deploy.
 
 ## Core DB audit patch (branch `fix/db-audit`, review pending)
 
