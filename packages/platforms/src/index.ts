@@ -6,6 +6,7 @@ import { greenhouse } from "./greenhouse/index.ts";
 import { icims } from "./icims/index.ts";
 import { jobvite } from "./jobvite/index.ts";
 import { lever } from "./lever/index.ts";
+import { meta } from "./meta/index.ts";
 import { netflix } from "./netflix/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
 import { personio } from "./personio/index.ts";
@@ -33,6 +34,7 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     recruitee,
     teamtailor,
     bamboohr,
+    meta,
   ].map((p) => [p.id, p]),
 );
 
@@ -54,6 +56,7 @@ export {
   icims,
   jobvite,
   lever,
+  meta,
   netflix,
   oraclecloud,
   personio,
