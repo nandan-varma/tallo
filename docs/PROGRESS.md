@@ -19,6 +19,11 @@ _Last updated: 2026-11-20; current handoff below. Historical notes: 2026-10-28 (
   A ten-board Greenhouse diagnostic batch completed cleanly. #114 tracks the load investigation.
 - Added overload-specific HTTP 503 with Retry-After 10, including wrapped Drizzle errors. Client tests
   prove ingest waits the full window before retrying. Other errors retain 500 and no query text is exposed.
+- Live sweep found Liberty Mutual's `addressCountry` can be an unresolved source template, not a
+  country code. iCIMS v2 passes it as a structured country value to the existing ISO normalization;
+  unknown codes stay unset. Regression checks cover the real template and a full country name.
+  `pnpm check`: 547 tests. Targeted Liberty Mutual retry runs the corrected mapper; other in-flight
+  valid v1 boards finish normally. The next sync detects v2 and re-fetches old v1 postings by design.
 - Original scope excludes Workday and Oracle Cloud from this one-off sweep. Keep them excluded until
   follow-up optimizations are evaluated. Cloud collection remains OFF; hourly housekeeping stays.
 - Research #88 is written up in docs/research/hog-fetching.md and hog-fetching-oracle.md.

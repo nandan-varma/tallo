@@ -149,7 +149,7 @@ function parseJobPage(html: string): JsonObject {
 
 export const icims: Platform = {
   id: "icims",
-  version: 1,
+  version: 2,
   hosts: ["*.icims.com", ...JIBE_HOSTS],
 
   validate(source) {
@@ -214,7 +214,9 @@ export const icims: Platform = {
     const structure = (a: JsonObject | undefined) => ({
       city: real(a?.addressLocality),
       region: real(a?.addressRegion),
-      countryCode: real(a?.addressCountry)?.toUpperCase(),
+      // sourceLocation normalizes structured country names/codes through ISO tables and leaves
+      // unknown values (including unresolved source templates) without a country code.
+      country: real(a?.addressCountry),
     });
     // The card's own text is the place as the portal states it; the JSON-LD address (when it names
     // real parts) adds structure only where it clearly describes that one place.
