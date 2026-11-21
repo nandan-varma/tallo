@@ -1,6 +1,14 @@
 import type { JobLocation, Json, Money, PayInterval, Platform } from "@tallo/contracts";
 import { arr, id, num, obj, str } from "@tallo/contracts";
-import { describe, locations, requireKey, rows, workModeOf } from "../kit.ts";
+import {
+  conditional,
+  describe,
+  locations,
+  notModified,
+  requireKey,
+  rows,
+  workModeOf,
+} from "../kit.ts";
 
 const COMPONENT: Record<string, Money["component"]> = {
   Salary: "base",
@@ -63,11 +71,17 @@ export const ashby: Platform = {
 
   async *list(source, ctx) {
     const url = `https://api.ashbyhq.com/posting-api/job-board/${source.key}?includeCompensation=true`;
-    const { data } = await ctx.http.getJson(url);
+    const res = await conditional(ctx, url);
+    if (res.status === 304) return notModified(ctx);
+    const { data } = res;
     for (const job of rows(obj(data).jobs, "jobs")) {
       if (job.isListed !== false) yield { id: id(job.id) ?? "", listing: job };
     }
-    return { complete: true, emptyIsAuthoritative: true };
+    return {
+      complete: true,
+      emptyIsAuthoritative: true,
+      ...(res.etag ? { validator: res.etag } : {}),
+    };
   },
 
   map({ id: postingId, listing }) {

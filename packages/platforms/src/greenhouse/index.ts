@@ -1,6 +1,16 @@
 import type { Money, Platform, SourceConfig } from "@tallo/contracts";
 import { arr, id, obj, str } from "@tallo/contracts";
-import { describe, locations, lookup, pairs, requireKey, rows, workModeOf } from "../kit.ts";
+import {
+  conditional,
+  describe,
+  locations,
+  lookup,
+  notModified,
+  pairs,
+  requireKey,
+  rows,
+  workModeOf,
+} from "../kit.ts";
 
 const base = (s: SourceConfig) =>
   `https://${s.params.region === "eu" ? "boards-api.eu.greenhouse.io" : "boards-api.greenhouse.io"}/v1/boards/${s.key}/jobs`;
@@ -37,9 +47,15 @@ export const greenhouse: Platform = {
   validate: (source) => requireKey(source),
 
   async *list(source, ctx) {
-    const { data } = await ctx.http.getJson(`${base(source)}?content=true`);
-    for (const job of rows(obj(data).jobs, "jobs")) yield { id: id(job.id) ?? "", listing: job };
-    return { complete: true, emptyIsAuthoritative: true };
+    const res = await conditional(ctx, `${base(source)}?content=true`);
+    if (res.status === 304) return notModified(ctx);
+    for (const job of rows(obj(res.data).jobs, "jobs"))
+      yield { id: id(job.id) ?? "", listing: job };
+    return {
+      complete: true,
+      emptyIsAuthoritative: true,
+      ...(res.etag ? { validator: res.etag } : {}),
+    };
   },
 
   /** Pay transparency and application questions only exist on the single-job endpoint. */

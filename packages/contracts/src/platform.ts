@@ -56,8 +56,9 @@ export interface Listing {
    */
   validator?: string;
   /**
-   * The listing answered 304 to the stored validator, so no postings were yielded. The runner
-   * must then reuse the posting ids it stored with that validator; without them it fails the run.
+   * The listing answered 304 to the stored validator: the board is what the last complete, fully
+   * applied run stored, and no postings were yielded. Only legal when `CollectContext.validator`
+   * was sent. The run then neither diffs nor closes anything (see `Finalize.notModified`).
    */
   notModified?: boolean;
 }
@@ -86,7 +87,11 @@ export interface HttpInit {
 export interface CollectContext {
   http: Http;
   signal?: AbortSignal;
-  /** Validator stored from this source's last complete, fully applied run (see `Listing.validator`). */
+  /**
+   * The raw ETag stored from this source's last complete, fully applied run (see `Listing.validator`),
+   * already checked against the platform and prepare versions. Only platforms whose listing call
+   * honors `If-None-Match` use it.
+   */
   validator?: string;
   /** Safety valve for runaway pagination, per source. */
   maxPostings: number;

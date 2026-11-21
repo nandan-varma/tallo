@@ -19,6 +19,26 @@ sites and long-tail ATS.
 | workable, recruitee, gem, rippling                | 3    | todo                                |                             | candidates once sources are found                                                                            |
 | amazon, apple, google, microsoft, meta, uber, ... | 3    | todo                                |                             | one adapter per company site; browser-walled sites need a managed browser                                    |
 
+## Conditional listing (ETag)
+
+A platform whose whole-board listing is one response may send the stored `ETag` as `If-None-Match` and
+treat 304 as "unchanged since the last complete, fully applied run" (`Listing.notModified`). The run then
+costs one request: no diff, no details, no uploads, and it never closes, ages or reopens a job. Probed live
+(November 2026, one board each, 3 s apart, `GET`/`POST` the same call the collector makes):
+
+| Platform        | ETag sent    | If-None-Match | Enabled | Why                                                             |
+| --------------- | ------------ | ------------- | ------- | --------------------------------------------------------------- |
+| greenhouse      | weak, stable | 304           | yes     | stripe `?content=true`: 6.1 MB -> 0 B                           |
+| ashby           | weak, stable | 304           | yes     | 1password: 2.3 MB -> 0 B (`max-age=60`)                         |
+| lever           | weak, stable | 200 (full)    | no      | palantir: the tag is sent but never honored; no `Last-Modified` |
+| smartrecruiters | weak, stable | 200 (full)    | no      | AbbVie page 1: not honored; the listing is also paginated       |
+| oraclecloud     | none         | n/a           | no      | `no-store`; paginated                                           |
+| workday         | none         | n/a           | no      | `no-store`; POST, paginated, facet-split                        |
+
+No probed host sent `Last-Modified`. The stored validator is versioned with the platform `version` and the
+catalog `PREPARE_VERSION`, so a `map` change is never skipped. It is kept only after a complete listing with
+every posting applied and no job on a first absence; any other run clears it.
+
 Workday requires a nonnegative integer `total` on every page. It keeps the highest reported total
 if a board changes while paging, and marks the listing incomplete when the final count of postings
 (unique ones plus rows without an `externalPath`) falls short. Facet coverage or duplicate pages

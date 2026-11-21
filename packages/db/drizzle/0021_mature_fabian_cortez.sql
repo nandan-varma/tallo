@@ -1,0 +1,1 @@
+ALTER TABLE `sources` ADD `listing_validator` text;

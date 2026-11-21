@@ -36,6 +36,46 @@ describe("backoffMs", () => {
   });
 });
 
+describe("conditional requests", () => {
+  const notModified = () => new Response(null, { status: 304, headers: { etag: 'W/"v1"' } });
+
+  it("passes headers through and reports the ETag of a 200", async () => {
+    const seen: (string | null)[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      seen.push(
+        new Headers(init?.headers).get("if-none-match") ??
+          (input as Request).headers?.get("if-none-match"),
+      );
+      return json({ ok: true }, 200, { etag: 'W/"v1"' });
+    };
+    const res = await make(fetchImpl).getJson("https://api.example.com/x", {
+      headers: { "if-none-match": 'W/"v0"' },
+      okStatuses: [304],
+    });
+    expect(seen).toEqual(['W/"v0"']);
+    expect(res).toMatchObject({ status: 200, data: { ok: true }, etag: 'W/"v1"' });
+  });
+
+  it("returns a 304 as a response, not a redirect, when the caller allows it", async () => {
+    const fetchImpl = vi.fn(async () => notModified());
+    const res = await make(fetchImpl as unknown as typeof fetch).getJson(
+      "https://api.example.com/x",
+      {
+        okStatuses: [304],
+      },
+    );
+    expect(res).toMatchObject({ status: 304, data: null, etag: 'W/"v1"' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("still treats a 304 as an error when the caller did not ask for it", async () => {
+    const fetchImpl = (async () => notModified()) as unknown as typeof fetch;
+    await expect(make(fetchImpl).getJson("https://api.example.com/x")).rejects.toBeInstanceOf(
+      HttpError,
+    );
+  });
+});
+
 describe("createHttp", () => {
   it("parses JSON and retries 5xx then succeeds", async () => {
     const f = vi

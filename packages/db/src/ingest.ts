@@ -1,4 +1,11 @@
-import type { CreateRun, Finalize, FinalizeResult, JobFacts } from "@tallo/contracts";
+import type {
+  CreateRun,
+  Finalize,
+  FinalizeInput,
+  FinalizeResult,
+  JobFacts,
+  StartedRun,
+} from "@tallo/contracts";
 import {
   CLOSE_AFTER_ABSENT_RUNS,
   DEAD_AFTER_NOT_FOUND_RUNS,
@@ -58,9 +65,17 @@ async function run(db: Db, runId: string) {
 }
 
 /** Idempotent on runId. One running run per source at a time (a stale one is superseded). */
-export async function startRun(db: Db, input: CreateRun, now = nowSeconds()): Promise<void> {
+export async function startRun(db: Db, input: CreateRun, now = nowSeconds()): Promise<StartedRun> {
+  const stored = async () =>
+    (
+      await db
+        .select({ validator: sources.listingValidator })
+        .from(sources)
+        .where(eq(sources.id, input.source.id))
+        .limit(1)
+    )[0]?.validator ?? null;
   const existing = (await db.select().from(runs).where(eq(runs.id, input.runId)).limit(1))[0];
-  if (existing) return;
+  if (existing) return { validator: await stored() };
   const busy = (
     await db
       .select({ id: runs.id })
@@ -76,6 +91,7 @@ export async function startRun(db: Db, input: CreateRun, now = nowSeconds()): Pr
   )[0];
   if (busy) throw new IngestError(409, `Source ${input.source.id} is already running (${busy.id})`);
   const { source } = input;
+  const validator = await stored();
   const fields = {
     platform: source.platform,
     key: source.key,
@@ -98,6 +114,7 @@ export async function startRun(db: Db, input: CreateRun, now = nowSeconds()): Pr
       status: "running",
     }),
   ]);
+  return { validator };
 }
 
 /** Which listed postings are new or changed. Pure read: nothing is written. */
@@ -241,7 +258,11 @@ export async function applyJobs(
   // Jobs are visible as soon as they land, even if the run never finalizes.
   const listed = db
     .update(sources)
-    .set({ lastListedAt: sql`coalesce(${sources.lastListedAt}, ${now})` })
+    .set({
+      lastListedAt: sql`coalesce(${sources.lastListedAt}, ${now})`,
+      // Jobs changed, so the stored listing no longer describes the catalog until a run finishes cleanly.
+      listingValidator: null,
+    })
     .where(eq(sources.id, sourceId));
   await batch(db, [...upserts, counters, listed]);
   return { applied: ready.length, missingBlobs };
@@ -254,9 +275,10 @@ export async function applyJobs(
 export async function finalize(
   db: Db,
   runId: string,
-  fin: Finalize,
+  claimed: FinalizeInput,
   now = nowSeconds(),
 ): Promise<FinalizeResult> {
+  let fin: Finalize = { boardNotFound: false, notModified: false, ...claimed };
   const current = await run(db, runId);
   if (current.status !== "running") {
     return {
@@ -274,13 +296,33 @@ export async function finalize(
       tier: sources.tier,
       consecutiveFailures: sources.consecutiveFailures,
       failureCount: sources.failureCount,
+      listingValidator: sources.listingValidator,
     })
     .from(sources)
     .where(eq(sources.id, current.sourceId))
     .limit(1);
+  // A 304 vouches for the stored listing only. Without a matching stored validator it proves nothing:
+  // the run becomes a failed one (never complete, never closing).
+  if (fin.notModified && (!before?.listingValidator || before.listingValidator !== fin.validator)) {
+    fin = {
+      ...fin,
+      notModified: false,
+      listingComplete: false,
+      detailsComplete: false,
+      seenIds: [],
+      validator: null,
+      issues: [
+        ...fin.issues,
+        { code: "http" as const, message: "Listing answered 304 without a stored validator" },
+      ].slice(0, 50),
+    };
+  }
   const wasStale = (before?.lastListedAt ?? 0) < now - STALE_HIDE_DAYS * 86400;
+  // A 304 lists nothing, so it can never age out or reopen a job: it only confirms the last listing.
   const closureApplied =
-    fin.listingComplete && (fin.seenIds.length > 0 || fin.emptyIsAuthoritative);
+    !fin.notModified && fin.listingComplete && (fin.seenIds.length > 0 || fin.emptyIsAuthoritative);
+  // Jobs on their first absence need another full listing to be closed, so the board cannot be skipped yet.
+  let pendingAbsence = false;
   let closed = 0;
   let reopened = 0;
   const statements: BatchItem<"sqlite">[] = [];
@@ -306,6 +348,7 @@ export async function finalize(
     const absent = gone.filter((j) => j.absentRuns + 1 < CLOSE_AFTER_ABSENT_RUNS);
     reopened = reopening.length;
     closed = closing.length;
+    pendingAbsence = absent.length > 0;
     // Only rows that change group (closing, reopening) bump updated_at, which is what the regroup reads.
     // The other rows get the counter alone: a first absence or a recovery does not change any group.
     for (const ids of chunks(
@@ -380,7 +423,7 @@ export async function finalize(
         status,
         finishedAt: fin.finishedAt,
         requests: fin.requests,
-        seen: fin.seenIds.length,
+        seen: fin.notModified ? null : fin.seenIds.length,
         closed: closureApplied ? closed : null,
         reopened: closureApplied ? reopened : null,
         rawKey: current.rawKey ?? fin.rawKey,
@@ -394,6 +437,15 @@ export async function finalize(
         ...health,
         // Any run that did not list completely is a failed run; a complete one resets the back-off.
         failureCount: fin.listingComplete ? 0 : sql`${sources.failureCount} + 1`,
+        // Kept only by a listing that was complete and fully applied; a 304 re-confirms the stored one.
+        ...(fin.notModified
+          ? {}
+          : {
+              listingValidator:
+                fin.listingComplete && fin.detailsComplete && !pendingAbsence
+                  ? (fin.validator ?? null)
+                  : null,
+            }),
         ...(listed ? { lastListedAt: now } : {}),
         nextDueAt: nextDueAt({
           tier: before?.tier ?? "normal",
