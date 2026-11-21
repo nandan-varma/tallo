@@ -57,6 +57,24 @@ export const SEARCH_CACHE_CONTROL = "public, max-age=60, s-maxage=300";
 /** A posting changes rarely: cache its facts and description for an hour at the edge. */
 export const JOB_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
 
+/**
+ * Stable negative answers for one posting id, by state (see `jobState`). A closed posting or one from a board that stopped
+ * listing can come back only through a new listing, so a minute of cache is enough to absorb repeat asks. An id with no
+ * row is stable for longer. Parameter errors are never cached (`no-store`).
+ */
+export const NEGATIVE_CACHE_CONTROL = {
+  closed: "public, max-age=60, s-maxage=60",
+  source_hidden: "public, max-age=60, s-maxage=60",
+  unknown: "public, max-age=3600, s-maxage=3600",
+} as const;
+
+/**
+ * The response header the API uses to report what an answer cost the database (`statements`, `rows_read`,
+ * `rows_written`, `rows_returned`, JSON). Only the public proxy reads it: it logs the line and strips the header before
+ * anything is cached or returned to a caller.
+ */
+export const PUBLIC_COST_HEADER = "x-tallo-cost";
+
 /** A value must contain a letter or a digit: punctuation alone matches nothing and explains nothing. */
 const hasWord = (value: string) => /[\p{L}\p{N}]/u.test(value);
 
@@ -375,6 +393,16 @@ function fromBase64url(text: string): string | null {
 /** The opaque cursor for the page at `offset` of this query. */
 export function encodeCursor(query: CursorQuery, offset: number): string {
   return toBase64url(`${offset}.${checksum(query, offset)}`);
+}
+
+/**
+ * The offset a cursor carries, read without its query and without its checksum. For logs only: it is not a proof the
+ * cursor is valid (`decodeCursor` is).
+ */
+export function cursorOffset(cursor: string): number | null {
+  const text = fromBase64url(cursor);
+  const match = text === null ? null : /^(\d{1,4})\.[0-9a-f]{8}$/.exec(text);
+  return match ? Number(match[1]) : null;
 }
 
 /** The offset a cursor stands for, or null when it is malformed, edited, beyond the cap, or for another query. */

@@ -5,9 +5,11 @@ import {
   descriptionChunk,
   encodeCursor,
   JOB_CACHE_CONTROL,
+  NEGATIVE_CACHE_CONTROL,
   openApiDocument,
   POSTING_ID_SOURCE,
   PUBLIC_API_VERSION,
+  PUBLIC_COST_HEADER,
   PUBLIC_MAX_URL_CHARS,
   type PublicCompanyList,
   type PublicDescriptionResponse,
@@ -25,6 +27,7 @@ import {
 import {
   type BlobStore,
   type Db,
+  type JobState,
   jdKey,
   jobState,
   listCompanies,
@@ -34,6 +37,7 @@ import {
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { z } from "zod";
+import { measure } from "./meter.ts";
 import { locationOf, postedOf, searchPage, seenAt } from "./search.ts";
 
 /** Reads a posting's description from its gzipped blob in R2; null when the blob is gone. */
@@ -192,6 +196,23 @@ const unknown = (id: number) =>
   );
 
 /**
+ * The answer for a posting that cannot be read. These states are stable, so they are cacheable for the state's own TTL
+ * (`NEGATIVE_CACHE_CONTROL`): a repeat ask for a closed or unknown id should not cost the database each time.
+ */
+function notReadable(c: Context, id: number, state: Exclude<JobState, { kind: "ok" }>) {
+  if (state.kind === "closed") {
+    c.header("cache-control", NEGATIVE_CACHE_CONTROL.closed);
+    return c.json(closed(id), 410);
+  }
+  if (state.kind === "source_hidden") {
+    c.header("cache-control", NEGATIVE_CACHE_CONTROL.source_hidden);
+    return c.json(sourceHidden(id), 404);
+  }
+  c.header("cache-control", NEGATIVE_CACHE_CONTROL.unknown);
+  return c.json(unknown(id), 404);
+}
+
+/**
  * The public read routes: search, one posting, its description, and discovery. No auth. Only these paths are served
  * to the public; the web Worker forwards exactly these (see `apps/web/src/lib/public.ts`).
  */
@@ -217,6 +238,13 @@ export function publicRoutes({
     await next();
   });
   routes.options("*", (c) => c.body(null, 204));
+
+  // Every public read is measured: what the database did for it leaves in one header, which the public proxy logs and
+  // strips before anything is cached or returned.
+  routes.use("/v1/*", async (c, next) => {
+    const cost = await measure(next);
+    c.res.headers.set(PUBLIC_COST_HEADER, JSON.stringify(cost));
+  });
 
   routes.get("/v1/openapi.json", hidden, (c) => {
     c.header("cache-control", "public, max-age=3600, s-maxage=3600");
@@ -298,11 +326,7 @@ export function publicRoutes({
     const id = jobId(c.req.param("id"));
     if (id === null) return fail(c, 400, badId());
     const state = await jobState(db, id);
-    if (state.kind !== "ok") {
-      if (state.kind === "closed") return fail(c, 410, closed(id));
-      if (state.kind === "source_hidden") return fail(c, 404, sourceHidden(id));
-      return fail(c, 404, unknown(id));
-    }
+    if (state.kind !== "ok") return notReadable(c, id, state);
     const job = state.job;
 
     const text = await descriptionOf(job.jdHash);
@@ -350,11 +374,7 @@ export function publicRoutes({
     if (!parsed.ok) return fail(c, 400, parsed.body);
 
     const state = await jobState(db, id);
-    if (state.kind !== "ok") {
-      if (state.kind === "closed") return fail(c, 410, closed(id));
-      if (state.kind === "source_hidden") return fail(c, 404, sourceHidden(id));
-      return fail(c, 404, unknown(id));
-    }
+    if (state.kind !== "ok") return notReadable(c, id, state);
     const job = state.job;
     const text = await descriptionOf(job.jdHash);
     if (text === null) {

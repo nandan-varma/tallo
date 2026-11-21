@@ -196,9 +196,14 @@ export function visibleJobs(now: number, { includeStale = false } = {}): SQL[] {
   ];
 }
 
-/** The source of the row has listed recently enough that search shows its postings (see `STALE_HIDE_DAYS`). */
+/**
+ * The source of the row has listed recently enough that search shows its postings (see `STALE_HIDE_DAYS`). The stale
+ * sources are one set, read once per statement (a non-correlated IN), not a probe of `sources` per candidate row. A
+ * source that never listed (NULL) is stale, as `coalesce(last_listed_at, 0)` made it; the cutoff is always positive, so
+ * the two spellings agree. `sources_last_listed_idx` serves the set.
+ */
 function sourceListed(now: number): SQL {
-  return sql`NOT EXISTS (SELECT 1 FROM sources WHERE sources.id = ${jobs.sourceId} AND coalesce(sources.last_listed_at, 0) < ${now - STALE_HIDE_DAYS * 86400})`;
+  return sql`${jobs.sourceId} NOT IN (SELECT sources.id FROM sources WHERE sources.last_listed_at IS NULL OR sources.last_listed_at < ${now - STALE_HIDE_DAYS * 86400})`;
 }
 
 /**
@@ -299,26 +304,53 @@ export async function rankedJobs(
   if (sort !== "relevance") return dateJobs(db, spec, sort, page, now);
   const match = rankedMatch(spec);
   if (!match) return [];
-  const rows = await db
-    .select({
-      ...summary,
-      score: sql<number>`min(cand.score)`,
-      // The open siblings of this canonical row, this one included: the same `dup_of` group `listVariants` lists.
-      locations: summary.variants,
-      sourceLastListedAt: sources.lastListedAt,
-    })
-    .from(sql`${candidatesFor(match, candidateFilter(spec, now))} AS cand`)
-    .innerJoin(jobs, sql`${jobs.id} = cand.id`)
-    .innerJoin(sources, eq(sources.id, jobs.sourceId))
-    .groupBy(groupKey)
-    .orderBy(sql`score`, jobs.id)
+  // Phase 1, the leaders: each group's best candidate (lowest bm25, then lowest id), ordered and paged on ids and scores
+  // only. The candidate cut is bounded, so this reads no facts or excerpts.
+  const leaders = await db
+    .select({ id: sql<number>`leader.id`, score: sql<number>`leader.score` })
+    .from(
+      sql`(SELECT cand.id AS id, cand.score AS score, row_number() OVER (PARTITION BY ${groupKey} ORDER BY cand.score, cand.id) AS rn FROM ${candidatesFor(match, candidateFilter(spec, now))} AS cand INNER JOIN jobs ON jobs.id = cand.id INNER JOIN sources ON sources.id = jobs.source_id) AS leader`,
+    )
+    .where(sql`leader.rn = 1`)
+    .orderBy(sql`leader.score`, sql`leader.id`)
     .limit(page.limit)
     .offset(page.offset);
-  return rows.map(({ facts, variants: _variants, ...row }) => ({
-    ...row,
-    pay: payOf(facts),
-    compensation: (facts.compensation as Money[] | undefined) ?? [],
-  }));
+  if (leaders.length === 0) return [];
+
+  // Phase 2, the page: the full rows of at most `limit` leaders, read by id.
+  const ids = JSON.stringify(leaders.map((leader) => leader.id));
+  const { excerpt: _excerpt, variants: _variants, ...pageColumns } = summary;
+  const found = await db
+    .select({ ...pageColumns, sourceLastListedAt: sources.lastListedAt })
+    .from(jobs)
+    .innerJoin(sources, eq(sources.id, jobs.sourceId))
+    .where(sql`${jobs.id} IN (SELECT value FROM json_each(${ids}))`);
+  const byId = new Map(found.map((row) => [row.id, row]));
+
+  // Phase 3, one grouped sibling count for the page: the open rows whose `dup_of` is a leader. The leader itself is open
+  // (a candidate), so it is added once, at the return: the same figure `listVariants` lists.
+  const siblings = await db
+    .select({ canonical: jobs.dupOf, open: sql<number>`count(*)` })
+    .from(jobs)
+    .where(and(isNull(jobs.closedAt), sql`${jobs.dupOf} IN (SELECT value FROM json_each(${ids}))`))
+    .groupBy(jobs.dupOf);
+  const openSiblings = new Map(siblings.map((s) => [s.canonical, Number(s.open)]));
+
+  // A leader whose row vanished between the phases (a purge) is left out, as a row the site no longer shows would be.
+  return leaders.flatMap(({ id, score }) => {
+    const row = byId.get(id);
+    if (!row) return [];
+    const { facts, ...rest } = row;
+    return [
+      {
+        ...rest,
+        score,
+        locations: (openSiblings.get(id) ?? 0) + 1,
+        pay: payOf(facts),
+        compensation: (facts.compensation as Money[] | undefined) ?? [],
+      },
+    ];
+  });
 }
 
 export async function getJob(db: Db, id: number) {
@@ -374,8 +406,18 @@ export async function listCompanies(
   db: Db,
   { prefix, limit }: { prefix?: string; limit: number },
 ): Promise<{ companies: { name: string; slug: string }[]; truncated: boolean }> {
+  const rows = await companiesQuery(db, { prefix, limit });
+  return { companies: rows.slice(0, limit), truncated: rows.length > limit };
+}
+
+/**
+ * The company rows for a prefix, `limit + 1` of them so the caller can tell truncation. The range is on lower(name),
+ * which `companies_lower_name_idx` indexes. The order stays by name, as it always was: the sort is over the matched
+ * prefix only.
+ */
+export function companiesQuery(db: Db, { prefix, limit }: { prefix?: string; limit: number }) {
   const from = (prefix ?? "").trim().toLowerCase();
-  const rows = await db
+  return db
     .select({ name: companies.name, slug: companies.slug })
     .from(companies)
     .where(
@@ -383,7 +425,6 @@ export async function listCompanies(
     )
     .orderBy(companies.name)
     .limit(limit + 1);
-  return { companies: rows.slice(0, limit), truncated: rows.length > limit };
 }
 
 /** Title words for `/v1/titles`, from the observed-token table (raw words, not FTS stems). */
@@ -410,6 +451,11 @@ export async function listTitleTokens(
  * when it is open.
  */
 export async function listVariants(db: Db, job: { id: number; dupOf: number | null }) {
+  return variantsQuery(db, job);
+}
+
+/** The listing query behind `listVariants`, unexecuted (the plan tests read its SQL). */
+export function variantsQuery(db: Db, job: { id: number; dupOf: number | null }) {
   const canonical = job.dupOf ?? job.id;
   return db
     .select({

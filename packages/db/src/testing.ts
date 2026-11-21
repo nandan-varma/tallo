@@ -18,6 +18,62 @@ export interface WriteCost {
 
 const costs = new WeakMap<Db, WriteCost>();
 const reads = new WeakMap<Db, { rows: number; queries: number }>();
+const engines = new WeakMap<Db, DatabaseSync>();
+
+/**
+ * A D1-shaped binding over the same in-memory SQLite as `db`: what drizzle's D1 driver talks to in production (`all`,
+ * `run`, `first`, `raw`, `batch`, with D1's `meta`). The meta here is an approximation (rows returned count as rows
+ * read; changes count as rows written), enough to test the plumbing. Tests only.
+ */
+export function d1Like(db: Db): unknown {
+  const engine = engines.get(db);
+  if (!engine) throw new Error("d1Like needs a db from testDb()");
+  const statement = (sql: string, values: unknown[]): Record<string, unknown> => ({
+    bind: (...more: unknown[]) => statement(sql, [...values, ...more]),
+    all: async () => {
+      const results = engine.prepare(sql).all(...(values as never[]));
+      return { results, success: true, meta: { rows_read: results.length, rows_written: 0 } };
+    },
+    run: async () => {
+      const { changes } = engine.prepare(sql).run(...(values as never[]));
+      return { results: [], success: true, meta: { rows_read: 0, rows_written: Number(changes) } };
+    },
+    first: async (column?: string) => {
+      const row = engine.prepare(sql).get(...(values as never[])) ?? null;
+      return column === undefined || row === null ? row : (row[column] ?? null);
+    },
+    raw: async () => {
+      const stmt = engine.prepare(sql);
+      stmt.setReturnArrays(true);
+      return stmt.all(...(values as never[]));
+    },
+  });
+  return {
+    prepare: (sql: string) => statement(sql, []),
+    batch: async (statements: { all: () => Promise<unknown> }[]) => {
+      const out = [];
+      for (const s of statements) out.push(await s.all());
+      return out;
+    },
+  };
+}
+
+/**
+ * SQLite's own plan for a query builder's SQL (`EXPLAIN QUERY PLAN`), one line per step. Tests use it to prove a query
+ * seeks an index instead of scanning a table. Tests only.
+ */
+export function queryPlan(
+  db: Db,
+  query: { toSQL(): { sql: string; params: unknown[] } },
+): string[] {
+  const engine = engines.get(db);
+  if (!engine) throw new Error("queryPlan needs a db from testDb()");
+  const { sql, params } = query.toSQL();
+  return engine
+    .prepare(`EXPLAIN QUERY PLAN ${sql}`)
+    .all(...(params as never[]))
+    .map((row) => String(row.detail));
+}
 
 /** Rows materialized by reads, including cursor/candidate reads; a proxy for D1 response work. */
 export const readCost = (db: Db) => ({ ...(reads.get(db) ?? { rows: 0, queries: 0 }) });
@@ -86,5 +142,6 @@ export function testDb() {
   );
   costs.set(db, cost);
   reads.set(db, read);
+  engines.set(db, sqlite);
   return db;
 }
