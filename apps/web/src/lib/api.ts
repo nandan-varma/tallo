@@ -35,7 +35,8 @@ export const PAGE_SIZE = 20;
 
 /**
  * One page of results for a search, through the same public answer everyone gets (edge cache included). The page's
- * cursor is built from the same title, company and location values the API checks it against.
+ * cursor is built from the same title, company, location, country, date window and sort values the API checks it
+ * against.
  */
 export async function runSearch(
   spec: SearchSpec,
@@ -46,12 +47,16 @@ export async function runSearch(
     title: spec.queries,
     company: spec.companies ?? [],
     location: spec.locations ?? [],
+    // The API checks the cursor against uppercased, capped codes; bind the same values.
+    country: (spec.countries ?? []).slice(0, 8).map((code) => code.toUpperCase()),
+    postedWithin: spec.postedWithin,
     sort: "relevance" as const,
   };
   const params = new URLSearchParams();
-  for (const name of ["title", "company", "location"] as const) {
+  for (const name of ["title", "company", "location", "country"] as const) {
     for (const value of query[name]) params.append(name, value);
   }
+  if (query.postedWithin !== undefined) params.set("postedWithin", String(query.postedWithin));
   params.set("limit", String(PAGE_SIZE));
   if (offset > 0) params.set("cursor", encodeCursor(query, offset));
 

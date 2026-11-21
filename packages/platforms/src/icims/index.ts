@@ -161,7 +161,7 @@ function parseJobPage(html: string): JsonObject {
 
 export const icims: Platform = {
   id: "icims",
-  version: 3,
+  version: 4,
   hosts: ["*.icims.com", ...JIBE_HOSTS],
 
   validate(source) {
@@ -243,18 +243,22 @@ export const icims: Platform = {
       // unknown values (including unresolved source templates) without a country code.
       country: real(a?.addressCountry),
     });
-    // The card's own text is the place as the portal states it; the JSON-LD address (when it names
-    // real parts) adds structure only where it clearly describes that one place.
-    const placeList = locationText
-      ? locations([{ text: locationText, hints: structure(only) }])
-      : locations(
-          places.map((a) => ({
-            text: [real(a.addressLocality), real(a.addressRegion), real(a.addressCountry)]
-              .filter(Boolean)
-              .join(", "),
-            hints: structure(a),
-          })),
-        );
+    const addressPlaces = places
+      .map((a) => ({
+        text: [real(a.addressLocality), real(a.addressRegion), real(a.addressCountry)]
+          .filter(Boolean)
+          .join(", "),
+        hints: structure(a),
+      }))
+      .filter((p) => p.text);
+    // Several JSON-LD addresses each describe one place, so each keeps its own structure. A single
+    // address, or none, is read against the card's own text: the card is the place as the portal states it.
+    const placeList =
+      addressPlaces.length > 1
+        ? locations(addressPlaces)
+        : locationText
+          ? locations([{ text: locationText, hints: structure(only) }])
+          : locations(addressPlaces);
     const sections = arr(page("sections")).map(obj);
     const html = str(ld("description"))
       ? [str(ld("description"))]
@@ -266,6 +270,7 @@ export const icims: Platform = {
       url: str(card("url")),
       description: describe(...html),
       locations: placeList,
+      department: field("category") ?? str(ld("occupationalCategory")),
       employmentType: field("position type", "employment type", "job type"),
       requisitionId: field("job id", "id", "req id", "requisition id") ?? postingId,
       postedAt: str(ld("datePosted")),

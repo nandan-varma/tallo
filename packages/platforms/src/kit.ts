@@ -58,14 +58,32 @@ export function requireKey(source: SourceConfig, pattern = /^[A-Za-z0-9][\w.-]*$
 export const isoFromMs = (ms: unknown): string | undefined =>
   typeof ms === "number" && Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
 
+/**
+ * The work mode a source states in its own words. Any word that names a mode counts, with precedence
+ * hybrid > remote > onsite, so "Hybrid Remote" and "Hybrid (Travel-Required)" read as hybrid. A value
+ * that names no mode ("Flexible", "Office") stays undefined.
+ */
+const MODE_WORDS: [WorkMode, RegExp][] = [
+  ["hybrid", /\bhybrid\b/],
+  ["remote", /\bremote\b/],
+  ["onsite", /\b(onsite|on site|inoffice|in office|inperson|in person)\b/],
+];
+const NEGATION = /\b(non|not|no)\b/;
+
+/**
+ * The work mode a source states, when exactly one mode family appears and nothing negates it.
+ * "Hybrid (Travel-Required)" states one mode (hybrid) with other words. "Remote or On-Site",
+ * "Hybrid Remote", "Non-Remote" or "Not remote" state either several modes or a negation, so the
+ * source does not state one mode and the result is undefined.
+ */
 export function workModeOf(value: unknown): WorkMode | undefined {
-  const v = str(value)
-    ?.toLowerCase()
-    .replace(/[^a-z]/g, "");
-  if (v === "remote") return "remote";
-  if (v === "hybrid") return "hybrid";
-  if (v === "onsite" || v === "inoffice" || v === "inperson") return "onsite";
-  return undefined;
+  const words = (str(value) ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]+/g, " ")
+    .trim();
+  if (!words || NEGATION.test(words)) return undefined;
+  const stated = MODE_WORDS.filter(([, pattern]) => pattern.test(words)).map(([mode]) => mode);
+  return stated.length === 1 ? stated[0] : undefined;
 }
 
 /** Description text from HTML fragments, in order. Fragments may be missing. */

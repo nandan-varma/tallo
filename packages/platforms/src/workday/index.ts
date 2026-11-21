@@ -167,7 +167,7 @@ async function* slice(
 
 export const workday: Platform = {
   id: "workday",
-  version: 3,
+  version: 4,
   hosts: ["*.myworkdayjobs.com"],
   validate: (source) => void parts(source),
 
@@ -205,6 +205,8 @@ export const workday: Platform = {
     const org = obj(obj(detail).hiringOrganization);
     const l = obj(listing);
     const country = str(obj(info.country).descriptor);
+    // The requisition location states an ISO alpha-2 code. It describes the primary place only.
+    const alpha2 = str(obj(obj(info.jobRequisitionLocation).country).alpha2Code);
     const extra = arr(info.additionalLocations).map((text) => ({ text, hints: { country } }));
     return {
       postingId,
@@ -213,7 +215,7 @@ export const workday: Platform = {
       applyUrl: str(info.externalUrl),
       description: describe(info.jobDescription),
       locations: locations([
-        { text: info.location ?? l.locationsText, hints: { country } },
+        { text: info.location ?? l.locationsText, hints: { country, countryCode: alpha2 } },
         ...extra,
       ]),
       employmentType: str(info.timeType),

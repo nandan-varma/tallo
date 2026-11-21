@@ -110,7 +110,29 @@ export const publicSearchSchema = z.object({
     .max(8, "takes at most 8 values")
     .default([])
     .describe(
-      "Optional. Repeat up to 8 times, 2 to 60 characters each, in the person's own words (NYC, Bay Area, Seattle, remote). The server expands reviewed aliases and returns what it matched in expandedLocations. Repeated values are alternatives, except that they still narrow within the company and title match.",
+      "Optional. Repeat up to 8 times, 2 to 60 characters each, in the person's own words (NYC, Bay Area, Seattle, remote). The server expands reviewed aliases and returns what it matched in expandedLocations. The reviewed remote aliases (remote, anywhere, work from home, wfh, home based, distributed, telecommute) are a work-mode filter: remote postings are ORed with the place matches, not searched for as text. Repeated values are alternatives, except that they still narrow within the company and title match.",
+    ),
+  country: z
+    .array(
+      z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z]{2}$/, "each value must be two letters, an ISO 3166-1 alpha-2 code")
+        .transform((value) => value.toUpperCase()),
+    )
+    .max(8, "takes at most 8 values")
+    .default([])
+    .describe(
+      "Optional. Repeat up to 8 times with two-letter ISO 3166-1 alpha-2 country codes (case-insensitive, stored uppercase: US, CA, DE). Only postings whose primary location states one of these countries are returned. Rows where the source stated no country code are excluded, so coverage is partial; the code is never inferred from location text.",
+    ),
+  postedWithin: z.coerce
+    .number({ error: "must be a whole number of days" })
+    .int("must be a whole number of days")
+    .min(1, "must be at least 1 day")
+    .max(365, "must be at most 365 days")
+    .optional()
+    .describe(
+      "Optional. Whole days from 1 to 365. Only postings whose sort date is within this many days are returned. The sort date is the source's posted date, or when Tallo first saw the posting if the source stated none: the same value sort=recent orders by. It is never inferred from text.",
     ),
   sort: searchSortSchema
     .default(SEARCH_DEFAULT_SORT)
@@ -131,7 +153,7 @@ export const publicSearchSchema = z.object({
     .max(100, "is not a cursor from this API")
     .optional()
     .describe(
-      "Optional. The next value from the previous response, unchanged, with the same title, company and location values. It is opaque; do not build or edit one.",
+      "Optional. The next value from the previous response, unchanged, with the same title, company, location, country, postedWithin and sort values. It is opaque; do not build or edit one.",
     ),
 });
 
@@ -200,16 +222,61 @@ export const publicJobSchema = z.object({
   id: z.string(),
   title: z.string(),
   company: z.string(),
-  location: z.string().nullable(),
-  workMode: z.enum(["remote", "hybrid", "onsite"]).nullable(),
-  pay: z.string().nullable(),
-  compensation: z.array(moneySchema),
-  postedAt: z.string().nullable(),
-  department: z.string().nullable(),
-  employmentType: z.string().nullable(),
-  countryCode: z.string().length(2).nullable(),
+  location: z
+    .string()
+    .nullable()
+    .describe(
+      "The place text the source gave, else its city, region and country code; null when the source stated no place. Never inferred from other text.",
+    ),
+  workMode: z
+    .enum(["remote", "hybrid", "onsite"])
+    .nullable()
+    .describe(
+      "The work mode the source stated: remote, hybrid, onsite, or null when it stated none. Never inferred from location text.",
+    ),
+  pay: z
+    .string()
+    .nullable()
+    .describe(
+      "The source's stated base pay with its own interval, or null when the source stated none. Never estimated or converted.",
+    ),
+  compensation: z
+    .array(moneySchema)
+    .describe(
+      "The source's stated pay bands verbatim, never converted or annualized. Empty when the source stated none; it is not derived from pay text.",
+    ),
+  postedAt: z
+    .string()
+    .nullable()
+    .describe(
+      "The posted date the source states, as YYYY-MM-DD, or null when the source stated none. Some large feeds omit it. It is never guessed.",
+    ),
+  department: z
+    .string()
+    .nullable()
+    .describe(
+      "The source's own department label, or null when it stated none. Not a normalized category.",
+    ),
+  employmentType: z
+    .string()
+    .nullable()
+    .describe(
+      "The source's own employment type label, or null when it stated none. Not a normalized category.",
+    ),
+  countryCode: z
+    .string()
+    .length(2)
+    .nullable()
+    .describe(
+      "ISO 3166-1 alpha-2 for the primary location, or null when the source stated no country code. Coverage is partial (about 74% overall; some large boards state only free text), and it is never inferred from location text.",
+    ),
   applyUrl: z.string().nullable(),
-  sourceLastListedAt: z.string().nullable(),
+  sourceLastListedAt: z
+    .string()
+    .nullable()
+    .describe(
+      "ISO 8601 UTC time of the board's last complete listing, or null when it has never listed. This is the board's freshness, not a per-posting sighting or proof that this posting was in that listing.",
+    ),
   variants: z.array(publicVariantSchema),
   descriptionChars: z.number().int().nonnegative().nullable(),
   description: z.string().nullable(),
@@ -279,11 +346,13 @@ export const publicDiscoverySchema = z.object({
 });
 export type PublicDiscoveryQuery = z.infer<typeof publicDiscoverySchema>;
 
-/** The title, company, location and sort values a cursor is bound to. */
+/** The title, company, location, country, date window and sort values a cursor is bound to. */
 export interface CursorQuery {
   title: string[];
   company: string[];
   location: string[];
+  country: string[];
+  postedWithin?: number;
   sort: SearchSort;
 }
 
@@ -292,7 +361,15 @@ export interface CursorQuery {
  * search): the offset is not a secret, and a forged one can only page the same public results.
  */
 function checksum(query: CursorQuery, offset: number): string {
-  const text = JSON.stringify([query.title, query.company, query.location, query.sort, offset]);
+  const text = JSON.stringify([
+    query.title,
+    query.company,
+    query.location,
+    query.country,
+    query.postedWithin ?? null,
+    query.sort,
+    offset,
+  ]);
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);
@@ -368,7 +445,7 @@ export function searchNote(input: {
         ? `There is no page at offset ${offset}: a search lists at most ${SEARCH_RESULT_CAP} results.`
         : "No more open postings match this search. Start again without cursor, or widen the titles.";
     }
-    return "No open postings match. Try other title words, or drop a company or a place.";
+    return "No open postings match. Try other title words, or drop a company, a place, a country or a date window.";
   }
   const lead = sortLead(sort);
   if (capped) {

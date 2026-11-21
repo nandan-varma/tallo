@@ -27,6 +27,8 @@ export function rankedSpec(spec: SearchSpec): RankedSpec {
       .map((c) => c.slice(0, MAX_QUERY_CHARS)),
     locations: places.locations,
     remote: places.remote,
+    countries: (spec.countries ?? []).slice(0, 8).map((code) => code.toUpperCase()),
+    postedWithin: spec.postedWithin,
     sort: spec.sort ?? SEARCH_DEFAULT_SORT,
   };
 }

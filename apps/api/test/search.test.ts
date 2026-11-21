@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { searchPage } from "../src/search.ts";
-import { type Db, seed, setup } from "./fixtures.ts";
+import { type Db, now, seed, setup } from "./fixtures.ts";
 import { INGEST } from "./support.ts";
 
 /** The hits of one page of a spec, the way the results list asks for them. */
@@ -415,6 +415,19 @@ describe("GET /v1/search", () => {
     expect((await error(`title=ab&cursor=${"x".repeat(101)}`)).message).toMatch(/^cursor: /);
     expect((await error("title=ab&sort=newest")).message).toMatch(/^sort: /);
     expect((await error("title=ab&sort=RELEVANCE")).message).toMatch(/^sort: /);
+    expect((await error("title=ab&postedWithin=0")).message).toMatch(/^postedWithin: /);
+    expect((await error("title=ab&postedWithin=366")).message).toMatch(/^postedWithin: /);
+    expect((await error("title=ab&postedWithin=1.5")).message).toMatch(/^postedWithin: /);
+    expect((await error("title=ab&postedWithin=abc")).message).toMatch(/^postedWithin: /);
+    expect((await error("title=ab&country=USA")).message).toMatch(/^country: /);
+    expect((await error("title=ab&country=U1")).message).toMatch(/^country: /);
+    expect(
+      (
+        await error(
+          "title=ab&country=US&country=CA&country=DE&country=FR&country=ES&country=IT&country=NL&country=SE&country=NO",
+        )
+      ).message,
+    ).toMatch(/^country: /);
   });
 
   it("rejects a tampered cursor, a cursor from another search, and one past the cap", async () => {
@@ -578,6 +591,86 @@ describe("GET /v1/search", () => {
     expect(((await switched.json()) as { error: { code: string } }).error.code).toBe(
       "invalid_cursor",
     );
+  });
+
+  it("binds a cursor to country and postedWithin, so a page cannot change its filters", async () => {
+    const { db, blobs } = setup();
+    for (let i = 1; i <= 12; i++) {
+      await seed(db, blobs, {
+        postingId: `${i}`,
+        title: `Data Engineer ${i}`,
+        company: `Co ${i}`,
+        countryCode: "US",
+        sortAt: now(),
+      });
+    }
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+    const first = (await (
+      await get(app, "title=data+engineer&country=us&postedWithin=30&limit=10")
+    ).json()) as { next: string };
+    expect(first.next).toEqual(expect.any(String));
+
+    const same = await get(
+      app,
+      `title=data+engineer&country=US&postedWithin=30&limit=10&cursor=${first.next}`,
+    );
+    expect(same.status).toBe(200);
+
+    for (const changed of ["country=CA", "postedWithin=7"]) {
+      const response = await get(
+        app,
+        `title=data+engineer&${changed}&postedWithin=30&limit=10&cursor=${first.next}`,
+      );
+      expect(response.status, changed).toBe(400);
+      expect(((await response.json()) as { error: { code: string } }).error.code, changed).toBe(
+        "invalid_cursor",
+      );
+    }
+    const dropped = await get(app, `title=data+engineer&country=US&limit=10&cursor=${first.next}`);
+    expect(dropped.status).toBe(400);
+    expect(((await dropped.json()) as { error: { code: string } }).error.code).toBe(
+      "invalid_cursor",
+    );
+  });
+
+  it("filters by country and postedWithin on relevance and the date sorts", async () => {
+    const { db, blobs } = setup();
+    const fresh = await seed(db, blobs, {
+      postingId: "1",
+      title: "Data Engineer",
+      company: "Fresh",
+      countryCode: "us",
+      sortAt: now() - 5 * 86_400,
+    });
+    const uncoded = await seed(db, blobs, {
+      postingId: "2",
+      title: "Data Engineer",
+      company: "Uncoded",
+      countryCode: null,
+      sortAt: now() - 2 * 86_400,
+    });
+    await seed(db, blobs, {
+      postingId: "3",
+      title: "Data Engineer",
+      company: "Old",
+      countryCode: "GB",
+      sortAt: now() - 400 * 86_400,
+    });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+    const body = async (query: string) =>
+      (await (await get(app, query)).json()) as { results: { id: string }[] };
+
+    for (const sort of ["relevance", "recent", "added"]) {
+      const filtered = await body(`title=data+engineer&sort=${sort}&country=US&postedWithin=30`);
+      expect(
+        filtered.results.map((hit) => hit.id),
+        sort,
+      ).toEqual([String(fresh)]);
+    }
+    const recent = await body("title=data+engineer&sort=recent&postedWithin=30");
+    expect(recent.results.map((hit) => hit.id)).toEqual([String(uncoded), String(fresh)]);
+    const countries = await body("title=data+engineer&sort=recent&country=US&country=CA");
+    expect(countries.results.map((hit) => hit.id)).toEqual([String(fresh)]);
   });
 
   it("answers a note when nothing matches, and refuses a URL over 2 KB before any query", async () => {

@@ -17,6 +17,20 @@ _Last updated: 2026-11-21; current handoff below. Historical notes: 2026-10-28 (
 - Edge caches the stable negatives: closed and source-hidden for 60 s, unknown for 1 h (`NEGATIVE_CACHE_CONTROL`).
   Parameter errors stay `no-store`.
 
+
+## Session 2026-11-21: structured filters and real llms examples (branch `feat/field-caveats`)
+
+- `GET /v1/search` takes `country` (up to 8 alpha-2 codes, uppercase-normalized) and `postedWithin` (1 to 365 days on
+  `sort_at`). Both apply to relevance and every date sort and are bound into the cursor checksum. Invalid values are
+  400 `invalid_parameter` with a hint; defaults are unchanged. Country matches only source-stated codes, so null rows
+  never match and coverage stays partial; no index was added (the window uses `jobs_sort_at_idx`).
+- `/llms.txt` now shows pretty-printed, schema-valid example JSON for every endpoint, links the endpoints and the human
+  pages, adds the zero-result recovery path (companies/titles prefixes, expandedLocations/remote first), states that
+  the remote aliases are a work-mode filter, and documents field availability. Its size ceiling is 30 KB. Nullable hit
+  and job fields carry the same caveat in their OpenAPI descriptions.
+- Local evidence: `pnpm check` passes (679 tests, no skips), `git diff --check` clean. No migration, deploy or
+  production access. Main owns review, merge and deploy.
+
 ## Session 2026-11-21: group 3 field audit (workable place fallback)
 
 - The read-only audit of personio, recruitee, teamtailor, workable and bamboohr found one real gap: Workable's

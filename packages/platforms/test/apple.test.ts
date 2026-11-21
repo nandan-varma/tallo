@@ -94,6 +94,22 @@ describe("apple", () => {
     expect(job.extras).toMatchObject({ teams: ["Hardware"], type: "REQ", homeOffice: false });
   });
 
+  it("keeps a search row's weekly hours when the detail does not state them", () => {
+    const detailBody = obj(obj(fixture("apple-detail")).res);
+    const withoutHours = { ...detailBody, standardWeeklyHours: null };
+    const fromRow = apple.map(
+      { id: "1", listing: { standardWeeklyHours: 35 }, detail: withoutHours },
+      src,
+    );
+    expect(fromRow.extras).toMatchObject({ standardWeeklyHours: 35 });
+    // The detail's value stays the reading when both states one.
+    const both = apple.map(
+      { id: "1", listing: { standardWeeklyHours: 35 }, detail: detailBody },
+      src,
+    );
+    expect(both.extras).toMatchObject({ standardWeeklyHours: 40 });
+  });
+
   it("maps a pipeline role whose public path uses the position id", async () => {
     const listing = obj(obj(fixture("apple-list")).res).searchResults;
     const first = obj(Array.isArray(listing) ? listing[0] : null);

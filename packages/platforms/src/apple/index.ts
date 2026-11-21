@@ -60,7 +60,7 @@ function footerSections(detail: Json): string[] {
 
 export const apple: Platform = {
   id: "apple",
-  version: 1,
+  version: 2,
   hosts: ["jobs.apple.com"],
 
   validate(source) {
@@ -134,6 +134,8 @@ export const apple: Platform = {
       str(j("postingDateMeta")) ?? str(j("postDateInGMT")) ?? str(row("postDateInGMT"));
     const homeOffice = j("homeOffice") === true;
     const employmentType = str(j("employmentType")) ?? str(row("employmentType"));
+    // Search rows state weekly hours for some roles whose detail does not repeat them.
+    const weeklyHours = num(j("standardWeeklyHours")) ?? num(row("standardWeeklyHours"));
     return {
       postingId: id,
       title: str(j("postingTitle")) ?? str(row("postingTitle")) ?? "",
@@ -170,9 +172,7 @@ export const apple: Platform = {
         ...(teamNames.length ? { teams: teamNames } : {}),
         ...(str(j("jobType")) ? { jobType: str(j("jobType")) } : {}),
         ...(str(j("highJobTitle")) ? { highJobTitle: str(j("highJobTitle")) } : {}),
-        ...(num(j("standardWeeklyHours")) !== undefined
-          ? { standardWeeklyHours: num(j("standardWeeklyHours")) }
-          : {}),
+        ...(weeklyHours !== undefined ? { standardWeeklyHours: weeklyHours } : {}),
         ...(j("homeOffice") !== undefined ? { homeOffice: j("homeOffice") } : {}),
         ...(str(j("type")) ? { type: str(j("type")) } : {}),
         ...(str(j("postingDate")) ? { postingDate: str(j("postingDate")) } : {}),

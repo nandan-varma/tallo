@@ -21,6 +21,7 @@ export async function seed(
     dupOf?: number;
     pay?: [number, number];
     location?: string;
+    countryCode?: string | null;
     workMode?: "remote" | "onsite";
     sortAt?: number;
     postedAt?: number | null;
@@ -73,6 +74,7 @@ export async function seed(
       firstSeenAt: 1,
       updatedAt: 1,
       locationText: args.location ?? "Remote, US",
+      countryCode: args.countryCode ?? null,
       workMode: args.workMode ?? "remote",
       closedAt: args.closed ? 2 : null,
       dupOf: args.dupOf ?? null,
