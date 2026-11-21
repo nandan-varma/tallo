@@ -7,7 +7,13 @@ import { testDb } from "@tallo/db/testing";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
-import { type CollectEnv, enqueueDue, enqueueNamed, handleCollect } from "../src/collect.ts";
+import {
+  type CollectEnv,
+  enqueueDue,
+  enqueueNamed,
+  handleCollect,
+  WORKER_MAX_RESPONSE_BYTES,
+} from "../src/collect.ts";
 import { INGEST, WRONG } from "./support.ts";
 
 const fx = (name: string) =>
@@ -334,6 +340,16 @@ describe("handleCollect", () => {
     expect(await dueOf(db, stripe.id)).toBe(T + 3600);
     const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, stripe.id));
     expect(row).toMatchObject({ status: "active", consecutiveFailures: 0, failureCount: 1 });
+  });
+
+  it("a listing body over the Worker's 16 MB cap is a blocked run, not read into memory", async () => {
+    const huge = "x".repeat(WORKER_MAX_RESPONSE_BYTES + 1);
+    const { env, db, logs } = harness({ fetch: async () => new Response(huge) });
+    await registerSources(db, [stripe], new Set());
+    await handleCollect({ kind: "start", sourceId: stripe.id, runId: "run-cloud-0006" }, env);
+    expect(logs).toEqual([expect.objectContaining({ outcome: "blocked" })]);
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, stripe.id));
+    expect(row).toMatchObject({ status: "active", failureCount: 1 });
   });
 
   it("a failed listing is a failed run: it closes nothing and does not throw", async () => {

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { dedupeKey, gunzip, sha256 } from "@tallo/catalog";
+import { dedupeKey, GunzipLimitError, gunzip, sha256 } from "@tallo/catalog";
 import {
   blobCheckSchema,
   createRunSchema,
@@ -30,6 +30,30 @@ import { z } from "zod";
 
 const MAX_BLOB_BYTES = 25 * 1024 * 1024;
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
+
+/**
+ * The request body as bytes, or null when it is over `max`. A declared length is refused before anything is read;
+ * an undeclared one is counted as it streams in, and the stream is cancelled at the first byte past the limit.
+ */
+async function bodyBytes(request: Request, max: number): Promise<Uint8Array | null> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > max) return null;
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new Uint8Array(await new Blob(chunks as Uint8Array<ArrayBuffer>[]).arrayBuffer());
+}
 
 /**
  * Sources and runs (read by the runner and the operator), plus the runner's ingest writes. Every route needs the
@@ -76,9 +100,16 @@ export function ingestRoutes({
 
   /** Description blobs are addressed by the sha256 of their text; the address is verified. */
   routes.put("/v1/blobs/jd/:hash", write, zValidator("param", z.object({ hash })), async (c) => {
-    const bytes = new Uint8Array(await c.req.arrayBuffer());
-    if (bytes.byteLength > MAX_BLOB_BYTES) return c.json({ error: "Too large" }, 413);
-    const text = await gunzip(bytes).catch(() => null);
+    const bytes = await bodyBytes(c.req.raw, MAX_BLOB_BYTES);
+    if (!bytes) return c.json({ error: "Too large" }, 413);
+    // The text is inflated only up to the same cap: a small gzip can inflate to far more.
+    let text: Uint8Array | null;
+    try {
+      text = await gunzip(bytes, MAX_BLOB_BYTES);
+    } catch (error) {
+      if (error instanceof GunzipLimitError) return c.json({ error: "Too large" }, 413);
+      text = null;
+    }
     if (!text || (await sha256(text)) !== c.req.valid("param").hash)
       return c.json({ error: "Hash mismatch" }, 400);
     await blobs.put(jdKey(c.req.valid("param").hash), bytes);
@@ -99,8 +130,14 @@ export function ingestRoutes({
         .limit(1)
     )[0];
     if (!run) return c.json({ error: "Unknown run" }, 404);
-    const bytes = new Uint8Array(await c.req.arrayBuffer());
-    if (bytes.byteLength > MAX_BLOB_BYTES) return c.json({ error: "Too large" }, 413);
+    // A raw pack belongs to a run that is still collecting. A finished run's pack would never be pruned as its own.
+    if (run.status !== "running") {
+      // A retry after the run finished (the response to the first upload was lost) gets the pack it already stored.
+      if (run.rawKey !== null && run.rawUploaded === 1) return c.json({ key: run.rawKey });
+      return c.json({ error: "Run is not running" }, 409);
+    }
+    const bytes = await bodyBytes(c.req.raw, MAX_BLOB_BYTES);
+    if (!bytes) return c.json({ error: "Too large" }, 413);
     const key = await storeRawPack(db, blobs, run.id, bytes);
     return c.json({ key });
   });

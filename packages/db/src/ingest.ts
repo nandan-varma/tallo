@@ -26,7 +26,15 @@ import type { BlobStore } from "./blobs.ts";
 import { jdKey, rawKey } from "./blobs.ts";
 import type { Db } from "./db.ts";
 import { batch, CHUNK, chunks } from "./db.ts";
-import { companies, jobs, regroupState, runs, sources, titleTokens } from "./schema.ts";
+import {
+  companies,
+  jobs,
+  regroupProgress,
+  regroupState,
+  runs,
+  sources,
+  titleTokens,
+} from "./schema.ts";
 
 export class IngestError extends Error {
   readonly status: 404 | 409;
@@ -702,12 +710,13 @@ export async function purgeClosed(
   blobs: BlobStore,
   days = 30,
   now = nowSeconds(),
+  limit = 1000,
 ): Promise<number> {
   const stale = await db
     .select({ id: jobs.id, jdHash: jobs.jdHash })
     .from(jobs)
     .where(sql`${jobs.closedAt} IS NOT NULL AND ${jobs.closedAt} < ${now - days * 86400}`)
-    .limit(1000);
+    .limit(limit);
   for (const ids of chunks(
     stale.map((j) => j.id),
     CHUNK,
@@ -1247,7 +1256,8 @@ async function regroup(db: Db, keys: string[], staleBefore: number): Promise<num
  * incremental page is an opaque candidate cursor; a full page is the last plain dedupe key read.
  * A canonical that closes in a sync hands over at that run's finalize; changes that never finalize
  * (stale sources, a run that never finished) wait for the hourly pass.
- * The last incremental page records `regroup_state`, so the next pass starts there (see `regroupSince`).
+ * Every incremental page that leaves work records its cursor in `regroup_progress`; a call without `after` resumes
+ * that cursor. The completing page records `regroup_state`, so the next new pass starts there (see `regroupSince`).
  */
 export async function rebuildDuplicates(
   db: Db,
@@ -1279,29 +1289,27 @@ export async function rebuildDuplicates(
       next: keys.length === limit ? (keys.at(-1) ?? null) : null,
     };
   }
-  let cursor: IncrementalCursor;
-  if (opts.after) {
-    cursor = resumeRegroup(opts.after, now);
-  } else {
-    const since = Math.max(0, await regroupSince(db, now));
-    cursor = {
-      at: now,
-      since,
-      phase: "updated",
-      updatedAt: since,
-      id: 0,
-      duplicateId: 0,
-      source: "",
-      posting: "",
-    };
-  }
+  // No `after`: resume the unfinished pass recorded by the last call, if any; otherwise start a new one.
+  const cursor = opts.after
+    ? resumeRegroup(opts.after, now)
+    : ((await storedRegroupCursor(db, now)) ?? (await freshRegroupCursor(db, now)));
   const { keys, next } = await incrementalPage(db, cursor, limit);
   const changed = await regroup(db, keys, cursor.at - STALE_HIDE_DAYS * 86400);
   if (next === null) {
+    // One batch: the pass is complete, so its checkpoint is recorded and its progress row goes.
+    await batch(db, [
+      db
+        .insert(regroupState)
+        .values({ id: 1, checkedAt: cursor.at })
+        .onConflictDoUpdate({ target: regroupState.id, set: { checkedAt: cursor.at } }),
+      db.delete(regroupProgress).where(eq(regroupProgress.id, 1)),
+    ]);
+  } else {
+    // Persisted on every page that leaves work, so a stopped invocation (budget, timeout, crash) resumes here.
     await db
-      .insert(regroupState)
-      .values({ id: 1, checkedAt: cursor.at })
-      .onConflictDoUpdate({ target: regroupState.id, set: { checkedAt: cursor.at } });
+      .insert(regroupProgress)
+      .values({ id: 1, cursor: next })
+      .onConflictDoUpdate({ target: regroupProgress.id, set: { cursor: next } });
   }
   return { keys: keys.length, changed, next };
 }
@@ -1311,6 +1319,35 @@ export async function rebuildDuplicates(
  * stamped with an earlier `now` than the one it commits under, and a pass that overlaps a sync. A first
  * pass (no cursor yet) looks back DEDUPE_WINDOW.
  */
+async function freshRegroupCursor(db: Db, now: number): Promise<IncrementalCursor> {
+  const since = Math.max(0, await regroupSince(db, now));
+  return {
+    at: now,
+    since,
+    phase: "updated",
+    updatedAt: since,
+    id: 0,
+    duplicateId: 0,
+    source: "",
+    posting: "",
+  };
+}
+
+/** The unfinished pass's cursor, or undefined. A stored value that no longer parses starts a new pass instead. */
+async function storedRegroupCursor(db: Db, now: number): Promise<IncrementalCursor | undefined> {
+  const [row] = await db
+    .select({ cursor: regroupProgress.cursor })
+    .from(regroupProgress)
+    .where(eq(regroupProgress.id, 1))
+    .limit(1);
+  if (!row) return undefined;
+  try {
+    return resumeRegroup(row.cursor, now);
+  } catch {
+    return undefined;
+  }
+}
+
 async function regroupSince(db: Db, now: number): Promise<number> {
   const [row] = await db
     .select({ checkedAt: regroupState.checkedAt })

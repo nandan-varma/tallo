@@ -1,6 +1,23 @@
 import { jobFactsSchema } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
-import { gunzip, htmlToText, prepareJob, sourceLocation } from "../src/index.ts";
+import {
+  GunzipLimitError,
+  gunzip,
+  gzip,
+  htmlToText,
+  prepareJob,
+  sourceLocation,
+} from "../src/index.ts";
+
+describe("gunzip limit", () => {
+  it("inflates within the limit, and refuses output that would pass it", async () => {
+    // Zeros compress to almost nothing: a small input that inflates to a megabyte is the bomb shape.
+    const packed = await gzip(new Uint8Array(1_000_000));
+    expect(packed.byteLength).toBeLessThan(10_000);
+    expect((await gunzip(packed, 1_000_000)).byteLength).toBe(1_000_000);
+    await expect(gunzip(packed, 999_999)).rejects.toBeInstanceOf(GunzipLimitError);
+  });
+});
 
 describe("htmlToText", () => {
   it("handles escaped Greenhouse HTML, lists and entities", () => {

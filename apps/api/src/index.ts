@@ -19,6 +19,7 @@ import {
   handleCollect,
 } from "./collect.ts";
 import type { HostGate } from "./host-gate.ts";
+import { housekeeping } from "./housekeeping.ts";
 import { meterD1 } from "./meter.ts";
 
 export { HostGate } from "./host-gate.ts";
@@ -105,12 +106,17 @@ export default {
       return;
     }
     const { db, blobs } = deps(env);
-    await reapStaleRuns(db);
-    await repairSchedule(db);
-    await purgeClosed(db, blobs);
-    await pruneRuns(db, blobs);
-    let next: string | null = "";
-    while (next !== null) ({ next } = await rebuildDuplicates(db, undefined, { after: next }));
+    await housekeeping(
+      {
+        reapStaleRuns: () => reapStaleRuns(db),
+        repairSchedule: () => repairSchedule(db),
+        // Default 30 days and the wall clock; `limit` bounds the subrequests this invocation spends.
+        purgeClosed: (limit) => purgeClosed(db, blobs, undefined, undefined, limit),
+        pruneRuns: () => pruneRuns(db, blobs),
+        regroupPage: (after) => rebuildDuplicates(db, undefined, { after }),
+      },
+      (event) => console.error(JSON.stringify({ job: "hourly", ...event })),
+    );
   },
   /** One board per invocation (batch size 1). A failed message is retried, then dead-lettered. */
   async queue(batch: MessageBatch<CollectMessage>, env: Env) {
