@@ -1,6 +1,19 @@
 # Progress
 
-_Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+_Last updated: 2026-11-20; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
+
+## Session 2026-11-20: finish interrupted integration
+
+- Restored the worker-pool integration test (#108). Its failure was a removed `/v1/jobs` route in the test,
+  before the pooled run even started. It now compares `/v1/search` results and always closes its workers.
+- Restored all 13 Teamtailor/BambooHR tests (#105) in separate test files.
+- Integrated Jobvite (#87, supersedes PR #109) and iCIMS (#80) from their original commits, preserving
+  existing platform registrations and ETag tests. Added strict Jobvite XML validation and Jibe count validation.
+- `pnpm check`: 539 tests pass, no skips. Live sample verification: Jobvite/Forescout and
+  iCIMS/Pattern Energy, two postings each. Original adapter handoffs record all seeded-board checks.
+- Cloud collection remains OFF. Production migrations 0020 and 0021 were pending at handoff recovery;
+  deployment and the one-off Mac sweep are the next operational steps.
+- HirePro remains blocked (#81: no usable unauthenticated listing surface). Non-P1 follow-ups remain in issues.
 
 ## Session 2026-11-21: cloud collection is OFF
 

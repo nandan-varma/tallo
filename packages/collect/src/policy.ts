@@ -30,6 +30,9 @@ export const POLICY: Record<string, HostPolicy> = {
   // One RSS feed per board (up to ~0.4 MB), on each company's own subdomain.
   teamtailor: FAST,
   bamboohr: TENANT,
+  icims: TENANT,
+  // Shared feed host throttles large responses aggressively.
+  jobvite: { concurrency: 1, gapMs: 3000 },
 };
 
 /** Unknown platforms get the careful policy. */
