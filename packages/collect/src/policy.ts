@@ -21,6 +21,8 @@ export const POLICY: Record<string, HostPolicy> = {
   lever: FAST,
   ashby: FAST,
   smartrecruiters: FAST,
+  // One request per board, but a board can be a multi-MB payload: stay gentle on the shared host.
+  workable: { concurrency: 2, gapMs: 250 },
   workday: TENANT,
   oraclecloud: TENANT,
   personio: TENANT,

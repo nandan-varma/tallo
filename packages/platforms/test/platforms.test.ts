@@ -9,6 +9,7 @@ import {
   platformFor,
   SchemaError,
   smartrecruiters,
+  workable,
   workday,
 } from "../src/index.ts";
 import { drain, fakeCtx, fixture, source } from "./helpers.ts";
@@ -214,6 +215,46 @@ describe("lever", () => {
     expect(job.compensation).toEqual([
       { min: 90000, max: 120000, currency: "USD", interval: "unknown", component: "base" },
     ]);
+  });
+});
+
+describe("workable", () => {
+  const src = source("workable", "huggingface");
+  it("lists the whole board from one request and maps structured fields", async () => {
+    const { ctx, urls } = fakeCtx(() => fixture("workable-list"));
+    const { items, result } = await drain(workable.list(src, ctx));
+    expect(urls).toHaveLength(1);
+    expect(items).toHaveLength(2);
+    expect(items[0]?.id).toBe("81B46579FE");
+    expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
+    const job = workable.map(items[0]!, src);
+    expect(job.title).toContain("Machine Learning");
+    expect(job.applyUrl).toBe("https://apply.workable.com/j/81B46579FE/apply");
+    expect(job.workMode).toBe("remote");
+    expect(job.locations[0]).toMatchObject({ city: "Paris", countryCode: "FR", primary: true });
+    expect(job.department).toBe("Open Source");
+    expect(job.employmentType).toBe("Full-time");
+    expect(job.postedAt).toBe("2026-05-29");
+    expect(job.description.length).toBeGreaterThan(200);
+    expect(job.compensation).toEqual([]);
+    expect(job.extras).toEqual({ function: "Engineering", industry: "Computer Software" });
+  });
+  it("leaves blank source strings unset and maps country-only locations", async () => {
+    const { ctx } = fakeCtx(() => fixture("workable-list"));
+    const { items } = await drain(workable.list(src, ctx));
+    const job = workable.map(items[1]!, src);
+    expect(job.employmentType).toBeUndefined();
+    expect(job.requisitionId).toBe("304379");
+    expect(job.locations[0]).toMatchObject({ text: "Netherlands", countryCode: "NL" });
+    expect(job.locations[0]?.city).toBeUndefined();
+  });
+  it("fails on a malformed response and keeps an empty board non-authoritative", async () => {
+    await expect(drain(workable.list(src, fakeCtx(() => ({ jobs: "x" })).ctx))).rejects.toThrow(
+      SchemaError,
+    );
+    await expect(drain(workable.list(src, fakeCtx(() => []).ctx))).rejects.toThrow(SchemaError);
+    const { result } = await drain(workable.list(src, fakeCtx(() => ({ jobs: [] })).ctx));
+    expect(result.emptyIsAuthoritative).toBe(false);
   });
 });
 
