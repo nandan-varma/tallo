@@ -158,7 +158,7 @@ const definedOnly = (fields: Record<string, Json | undefined>): JsonObject =>
 
 export const amazon: Platform = {
   id: "amazon",
-  version: 1,
+  version: 2,
   hosts: ["www.amazon.jobs"],
   validate(source) {
     if (!KEY.test(source.key)) throw new Error(`Invalid amazon key: ${source.key}`);

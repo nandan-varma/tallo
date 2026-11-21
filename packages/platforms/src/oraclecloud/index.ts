@@ -64,7 +64,7 @@ const definedOnly = (fields: Record<string, string | undefined>): JsonObject =>
 
 export const oraclecloud: Platform = {
   id: "oraclecloud",
-  version: 2,
+  version: 3,
   hosts: ["*.fa.oraclecloud.com", "*.fa.us2.oraclecloud.com", "*.fa.ocs.oraclecloud.com"],
   validate(source) {
     if (!HOST.test(source.key))
@@ -135,6 +135,8 @@ export const oraclecloud: Platform = {
     const j = lookup(detail, listing);
     const sitePath = str(source.params.sitePath) ?? siteOf(source);
     const country = str(j("PrimaryLocationCountry"));
+    // The detail's structured work location names the city; Region1/Region2 are not ISO regions.
+    const city = str(obj(arr(j("workLocation"))[0]).TownOrCity);
     const applyUrl = `https://${source.key}/hcmUI/CandidateExperience/en/sites/${sitePath}/job/${postingId}`;
     const secondary = [
       ...arr(lookup(detail)("secondaryLocations")),
@@ -152,7 +154,7 @@ export const oraclecloud: Platform = {
           j("ExternalQualificationsStr"),
         ) || describe(j("ShortDescriptionStr")),
       locations: locations([
-        { text: j("PrimaryLocation"), hints: { countryCode: country } },
+        { text: j("PrimaryLocation"), hints: { city, countryCode: country } },
         ...secondary.map((s) => ({
           text: obj(s).Name,
           hints: { countryCode: str(obj(s).CountryCode) },

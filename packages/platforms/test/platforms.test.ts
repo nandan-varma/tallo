@@ -180,6 +180,36 @@ describe("greenhouse", () => {
     const { ctx } = fakeCtx(() => ({ unexpected: true }));
     await expect(drain(greenhouse.list(src, ctx))).rejects.toThrow(/Expected array/);
   });
+
+  it("reads the work mode from the Location Type label", () => {
+    const detail = fixture("greenhouse-detail");
+    const job = greenhouse.map({ id: "5456619008", listing: detail, detail }, src);
+    // The detail's metadata states "Location Type: On-Site" and no Workplace Type.
+    expect(job.workMode).toBe("onsite");
+    expect(job.requisitionId).toBe("REQ-26-1145-01");
+    const hybrid = greenhouse.map(
+      {
+        id: "9",
+        listing: {
+          id: 9,
+          title: "Analyst",
+          metadata: [{ id: 1, name: "Location Type", value: "Hybrid (Travel-Required)" }],
+        },
+        detail: undefined,
+      },
+      src,
+    );
+    expect(hybrid.workMode).toBe("hybrid");
+  });
+
+  it("drops the 'See Opening ID' placeholder requisition id instead of storing it", () => {
+    const row = jobs("greenhouse-list", "jobs")[0]!;
+    expect(obj(row).requisition_id).toBe("See Opening ID");
+    const job = greenhouse.map({ id: "1", listing: row, detail: undefined }, src);
+    expect(job.requisitionId).toBeUndefined();
+    // The listing row itself stays whole in the raw record.
+    expect(obj(row).requisition_id).toBe("See Opening ID");
+  });
 });
 
 describe("lever", () => {
@@ -216,6 +246,24 @@ describe("lever", () => {
     expect(job.compensation).toEqual([
       { min: 90000, max: 120000, currency: "USD", interval: "unknown", component: "base" },
     ]);
+  });
+
+  it("hints the posting's country on the primary location only", () => {
+    const base = obj((fixture("lever-list") as Json[])[0]);
+    const listing = {
+      ...base,
+      country: "SG",
+      categories: {
+        ...obj(base.categories),
+        allLocations: ["Singapore, Singapore", "Tokyo, Japan"],
+      },
+    };
+    const job = lever.map({ id: "x", listing }, src);
+    expect(job.locations).toHaveLength(2);
+    expect(job.locations[0]).toMatchObject({ primary: true, countryCode: "SG" });
+    // The posting's country does not describe the second place; it stays unknown.
+    expect(job.locations[1]?.countryCode).toBeUndefined();
+    expect(job.locations[1]?.primary).toBeUndefined();
   });
 });
 
@@ -677,6 +725,46 @@ describe("workday", () => {
     expect(job.locations[0]?.countryCode).toBe("US");
     expect(job.description).toContain("pay range");
   });
+
+  it("takes the country code from the requisition location's alpha-2, else from the country name", () => {
+    const detail = fixture("workday-detail");
+    const info = obj(obj(detail).jobPostingInfo);
+    const reqLoc = obj(info.jobRequisitionLocation);
+    const id = "/job/x/1";
+    const coded = workday.map({ id, listing: list.jobPostings[0]!, detail }, src);
+    expect(coded.locations[0]).toMatchObject({ primary: true, countryCode: "US" });
+
+    // No requisition location: the posting's country name is the only structured country.
+    const named = workday.map(
+      {
+        id,
+        listing: list.jobPostings[0]!,
+        detail: { ...obj(detail), jobPostingInfo: { ...info, jobRequisitionLocation: null } },
+      },
+      src,
+    );
+    expect(named.locations[0]?.countryCode).toBe("US");
+
+    // The alpha-2 code wins over a name when the source states both.
+    const alpha2 = workday.map(
+      {
+        id,
+        listing: list.jobPostings[0]!,
+        detail: {
+          ...obj(detail),
+          jobPostingInfo: {
+            ...info,
+            jobRequisitionLocation: {
+              ...reqLoc,
+              country: { ...obj(reqLoc.country), alpha2Code: "CA" },
+            },
+          },
+        },
+      },
+      src,
+    );
+    expect(alpha2.locations[0]?.countryCode).toBe("CA");
+  });
 });
 
 describe("oraclecloud", () => {
@@ -918,6 +1006,17 @@ describe("oraclecloud", () => {
     const withSecondary = rowsFx.find((r) => arr(obj(r).secondaryLocations).length > 0)!;
     const job = oraclecloud.map({ id: "1", listing: withSecondary }, src);
     expect(job.locations.length).toBeGreaterThan(1);
+  });
+
+  it("maps the structured work location's city for the primary place, never Region1/Region2", () => {
+    const detail = (obj(fixture("oraclecloud-detail")).items as Json[])[0];
+    const job = oraclecloud.map({ id: "210574363", listing: rowsFx[0]!, detail }, src);
+    expect(job.locations[0]).toMatchObject({ primary: true, city: "Lexington" });
+    // Region1 "Fayette" and Region2 "KY" are district codes, not ISO regions, so no region is set.
+    expect(job.locations[0]?.region).toBeUndefined();
+    const withSecondary = rowsFx.find((r) => arr(obj(r).secondaryLocations).length > 0)!;
+    const secondary = oraclecloud.map({ id: "1", listing: withSecondary }, src);
+    expect(secondary.locations[1]?.city).toBeUndefined();
   });
 
   it("ignores per-query relevancy in the fingerprint", () => {

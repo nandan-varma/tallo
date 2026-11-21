@@ -125,3 +125,26 @@ employment type or experience. Stena had one posting with no `tt:location` (warn
 - Stratified live probes covered portal/Jibe iCIMS, Personio, Teamtailor, Recruitee, Workable and BambooHR:
   nonempty descriptions and valid prepared wire facts on sampled postings. The two reported untitled
   Ashby records still return literal empty title strings from their upstream API; they are not mapper bugs.
+
+## Field mappings from the 2026-11-21 audit (#138)
+
+Structured fields the sources state that the mappers now read. Every platform whose `map` changed bumped its
+`version`, so the next sync re-maps its postings. Nothing here is parsed from text.
+
+| Platform    | Version | Now read                                                                                                                                                                        | Deliberately left                                                                                                     |
+| ----------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| greenhouse  | 3       | Board `metadata` "Location Type" as work mode, after "Workplace Type" and "Work Type". `requisition_id` "See Opening ID" (placeholder on some Stripe jobs) is stored as absent. |                                                                                                                       |
+| lever       | 3       | `country` hints the primary location only; later places stay without a country.                                                                                                 |                                                                                                                       |
+| oraclecloud | 3       | `workLocation[0].TownOrCity` as the primary city.                                                                                                                               | `Region1`/`Region2` (district names and codes such as "0200", not ISO regions).                                       |
+| icims       | 4       | Each JSON-LD `jobLocation[].address` when a posting lists several, with its own city, region and country. `Category` header field, else `occupationalCategory`, as department.  |                                                                                                                       |
+| workday     | 4       | `jobRequisitionLocation.country.alpha2Code` as the primary location's country code; the posting's country name is the fallback.                                                 | `remoteType` stays in extras. The API was in maintenance during the audit; map it once a live board shows its values. |
+| apple       | 2       | `standardWeeklyHours` from the search row when the detail does not state it (13 of 20 rows).                                                                                    |                                                                                                                       |
+| jobvite     | 2       | Work mode through the shared `workModeOf`: "Hybrid Remote" now reads as hybrid.                                                                                                 |                                                                                                                       |
+| amazon      | 2       | Work mode through the shared `workModeOf`. Its mapper is unchanged; the bump covers the shared reader's new token rule for values the fixtures do not contain.                  |                                                                                                                       |
+
+Shared work-mode reader (`kit.ts`, `workModeOf`): the words that name a mode decide it, with precedence
+hybrid > remote > onsite. "Hybrid (Travel-Required)" and "Hybrid Remote" read as hybrid; before they read as
+unknown. Enum-only sources (ashby, lever `workplaceType`) read the same values as before.
+
+Not done, on purpose: SmartRecruiters `false`/`false` as onsite (ambiguous with "Flexible"); BambooHR
+`locationType` codes (unverified); pay parsed from prose; country or city derived from text-only sources.
