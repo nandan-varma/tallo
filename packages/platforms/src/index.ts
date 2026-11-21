@@ -1,4 +1,5 @@
 import type { Platform, SourceConfig } from "@tallo/contracts";
+import { amazon } from "./amazon/index.ts";
 import { ashby } from "./ashby/index.ts";
 import { bamboohr } from "./bamboohr/index.ts";
 import { greenhouse } from "./greenhouse/index.ts";
@@ -16,6 +17,7 @@ import { workday } from "./workday/index.ts";
 /** Register a platform here once; nothing else needs to change. */
 export const platforms: Record<string, Platform> = Object.fromEntries(
   [
+    amazon,
     jobvite,
     icims,
     greenhouse,
@@ -43,6 +45,7 @@ export const allowedHosts = (): string[] => Object.values(platforms).flatMap((p)
 
 export * from "./kit.ts";
 export {
+  amazon,
   ashby,
   bamboohr,
   greenhouse,

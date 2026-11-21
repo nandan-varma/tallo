@@ -33,6 +33,8 @@ export const POLICY: Record<string, HostPolicy> = {
   icims: TENANT,
   // Shared feed host throttles large responses aggressively.
   jobvite: { concurrency: 1, gapMs: 3000 },
+  // Public search JSON, 100 full rows per request: one shared host, so stay sequential and spaced.
+  amazon: { concurrency: 1, gapMs: 500 },
 };
 
 /** Unknown platforms get the careful policy. */
