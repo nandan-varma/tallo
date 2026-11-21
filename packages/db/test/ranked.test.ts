@@ -171,24 +171,27 @@ describe("rankedJobs", () => {
 
   it("collapses one requisition across locations, showing one row and the count", async () => {
     const db = testDb();
+    const canonical = await seed(db, {
+      title: "Data Engineer",
+      company: "Acme",
+      location: "Seattle, WA",
+      requisitionId: "R1",
+    });
     const acmeIds = [
-      await seed(db, {
-        title: "Data Engineer",
-        company: "Acme",
-        location: "Seattle, WA",
-        requisitionId: "R1",
-      }),
+      canonical,
       await seed(db, {
         title: "Data Engineer",
         company: "Acme",
         location: "Boston, MA",
         requisitionId: "R1",
+        dupOf: canonical,
       }),
       await seed(db, {
         title: "Data Engineer",
         company: "Acme",
         location: "Austin, TX",
         requisitionId: "R1",
+        dupOf: canonical,
       }),
     ];
     await seed(db, { title: "Data Engineer", company: "Other", location: "Seattle, WA" });

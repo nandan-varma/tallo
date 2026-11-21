@@ -2,6 +2,19 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
+**D17. Agent-facing public contract v2 (2026-11-21).** Response `apiVersion` is `"2"`. Search hits add
+`compensation` (the source's stated bands verbatim), `employmentType`, `countryCode` and `sourceLastListedAt` (the
+board's last complete listing, not a per-posting sighting). `locations` now means the open `dup_of` siblings of the
+hit, this one included — the same group `/v1/jobs/:id` lists as `variants` — instead of a count over the candidate
+set. Search answers also carry `count`, `hasMore`, `capped`, `expandedLocations`, `remote` and `asOf`; `capped` means
+the 300-result cap stopped the list, never that more results exist. `title` is optional when `company` is given.
+New discovery endpoints (`/v1/companies`, `/v1/titles`) read small ingest-maintained tables, never a scan of `jobs`.
+`/v1/openapi.json` is generated from the same zod schemas as `/llms.txt`. Public answers send
+`access-control-allow-origin: *` and answer `OPTIONS`; the contract states that titles and descriptions are untrusted
+employer text. Closed postings answer 410 `closed`; absent ids 404 `unknown`; hidden sources 404 `source_hidden`.
+Reason: LLM callers were inferring types from prose and could not tell freshness, closed state or why a field was a
+number. No value is derived from text; the additions are source-stated facts or pure pagination/freshness metadata.
+
 **D16. Public read API for the user's own AI (issue #75).** `GET /v1/search`, `GET /v1/jobs/:id` and
 `GET /v1/jobs/:id/description` are public, GET-only and need no token; they replace the free-text `GET /v1/jobs` and
 `POST /v1/jobs/search`. The web Worker forwards exactly the three paths, with a per-address limit and an edge cache, and

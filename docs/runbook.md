@@ -22,8 +22,8 @@ Resource ids and URLs are recorded in `docs/PROGRESS.md`. Secrets are never comm
 
 ## Public API (issue #75)
 
-`https://tallo.nandan.fyi/v1/*` is served by the web Worker, which forwards only `GET /v1/search`, `GET /v1/jobs/:id` and
-`GET /v1/jobs/:id/description` (the allowlist is `PUBLIC_PATHS` in `packages/contracts`, matched in
+`https://tallo.nandan.fyi/v1/*` is served by the web Worker, which forwards only the paths in `PUBLIC_PATHS`
+(`packages/contracts`: search, job, description, companies, titles, OpenAPI), matched in
 `apps/web/src/lib/public.ts`). Everything else under `/v1` answers 404 there, admin and ingest included. `/llms.txt` is a
 prerendered page generated from the API's schemas.
 - Rate limit: the `PUBLIC_LIMIT` binding in `apps/web/wrangler.jsonc` (`namespace_id` `1001`, 60 requests per 60 seconds per
@@ -33,7 +33,7 @@ prerendered page generated from the API's schemas.
   sharing an `unknown` bucket. Cached answers still count against the address, because the budget is about requests.
 - Edge cache: 200 answers are stored under the public URL with sorted parameters (`caches.default`), for the lifetimes the API
   sets (search 5 minutes, postings 1 hour). Errors are never cached.
-- Closed: `tallo-api.nandan.fyi` (the API's custom domain, which the runner ingests through) refuses the three public reads
+- Closed: `tallo-api.nandan.fyi` (the API's custom domain, which the runner ingests through) refuses the public reads
   with 404. The guard is `READS_BLOCKED_HOST`, set to the same value in `apps/api/wrangler.jsonc` and
   `apps/api/cloudflare.config.ts` (`apps/api/test/config.test.ts` checks both and that it is a route of the Worker). Ingest,
   admin and `/health` stay on that domain. The web reaches the API through its service binding on `https://api.internal`,

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { JsonObject } from "./json.ts";
 
 /**
@@ -19,22 +20,42 @@ export interface Quantity {
   inferred?: boolean;
 }
 
-export type PayInterval = "year" | "month" | "week" | "day" | "hour" | "once" | "unknown";
+export const payIntervalSchema = z.enum([
+  "year",
+  "month",
+  "week",
+  "day",
+  "hour",
+  "once",
+  "unknown",
+]);
+export type PayInterval = z.infer<typeof payIntervalSchema>;
 
-export interface Money {
-  min?: number;
-  max?: number;
-  currency?: string;
-  interval: PayInterval;
-  component: "base" | "bonus" | "equity" | "total" | "unknown";
+/** One stated pay band. The public API exposes these verbatim; it never converts or annualizes them. */
+export const moneySchema = z.object({
+  min: z.number().optional(),
+  max: z.number().optional(),
+  currency: z.string().optional(),
+  interval: payIntervalSchema,
+  component: z.enum(["base", "bonus", "equity", "total", "unknown"]),
   /** Geography this band applies to, when the source scopes it. */
-  region?: string;
-  text?: string;
+  region: z.string().optional(),
+  text: z.string().optional(),
   /**
    * True only for a value parsed from free text. No platform map sets it, and the pay line never uses it:
    * the database stores what the source stated.
    */
-  inferred?: boolean;
+  inferred: z.boolean().optional(),
+});
+export type Money = z.infer<typeof moneySchema>;
+
+/**
+ * The words a title is made of, lowercase, punctuation as separators, one to forty characters each. Raw tokens:
+ * no stemming and no stop-word removal, because this only feeds discovery (`/v1/titles`).
+ */
+export function titleTokens(title: string): string[] {
+  const tokens = title.toLowerCase().match(/[\p{L}\p{N}]{2,40}/gu) ?? [];
+  return [...new Set(tokens)];
 }
 
 export interface JobLocation {

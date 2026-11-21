@@ -6,6 +6,7 @@ export * from "./ingest.ts";
 export * from "./job.ts";
 export * from "./json.ts";
 export * from "./llms.ts";
+export * from "./openapi.ts";
 export * from "./platform.ts";
 export * from "./public-api.ts";
 export * from "./schedule.ts";

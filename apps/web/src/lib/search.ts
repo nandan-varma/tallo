@@ -28,11 +28,11 @@ export function offsetFrom(params: URLSearchParams): number {
   return Number.isInteger(n) ? Math.min(Math.max(n, 0), SEARCH_RESULT_CAP - 1) : 0;
 }
 
-/** The search for these fields, or null when there is no title to search for. */
+/** The search for these fields, or null when there is neither a title nor a company to search for. */
 export function specFrom(values: SearchValues): SearchSpec | null {
   const queries = splitList(values.title, 8, 80);
-  if (queries.length === 0) return null;
   const companies = splitList(values.company, 4, 80);
+  if (queries.length === 0 && companies.length === 0) return null;
   const locations = splitList(values.location, 8, 60);
   return {
     queries,

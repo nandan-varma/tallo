@@ -134,20 +134,24 @@ result's `pay` line: the first base pay the source stated with a rate interval, 
 ## API layout
 
 `apps/api/src/app.ts` only mounts: `public.ts` (the public reads: `GET /v1/search`, `GET /v1/jobs/:id`,
-`GET /v1/jobs/:id/description`, no auth), `ingest.ts` (runner protocol, sources and runs, all INGEST_TOKEN) and `admin.ts`
-(board registration, staged collection). `search.ts` holds the ranked search that `GET /v1/search` answers.
+`GET /v1/jobs/:id/description`, `GET /v1/companies`, `GET /v1/titles`, `GET /v1/openapi.json`, no auth), `ingest.ts`
+(runner protocol, sources and runs, all INGEST_TOKEN) and `admin.ts` (board registration, staged collection).
+`search.ts` holds the ranked search that `GET /v1/search` answers.
 
 The public surface is GET-only and served through the web Worker, which keeps an allowlist, a per-address limit and an
 edge cache in front of it (see `docs/runbook.md`, "Public API"). The response shapes, limits and cursor rules are defined
-once in `packages/contracts/src/public-api.ts`; `/llms.txt` is generated from the same schemas.
+once in `packages/contracts/src/public-api.ts`; `/llms.txt` and `/v1/openapi.json` are generated from the same schemas.
+Public answers are CORS-open (`*`) and answer `OPTIONS`: the reads are credential-free and GET-only. Discovery endpoints
+read the small `companies` and `title_tokens` tables that `ingest.ts` maintains, never a scan of `jobs`.
 
 ## Search
 
 The free-text feed (`GET /v1/jobs`) is retired: it was newest-first keyset paging over an FTS match, and nothing public needs
 it. `GET /v1/search` is the public search. The results list is a ranked search (`rankedJobs`): title phrases ORed in one FTS MATCH, places and companies
 ANDed, the best 2000 candidates by bm25 (title x10, company x2, location x1), collapsed to one row per company and title,
-paged by offset up to 300. Visibility is one predicate (`visibleJobs`): open, canonical (`dup_of IS NULL`), from a source
-that listed within 14 days. There are no other filters; the query narrows by title phrases, companies and places.
+paged by offset up to 300. A hit's `locations` is the count of open `dup_of` siblings of that canonical row, this one
+included, exactly the group `/v1/jobs/:id` lists as `variants`. Visibility is one predicate (`visibleJobs`): open,
+canonical (`dup_of IS NULL`), from a source that listed within 14 days. There are no other filters; the query narrows by title phrases, companies and places.
 Search sits behind these query functions; vector/context search would be another implementation of the same query surface.
 
 ## Cost (10 daily users, ~300k stored jobs)

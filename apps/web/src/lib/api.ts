@@ -55,5 +55,10 @@ export async function runSearch(
   return {
     hits: page.results,
     nextOffset: page.next === null ? null : offset + page.results.length,
+    count: page.count,
+    hasMore: page.hasMore,
+    capped: page.capped,
+    expanded: { locations: page.expandedLocations, remote: page.remote },
+    asOf: page.asOf,
   };
 }

@@ -1,5 +1,11 @@
 import { expandPlaces } from "@tallo/catalog";
-import { type JobHit, SEARCH_RESULT_CAP, type SearchPage, type SearchSpec } from "@tallo/contracts";
+import {
+  type JobHit,
+  type Money,
+  SEARCH_RESULT_CAP,
+  type SearchPage,
+  type SearchSpec,
+} from "@tallo/contracts";
 import type { Db, RankedSpec } from "@tallo/db";
 import { rankedJobs } from "@tallo/db";
 
@@ -36,10 +42,13 @@ type HitRow = {
   countryCode: string | null;
   workMode: string | null;
   department: string | null;
+  employmentType: string | null;
   postedAt: number | null;
   pay: string | null;
-  /** From a ranked search: postings of this company and title among the candidates. */
-  locations?: number;
+  compensation: Money[];
+  sourceLastListedAt: number | null;
+  /** Open siblings of this canonical row, this one included (see `summary.variants`). */
+  locations: number;
 };
 
 /** The place a row shows: the location text the source stated, else its structured city, region and country. */
@@ -57,37 +66,63 @@ export function locationOf(row: {
 export const postedOf = (seconds: number | null): string | null =>
   seconds ? new Date(seconds * 1000).toISOString().slice(0, 10) : null;
 
+/** An ISO 8601 UTC timestamp from unix seconds, or null. */
+export const seenAt = (seconds: number | null): string | null =>
+  seconds === null ? null : new Date(seconds * 1000).toISOString();
+
 function toHit(row: HitRow): JobHit {
   return {
     id: String(row.id),
     title: row.title,
     company: row.company,
     location: locationOf(row),
-    workMode: row.workMode,
+    workMode: row.workMode as JobHit["workMode"],
     pay: row.pay,
+    compensation: row.compensation,
     postedAt: postedOf(row.postedAt),
     department: row.department,
+    employmentType: row.employmentType,
+    countryCode: row.countryCode,
     applyUrl: row.applyUrl ?? row.url,
-    locations: row.locations ?? 1,
+    sourceLastListedAt: seenAt(row.sourceLastListedAt),
+    locations: row.locations,
   };
 }
 
 /**
  * One page of the database's answer to a search spec, most relevant first. Offset paging, capped at
- * `SEARCH_RESULT_CAP` in total. `nextOffset` is null on the last page; there is no count, so a full page at the cap
- * ends the list.
+ * `SEARCH_RESULT_CAP` in total. `count` is this page's length; `capped` only says the cap stopped the list.
  */
 export async function searchPage(
   db: Db,
   input: SearchSpec & { offset: number; limit: number },
   now = Math.floor(Date.now() / 1000),
 ): Promise<SearchPage> {
+  const spec = rankedSpec(input);
   const limit = Math.min(input.limit, SEARCH_RESULT_CAP - input.offset);
-  if (limit <= 0) return { hits: [], nextOffset: null };
-  const rows = await rankedJobs(db, rankedSpec(input), { limit, offset: input.offset }, now);
+  const asOf = new Date(now * 1000).toISOString();
+  const expanded = { locations: spec.locations ?? [], remote: spec.remote ?? false };
+  if (limit <= 0) {
+    return {
+      hits: [],
+      nextOffset: null,
+      count: 0,
+      hasMore: false,
+      capped: true,
+      expanded,
+      asOf,
+    };
+  }
+  const rows = await rankedJobs(db, spec, { limit, offset: input.offset }, now);
   const end = input.offset + rows.length;
+  const nextOffset = rows.length === limit && end < SEARCH_RESULT_CAP ? end : null;
   return {
     hits: rows.map(toHit),
-    nextOffset: rows.length === limit && end < SEARCH_RESULT_CAP ? end : null,
+    nextOffset,
+    count: rows.length,
+    hasMore: nextOffset !== null,
+    capped: end >= SEARCH_RESULT_CAP,
+    expanded,
+    asOf,
   };
 }

@@ -24,8 +24,15 @@ describe("splitList", () => {
 });
 
 describe("specFrom", () => {
-  it("is null without a title to search for", () => {
-    expect(specFrom({ title: " , ", company: "Stripe", location: "" })).toBeNull();
+  it("is null without a title or a company to search for", () => {
+    expect(specFrom({ title: " , ", company: " , ", location: "Seattle" })).toBeNull();
+  });
+
+  it("searches a company without inventing a title", () => {
+    expect(specFrom({ title: "", company: "Stripe", location: "" })).toEqual({
+      queries: [],
+      companies: ["Stripe"],
+    });
   });
 
   it("builds a spec from the title, and leaves out empty company and place lists", () => {
@@ -90,7 +97,18 @@ describe("runSearch", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   const apiPage = (results: unknown[], next: string | null) =>
-    Response.json({ results, next, note: "" });
+    Response.json({
+      apiVersion: "2",
+      results,
+      count: results.length,
+      next,
+      hasMore: next !== null,
+      capped: false,
+      expandedLocations: [],
+      remote: false,
+      asOf: "2026-11-21T00:00:00.000Z",
+      note: "",
+    });
 
   it("asks the API for one page of results without any token", async () => {
     const fetchMock = vi.fn(async () => apiPage([], null));
@@ -98,7 +116,7 @@ describe("runSearch", () => {
 
     const page = await runSearch({ queries: ["data engineer"], locations: ["remote"] }, 0);
 
-    expect(page).toEqual({ hits: [], nextOffset: null });
+    expect(page).toMatchObject({ hits: [], nextOffset: null, count: 0, hasMore: false });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
     expect(url).toBe("http://api.test/v1/search?limit=20&location=remote&title=data+engineer");
     expect(new Headers(init?.headers).has("authorization")).toBe(false);

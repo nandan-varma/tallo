@@ -15,6 +15,7 @@ import {
   RETIRE_MAX_SOURCES,
   type RunOutcome,
   STALE_HIDE_DAYS,
+  titleTokens as tokenizeTitle,
 } from "@tallo/contracts";
 import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
@@ -24,7 +25,7 @@ import type { BlobStore } from "./blobs.ts";
 import { jdKey, rawKey } from "./blobs.ts";
 import type { Db } from "./db.ts";
 import { batch, CHUNK, chunks } from "./db.ts";
-import { jobs, regroupState, runs, sources } from "./schema.ts";
+import { companies, jobs, regroupState, runs, sources, titleTokens } from "./schema.ts";
 
 export class IngestError extends Error {
   readonly status: 404 | 409;
@@ -270,7 +271,32 @@ export async function applyJobs(
       listingValidator: null,
     })
     .where(eq(sources.id, sourceId));
-  await batch(db, [...upserts, counters, listed]);
+  // Discovery vocabulary: one row per seen company, one per observed title word. Both are tiny and read-only for
+  // the public `/v1/companies` and `/v1/titles` endpoints. Only a batch that actually changes a job touches them,
+  // so re-applying an identical listing still writes nothing but the run's counters; the company update is a
+  // no-op when the stored name is unchanged, and existing title words conflict without a write.
+  const discovery: BatchItem<"sqlite">[] = [];
+  if (upserts.length > 0) {
+    discovery.push(
+      db
+        .insert(companies)
+        .values({ slug: source.companySlug, name: source.company, updatedAt: now })
+        .onConflictDoUpdate({
+          target: companies.slug,
+          set: { name: source.company, updatedAt: now },
+          setWhere: sql`${companies.name} != ${source.company}`,
+        }),
+    );
+    const words = [...new Set(ready.flatMap((j) => tokenizeTitle(j.title)))].slice(0, 2000);
+    for (const part of chunks(words, 40))
+      discovery.push(
+        db
+          .insert(titleTokens)
+          .values(part.map((token) => ({ token })))
+          .onConflictDoNothing(),
+      );
+  }
+  await batch(db, [...upserts, ...discovery, counters, listed]);
   return { applied: ready.length, missingBlobs };
 }
 

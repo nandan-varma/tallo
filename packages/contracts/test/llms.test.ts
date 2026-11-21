@@ -4,8 +4,8 @@ import { llmsText } from "../src/llms.ts";
 describe("llmsText", () => {
   const text = llmsText();
 
-  it("stays under 5 KB, so an assistant can read all of it in one fetch", () => {
-    expect(new TextEncoder().encode(text).byteLength).toBeLessThan(5000);
+  it("stays under 12 KB, so an assistant can read all of it in one fetch", () => {
+    expect(new TextEncoder().encode(text).byteLength).toBeLessThan(12_000);
   });
 
   it("states the limits an assistant must respect, from the shared constants", () => {

@@ -1,20 +1,31 @@
 import { z } from "zod";
-import { type JobHit, SEARCH_RESULT_CAP } from "./search.ts";
+import { moneySchema } from "./job.ts";
+import { type JobHit, jobHitSchema, SEARCH_RESULT_CAP } from "./search.ts";
 
 /**
- * The public read API: `GET /v1/search`, `GET /v1/jobs/:id` and `GET /v1/jobs/:id/description`. No auth, GET only,
- * JSON. The web Worker serves these under `tallo.nandan.fyi` through an allowlist; the API implements them. Every
- * limit an LLM reads about is defined here, once, and `llms.txt` is generated from these schemas.
+ * The public read API. No auth, GET only, JSON. The web Worker serves these under `tallo.nandan.fyi` through an
+ * allowlist; the API implements them. Every limit an LLM reads about is defined here, once, and `llms.txt` and
+ * `/v1/openapi.json` are generated from these schemas.
  */
 
 /** The public origin, for the examples in llms.txt. Code never builds links from it. */
 export const PUBLIC_ORIGIN = "https://tallo.nandan.fyi";
 
+/** The response shape version. Additive fields do not bump it; a semantic change to an existing field does. */
+export const PUBLIC_API_VERSION = "2" as const;
+
 /**
  * The only paths the public may read, GET only. `:id` is a posting id. The web Worker forwards exactly these to the
  * API and answers 404 for everything else under `/v1`, admin and ingest included.
  */
-export const PUBLIC_PATHS = ["/v1/search", "/v1/jobs/:id", "/v1/jobs/:id/description"] as const;
+export const PUBLIC_PATHS = [
+  "/v1/search",
+  "/v1/jobs/:id",
+  "/v1/jobs/:id/description",
+  "/v1/companies",
+  "/v1/titles",
+  "/v1/openapi.json",
+] as const;
 
 /** A posting id in a path: a positive whole number with no leading zero, at most 16 digits. */
 export const POSTING_ID_SOURCE = "[1-9]\\d{0,15}";
@@ -30,6 +41,10 @@ export const SEARCH_MAX_LIMIT = 25;
 /** The first chunk of a description on the job page, and the default chunk of the description route. */
 export const DESCRIPTION_CHUNK = 4000;
 export const DESCRIPTION_MAX_CHUNK = 8000;
+/** Discovery endpoints: at most this many names per answer, and a prefix at least this long. */
+export const DISCOVERY_MAX_RESULTS = 50;
+export const DISCOVERY_MIN_PREFIX = 1;
+export const DISCOVERY_MAX_PREFIX = 40;
 
 /** Search answers depend only on the query and the catalog's last refresh: cache them for minutes. */
 export const SEARCH_CACHE_CONTROL = "public, max-age=60, s-maxage=300";
@@ -54,24 +69,24 @@ const phrase = (min: number, max: number) =>
 export const publicSearchSchema = z.object({
   title: z
     .array(phrase(2, 80))
-    .min(1, "needs 1 to 8 values of 2 to 80 characters each")
     .max(8, "takes at most 8 values")
+    .default([])
     .describe(
-      "Required. Repeat 1 to 8 times, one job title each, 2 to 80 characters. Use specific titles such as backend engineer; never one generic word.",
+      "Optional when company is given, otherwise required. Repeat 1 to 8 times, one job title each, 2 to 80 characters. Use specific titles such as backend engineer. Repeated values are alternatives: adding one widens the set, it does not filter.",
     ),
   company: z
     .array(phrase(2, 80))
     .max(4, "takes at most 4 values")
     .default([])
     .describe(
-      "Optional. Repeat up to 4 times with company names the person named, 2 to 80 characters each. Matched on the company name and ANDed with the titles.",
+      "Optional. Repeat up to 4 times with company names the person named, 2 to 80 characters each. Matched on the company name and ANDed with the titles. Repeated values are alternatives. Give a company when you do not have a specific title.",
     ),
   location: z
     .array(phrase(2, 60))
     .max(8, "takes at most 8 values")
     .default([])
     .describe(
-      "Optional. Repeat up to 8 times, 2 to 60 characters each, in the person's own words (NYC, Bay Area, Seattle, remote). The server expands them.",
+      "Optional. Repeat up to 8 times, 2 to 60 characters each, in the person's own words (NYC, Bay Area, Seattle, remote). The server expands reviewed aliases and returns what it matched in expandedLocations. Repeated values are alternatives, except that they still narrow within the company and title match.",
     ),
   limit: z.coerce
     .number({ error: "must be a whole number" })
@@ -112,21 +127,128 @@ export const publicDescriptionSchema = z.object({
     ),
 });
 
-/** The error body of every public 4xx: what was wrong, and how to fix the request. */
-export interface PublicError {
-  error: { code: string; message: string; hint: string };
-}
+/** The error body of every public 4xx/410: what was wrong, and how to fix the request. */
+export const publicErrorSchema = z.object({
+  error: z.object({ code: z.string(), message: z.string(), hint: z.string() }),
+});
+export type PublicError = z.infer<typeof publicErrorSchema>;
 
 export const publicError = (code: string, message: string, hint: string): PublicError => ({
   error: { code, message, hint },
 });
 
-/** `GET /v1/search`. `next` is the cursor for the next page, or null on the last. */
-export interface PublicSearchPage {
-  results: JobHit[];
-  next: string | null;
-  note: string;
-}
+/** `GET /v1/search`.
+ *
+ * `next` is the cursor for the next page, or null on the last. `hasMore` repeats that in a form a caller can branch
+ * on. `capped` means the 300-result cap stopped this list; it does not assert that more results exist.
+ */
+export const publicSearchPageSchema = z.object({
+  apiVersion: z.literal(PUBLIC_API_VERSION),
+  results: z.array(jobHitSchema),
+  count: z.number().int().nonnegative(),
+  next: z.string().nullable(),
+  hasMore: z.boolean(),
+  capped: z.boolean(),
+  expandedLocations: z.array(z.string()),
+  remote: z.boolean(),
+  asOf: z.string(),
+  note: z.string(),
+});
+export type PublicSearchPage = z.infer<typeof publicSearchPageSchema>;
+
+/** One open location (a `dup_of` sibling) of a posting. Includes the posting itself. */
+export const publicVariantSchema = z.object({
+  id: z.string(),
+  location: z.string().nullable(),
+  workMode: z.enum(["remote", "hybrid", "onsite"]).nullable(),
+  postedAt: z.string().nullable(),
+  applyUrl: z.string().nullable(),
+});
+
+/** `GET /v1/jobs/:id`. */
+export const publicJobSchema = z.object({
+  apiVersion: z.literal(PUBLIC_API_VERSION),
+  id: z.string(),
+  title: z.string(),
+  company: z.string(),
+  location: z.string().nullable(),
+  workMode: z.enum(["remote", "hybrid", "onsite"]).nullable(),
+  pay: z.string().nullable(),
+  compensation: z.array(moneySchema),
+  postedAt: z.string().nullable(),
+  department: z.string().nullable(),
+  employmentType: z.string().nullable(),
+  countryCode: z.string().length(2).nullable(),
+  applyUrl: z.string().nullable(),
+  sourceLastListedAt: z.string().nullable(),
+  variants: z.array(publicVariantSchema),
+  descriptionChars: z.number().int().nonnegative().nullable(),
+  description: z.string().nullable(),
+  descriptionNext: z.number().int().nonnegative().nullable(),
+});
+export type PublicJob = z.infer<typeof publicJobSchema>;
+
+/** `GET /v1/jobs/:id/description`. */
+export const publicDescriptionResponseSchema = z.object({
+  apiVersion: z.literal(PUBLIC_API_VERSION),
+  id: z.string(),
+  offset: z.number().int().nonnegative(),
+  descriptionChars: z.number().int().nonnegative(),
+  description: z.string(),
+  descriptionNext: z.number().int().nonnegative().nullable(),
+});
+export type PublicDescriptionResponse = z.infer<typeof publicDescriptionResponseSchema>;
+
+/** `GET /v1/companies`: the company names and slugs the catalog holds, for discovery. */
+export const publicCompanyListSchema = z.object({
+  apiVersion: z.literal(PUBLIC_API_VERSION),
+  asOf: z.string(),
+  count: z.number().int().nonnegative(),
+  companies: z.array(z.object({ name: z.string(), slug: z.string() })),
+  /** True when more names match the prefix than this answer returned. */
+  truncated: z.boolean(),
+});
+export type PublicCompanyList = z.infer<typeof publicCompanyListSchema>;
+
+/** `GET /v1/titles`: title words the catalog has observed, for discovery. */
+export const publicTitleListSchema = z.object({
+  apiVersion: z.literal(PUBLIC_API_VERSION),
+  asOf: z.string(),
+  count: z.number().int().nonnegative(),
+  titles: z.array(z.string()),
+  truncated: z.boolean(),
+});
+export type PublicTitleList = z.infer<typeof publicTitleListSchema>;
+
+/** The discovery query both endpoints take. */
+export const publicDiscoverySchema = z.object({
+  prefix: z
+    .string()
+    .trim()
+    .min(
+      DISCOVERY_MIN_PREFIX,
+      `must be ${DISCOVERY_MIN_PREFIX} to ${DISCOVERY_MAX_PREFIX} characters`,
+    )
+    .max(
+      DISCOVERY_MAX_PREFIX,
+      `must be ${DISCOVERY_MIN_PREFIX} to ${DISCOVERY_MAX_PREFIX} characters`,
+    )
+    .refine(hasWord, "must contain a letter or a digit")
+    .optional()
+    .describe(
+      `Optional. Only names starting with this text (${DISCOVERY_MIN_PREFIX} to ${DISCOVERY_MAX_PREFIX} characters). Omit to list from the beginning.`,
+    ),
+  limit: z.coerce
+    .number({ error: "must be a whole number" })
+    .int("must be a whole number")
+    .min(1, "must be at least 1")
+    .max(DISCOVERY_MAX_RESULTS, `must be at most ${DISCOVERY_MAX_RESULTS}`)
+    .default(DISCOVERY_MAX_RESULTS)
+    .describe(
+      `Optional. Return at most ${DISCOVERY_MAX_RESULTS} names. Default ${DISCOVERY_MAX_RESULTS}.`,
+    ),
+});
+export type PublicDiscoveryQuery = z.infer<typeof publicDiscoverySchema>;
 
 /** The title, company and location values a cursor is bound to. */
 export interface CursorQuery {
@@ -179,14 +301,27 @@ export function decodeCursor(cursor: string, query: CursorQuery): number | null 
 }
 
 /** The note on a search answer: what the list is, and whether there is more. */
-export function searchNote(count: number, hasNext: boolean): string {
+export function searchNote(input: {
+  count: number;
+  hasMore: boolean;
+  capped: boolean;
+  offset: number;
+}): string {
+  const { count, hasMore, capped, offset } = input;
   if (count === 0) {
+    if (offset > 0) {
+      return offset >= SEARCH_RESULT_CAP
+        ? `There is no page at offset ${offset}: a search lists at most ${SEARCH_RESULT_CAP} results.`
+        : "No more open postings match this search. Start again without cursor, or widen the titles.";
+    }
     return "No open postings match. Try other title words, or drop a company or a place.";
   }
-  const cap = `A search lists at most ${SEARCH_RESULT_CAP} results in total, and there is no count.`;
-  return hasNext
-    ? `Best matches first. ${cap} Pass next as cursor for the next page.`
-    : `Best matches first. This is the last page. ${cap}`;
+  if (capped) {
+    return `Best matches first. This page reached the ${SEARCH_RESULT_CAP}-result cap for one search. Refine the titles, company or places to see a different set.`;
+  }
+  return hasMore
+    ? `Best matches first. Pass next as cursor for the next page.`
+    : "Best matches first. This is the last page.";
 }
 
 /** The chunk of a description from `offset`, and where the next chunk starts (null at the end). */
