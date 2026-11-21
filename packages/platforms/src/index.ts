@@ -7,6 +7,7 @@ import { oraclecloud } from "./oraclecloud/index.ts";
 import { personio } from "./personio/index.ts";
 import { recruitee } from "./recruitee/index.ts";
 import { smartrecruiters } from "./smartrecruiters/index.ts";
+import { teamtailor } from "./teamtailor/index.ts";
 import { workable } from "./workable/index.ts";
 import { workday } from "./workday/index.ts";
 
@@ -22,6 +23,8 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     personio,
     workable,
     recruitee,
+    teamtailor,
+    bamboohr,
   ].map((p) => [p.id, p]),
 );
 
@@ -37,12 +40,14 @@ export const allowedHosts = (): string[] => Object.values(platforms).flatMap((p)
 export * from "./kit.ts";
 export {
   ashby,
+  bamboohr,
   greenhouse,
   lever,
   oraclecloud,
   personio,
   recruitee,
   smartrecruiters,
+  teamtailor,
   workable,
   workday,
 };
