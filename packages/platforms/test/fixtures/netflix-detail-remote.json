@@ -1,0 +1,74 @@
+{
+ "id": 790319610169,
+ "name": "Software Engineer 5, AI Observability",
+ "posting_name": "Software Engineer 5, AI Observability",
+ "location": "Remote, United States",
+ "locations": [
+  "Remote, United States"
+ ],
+ "hot": 0,
+ "department": "Data & Insights",
+ "business_unit": "Streaming",
+ "t_update": 1795237663,
+ "t_create": 1795046400,
+ "ats_job_id": "JR43763",
+ "display_job_id": "JR43763",
+ "type": "ATS",
+ "job_description": "<p>At Netflix, our mission is to entertain the world. Together, we are writing the next episode - pushing the boundaries of storytelling, global fandom and making the unimaginable a reality. We are a dream team obsessed with the uncomfortable excitement of discovering what happens when you merge creativity, intuition and cutting-edge technology. Come be a part of what\u2019s next.</p><h2>The Opportunity</h2><p>The AI Observability team makes AI, ML, and Agentic systems transparent, reliable, and production-ready at scale. We build end-to-end observability for ML and GenAI workloads, capturing model inputs, features, predictions, outcomes, and behavior across online and batch systems. Our platform enables teams to monitor model performance, data quality, drift, latency, and failures, turning the ML system from a black box into an explainable, debuggable system. We provide developer-friendly libraries, dashboards, and alerts so teams can debug issues, respond to incidents, and ship AI-powered products with confidence.</p><br /><p>We&#39;re looking for a hands-on senior engineer to build the frameworks behind Netflix&#39;s AI Observability platform, model performance, evaluation, and vendor integration surfaces. You will design reusable infrastructure that enables ML/AI practitioners across domains to monitor model quality in production, evaluate LLM and agentic systems, and adopt vendor tooling through a consistent, self-serve platform. AIP owns the generic, reusable infrastructure; domain teams own their domain-specific evals and remediation. You will partner closely with engineering, product, machine learning, and data teams to turn their needs into reusable platform capabilities. To succeed, you will bring a strong background in AI or ML infrastructure and a passion for building scalable, robust systems.\u00a0\u00a0<br /></p><h2>In this role, you will:</h2><ul><li>Build the observability framework and platform capabilities that give ML and GenAI systems metrics, logs, and distributed traces across online inference, batch scoring, feature pipelines, and agent orchestration, so teams can instrument their systems consistently.</li><li>Build the primitives that let teams monitor model performance (accuracy, calibration, error rates), data quality, drift, and degradation on their own systems, rather than monitoring individual models yourself.</li><li>Build and extend evaluation frameworks for LLM and agentic systems that support response quality, grounding and hallucination, task success, tool-use and trajectory correctness, and LLM-as-a-judge and human-in-the-loop scoring, giving teams reusable building blocks to define and run their own evals.</li><li>Lead build-vs-buy evaluations for observability and eval tooling, and own the SDKs, connectors, and APIs that integrate vendor platforms into a consistent, well-supported interface, so ML and product teams can onboard models and agents with minimal friction.</li><li>Build reusable libraries, SDKs, and templates that make observability and evaluation the default for new systems (&#34;observability-by-default&#34;), lowering the barrier for teams to instrument and evaluate their work.</li><li>Provide the dashboarding, alerting, and SLO/SLI building blocks (plus sensible out-of-the-box templates) that teams use to track model performance, latency, cost, and reliability.</li></ul><br /><h2>To succeed in this role, you will need:</h2><br /><ul><li>Experience in software, AI/ML, or platform engineering, with hands-on time in production observability, monitoring, or ML/LLM evaluation\u00a0</li><li>Proven track record of designing standards, libraries, SDKs, or frameworks that other teams build on and adopt, reflecting a platform and enablement mindset rather than shipping features for a single use case.</li><li>Strong coding skills in Python and at least one of Java, Go, or Scala, with experience building production services</li><li>Practical experience operating ML models in production (online serving and/or batch), including drift, model performance, and data quality.</li><li>Hands-on experience with modern observability stacks (e.g., Prometheus/Grafana, Datadog, OpenTelemetry, ELK/OpenSearch, Jaeger/Tempo, or similar).</li><li>Solid understanding of distributed systems, microservices, and at least one major cloud platform (AWS, GCP, or Azure).</li><li>Ability to work cross-functionally with ML, data, infra, and product teams, and to communicate clearly about system behavior, quality, and risk.</li><li>Experience with vendor integration and VPC deployment.</li><li>An AI-Native Engineering Mindset who uses AI tools as a core part of their own workflow to accelerate design, development, testing, and code review.<br /></li></ul><h2>Nice to have:</h2><ul><li>Hands-on experience with ML/LLM observability and evaluation tools (e.g., Arize, Braintrust, LangFuse, Weights &amp; Biases, Galileo, Vertex AI Model Monitoring, SageMaker Model Monitor).</li><li>Experience building or shipping LLM/GenAI applications and evaluating them: prompt/result logging, evaluation metrics, LLM-as-a-judge, and human-in-the-loop review.</li><li>Experience evaluating agentic systems: tool use, multi-step reasoning, and trajectory/task-success measurement.</li></ul><br /><p>To learn more about our AI Platform, you can review the relevant talks/blog posts on the <a target=\"_blank\" href=\"https://research.netflix.com/research-area/machine-learning-platform\">Netflix AI Platform Research website</a>.</p><p>\u00a0</p>Generally, our compensation structure consists solely of an annual salary; we do not have bonuses. You choose each year how much of your compensation you want in salary versus stock options. To determine your personal top of market compensation, we rely on market indicators and consider your specific job family, background, skills, and experience to determine your compensation in the market range. The range for this role is $500,000.00 - $860,000.00. This compensation range will vary based on location.<p></p><p>Netflix provides comprehensive benefits including Health Plans, Mental Health support, a 401(k) Retirement Plan with employer match, Stock Option Program, Disability Programs, Health Savings and Flexible Spending Accounts, Family-forming benefits, and Life and Serious Injury Benefits. We also offer paid leave of absence programs. Full-time hourly employees accrue 35 days annually for paid time off to be used for vacation, holidays, and sick paid time off. Full-time salaried employees are immediately entitled to flexible time off. See more details about our Benefits <a target=\"_blank\" href=\"https://jobs.netflix.com/work-life-philosophy\"><span style=\"color:#0000ff\"><u>here</u></span></a>.</p><p></p><p>Netflix is a unique culture and environment. Learn more <a target=\"_blank\" href=\"https://jobs.netflix.com/culture\"><span style=\"color:#005cb9\"><u>here</u></span></a>.</p><p></p><p><a target=\"_blank\" href=\"https://about.netflix.com/en/inclusion\"><span style=\"color:#005cb9\"><u>Inclusion</u></span></a><span style=\"color:#005cb9\"> </span>is a Netflix value and we strive to host a meaningful interview experience for all candidates. If you want an accommodation/adjustment for a disability or any other reason during the hiring process, please send a request to your recruiting partner.</p><p></p><p>We are an equal-opportunity employer and celebrate diversity, recognizing that diversity builds stronger teams. We approach diversity and inclusion seriously and thoughtfully. We do not discriminate on the basis of race, religion, color, ancestry, national origin, caste, sex, sexual orientation, gender, gender identity or expression, age, disability, medical condition, pregnancy, genetic makeup, marital status, or military service.</p><p></p><p>Job is open for no less than 7 days and will be removed when the position is filled.</p>",
+ "id_locale": "JR43763-en-US",
+ "locale": "en-US",
+ "stars": 0,
+ "medallionProgram": null,
+ "location_flexibility": null,
+ "work_location_option": null,
+ "canonicalPositionUrl": "https://explore.jobs.netflix.net/careers/job/790319610169?microsite=netflix.com",
+ "isPrivate": false,
+ "urls": {
+  "links": {
+   "blogs": [],
+   "videos": []
+  }
+ },
+ "preApplyInfoBanner": {},
+ "custom_JD": {
+  "data_fields": {
+   "job_req_id": [
+    "JR43763"
+   ],
+   "posting_date": [
+    "11-19-2026"
+   ],
+   "team": [
+    "Data & Insights"
+   ],
+   "work_type": [
+    "Remote"
+   ],
+   "requisition_type": []
+  },
+  "display": [
+   {
+    "label": "Job Posting Date",
+    "value": "posting_date"
+   },
+   {
+    "label": "Job Requisition ID",
+    "value": "job_req_id"
+   },
+   {
+    "label": "Teams",
+    "value": "team"
+   },
+   {
+    "label": "Work Type",
+    "value": "work_type"
+   },
+   {
+    "label": "Requisition Type",
+    "value": "requisition_type"
+   }
+  ],
+  "enable": true
+ },
+ "hideUploadResumeOption": false
+}
