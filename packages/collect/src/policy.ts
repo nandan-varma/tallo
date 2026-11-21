@@ -23,6 +23,7 @@ export const POLICY: Record<string, HostPolicy> = {
   smartrecruiters: FAST,
   workday: TENANT,
   oraclecloud: TENANT,
+  personio: TENANT,
 };
 
 /** Unknown platforms get the careful policy. */
