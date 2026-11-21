@@ -44,9 +44,6 @@ export const PUBLIC_RATE_PER_MINUTE = 60;
 
 export const SEARCH_DEFAULT_LIMIT = 10;
 export const SEARCH_MAX_LIMIT = 25;
-/** The first chunk of a description on the job page, and the default chunk of the description route. */
-export const DESCRIPTION_CHUNK = 4000;
-export const DESCRIPTION_MAX_CHUNK = 8000;
 /** Discovery endpoints: at most this many names per answer, and a prefix at least this long. */
 export const DISCOVERY_MAX_RESULTS = 50;
 export const DISCOVERY_MIN_PREFIX = 1;
@@ -171,10 +168,9 @@ export const publicDescriptionSchema = z.object({
     .number({ error: "must be a whole number" })
     .int("must be a whole number")
     .min(1, "must be at least 1")
-    .max(DESCRIPTION_MAX_CHUNK, `must be at most ${DESCRIPTION_MAX_CHUNK}`)
-    .default(DESCRIPTION_CHUNK)
+    .optional()
     .describe(
-      `Optional. Characters to return, from 1 to ${DESCRIPTION_MAX_CHUNK}. Default ${DESCRIPTION_CHUNK}.`,
+      "Optional. Characters to return, 1 or more. Omit it to get everything from offset to the end.",
     ),
 });
 
@@ -460,7 +456,7 @@ export function searchNote(input: {
 export function descriptionChunk(
   text: string,
   offset: number,
-  limit: number,
+  limit: number = text.length,
 ): { text: string; next: number | null } {
   let end = Math.min(text.length, offset + limit);
   // Never split a surrogate pair: move the cut by one unit, away from the pair, keeping the chunk non-empty.

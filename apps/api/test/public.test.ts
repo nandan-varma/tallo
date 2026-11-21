@@ -35,8 +35,8 @@ describe("GET /v1/jobs/:id", () => {
       applyUrl: "https://boards.example.com/apply/1",
       employmentType: "full_time",
       descriptionChars: 9000,
-      description: "x".repeat(4000),
-      descriptionNext: 4000,
+      description: "x".repeat(9000),
+      descriptionNext: null,
       variants: [
         expect.objectContaining({ id: String(id), applyUrl: "https://boards.example.com/apply/1" }),
       ],
@@ -194,9 +194,8 @@ describe("GET /v1/jobs/:id/description", () => {
     });
     const server = app(db, blobs);
 
-    const tooBig = await server.request(`/v1/jobs/${id}/description?limit=8001`);
-    expect(tooBig.status).toBe(400);
-    expect(((await json(tooBig)) as { error: { hint: string } }).error.hint).toContain("8000");
+    const noLimit = await json(await server.request(`/v1/jobs/${id}/description?offset=2`));
+    expect(noLimit).toMatchObject({ description: "cdef", descriptionNext: null });
     expect((await server.request(`/v1/jobs/${id}/description?limit=0`)).status).toBe(400);
     expect((await server.request(`/v1/jobs/${id}/description?offset=-1`)).status).toBe(400);
 

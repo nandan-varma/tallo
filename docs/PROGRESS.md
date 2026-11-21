@@ -2,6 +2,15 @@
 
 _Last updated: 2026-11-21; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-11-21: full descriptions by default (issue #156, PR #157)
+
+- `GET /v1/jobs/:id` returns the whole description; `/description` takes an optional `limit` (no default, no max).
+  Sample of 200: 56% were over the old 4000-character page (median 4,431, max 13,677). No storage or D1 change: the
+  Worker already read the whole R2 object.
+- Audit of other limits: the public schema already rejects over-limit input (the clips in `rankedSpec` are a dead
+  second layer). Open: #158 (search depth: keyset paging, `moreMatches`; after #147) and #159 (measure postings over
+  the facts caps before changing them).
+
 ## Session 2026-11-21: retry of failed detail fetches (issue #140, branch `fix/detail-retry`)
 
 - Audited the assumption: a posting whose detail throws is never applied, so its stored `source_hash` does not advance

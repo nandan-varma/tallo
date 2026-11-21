@@ -1,6 +1,5 @@
 import { gunzip } from "@tallo/catalog";
 import {
-  DESCRIPTION_CHUNK,
   decodeCursor,
   descriptionChunk,
   encodeCursor,
@@ -71,7 +70,7 @@ const DESCRIPTION_HINTS: Record<string, string> = {
   offset:
     "A whole number from 0 up to descriptionChars, the description's length: /v1/jobs/123/description?offset=4000",
   limit:
-    "A whole number from 1 to 8000 (default 4000): /v1/jobs/123/description?offset=4000&limit=8000",
+    "Optional. A whole number of 1 or more; leave it out to get the rest of the description: /v1/jobs/123/description?offset=4000&limit=2000",
 };
 
 const DISCOVERY_HINTS: Record<string, string> = {
@@ -330,7 +329,7 @@ export function publicRoutes({
     const job = state.job;
 
     const text = await descriptionOf(job.jdHash);
-    const chunk = text === null ? null : descriptionChunk(text, 0, DESCRIPTION_CHUNK);
+    const chunk = text === null ? null : descriptionChunk(text, 0);
     const variants = await listVariants(db, job);
     const body: PublicJob = {
       apiVersion: PUBLIC_API_VERSION,

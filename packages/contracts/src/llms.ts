@@ -1,6 +1,4 @@
 import {
-  DESCRIPTION_CHUNK,
-  DESCRIPTION_MAX_CHUNK,
   DISCOVERY_MAX_RESULTS,
   PUBLIC_API_VERSION,
   PUBLIC_MAX_URL_CHARS,
@@ -27,6 +25,9 @@ function parameterLines(shape: Record<string, { description?: string }>): string
     .map(([name, field]) => `- ${name}: ${field.description ?? ""}`)
     .join("\n");
 }
+
+const EXAMPLE_DESCRIPTION =
+  "We are looking for a backend engineer to build the payments API. You will work with a small team on the payment pipeline.";
 
 /**
  * The example answers in `/llms.txt`. They are ordinary values, validated by the contract tests against the same
@@ -109,16 +110,16 @@ export const LLMS_EXAMPLES: {
         applyUrl: "https://boards.example.com/stripe/apply/48211",
       },
     ],
-    descriptionChars: 4218,
-    description: "We are looking for a backend engineer to build the payments API.",
-    descriptionNext: 4000,
+    descriptionChars: EXAMPLE_DESCRIPTION.length,
+    description: EXAMPLE_DESCRIPTION,
+    descriptionNext: null,
   },
   description: {
     apiVersion: PUBLIC_API_VERSION,
     id: "48211",
-    offset: 4000,
-    descriptionChars: 4218,
-    description: "You will work with a small team on the payment pipeline.",
+    offset: 20,
+    descriptionChars: EXAMPLE_DESCRIPTION.length,
+    description: EXAMPLE_DESCRIPTION.slice(20),
     descriptionNext: null,
   },
   companies: {
@@ -195,7 +196,7 @@ Example: curl -s "${PUBLIC_ORIGIN}/v1/search?title=backend+engineer&location=rem
 ${exampleBlock(LLMS_EXAMPLES.search)}
 
 ### GET /v1/jobs/:id
-One open posting: its facts, every open location of the same posting (variants, this one included), and the first ${DESCRIPTION_CHUNK} characters of its description.
+One open posting: its facts, every open location of the same posting (variants, this one included), and its full description.
 
 A closed posting answers **410** with error code "closed". A missing id answers 404 "unknown"; a posting whose source stopped listing answers 404 "source_hidden". Do not retry a 410.
 
@@ -204,16 +205,16 @@ Example: curl -s "${PUBLIC_ORIGIN}/v1/jobs/48211"
 ${exampleBlock(LLMS_EXAMPLES.job)}
 
 ### GET /v1/jobs/:id/description
-The rest of a description, in chunks.
+Optional: a part of a description. GET /v1/jobs/:id already returns it whole; use this only to read a long one in pieces.
 
 Parameters:
 ${parameterLines(publicDescriptionSchema.shape)}
 
-Example: curl -s "${PUBLIC_ORIGIN}/v1/jobs/48211/description?offset=4000"
+Example: curl -s "${PUBLIC_ORIGIN}/v1/jobs/48211/description?offset=20"
 
 ${exampleBlock(LLMS_EXAMPLES.description)}
 
-Call again with offset set to descriptionNext until it is null.
+With limit set, call again with offset set to descriptionNext until it is null. Without limit, you get everything from offset to the end.
 
 ### GET /v1/companies
 Company names and slugs the catalog holds, for discovery. Use it to find the canonical name to pass as company.
@@ -279,7 +280,7 @@ Not every source states every field. countryCode, postedAt, pay and compensation
 
 ## Limits
 
-- Search limit: 1 to ${SEARCH_MAX_LIMIT}, default ${SEARCH_DEFAULT_LIMIT}. Description chunk: 1 to ${DESCRIPTION_MAX_CHUNK}, default ${DESCRIPTION_CHUNK}. Discovery limit: 1 to ${DISCOVERY_MAX_RESULTS}.
+- Search limit: 1 to ${SEARCH_MAX_LIMIT}, default ${SEARCH_DEFAULT_LIMIT}. Discovery limit: 1 to ${DISCOVERY_MAX_RESULTS}.
 - A search lists at most ${SEARCH_RESULT_CAP} results in total. There is no exact count. count is the number on this page.
 - About ${PUBLIC_RATE_PER_MINUTE} requests a minute per address. Over that answers 429 with Retry-After.
 - Answers are cached: at the edge, searches for up to 5 minutes, postings and discovery for up to an hour. Browsers may keep a posting or discovery answer for up to 4 hours (the zone's browser TTL); send Cache-Control: no-cache when a fresh answer matters. Keep your own copy rather than asking again.
