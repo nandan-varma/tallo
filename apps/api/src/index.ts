@@ -29,8 +29,9 @@ const COLLECT_CRON = "*/5 * * * *";
 export interface Env {
   DB: D1Database;
   BLOBS: R2Bucket;
-  READ_TOKEN: string;
   INGEST_TOKEN: string;
+  /** Host the public reads are refused on: the API's public custom domain. Unset: allowed (tests, local dev). */
+  READS_BLOCKED_HOST?: string;
   COLLECT: Queue<CollectMessage>;
   HOST_GATE: DurableObjectNamespace<HostGate>;
   /** Kill switch. Anything other than "1" means the cron enqueues nothing. */
@@ -74,8 +75,8 @@ const collectEnv = (env: Env): CollectEnv => ({
 const deps = (env: Env) => ({
   db: drizzle(env.DB, { schema }),
   blobs: r2(env.BLOBS),
-  readToken: env.READ_TOKEN,
   ingestToken: env.INGEST_TOKEN,
+  readsBlockedHost: env.READS_BLOCKED_HOST,
   collect: collectEnv(env),
 });
 

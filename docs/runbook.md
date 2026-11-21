@@ -14,9 +14,29 @@ Resource ids and URLs are recorded in `docs/PROGRESS.md`. Secrets are never comm
 
 ## Secrets
 
-- API: `READ_TOKEN`, `INGEST_TOKEN` (Wrangler secrets on `tallo-api`).
-- Web: `READ_TOKEN` (same value as the API's). The web pages are public; there is no access key.
+- API: `INGEST_TOKEN` (Wrangler secret on `tallo-api`). The public reads need no token.
+- Web: no secrets. The public pages and the public API proxy are open; there is no access key.
 - Runner: `apps/runner/.env` with `TALLO_API_URL` and `TALLO_INGEST_TOKEN`.
+- Retired: `READ_TOKEN` (issue #75). Delete it from both Workers with `wrangler secret delete READ_TOKEN`.
+
+## Public API (issue #75)
+
+`https://tallo.nandan.fyi/v1/*` is served by the web Worker, which forwards only `GET /v1/search`, `GET /v1/jobs/:id` and
+`GET /v1/jobs/:id/description` (the allowlist is `PUBLIC_PATHS` in `packages/contracts`, matched in
+`apps/web/src/lib/public.ts`). Everything else under `/v1` answers 404 there, admin and ingest included. `/llms.txt` is a
+prerendered page generated from the API's schemas.
+- Rate limit: the `PUBLIC_LIMIT` binding in `apps/web/wrangler.jsonc` (`namespace_id` `1001`, 60 requests per 60 seconds per
+  address). Counters are per Cloudflare location, so the effective global ceiling is higher. The binding is verified against
+  the Workers docs; its behaviour in production is not yet observed (check the 429 rate in logs after deploy).
+- Edge cache: 200 answers are stored under the public URL with sorted parameters (`caches.default`), for the lifetimes the API
+  sets (search 5 minutes, postings 1 hour). Errors are never cached.
+- Closed: `tallo-api.nandan.fyi` (the API's custom domain, which the runner ingests through) refuses the three public reads
+  with 404. The guard is `READS_BLOCKED_HOST`, set to the same value in `apps/api/wrangler.jsonc` and
+  `apps/api/cloudflare.config.ts` (`apps/api/test/config.test.ts` checks both and that it is a route of the Worker). Ingest,
+  admin and `/health` stay on that domain. The web reaches the API through its service binding on `https://api.internal`,
+  which the guard does not match. An unset var allows the reads everywhere (tests and local development).
+- `workers.dev`: `tallo-api` has routes, so `workers_dev` is inferred off on the next deploy. Confirm in the dashboard that
+  the `*.workers.dev` URL is disabled for `tallo-api`; a re-enabled subdomain would serve the public reads outside the guard.
 
 Rotate: generate a new value (`openssl rand -hex 32`), `wrangler secret put`, update `.env`.
 
@@ -48,8 +68,8 @@ Neither migration changes a column, so both API versions run against both schema
 
 Order: `cf d1 migrations apply` for both (apply when no full sync is running, so the index build is not competing with
 writes), then deploy the API. Then check the plans on production: `EXPLAIN QUERY PLAN` for the closed-row select must show
-`jobs_closed_idx`, and for the hash lookup `jobs_jd_hash_idx`. `GET /v1/jobs` now requires `q`; the web does not call it
-(it uses `POST /v1/jobs/search`), so no web deploy is needed for this change.
+`jobs_closed_idx`, and for the hash lookup `jobs_jd_hash_idx`. (At the time, the web called `POST /v1/jobs/search`; that
+route and the free-text `GET /v1/jobs` are gone since the public API change, which deploys the API and web together.)
 
 ### Order for the read-cost migrations (0016 runs indexes, 0017 regroup cursor)
 
@@ -139,7 +159,7 @@ curl -s -X POST https://tallo-api.nandan.fyi/v1/admin/collect \
 Then check, with the ingest token: `GET /v1/admin/collect/status` (runs in flight, last 24 hours) and the log lines
 (`pnpm dlx wrangler tail tallo-api --format json`, filter on `"outcome"`). Every board should end `complete`, or
 `partial` with a reason in its `issues`. A `not_found` means the board moved (check `sources/`). Pass criteria: no
-`error` lines, every `complete` board's `changed` count is 0 on a second pass, and `GET /v1/jobs?q=...` returns its jobs.
+`error` lines, every `complete` board's `changed` count is 0 on a second pass, and `GET /v1/search?title=...` returns its jobs.
 
 ### Kill switch and rollback
 
@@ -176,7 +196,7 @@ Then check, with the ingest token: `GET /v1/admin/collect/status` (runs in fligh
 
 ```sh
 cd apps/api
-printf 'READ_TOKEN=devread\nINGEST_TOKEN=devingest\n' > .dev.vars   # gitignored; never commit it
+printf 'INGEST_TOKEN=devingest\n' > .dev.vars   # gitignored; never commit it
 pnpm exec wrangler d1 migrations apply tallo --local
 pnpm exec wrangler dev --port 8787 --var COLLECT_ENABLED:1
 # in another shell: the admin routes against http://localhost:8787, then the cron:
@@ -229,7 +249,7 @@ Flags win over env. Invalid values (non-numeric, below the minimum) fail before 
 conservative setting. Retries after a 429/5xx keep their per-host slot but do not wait for the gap.
 `verify` uses its own limit of 4 and is not shared.
 
-Check health, read-only, with READ_TOKEN:
+Check health, read-only, with the ingest token (the sources and runs reads need it):
 - `GET /v1/sources/status` is the slim per-source view (the status page was removed with the pivot; the endpoint stays): `lastRunAt`,
   `lastCompleteRunAt`, `lastListedAt`, `lastStatus` and `freshness`, without board params or failure counters.
 - `GET /v1/sources` is the full record (adds `status` and `consecutiveFailures`). The runner's `sources --dead`

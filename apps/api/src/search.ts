@@ -42,16 +42,30 @@ type HitRow = {
   locations?: number;
 };
 
-function toHit(row: HitRow): JobHit {
+/** The place a row shows: the location text the source stated, else its structured city, region and country. */
+export function locationOf(row: {
+  locationText: string | null;
+  city: string | null;
+  region: string | null;
+  countryCode: string | null;
+}): string | null {
   const place = [row.city, row.region, row.countryCode].filter(Boolean).join(", ");
+  return row.locationText ?? (place || null);
+}
+
+/** `YYYY-MM-DD` from a unix-seconds timestamp, or null. */
+export const postedOf = (seconds: number | null): string | null =>
+  seconds ? new Date(seconds * 1000).toISOString().slice(0, 10) : null;
+
+function toHit(row: HitRow): JobHit {
   return {
     id: String(row.id),
     title: row.title,
     company: row.company,
-    location: row.locationText ?? (place || null),
+    location: locationOf(row),
     workMode: row.workMode,
     pay: row.pay,
-    postedAt: row.postedAt ? new Date(row.postedAt * 1000).toISOString().slice(0, 10) : null,
+    postedAt: postedOf(row.postedAt),
     department: row.department,
     applyUrl: row.applyUrl ?? row.url,
     locations: row.locations ?? 1,

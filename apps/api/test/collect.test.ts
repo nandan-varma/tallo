@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { type CollectEnv, enqueueDue, enqueueNamed, handleCollect } from "../src/collect.ts";
-import { INGEST, READ } from "./support.ts";
+import { INGEST, WRONG } from "./support.ts";
 
 const fx = (name: string) =>
   readFileSync(
@@ -266,7 +266,6 @@ describe("admin routes", () => {
     const application = createApp({
       db: h.db,
       blobs: h.blobs,
-      readToken: READ,
       ingestToken: INGEST,
       collect: h.env,
     });
@@ -307,11 +306,11 @@ describe("admin routes", () => {
 
   it("requires the ingest token for every admin route", async () => {
     const { application } = app();
-    expect((await post(application, "/v1/admin/sources", { sources: [stripe] }, READ)).status).toBe(
-      401,
-    );
     expect(
-      (await post(application, "/v1/admin/collect", { sources: [stripe.id] }, READ)).status,
+      (await post(application, "/v1/admin/sources", { sources: [stripe] }, WRONG)).status,
+    ).toBe(401);
+    expect(
+      (await post(application, "/v1/admin/collect", { sources: [stripe.id] }, WRONG)).status,
     ).toBe(401);
   });
 
@@ -323,7 +322,7 @@ describe("admin routes", () => {
       .set({ status: "dead", consecutiveFailures: 3, nextDueAt: T + 30 * DAY })
       .where(eq(schema.sources.id, stripe.id));
     const path = "/v1/admin/sources/revive";
-    expect((await post(application, path, { sources: [stripe.id] }, READ)).status).toBe(401);
+    expect((await post(application, path, { sources: [stripe.id] }, WRONG)).status).toBe(401);
     const res = await post(application, path, { sources: [stripe.id, "greenhouse:nope"] });
     expect(await res.json()).toEqual({ revived: [stripe.id] });
     const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, stripe.id));

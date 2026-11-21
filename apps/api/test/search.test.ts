@@ -1,95 +1,11 @@
-import { gzip, sha256 } from "@tallo/catalog";
 import type { SearchSpec } from "@tallo/contracts";
-import { jdKey, memoryBlobs, schema } from "@tallo/db";
-import { testDb } from "@tallo/db/testing";
+import { schema } from "@tallo/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { searchPage } from "../src/search.ts";
-import { INGEST, READ } from "./support.ts";
-
-const SOURCE = "greenhouse:acme";
-const now = () => Math.floor(Date.now() / 1000);
-
-type Db = ReturnType<typeof testDb>;
-type Blobs = ReturnType<typeof memoryBlobs>;
-
-/** One job row, visible by default; `closed` and `dupOf` turn it into a row the site hides. */
-async function seed(
-  db: Db,
-  blobs: Blobs,
-  args: {
-    postingId: string;
-    title: string;
-    company?: string;
-    description?: string;
-    closed?: boolean;
-    dupOf?: number;
-    pay?: [number, number];
-    location?: string;
-    workMode?: "remote" | "onsite";
-    sortAt?: number;
-  },
-): Promise<number> {
-  const text = args.description ?? `${args.title} description`;
-  const jdHash = await sha256(text);
-  await blobs.put(jdKey(jdHash), await gzip(new TextEncoder().encode(text)));
-  await db
-    .insert(schema.sources)
-    .values({
-      id: SOURCE,
-      platform: "greenhouse",
-      key: "acme",
-      company: "Acme",
-      companySlug: "acme",
-      params: {},
-      lastListedAt: now(),
-    })
-    .onConflictDoNothing();
-  const company = args.company ?? "Acme";
-  const [row] = await db
-    .insert(schema.jobs)
-    .values({
-      sourceId: SOURCE,
-      postingId: args.postingId,
-      company,
-      companySlug: company.toLowerCase().replace(/\s+/g, "-"),
-      title: args.title,
-      excerpt: text.slice(0, 80),
-      jdHash,
-      jdBytes: text.length,
-      sourceHash: "b".repeat(64),
-      facts: args.pay
-        ? {
-            platform: "greenhouse",
-            compensation: [
-              {
-                min: args.pay[0],
-                max: args.pay[1],
-                currency: "USD",
-                interval: "year",
-                component: "base",
-              },
-            ],
-          }
-        : { platform: "greenhouse" },
-      sortAt: args.sortAt ?? 1000 + Number(args.postingId),
-      firstSeenAt: 1,
-      updatedAt: 1,
-      locationText: args.location ?? "Remote, US",
-      workMode: args.workMode ?? "remote",
-      closedAt: args.closed ? 2 : null,
-      dupOf: args.dupOf ?? null,
-    })
-    .returning({ id: schema.jobs.id });
-  return row?.id ?? 0;
-}
-
-function setup() {
-  const db = testDb();
-  const blobs = memoryBlobs();
-  return { db, blobs };
-}
+import { type Db, seed, setup } from "./fixtures.ts";
+import { INGEST } from "./support.ts";
 
 /** The hits of one page of a spec, the way the results list asks for them. */
 const hitsOf = async (db: Db, spec: SearchSpec, limit: number, offset = 0) =>
@@ -371,29 +287,25 @@ describe("searchPage", () => {
   });
 });
 
-describe("POST /v1/jobs/search", () => {
-  const post = (app: ReturnType<typeof createApp>, body: unknown, token = READ) =>
-    app.request("/v1/jobs/search", {
-      method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
+describe("GET /v1/search", () => {
+  const get = (app: ReturnType<typeof createApp>, query: string) =>
+    app.request(`/v1/search?${query}`);
 
-  it("answers one page of hits, each with the employer's apply link", async () => {
+  it("answers one page of hits, each with the employer's apply link, and no token", async () => {
     const { db, blobs } = setup();
     const id = await seed(db, blobs, { postingId: "1", title: "Data Engineer" });
     await db
       .update(schema.jobs)
       .set({ applyUrl: "https://boards.example.com/acme/apply/1" })
       .where(eq(schema.jobs.id, id));
-    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
 
-    const response = await post(app, { queries: ["data engineer"] });
+    const response = await get(app, "title=data+engineer");
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("private, no-store");
-    const body = (await response.json()) as { hits: { id: string; applyUrl: string }[] };
-    expect(body.hits).toEqual([
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60, s-maxage=300");
+    const body = (await response.json()) as { results: { id: string; applyUrl: string }[] };
+    expect(body.results).toEqual([
       expect.objectContaining({
         id: String(id),
         applyUrl: "https://boards.example.com/acme/apply/1",
@@ -408,42 +320,125 @@ describe("POST /v1/jobs/search", () => {
       .update(schema.jobs)
       .set({ url: "https://boards.example.com/acme/jobs/1" })
       .where(eq(schema.jobs.id, id));
-    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
 
-    const body = (await (await post(app, { queries: ["data engineer"] })).json()) as {
-      hits: { applyUrl: string | null }[];
+    const body = (await (await get(app, "title=data+engineer")).json()) as {
+      results: { applyUrl: string | null }[];
     };
 
-    expect(body.hits[0]?.applyUrl).toBe("https://boards.example.com/acme/jobs/1");
+    expect(body.results[0]?.applyUrl).toBe("https://boards.example.com/acme/jobs/1");
   });
 
-  it("needs the read token and validates the spec at the edge", async () => {
+  it("validates every parameter at the edge, with a message and a hint, never a bare 400", async () => {
     const { db, blobs } = setup();
-    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+    const error = async (query: string) => {
+      const response = await get(app, query);
+      expect(response.status, query).toBe(400);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      const body = (await response.json()) as {
+        error: { code: string; message: string; hint: string };
+      };
+      expect(body.error.message).not.toBe("");
+      expect(body.error.hint).not.toBe("");
+      return body.error;
+    };
 
-    expect((await post(app, { queries: ["data engineer"] }, "nope")).status).toBe(401);
-    expect((await post(app, { queries: [] })).status).toBe(400);
-    expect((await post(app, { queries: ["data engineer"], offset: 300 })).status).toBe(400);
+    expect((await error("")).message).toMatch(/^title: /);
+    expect((await error("title=x")).message).toMatch(/^title: /);
+    expect(
+      (
+        await error(
+          "title=ab&title=cd&title=ef&title=gh&title=ij&title=kl&title=mn&title=op&title=qr",
+        )
+      ).message,
+    ).toMatch(/^title: /);
+    expect((await error(`title=${"a".repeat(81)}`)).message).toMatch(/^title: /);
+    expect((await error("title=%21%21")).message).toMatch(/^title: /);
+    expect((await error("title=ab&company=a")).message).toMatch(/^company: /);
+    expect((await error("title=ab&location=x")).message).toMatch(/^location: /);
+    expect((await error("title=ab&limit=0")).message).toMatch(/^limit: /);
+    expect((await error("title=ab&limit=26")).message).toMatch(/^limit: /);
+    expect((await error("title=ab&limit=1.5")).message).toMatch(/^limit: /);
+    expect((await error("title=ab&limit=abc")).message).toMatch(/^limit: /);
+    expect((await error("title=ab&q=engineer")).code).toBe("unknown_parameter");
+    expect((await error(`title=ab&cursor=${"x".repeat(101)}`)).message).toMatch(/^cursor: /);
   });
 
-  it("no longer serves the removed personal routes", async () => {
+  it("rejects a tampered cursor, a cursor from another search, and one past the cap", async () => {
     const { db, blobs } = setup();
-    const app = createApp({ db, blobs, readToken: READ, ingestToken: INGEST });
-    const headers = { authorization: `Bearer ${READ}`, "content-type": "application/json" };
-
-    for (const [method, path] of [
-      ["GET", "/v1/applications"],
-      ["GET", "/v1/searches"],
-      ["GET", "/v1/resume"],
-      ["GET", "/v1/profile"],
-      ["POST", "/v1/ai/chat"],
-    ] as const) {
-      const response = await app.request(path, {
-        method,
-        headers,
-        ...(method === "GET" ? {} : { body: "{}" }),
-      });
-      expect(response.status, `${method} ${path}`).toBe(404);
+    for (let i = 1; i <= 12; i++) {
+      await seed(db, blobs, { postingId: `${i}`, title: `Data Engineer ${i}`, company: `Co ${i}` });
     }
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+    const first = (await (await get(app, "title=data+engineer&limit=10")).json()) as {
+      next: string;
+    };
+    expect(first.next).toEqual(expect.any(String));
+
+    const ok = await get(app, `title=data+engineer&limit=10&cursor=${first.next}`);
+    expect(ok.status).toBe(200);
+    expect((await ok.json()) as { results: unknown[] }).toMatchObject({
+      results: expect.arrayContaining([expect.anything()]),
+    });
+
+    const other = await get(app, `title=platform+engineer&limit=10&cursor=${first.next}`);
+    expect(other.status).toBe(400);
+    expect(((await other.json()) as { error: { code: string } }).error.code).toBe("invalid_cursor");
+
+    const flipped = first.next.slice(0, -1) + (first.next.endsWith("A") ? "B" : "A");
+    expect((await get(app, `title=data+engineer&cursor=${flipped}`)).status).toBe(400);
+    expect((await get(app, "title=data+engineer&cursor=not-a-cursor")).status).toBe(400);
+    expect((await get(app, `title=data+engineer&cursor=${encodeURIComponent("%%%")}`)).status).toBe(
+      400,
+    );
+  });
+
+  it("pages to the end with next, lists at most the cap, and says so in the note", async () => {
+    const { db, blobs } = setup();
+    for (let i = 1; i <= 310; i++) {
+      await seed(db, blobs, { postingId: `${i}`, title: `Data Engineer ${i}`, company: `Co ${i}` });
+    }
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+    let next: string | null = null;
+    let total = 0;
+    let pages = 0;
+    let last: { note: string } | null = null;
+    do {
+      const query = `title=data+engineer&limit=25${next ? `&cursor=${next}` : ""}`;
+      const body = (await (await get(app, query)).json()) as {
+        results: unknown[];
+        next: string | null;
+        note: string;
+      };
+      total += body.results.length;
+      pages++;
+      next = body.next;
+      last = body;
+      expect(pages).toBeLessThan(20);
+    } while (next !== null);
+    expect(total).toBe(300);
+    expect(pages).toBe(12);
+    expect(last?.note).toContain("last page");
+    expect(last?.note).toContain("300");
+  });
+
+  it("answers a note when nothing matches, and refuses a URL over 2 KB before any query", async () => {
+    const { db, blobs } = setup();
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+    const none = (await (await get(app, "title=zebra+wrangler")).json()) as {
+      results: unknown[];
+      next: null;
+      note: string;
+    };
+    expect(none).toEqual({
+      results: [],
+      next: null,
+      note: expect.stringContaining("No open postings"),
+    });
+
+    const long = await get(app, `title=data+engineer&location=${"x".repeat(2100)}`);
+    expect(long.status).toBe(414);
+    expect(((await long.json()) as { error: { code: string } }).error.code).toBe("uri_too_long");
   });
 });

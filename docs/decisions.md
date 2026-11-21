@@ -2,6 +2,14 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
+**D16. Public read API for the user's own AI (issue #75).** `GET /v1/search`, `GET /v1/jobs/:id` and
+`GET /v1/jobs/:id/description` are public, GET-only and need no token; they replace the free-text `GET /v1/jobs` and
+`POST /v1/jobs/search`. The web Worker forwards exactly the three paths, with a per-address limit and an edge cache, and
+serves `/llms.txt` (generated from the same schemas). Reasons: the reader's own AI judges fit, so the API returns facts,
+short hits and description chunks, never a whole catalog; cursors are bound to their query so a page cannot be replayed
+against another search; errors are written for a model to correct. `READ_TOKEN` is retired. The API's own custom domain
+refuses the reads (`READS_BLOCKED_HOST`), so the web's limit and cache cannot be bypassed there (see the runbook).
+
 **D15. Public read-only search; no personal data, no AI in the product.** Tallo serves job search to anyone: the API's
 job reads (`GET /v1/jobs`, `POST /v1/jobs/search`, `GET /v1/jobs/:id`) and the web home and `/search` pages, which are
 plain HTML forms. The assistant, resume builder, application tracker, saved searches, profile, status page and access-key

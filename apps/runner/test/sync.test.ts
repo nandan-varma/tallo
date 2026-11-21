@@ -36,7 +36,7 @@ function greenhouse(overrides: { listing?: () => Response } = {}): typeof fetch 
 function stack() {
   const db = testDb();
   const blobs = memoryBlobs();
-  const app = createApp({ db, blobs, readToken: "r", ingestToken: "i" });
+  const app = createApp({ db, blobs, ingestToken: "i" });
   const api = createApi("https://api.test", "i", async (req) =>
     app.fetch(req instanceof Request ? req : new Request(req)),
   );
@@ -44,7 +44,7 @@ function stack() {
 }
 // biome-ignore lint/suspicious/noExplicitAny: loosely typed JSON in tests
 const read = async (app: ReturnType<typeof stack>["app"], path: string): Promise<any> =>
-  (await app.request(path, { headers: { authorization: "Bearer r" } })).json();
+  (await app.request(path, { headers: { authorization: "Bearer i" } })).json();
 
 describe("syncSource end to end", () => {
   it("lists, fetches details, uploads, and the catalog serves the result", async () => {
@@ -61,9 +61,9 @@ describe("syncSource end to end", () => {
     expect(blobs.keys().some((k) => k.startsWith("raw/greenhouse:stripe/"))).toBe(true);
     // The fixture's two listings are one posting in two locations (same title and JD): one card,
     // both listings kept as variants.
-    const { jobs } = await read(app, "/v1/jobs?q=revenue");
-    expect(jobs).toHaveLength(1);
-    const detail = await read(app, `/v1/jobs/${jobs[0].id}`);
+    const { results } = await read(app, "/v1/search?title=revenue+accounting");
+    expect(results).toHaveLength(1);
+    const detail = await read(app, `/v1/jobs/${results[0].id}`);
     expect(detail.variants).toHaveLength(2);
     expect(detail.description.length).toBeGreaterThan(100);
     expect(detail.company).toBe("Stripe");
@@ -103,7 +103,7 @@ describe("syncSource end to end", () => {
       });
       expect(failed.listingComplete).toBe(false);
     }
-    expect((await read(app, "/v1/jobs?q=revenue")).jobs).toHaveLength(1);
+    expect((await read(app, "/v1/search?title=revenue+accounting")).results).toHaveLength(1);
     const [row] = await read(app, "/v1/sources");
     expect(row).toMatchObject({ id: source.id, lastStatus: "partial" });
   });
@@ -125,7 +125,7 @@ describe("syncSource end to end", () => {
     });
     expect(result).toMatchObject({ listingComplete: true, detailsComplete: false });
     expect(result.issues.some((i) => i.code === "detail")).toBe(true);
-    expect((await read(app, "/v1/jobs?q=revenue")).jobs).toHaveLength(0);
+    expect((await read(app, "/v1/search?title=revenue+accounting")).results).toHaveLength(0);
   });
 });
 
@@ -180,7 +180,7 @@ describe("dead boards", () => {
     await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: gone() });
     expect(await sourceRow(app)).toMatchObject({ status: "dead", consecutiveFailures: 3 });
     // The catalog is untouched: a dead board closes nothing.
-    expect((await read(app, "/v1/jobs?q=revenue")).jobs).toHaveLength(1);
+    expect((await read(app, "/v1/search?title=revenue+accounting")).results).toHaveLength(1);
   });
 
   it("a 404 on a later page of a real board is a failed run, not board-not-found", async () => {

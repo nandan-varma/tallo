@@ -150,12 +150,13 @@ export function visibleJobs(now: number, { includeStale = false } = {}): SQL[] {
   return [
     sql`${jobs.closedAt} IS NULL`,
     sql`${jobs.dupOf} IS NULL`,
-    ...(includeStale
-      ? []
-      : [
-          sql`NOT EXISTS (SELECT 1 FROM sources WHERE sources.id = ${jobs.sourceId} AND coalesce(sources.last_listed_at, 0) < ${now - STALE_HIDE_DAYS * 86400})`,
-        ]),
+    ...(includeStale ? [] : [sourceListed(now)]),
   ];
+}
+
+/** The source of the row has listed recently enough that search shows its postings (see `STALE_HIDE_DAYS`). */
+function sourceListed(now: number): SQL {
+  return sql`NOT EXISTS (SELECT 1 FROM sources WHERE sources.id = ${jobs.sourceId} AND coalesce(sources.last_listed_at, 0) < ${now - STALE_HIDE_DAYS * 86400})`;
 }
 
 /**
@@ -222,6 +223,21 @@ export async function rankedJobs(
 
 export async function getJob(db: Db, id: number) {
   const row = (await db.select().from(jobs).where(eq(jobs.id, id)).limit(1))[0];
+  return row ? { ...row, pay: payOf(row.facts) } : undefined;
+}
+
+/**
+ * The job a public read may show: open, and from a source search still shows. A closed posting or a hidden source
+ * answers undefined, as it does in search. A duplicate listing that is still open answers, as its own location.
+ */
+export async function openJob(db: Db, id: number, now = Math.floor(Date.now() / 1000)) {
+  const row = (
+    await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.id, id), isNull(jobs.closedAt), sourceListed(now)))
+      .limit(1)
+  )[0];
   return row ? { ...row, pay: payOf(row.facts) } : undefined;
 }
 

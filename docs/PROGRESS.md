@@ -11,6 +11,17 @@ regroup) stays. The Mac runner is the only collector (`pnpm --filter @tallo/runn
 "Cloud collection (queue)", step 6 (set `COLLECT_ENABLED` to `"1"` and restore the `*/5 * * * *` trigger in both files).
 The "Session 2026-10-28" notes below describe the previous, cloud-collecting state.
 
+## Session 2026-11-11: public API for the user's own AI (issue #75, PR open, not merged)
+
+- Public reads: `GET /v1/search`, `GET /v1/jobs/:id`, `GET /v1/jobs/:id/description`. No token, GET only. The web Worker
+  forwards exactly these (`PUBLIC_PATHS`), with a 60/minute per-address binding (`PUBLIC_LIMIT`, unverified in production),
+  a 2 KB URL cap and an edge cache. `/llms.txt` is generated from the API's zod schemas and tested against the routes.
+- Removed: `GET /v1/jobs` (free text) and `POST /v1/jobs/search`. `READ_TOKEN` retired (API and web); the sources and runs
+  reads now need `INGEST_TOKEN`. Migrations: none. The `searchJobs` db helper stays for the db tests (no route uses it).
+- `tallo-api.nandan.fyi` refuses the public reads (`READS_BLOCKED_HOST`, kept in step in `apps/api/wrangler.jsonc` and
+  `cloudflare.config.ts`); ingest and admin stay on it. Open: confirm `workers.dev` is off for `tallo-api` in the dashboard.
+  Secrets to delete remotely: `READ_TOKEN` on both Workers. Deploy the API before the web; no D1 or R2 change.
+
 ## Session 2026-11-11: public search pivot (issue #72, PR open, not merged)
 
 - Removed: the assistant, resume builder, application tracker, saved searches, profile, status page, access-key
@@ -163,13 +174,13 @@ Next, in order:
 
 ## Infra
 
-| Thing   | Id / location                                                                                                                                      |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0012 applied remotely                                                              |
-| R2      | `tallo-blobs`                                                                                                                                      |
-| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, hourly cron at :17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                     |
-| Secrets | API: READ_TOKEN, INGEST_TOKEN. Web: READ_TOKEN, ACCESS_TOKEN. Local copies: `apps/runner/.env`, `~/.config/tallo/web-secrets.env` (both untracked) |
-| Zone    | nandan.fyi (Cloudflare). `tallo-assets.nandan.fyi` not used yet                                                                                    |
+| Thing   | Id / location                                                                                                                                  |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1      | `tallo` (001b036c-2e15-45c8-9284-edb9d374b849), migrations 0000–0012 applied remotely                                                          |
+| R2      | `tallo-blobs`                                                                                                                                  |
+| Workers | `tallo-api` (custom domain tallo-api.nandan.fyi, hourly cron at :17 UTC purge), `tallo-web` (tallo.nandan.fyi)                                 |
+| Secrets | API: INGEST_TOKEN. Web: none (READ_TOKEN retired by #75). Local copies: `apps/runner/.env`, `~/.config/tallo/web-secrets.env` (both untracked) |
+| Zone    | nandan.fyi (Cloudflare). `tallo-assets.nandan.fyi` not used yet                                                                                |
 
 ## In flight
 

@@ -5,7 +5,7 @@ import { valuesFrom } from "@/lib/search";
 
 const empty = valuesFrom(new URLSearchParams());
 ---
-<Base title="Tallo · Find jobs">
+<Base title="Tallo · Find jobs" indexable>
   <section class="mx-auto grid max-w-3xl gap-8 px-6 py-16">
     <div class="grid gap-3">
       <h1 class="text-3xl font-semibold tracking-tight">Find the role, apply on the employer's page.</h1>
@@ -14,5 +14,10 @@ const empty = valuesFrom(new URLSearchParams());
       </p>
     </div>
     <SearchForm values={empty} autoFocus />
+    <p class="text-sm text-muted-foreground">
+      Using an AI assistant? Give it <a href="/llms.txt" class="underline underline-offset-4">tallo.nandan.fyi/llms.txt</a>
+      and it can search these postings for you through a public, read-only API.
+      <a href="/search" class="underline underline-offset-4">Search here</a> to see the results yourself.
+    </p>
   </section>
 </Base>

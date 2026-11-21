@@ -6,21 +6,24 @@ import { HTTPException } from "hono/http-exception";
 import { adminRoutes } from "./admin.ts";
 import type { CollectEnv } from "./collect.ts";
 import { ingestRoutes } from "./ingest.ts";
-import { jobRoutes } from "./jobs.ts";
+import { publicRoutes } from "./public.ts";
 
 export interface Deps {
   db: Db;
   blobs: BlobStore;
-  readToken: string;
   ingestToken: string;
+  /** Host the public reads are refused on (see `publicRoutes`). Unset: allowed everywhere. */
+  readsBlockedHost?: string;
   /** Collection environment for the staged-collect admin routes. Absent: those routes answer 503. */
   collect?: CollectEnv;
 }
 
-/** Internal API. Reads need READ_TOKEN; writes need INGEST_TOKEN (which may also read). */
-export function createApp({ db, blobs, readToken, ingestToken, collect }: Deps) {
+/**
+ * The API. Public reads (`/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`) need no token. Everything else,
+ * including the sources and runs reads, needs INGEST_TOKEN.
+ */
+export function createApp({ db, blobs, ingestToken, readsBlockedHost, collect }: Deps) {
   const app = new Hono();
-  const read = bearerAuth({ verifyToken: (t) => t === readToken || t === ingestToken });
   const write = bearerAuth({ token: ingestToken });
 
   app.onError((error, c) => {
@@ -32,8 +35,8 @@ export function createApp({ db, blobs, readToken, ingestToken, collect }: Deps) 
 
   app.get("/health", (c) => c.json({ ok: true }));
 
-  app.route("/", jobRoutes({ db, blobs, read }));
-  app.route("/", ingestRoutes({ db, blobs, read, write }));
+  app.route("/", publicRoutes({ db, blobs, blockedHost: readsBlockedHost }));
+  app.route("/", ingestRoutes({ db, blobs, write }));
   app.route("/", adminRoutes({ db, write, ...(collect ? { collect } : {}) }));
 
   return app;
