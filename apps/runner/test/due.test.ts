@@ -21,6 +21,19 @@ const state = new Map<string, Pick<SourceState, "status" | "lastCompleteRunAt">>
 const ids = (list: { id: string }[]) => list.map((s) => s.id);
 
 describe("dueSources", () => {
+  it("skips excluded platforms, and excludes nothing by default", () => {
+    const all = ids(dueSources(configured, state, { cutoff: 1000 }));
+    expect(all).toContain("lever:zed");
+    expect(
+      ids(dueSources(configured, state, { cutoff: 1000, excludePlatforms: ["lever"] })),
+    ).toEqual(["greenhouse:acme"]);
+    expect(
+      ids(
+        dueSources(configured, state, { cutoff: 1000, excludePlatforms: ["lever", "greenhouse"] }),
+      ),
+    ).toEqual([]);
+  });
+
   it("skips dead boards by default, oldest complete run first", () => {
     expect(ids(dueSources(configured, state, { cutoff: 1000 }))).toEqual([
       "lever:zed",

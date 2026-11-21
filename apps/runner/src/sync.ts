@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  type Cpu,
   collectSource,
   type EngineOptions,
   type Log,
@@ -21,6 +22,8 @@ interface SyncOptions {
   /** One limiter for the whole process, so per-host limits hold across parallel sources. */
   limiter?: HostLimiter;
   maxPostings?: number;
+  /** CPU hook: a worker-thread pool in the CLI, this thread when absent (tests). */
+  cpu?: Cpu;
   /** Injected in tests. */
   fetch?: typeof fetch;
 }
@@ -33,6 +36,7 @@ export async function syncSource(source: SourceConfig, options: SyncOptions): Pr
     log: options.log as Log,
     ...(options.limiter ? { limiter: options.limiter } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(options.cpu ? { cpu: options.cpu } : {}),
     ...(options.maxPostings ? { maxPostings: options.maxPostings } : {}),
     ...(options.detailConcurrency ? { detailConcurrency: options.detailConcurrency } : {}),
   };

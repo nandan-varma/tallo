@@ -312,6 +312,26 @@ conservative setting. Retries after a 429/5xx keep their per-host slot but do no
 `verify` uses its own limit of 4 and is not shared.
 
 Check health, read-only, with the ingest token (the sources and runs reads need it):
+### Throughput (threads, concurrency, platform exclusion)
+
+`tallo sync` overlaps work at three levels. Boards run in parallel (`--concurrency`, default 16); within a board,
+detail fetches run in parallel, and each batch of 100 postings is uploaded and applied while later details are still
+being fetched (at most two batches wait, so memory stays bounded). The CPU-heavy steps (fingerprint hashing, map with
+HTML to text, `prepareJob`, description gzip) run in a `worker_threads` pool, so the event loop only does network I/O.
+Requests share one undici agent (keep-alive across boards, HTTP/2 where the host offers it), also used for the ingest API.
+
+| Flag                      | Env             | Default           | Meaning                                                     |
+| ------------------------- | --------------- | ----------------- | ----------------------------------------------------------- |
+| `-c, --concurrency <n>`   |                 | `16`              | Boards in flight at once                                    |
+| `--threads <n>`           | `TALLO_THREADS` | `min(4, cores-1)` | CPU worker threads; `0` runs those steps on the main thread |
+| `--exclude-platform <id>` |                 | none              | Skip a platform; repeat the flag for several                |
+
+Per-host limits still apply across all boards, so more threads or boards never raise the load on one host. When one
+host is the bottleneck (a single Greenhouse host at `--per-host 8`), throughput is bounded by that limit and threads
+change little; they matter when many hosts run at once. `apps/runner/bench/pipeline.ts` is an offline benchmark
+(fixtures, fake network and API with fixed latency, no real host) for comparing settings.
+
+Check health, read-only, with READ_TOKEN:
 - `GET /v1/sources/status` is the slim per-source view (the status page was removed with the pivot; the endpoint stays): `lastRunAt`,
   `lastCompleteRunAt`, `lastListedAt`, `lastStatus` and `freshness`, without board params or failure counters.
 - `GET /v1/sources` is the full record (adds `status` and `consecutiveFailures`). The runner's `sources --dead`
