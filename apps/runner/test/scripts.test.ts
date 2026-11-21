@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +20,7 @@ const LAUNCHD = join(REPO, "apps/runner/launchd");
 let home: string;
 let root: string;
 let bin: string;
+let work: string;
 
 // A stand-in for wrangler. It records its calls and fakes the three commands the backup uses.
 function fakeWrangler(opts: { failExport?: boolean } = {}) {
@@ -36,6 +45,7 @@ esac
 function runBackup(args: string[], env: Record<string, string> = {}) {
   return spawnSync("bash", [BACKUP, ...args], {
     encoding: "utf8",
+    cwd: work,
     env: {
       PATH: process.env.PATH ?? "",
       HOME: home,
@@ -47,10 +57,10 @@ function runBackup(args: string[], env: Record<string, string> = {}) {
 }
 
 beforeEach(() => {
-  const base = mkdtempSync(join(tmpdir(), "tallo-scripts-"));
-  home = join(base, "home");
-  root = join(base, "backups");
-  bin = join(base, "bin");
+  work = mkdtempSync(join(tmpdir(), "tallo-scripts-"));
+  home = join(work, "home");
+  root = join(work, "backups");
+  bin = join(work, "bin");
   mkdirSync(home);
   mkdirSync(bin);
 });
@@ -111,6 +121,51 @@ describe("backup-d1.sh", () => {
   it("rejects a bad retention value", () => {
     const r = runBackup(["run"], { TALLO_BACKUP_KEEP: "0" });
     expect(r.status).toBe(2);
+  });
+
+  it("rejects a relative backup directory, before creating anything", () => {
+    const r = runBackup(["run"], { TALLO_BACKUP_DIR: "relative-backups" });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("absolute");
+    expect(existsSync(join(work, "relative-backups"))).toBe(false);
+  });
+
+  it("refuses a backup directory inside the repository", () => {
+    const r = runBackup([], { TALLO_BACKUP_DIR: join(REPO, "tallo-test-backups") });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("outside the repository");
+    expect(existsSync(join(REPO, "tallo-test-backups"))).toBe(false);
+  });
+
+  it("cleans up a failed run when the backup path contains a single quote", () => {
+    const quoted = join(work, "back'ups");
+    mkdirSync(quoted);
+    const r = runBackup(["run"], {
+      TALLO_BACKUP_DIR: quoted,
+      TALLO_WRANGLER: fakeWrangler({ failExport: true }),
+    });
+    expect(r.status).not.toBe(0);
+    expect(readdirSync(quoted)).toEqual([]);
+  });
+
+  it("keeps pruning when the backup root is a symbolic link, and says so", () => {
+    const actual = join(work, "actual-backups");
+    mkdirSync(actual);
+    for (const name of [
+      "tallo-d1-20200101T000000Z",
+      "tallo-d1-20200102T000000Z",
+      "tallo-d1-20200103T000000Z",
+    ]) {
+      mkdirSync(join(actual, name));
+    }
+    symlinkSync(actual, root);
+
+    const r = runBackup(["run"], { TALLO_WRANGLER: fakeWrangler(), TALLO_BACKUP_KEEP: "2" });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stderr).toContain("symbolic link");
+    const left = readdirSync(actual).sort();
+    expect(left).not.toContain("tallo-d1-20200101T000000Z");
+    expect(left.filter((n) => n.startsWith("tallo-d1-"))).toHaveLength(2);
   });
 });
 

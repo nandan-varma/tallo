@@ -26,6 +26,43 @@ DB_NAME="${TALLO_D1_NAME:-tallo}"
 BACKUP_ROOT="${TALLO_BACKUP_DIR:-$HOME/Backups/tallo}"
 KEEP="${TALLO_BACKUP_KEEP:-8}"
 
+# Resolve a path through every existing component without requiring the leaf to exist. Symlinks are followed, so a
+# backup root that points into the repository is caught before anything is created there.
+canonical_path() {
+  local path="$1" suffix=""
+  case "$path" in /*) ;; *) return 1 ;; esac
+  while [ ! -e "$path" ] && [ "$path" != "/" ]; do
+    suffix="/$(basename "$path")$suffix"
+    path="$(dirname "$path")"
+  done
+  [ -e "$path" ] || return 1
+  printf '%s%s\n' "$(cd "$path" && pwd -P)" "$suffix"
+}
+
+case "$BACKUP_ROOT" in
+  /*) ;;
+  *)
+    echo "TALLO_BACKUP_DIR must be an absolute path: $BACKUP_ROOT" >&2
+    exit 2
+    ;;
+esac
+
+REPO_REAL="$(cd "$REPO" && pwd -P)"
+if ! ROOT_REAL="$(canonical_path "$BACKUP_ROOT")"; then
+  echo "cannot resolve TALLO_BACKUP_DIR: $BACKUP_ROOT" >&2
+  exit 2
+fi
+case "$ROOT_REAL" in
+  "$REPO_REAL" | "$REPO_REAL"/*)
+    echo "TALLO_BACKUP_DIR must be outside the repository: $BACKUP_ROOT" >&2
+    exit 2
+    ;;
+esac
+if [ -L "$BACKUP_ROOT" ]; then
+  echo "warning: TALLO_BACKUP_DIR is a symbolic link; using its target for retention: $ROOT_REAL" >&2
+fi
+BACKUP_ROOT="$ROOT_REAL"
+
 case "$KEEP" in
   '' | *[!0-9]* | 0)
     echo "TALLO_BACKUP_KEEP must be a whole number of at least 1" >&2
@@ -57,7 +94,7 @@ PLAN
 }
 
 run() {
-  local stamp work dest tables name
+  local stamp dest tables name
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   dest="$BACKUP_ROOT/tallo-d1-$stamp"
   if [ -e "$dest" ]; then
@@ -65,10 +102,11 @@ run() {
     exit 1
   fi
   mkdir -p "$BACKUP_ROOT"
-  work="$(mktemp -d "$BACKUP_ROOT/.tallo-d1-$stamp.XXXXXX")"
-  # A failed run must leave nothing behind; a finished run has already moved $work to $dest.
-  # shellcheck disable=SC2064
-  trap "rm -rf '$work'" EXIT
+  WORK="$(mktemp -d "$BACKUP_ROOT/.tallo-d1-$stamp.XXXXXX")"
+  # A failed run must leave nothing behind; a finished run has already moved WORK to $dest. WORK is global so the
+  # EXIT trap can still see it after this function returns, and it is expanded in double quotes at cleanup time, so
+  # spaces, globs and single quotes in the backup root are safe.
+  trap 'rm -rf -- "$WORK"' EXIT
 
   cd "$REPO"
   # Read-only listing. Node parses the JSON so the script needs no jq.
@@ -87,25 +125,26 @@ run() {
     args+=(--table "$name")
   done <<<"$tables"
 
-  "${WRANGLER[@]}" d1 export "$DB_NAME" --remote --output "$work/tallo.sql" "${args[@]}"
-  grep -q '^CREATE TABLE' "$work/tallo.sql" || { echo "export has no CREATE TABLE; refusing to keep it" >&2; exit 1; }
-  gzip -9 "$work/tallo.sql"
-  "${WRANGLER[@]}" d1 time-travel info "$DB_NAME" --json >"$work/time-travel.json"
+  "${WRANGLER[@]}" d1 export "$DB_NAME" --remote --output "$WORK/tallo.sql" "${args[@]}"
+  grep -q '^CREATE TABLE' "$WORK/tallo.sql" || { echo "export has no CREATE TABLE; refusing to keep it" >&2; exit 1; }
+  gzip -9 "$WORK/tallo.sql"
+  "${WRANGLER[@]}" d1 time-travel info "$DB_NAME" --json >"$WORK/time-travel.json"
   {
     echo "created_utc=$stamp"
     echo "database=$DB_NAME"
     echo "tables=$(echo "$tables" | tr '\n' ' ')"
     echo "excluded=jobs_fts* (FTS5; rebuild after restore)"
-  } >"$work/meta.txt"
+  } >"$WORK/meta.txt"
 
-  mv "$work" "$dest"
+  mv "$WORK" "$dest"
+  WORK=""
   trap - EXIT
   echo "backup written: $dest"
 
   # Names sort by UTC stamp, so reverse order is newest first. -type d never matches a symlink.
   find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'tallo-d1-*' | sort -r | tail -n +"$((KEEP + 1))" \
     | while IFS= read -r old; do
-      rm -rf "$old"
+      rm -rf -- "$old"
       echo "pruned: $old"
     done
 }

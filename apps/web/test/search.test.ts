@@ -6,6 +6,7 @@ vi.mock("cloudflare:workers", () => ({
 
 import { encodeCursor } from "@tallo/contracts";
 import { runSearch } from "@/lib/api";
+import { handlePublic } from "@/lib/public";
 import { offsetFrom, safeHref, searchHref, specFrom, splitList, valuesFrom } from "@/lib/search";
 
 describe("splitList", () => {
@@ -99,7 +100,7 @@ describe("runSearch", () => {
 
     expect(page).toEqual({ hits: [], nextOffset: null });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
-    expect(url).toBe("http://api.test/v1/search?title=data+engineer&location=remote&limit=20");
+    expect(url).toBe("http://api.test/v1/search?limit=20&location=remote&title=data+engineer");
     expect(new Headers(init?.headers).has("authorization")).toBe(false);
   });
 
@@ -134,6 +135,30 @@ describe("runSearch", () => {
     await runSearch({ queries: ["data engineer"] }, 0, { upstream, cache });
 
     expect(upstream).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares the edge cache with the public proxy, whatever the parameter order", async () => {
+    const stored = new Map<string, Response>();
+    const cache = {
+      match: async (request: Request) => stored.get(request.url)?.clone(),
+      put: async (request: Request, response: Response) => void stored.set(request.url, response),
+    };
+    const searchUpstream = vi.fn(async () => apiPage([], null));
+    const proxyUpstream = vi.fn(async () => apiPage([], null));
+
+    await runSearch({ queries: ["data engineer"], locations: ["remote"] }, 0, {
+      upstream: searchUpstream,
+      cache,
+    });
+    const response = await handlePublic(
+      new Request(
+        "https://tallo.nandan.fyi/v1/search?location=remote&limit=20&title=data+engineer",
+      ),
+      { upstream: proxyUpstream, cache },
+    );
+
+    expect(response.status).toBe(200);
+    expect(proxyUpstream).not.toHaveBeenCalled();
   });
 
   it("throws on a failed answer, so the page shows its message", async () => {
