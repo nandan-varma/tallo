@@ -183,7 +183,7 @@ Outbound requests go to the real boards (read-only GETs). The local D1 and R2 ar
 ## Daily collection (launchd)
 
 `~/Library/LaunchAgents/fyi.nandan.tallo.sync.plist` runs `pnpm --filter @tallo/runner tallo sync` at 06:30
-(see `scripts/launchd/fyi.nandan.tallo.sync.plist` for the template). The Mac may sleep: the job runs on wake.
+(that job is no longer in the repo; the weekly job below replaces it). The Mac may sleep: the job runs on wake.
 `sync` skips sources completed within `--stale-hours` (default 20), so reruns are cheap and idempotent.
 This is the collector until cloud collection is verified (see "Cloud collection").
 
@@ -208,6 +208,67 @@ Install from the clone the job should run from: the plist pins that repo path, p
 locations. Re-run `install` after moving the repo or upgrading node or pnpm. Check a run with
 `tail -n 50 ~/Library/Logs/tallo/local-egress.log`, then `pnpm --filter @tallo/runner tallo sources --dead` for dead boards.
 To run it by hand: `pnpm --filter @tallo/runner tallo sync --local-egress`.
+
+### Weekly full sync (launchd)
+
+Cloud collection is off (#77), so this Mac is the only collector. `apps/runner/launchd/full-sync.sh` manages a weekly
+job that runs `tallo sync --stale-hours 144 --per-host 4 --host-interval-ms 100` on Sundays at 01:00 local time. It
+covers every configured board; `--stale-hours 144` (six days) means a board collected within the last six days is
+skipped, so a start that drifts by hours still picks up everything due weekly and a rerun is cheap. A missed run (Mac
+asleep) fires on wake. The plist holds no secrets (the runner reads `apps/runner/.env`). Logs:
+`~/Library/Logs/tallo/full-sync.log`.
+
+Nothing is installed automatically. The default action only prints:
+
+```sh
+apps/runner/launchd/full-sync.sh             # render the plist to stdout, changes nothing (same as `print`)
+apps/runner/launchd/full-sync.sh install     # write ~/Library/LaunchAgents/fyi.nandan.tallo.full-sync.plist and load it
+apps/runner/launchd/full-sync.sh uninstall   # unload and remove it
+```
+
+Same install rules as the local-egress job: install from the clone it should run from, re-run `install` after moving
+the repo or upgrading node or pnpm. Local-egress boards are included in the weekly run; the daily local-egress job and
+this one never collide because a board another run holds is refused (`busy`).
+
+### Backup and restore (D1)
+
+Two layers. D1 Time Travel is the primary backup (point-in-time restore, 30 days). `scripts/backup-d1.sh` adds a
+weekly local export that survives losing the Cloudflare account state.
+
+**FTS caveat (#17).** `wrangler d1 export` refuses a database that holds virtual tables, and `jobs_fts` is an FTS5
+table. The script therefore lists the real tables (everything except `jobs_fts*`, `sqlite_*` and `_cf_*`) and exports only
+those with `--table`. The FTS index is derived from `jobs`, so it is rebuilt after a restore, not backed up. The backup
+holds the catalog tables; descriptions live in R2 (`jd/<sha256>`) and raw packs in R2, which are not copied here.
+
+```sh
+scripts/backup-d1.sh           # print the plan, call nothing (default)
+scripts/backup-d1.sh run       # take a backup now (needs wrangler logged in to Cloudflare)
+```
+
+A backup lands in `~/Backups/tallo/tallo-d1-<UTC stamp>/` (outside the repo, so it cannot be committed) as
+`tallo.sql.gz`, `time-travel.json` (the restore bookmark at that moment) and `meta.txt`. A failed run leaves nothing
+behind. The newest 8 are kept (`TALLO_BACKUP_KEEP`); only `tallo-d1-*` directories directly under the backup directory are
+pruned. Override the location with `TALLO_BACKUP_DIR`.
+
+The weekly job is `apps/runner/launchd/backup.sh` (Sundays 00:30, before the full sync; logs
+`~/Library/Logs/tallo/backup.log`). It uses this Mac's own wrangler login, no token in the plist. Same
+`print` (default) / `install` / `uninstall` as above.
+
+Restore paths, best first:
+1. **Time Travel** (data back to a moment, in place): record the current bookmark first, since a restore is itself
+   undone only by restoring to that bookmark: `wrangler d1 time-travel info tallo --json`, then
+   `wrangler d1 time-travel restore tallo --bookmark <bookmark>`. FTS comes back with it.
+2. **From a local export** (empty database): `gunzip -c tallo.sql.gz >restore.sql`, then
+   `wrangler d1 execute <new-db> --remote --file restore.sql`. The file creates the real tables with their data and the
+   `d1_migrations` ledger, but not the FTS table or its triggers. Recreate them from the migrations that define them
+   (`packages/db/drizzle/0001_fts.sql`, then `0015_fts_update_when.sql`, via `--file`), then rebuild the index:
+   `wrangler d1 execute <new-db> --remote --command "INSERT INTO jobs_fts(jobs_fts) VALUES ('rebuild')"`. Check
+   `pnpm --filter @tallo/api exec wrangler d1 migrations list <new-db> --remote` reports nothing pending.
+3. **Rebuild from sources**: raw packs in R2 plus a full sweep (`tallo sync --stale-hours 0`) recreate the catalog.
+
+Status of the commands: the export, listing and bookmark commands were taken from `wrangler ... --help` and the script
+is tested against a stub wrangler. It has not been run against production and path 2 has not been rehearsed; do both
+once, against a scratch D1 database, before relying on them.
 
 ### Politeness (per-host limits)
 
