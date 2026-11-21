@@ -1,19 +1,28 @@
-/** Jobs `purgeClosed` deletes per call (its page). A full page means more may be waiting. */
-export const PURGE_PAGE = 1000;
-/** Purge pages per hourly invocation. The next hour continues where this one stopped. */
-export const MAX_PURGE_PAGES = 20;
-/** Regroup pages per hourly invocation (each page is up to 3000 keys). The next hour continues. */
-export const MAX_REGROUP_PAGES = 20;
+/**
+ * Closed jobs purged per hourly invocation. The Worker's subrequest cap (1000) is shared by the whole invocation,
+ * and purging one job costs up to three subrequests (R2 get, R2 delete, and the D1 re-check that puts a blob
+ * back if a reference appeared meanwhile), plus a few statements per call. 150 jobs is at most ~450 for the
+ * purge, which leaves room for the regroup pages and the other steps. The rest waits for the next hour.
+ */
+export const PURGE_JOBS_PER_RUN = 150;
+/**
+ * Regroup pages per hourly invocation (each page is up to 3000 keys, and costs roughly 20-80 subrequests). The
+ * unfinished pass is recorded after each page, so the next hour resumes it.
+ */
+export const MAX_REGROUP_PAGES = 4;
 
 /** The hourly housekeeping steps, each already bound to its database and blob store. */
 export interface Housekeeping {
   reapStaleRuns(): Promise<unknown>;
   repairSchedule(): Promise<unknown>;
-  /** Deletes up to `PURGE_PAGE` closed jobs and returns how many it deleted. */
-  purgeClosed(): Promise<number>;
+  /** Deletes up to `limit` closed jobs and returns how many it deleted. */
+  purgeClosed(limit: number): Promise<number>;
   pruneRuns(): Promise<unknown>;
-  /** One regroup page after `after`; `next` is the cursor for the following page, or null when done. */
-  regroupPage(after: string): Promise<{ next: string | null }>;
+  /**
+   * One regroup page. `after` is the cursor the previous page returned; undefined resumes the unfinished pass
+   * recorded by an earlier invocation, or starts a new one. `next` is null when the pass is complete.
+   */
+  regroupPage(after: string | undefined): Promise<{ next: string | null }>;
 }
 
 export interface HousekeepingEvent {
@@ -24,20 +33,17 @@ export interface HousekeepingEvent {
 
 /**
  * Runs every hourly step, in order, each in isolation: a step that throws is reported and the rest still run.
- * Purge and regroup loop only within a fixed page budget, so one invocation's work is bounded.
+ * Each step does a bounded amount of work per invocation. A step that stops with work left reports `budget`,
+ * and the next invocation continues from the state it left behind.
  */
 export async function housekeeping(
   ops: Housekeeping,
   report: (event: HousekeepingEvent) => void,
 ): Promise<void> {
-  const purge = async (): Promise<HousekeepingEvent["outcome"] | null> => {
-    for (let page = 0; page < MAX_PURGE_PAGES; page++) {
-      if ((await ops.purgeClosed()) < PURGE_PAGE) return null;
-    }
-    return "budget";
-  };
+  const purge = async (): Promise<HousekeepingEvent["outcome"] | null> =>
+    (await ops.purgeClosed(PURGE_JOBS_PER_RUN)) >= PURGE_JOBS_PER_RUN ? "budget" : null;
   const regroup = async (): Promise<HousekeepingEvent["outcome"] | null> => {
-    let after = "";
+    let after: string | undefined;
     for (let page = 0; page < MAX_REGROUP_PAGES; page++) {
       const { next } = await ops.regroupPage(after);
       if (next === null) return null;

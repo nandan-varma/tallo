@@ -131,7 +131,11 @@ export function ingestRoutes({
     )[0];
     if (!run) return c.json({ error: "Unknown run" }, 404);
     // A raw pack belongs to a run that is still collecting. A finished run's pack would never be pruned as its own.
-    if (run.status !== "running") return c.json({ error: "Run is not running" }, 409);
+    if (run.status !== "running") {
+      // A retry after the run finished (the response to the first upload was lost) gets the pack it already stored.
+      if (run.rawKey !== null && run.rawUploaded === 1) return c.json({ key: run.rawKey });
+      return c.json({ error: "Run is not running" }, 409);
+    }
     const bytes = await bodyBytes(c.req.raw, MAX_BLOB_BYTES);
     if (!bytes) return c.json({ error: "Too large" }, 413);
     const key = await storeRawPack(db, blobs, run.id, bytes);

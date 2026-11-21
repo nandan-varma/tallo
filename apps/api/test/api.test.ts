@@ -459,6 +459,21 @@ describe("ingest body limits", () => {
     expect(row?.rawKey).toBeNull();
   });
 
+  it("answers a retried raw pack for a finished run with the key it already stored", async () => {
+    const { call, db } = setup();
+    const runId = "run-raw-retry";
+    await startRun(call, runId);
+    const raw = await gzip(new TextEncoder().encode('{"id":"7"}\n'));
+    const first = await call(`/v1/runs/${runId}/raw`, INGEST, { method: "PUT", body: raw });
+    const key = `raw/${source.id}/${runId}.ndjson.gz`;
+    expect(await first.json()).toEqual({ key });
+    // The run finishes, then the runner retries the upload because its first response was lost.
+    await db.update(schema.runs).set({ status: "complete" }).where(eq(schema.runs.id, runId));
+    const retry = await call(`/v1/runs/${runId}/raw`, INGEST, { method: "PUT", body: raw });
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toEqual({ key });
+  });
+
   it("refuses a raw pack whose declared length is over the cap, for a running run", async () => {
     const { call, db } = setup();
     const runId = "run-raw-big";

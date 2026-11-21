@@ -110,7 +110,8 @@ export default {
       {
         reapStaleRuns: () => reapStaleRuns(db),
         repairSchedule: () => repairSchedule(db),
-        purgeClosed: () => purgeClosed(db, blobs),
+        // Default 30 days and the wall clock; `limit` bounds the subrequests this invocation spends.
+        purgeClosed: (limit) => purgeClosed(db, blobs, undefined, undefined, limit),
         pruneRuns: () => pruneRuns(db, blobs),
         regroupPage: (after) => rebuildDuplicates(db, undefined, { after }),
       },

@@ -183,6 +183,13 @@
       "when": 1795254431904,
       "tag": "0025_panoramic_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1795254943347,
+      "tag": "0026_regroup_progress",
+      "breakpoints": true
     }
   ]
 }

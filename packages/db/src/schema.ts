@@ -55,6 +55,16 @@ export const regroupState = sqliteTable("regroup_state", {
   checkedAt: integer("checked_at").notNull(),
 });
 
+/**
+ * An incremental regroup pass that has not finished: its candidate cursor (opaque, `i1:` JSON), so the next call
+ * resumes where the last page stopped. One row (`id` 1). Written after every page that leaves work; deleted in the
+ * same batch that records `regroup_state` when the pass completes.
+ */
+export const regroupProgress = sqliteTable("regroup_progress", {
+  id: integer().primaryKey(),
+  cursor: text().notNull(),
+});
+
 /** Bounded operational history: what ran where and when. Old rows are pruned. */
 export const runs = sqliteTable(
   "runs",
