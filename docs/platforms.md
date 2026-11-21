@@ -34,6 +34,7 @@ costs one request: no diff, no details, no uploads, and it never closes, ages or
 | lever           | weak, stable | 200 (full)    | no      | palantir: the tag is sent but never honored; no `Last-Modified` |
 | smartrecruiters | weak, stable | 200 (full)    | no      | AbbVie page 1: not honored; the listing is also paginated       |
 | oraclecloud     | none         | n/a           | no      | `no-store`; paginated                                           |
+| workable                                          | 3    | shipped, live-verified on 14 boards | no (widget has the text)    | one request per board (`/api/v1/widget/accounts/<key>?details=true`), no paging, no pay fields; empty list is not authoritative (live accounts with nothing open answer 200 `[]`, unknown ones 404); heavy hosts answer 429 after ~60 quick probes, so keep it gentle |
 | workday         | none         | n/a           | no      | `no-store`; POST, paginated, facet-split                        |
 
 No probed host sent `Last-Modified`. The stored validator is versioned with the platform `version` and the
