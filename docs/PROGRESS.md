@@ -109,7 +109,7 @@ Next, in order:
    g. Tests for double claim, duplicate queue delivery and a replayed continuation. Closure safety already holds by
    design (finalize closes only on a complete listing; replayed start/final slices are no-ops).
    Then apply migration 0019 (`wrangler d1 migrations apply tallo --remote`) and deploy the API.
-3. Alerts and backups do not exist yet: `ALERT_WEBHOOK_URL`, weekly D1 export (only Time Travel today).
+3. Weekly D1 export and weekly full-sync launchd jobs are in the repo but not installed (#63): see runbook "Weekly full sync" and "Backup and restore". Not yet run against production; rehearse the restore on a scratch D1.
 4. Data fidelity branch `worktree-agent-aba2d80d7e13656b8` (Greenhouse pay label, structured country; bumps platform
    versions = another full pass, cheap now) and Greenhouse "See Opening ID" placeholder as unknown requisition id.
 5. Porter stemming conflates "accountant"/"Account Executive" (needs an FTS tokenizer migration).
