@@ -63,6 +63,10 @@ export interface RankedSpec {
   companies?: string[];
   locations?: string[];
   remote?: boolean;
+  /** ISO 3166-1 alpha-2 codes to keep (case-insensitive); a row with no country code never matches. */
+  countries?: string[];
+  /** Keep rows whose `sort_at` (posted date, else first seen) is this many days old or newer. */
+  postedWithin?: number;
   /** Result order. Date sorts bypass the relevance candidate window and do not collapse duplicate rows. */
   sort?: SearchSort;
 }
@@ -96,13 +100,35 @@ function remoteOrPlaces(spec: RankedSpec): SQL | undefined {
 }
 
 /**
- * The filter a search applies before it cuts to the best candidates: what the site shows (`visibleJobs`) and the
- * remote or place ask. It must run inside the cut: a filter applied after `RANK_CANDIDATES` drops the postings that
- * lost the cut. Closed postings would take the window from open ones, and onsite postings from remote ones.
+ * The structured field filters a spec asks for, applied by every sort: a country-code match (never inferred) and a
+ * date window on `sort_at` (the source's posted date, else first seen). Both run before the relevance cut.
+ */
+function fieldFilters(spec: RankedSpec, now: number): SQL[] {
+  const filters: SQL[] = [];
+  if (spec.postedWithin !== undefined) {
+    filters.push(sql`${jobs.sortAt} >= ${now - spec.postedWithin * 86400}`);
+  }
+  if (spec.countries && spec.countries.length > 0) {
+    const codes = spec.countries.map((code) => code.toUpperCase());
+    filters.push(
+      sql`upper(${jobs.countryCode}) IN (${sql.join(
+        codes.map((code) => sql`${code}`),
+        sql`, `,
+      )})`,
+    );
+  }
+  return filters;
+}
+
+/**
+ * The filter a search applies before it cuts to the best candidates: what the site shows (`visibleJobs`), the
+ * remote or place ask, and the structured field filters. It must run inside the cut: a filter applied after
+ * `RANK_CANDIDATES` drops the postings that lost the cut. Closed postings would take the window from open ones,
+ * and onsite postings from remote ones.
  */
 function candidateFilter(spec: RankedSpec, now: number): SQL[] {
   const remote = remoteOrPlaces(spec);
-  return remote ? [...visibleJobs(now), remote] : visibleJobs(now);
+  return [...visibleJobs(now), ...fieldFilters(spec, now), ...(remote ? [remote] : [])];
 }
 
 /**
@@ -232,6 +258,7 @@ async function dateJobs(
   const match = rankedMatch(spec);
   if (!match) return [];
   const filter = listedJobs(now);
+  filter.push(...fieldFilters(spec, now));
   if (sort === "posted") filter.push(sql`${jobs.postedAt} IS NOT NULL`);
   const remote = remoteOrPlaces(spec);
   if (remote) filter.push(remote);

@@ -12,6 +12,7 @@ interface Seed {
   title: string;
   location?: string;
   workMode?: "remote" | "onsite" | "hybrid" | null;
+  countryCode?: string | null;
   sortAt?: number;
   postedAt?: number | null;
   closedAt?: number | null;
@@ -58,6 +59,7 @@ async function seed(db: Db, args: Seed): Promise<number> {
       firstSeenAt: 1,
       updatedAt: 1,
       locationText: args.location ?? "Remote, US",
+      countryCode: args.countryCode ?? null,
       workMode: args.workMode === undefined ? "onsite" : args.workMode,
       closedAt: args.closedAt ?? null,
       dupOf: args.dupOf ?? null,
@@ -262,6 +264,163 @@ describe("date sorts", () => {
     expect(second).toHaveLength(2);
     expect(ids([...first, ...second])).toEqual(expected.slice(0, 4));
     expect(new Set(ids([...first, ...second])).size).toBe(4);
+  });
+});
+
+describe("field filters", () => {
+  it("postedWithin keeps a first-seen-only posting inside the window and drops an old one", async () => {
+    const db = testDb();
+    const undated = await seed(db, {
+      title: "Data Engineer",
+      company: "Undated",
+      sortAt: NOW - 10 * DAY,
+      postedAt: null,
+    });
+    const old = await seed(db, {
+      title: "Data Engineer",
+      company: "Old",
+      sortAt: NOW - 400 * DAY,
+      postedAt: NOW - 400 * DAY,
+    });
+
+    for (const sort of ["relevance", "recent", "added"] as const) {
+      expect(
+        ids(await rankedJobs(db, { titles: ["data engineer"], postedWithin: 30, sort }, page, NOW)),
+        sort,
+      ).toEqual([undated]);
+    }
+    // posted still lists only source-stated dates, so the undated row stays out even inside the window.
+    expect(
+      ids(
+        await rankedJobs(
+          db,
+          { titles: ["data engineer"], postedWithin: 30, sort: "posted" },
+          page,
+          NOW,
+        ),
+      ),
+    ).toEqual([]);
+
+    // Window arithmetic: exactly at the edge counts, one day past it does not.
+    expect(
+      ids(
+        await rankedJobs(
+          db,
+          { titles: ["data engineer"], postedWithin: 10, sort: "recent" },
+          page,
+          NOW,
+        ),
+      ),
+    ).toEqual([undated]);
+    expect(
+      ids(
+        await rankedJobs(
+          db,
+          { titles: ["data engineer"], postedWithin: 9, sort: "recent" },
+          page,
+          NOW,
+        ),
+      ),
+    ).toEqual([]);
+    expect(
+      ids(
+        await rankedJobs(
+          db,
+          { titles: ["data engineer"], postedWithin: 400, sort: "posted" },
+          page,
+          NOW,
+        ),
+      ),
+    ).toEqual([old]);
+    expect(
+      ids(
+        await rankedJobs(
+          db,
+          { titles: ["data engineer"], postedWithin: 399, sort: "posted" },
+          page,
+          NOW,
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("country keeps stated codes case-insensitively and never matches a null or other code", async () => {
+    const db = testDb();
+    const us = await seed(db, {
+      title: "Data Engineer",
+      company: "US",
+      countryCode: "US",
+      sortAt: 10,
+    });
+    const ca = await seed(db, {
+      title: "Data Engineer",
+      company: "CA",
+      countryCode: "CA",
+      sortAt: 20,
+    });
+    const none = await seed(db, {
+      title: "Data Engineer",
+      company: "None",
+      countryCode: null,
+      sortAt: 30,
+    });
+
+    for (const sort of ["relevance", "recent", "added"] as const) {
+      expect(
+        ids(
+          await rankedJobs(db, { titles: ["data engineer"], countries: ["us"], sort }, page, NOW),
+        ),
+        sort,
+      ).toEqual([us]);
+      expect(
+        ids(
+          await rankedJobs(
+            db,
+            { titles: ["data engineer"], countries: ["us", "ca"], sort },
+            page,
+            NOW,
+          ),
+        ).sort(),
+        sort,
+      ).toEqual([us, ca].sort());
+    }
+    expect(
+      ids(await rankedJobs(db, { titles: ["data engineer"], countries: ["gb"] }, page, NOW)),
+    ).toEqual([]);
+    // No filter leaves every stated row, including the one with no country.
+    expect(
+      ids(await rankedJobs(db, { titles: ["data engineer"], sort: "recent" }, page, NOW)).sort(),
+    ).toEqual([us, ca, none].sort());
+  });
+
+  it("applies country and postedWithin together, before the relevance cut", async () => {
+    const db = testDb();
+    const keep = await seed(db, {
+      title: "Data Engineer",
+      company: "Keep",
+      countryCode: "US",
+      sortAt: NOW - 5 * DAY,
+    });
+    await seed(db, {
+      title: "Data Engineer",
+      company: "Other country",
+      countryCode: "CA",
+      sortAt: NOW - 5 * DAY,
+    });
+    await seed(db, {
+      title: "Data Engineer",
+      company: "Too old",
+      countryCode: "US",
+      sortAt: NOW - 90 * DAY,
+    });
+
+    const rows = await rankedJobs(
+      db,
+      { titles: ["data engineer"], countries: ["US"], postedWithin: 30 },
+      page,
+      NOW,
+    );
+    expect(ids(rows)).toEqual([keep]);
   });
 });
 

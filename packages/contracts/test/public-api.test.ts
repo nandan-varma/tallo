@@ -16,6 +16,7 @@ const query = {
   title: ["backend engineer"],
   company: [],
   location: ["remote"],
+  country: [],
   sort: "relevance" as const,
 };
 
@@ -45,6 +46,19 @@ describe("search cursor", () => {
     expect(decodeCursor(cursor, { ...query, sort: "posted" })).toBeNull();
     expect(decodeCursor(cursor, { ...query, sort: "added" })).toBeNull();
     expect(decodeCursor(encodeCursor({ ...query, sort: "recent" }, 20), query)).toBeNull();
+  });
+
+  it("is bound to country and postedWithin, so a cursor cannot change a filter", () => {
+    const filtered = { ...query, country: ["US"], postedWithin: 30 };
+    const cursor = encodeCursor(filtered, 20);
+    expect(decodeCursor(cursor, filtered)).toBe(20);
+    expect(decodeCursor(cursor, { ...filtered, country: ["CA"] })).toBeNull();
+    expect(decodeCursor(cursor, { ...filtered, country: [] })).toBeNull();
+    expect(decodeCursor(cursor, { ...filtered, postedWithin: 7 })).toBeNull();
+    expect(decodeCursor(cursor, { ...filtered, postedWithin: undefined })).toBeNull();
+    expect(
+      decodeCursor(encodeCursor({ ...filtered, postedWithin: undefined }, 20), filtered),
+    ).toBeNull();
   });
 
   it("accepts only the one spelling of each cursor, so no edit of its last character passes", () => {
@@ -115,6 +129,7 @@ describe("search query schema", () => {
       title: ["backend engineer"],
       company: [],
       location: [],
+      country: [],
       sort: "relevance",
       limit: 10,
     });
@@ -140,6 +155,26 @@ describe("search query schema", () => {
     expect(parse({ title: ["ab"], limit: "26" }).success).toBe(false);
     expect(parse({ title: ["ab"], limit: "0" }).success).toBe(false);
     expect(parse({ title: ["ab"], limit: "2.5" }).success).toBe(false);
+  });
+
+  it("normalizes country codes to uppercase and refuses anything but two letters", () => {
+    expect(parse({ title: ["ab"], country: ["us", "Ca"] }).data?.country).toEqual(["US", "CA"]);
+    expect(parse({ title: ["ab"], country: ["USA"] }).success).toBe(false);
+    expect(parse({ title: ["ab"], country: ["U1"] }).success).toBe(false);
+    expect(parse({ title: ["ab"], country: ["U"] }).success).toBe(false);
+    expect(
+      parse({ title: ["ab"], country: ["US", "CA", "DE", "FR", "ES", "IT", "NL", "SE", "NO"] })
+        .success,
+    ).toBe(false);
+  });
+
+  it("coerces postedWithin to whole days from 1 to 365 and leaves it unset by default", () => {
+    expect(parse({ title: ["ab"] }).data).not.toHaveProperty("postedWithin");
+    expect(parse({ title: ["ab"], postedWithin: "30" }).data?.postedWithin).toBe(30);
+    expect(parse({ title: ["ab"], postedWithin: 1 }).data?.postedWithin).toBe(1);
+    expect(parse({ title: ["ab"], postedWithin: 365 }).data?.postedWithin).toBe(365);
+    for (const bad of ["0", "366", "1.5", "abc", "-1"])
+      expect(parse({ title: ["ab"], postedWithin: bad }).success, bad).toBe(false);
   });
 
   it("describes every field, so llms.txt can say what each one takes", () => {
@@ -210,5 +245,30 @@ describe("openapi", () => {
       "PublicTitleList",
     ])
       expect(doc.components.schemas[name]).toBeDefined();
+  });
+
+  it("carries the field-availability caveat on countryCode and postedAt", () => {
+    const doc = openApiDocument() as {
+      components: {
+        schemas: Record<string, { properties: Record<string, { description?: string }> }>;
+      };
+    };
+    for (const name of ["JobHit", "PublicJob"]) {
+      const properties = doc.components.schemas[name]?.properties;
+      expect(properties?.countryCode?.description, name).toContain("partial");
+      expect(properties?.countryCode?.description, name).toContain("never inferred");
+      expect(properties?.postedAt?.description, name).toContain("never guessed");
+      for (const field of [
+        "pay",
+        "compensation",
+        "workMode",
+        "employmentType",
+        "sourceLastListedAt",
+        "location",
+        "department",
+      ]) {
+        expect(properties?.[field]?.description, `${name}.${field}`).toEqual(expect.any(String));
+      }
+    }
   });
 });

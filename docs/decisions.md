@@ -2,6 +2,17 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
+**D19. Structured search filters and field availability (2026-11-23).** `GET /v1/search` takes `country` (up to 8
+ISO 3166-1 alpha-2 codes, normalized to uppercase) and `postedWithin` (1 to 365 days on `sort_at`, the stated posted
+date else first seen). Both apply to every sort mode and are bound into the cursor checksum, so a cursor cannot change
+a filter. Country matches only rows whose source stated a code: coverage is partial (about 74% overall; some large
+boards state only free text), rows with null never match, and no country, date, pay or work mode is inferred from
+location or description text. `postedWithin` reads the same `sort_at` as `recent`, so a first-seen fallback counts in
+the window; `posted` still lists only stated dates. No index is added: the window uses `jobs_sort_at_idx`. `llms.txt`
+now carries pretty-printed, schema-valid example responses (its size ceiling rose from 12 KB to 30 KB), linked
+endpoints, a zero-result recovery path, the remote work-mode rule and a field-availability section; nullable response
+fields carry the same caveat as their OpenAPI descriptions.
+
 **D18. Server-side search sorting (2026-11-22).** `GET /v1/search` takes `sort`: `relevance` (default, unchanged
 bm25 ranking), `recent` (`sort_at DESC, id DESC`), `posted` (the same order, but only rows with a source-stated
 `posted_at`) and `added` (`id DESC`). `sort_at` is the source's posted date, else first-seen, so `recent` has a

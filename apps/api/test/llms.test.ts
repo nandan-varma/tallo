@@ -11,12 +11,18 @@ import { createApp } from "../src/app.ts";
 import { seed, setup } from "./fixtures.ts";
 import { INGEST } from "./support.ts";
 
-/** The `Response:` line under a heading, as the document names its fields. */
-function responseLine(text: string, heading: string): string {
+/** The example JSON block under a heading: what the endpoint really answers, pretty-printed. */
+function exampleJson(text: string, heading: string): unknown {
   const section = text.slice(text.indexOf(heading));
-  const line = section.split("\n").find((l) => l.startsWith("Response: "));
-  if (!line) throw new Error(`no Response line under ${heading}`);
-  return line;
+  const marker =
+    "Example response (illustrative values; this shape is validated by the API's own schema):";
+  const at = section.indexOf(marker);
+  if (at < 0) throw new Error(`no example under ${heading}`);
+  const rest = section.slice(at + marker.length);
+  const start = rest.indexOf("```json");
+  const end = rest.indexOf("```", start + "```json".length);
+  if (start < 0 || end < 0) throw new Error(`no JSON block under ${heading}`);
+  return JSON.parse(rest.slice(start + "```json".length, end));
 }
 
 describe("llms.txt matches the public API", () => {
@@ -98,8 +104,26 @@ describe("llms.txt matches the public API", () => {
     ).json()) as {
       results: Record<string, unknown>[];
     };
-    const hitFields = Object.keys(search.results[0] ?? {});
-    expect(hitFields.sort()).toEqual(
+    const documentedSearch = exampleJson(text, "### GET /v1/search") as {
+      results: Record<string, unknown>[];
+    };
+    const hitFields = Object.keys(search.results[0] ?? {}).sort();
+    expect(Object.keys(documentedSearch).sort()).toEqual(
+      [
+        "apiVersion",
+        "results",
+        "count",
+        "next",
+        "hasMore",
+        "capped",
+        "expandedLocations",
+        "remote",
+        "asOf",
+        "note",
+      ].sort(),
+    );
+    expect(Object.keys(documentedSearch.results[0] ?? {}).sort()).toEqual(hitFields);
+    expect(hitFields).toEqual(
       [
         "applyUrl",
         "company",
@@ -117,23 +141,9 @@ describe("llms.txt matches the public API", () => {
         "workMode",
       ].sort(),
     );
-    const documentedSearch = responseLine(text, "### GET /v1/search");
-    for (const key of [
-      ...hitFields,
-      "count",
-      "next",
-      "hasMore",
-      "capped",
-      "expandedLocations",
-      "remote",
-      "asOf",
-      "note",
-    ]) {
-      expect(documentedSearch, key).toContain(`"${key}"`);
-    }
 
     const job = (await (await app.request(`/v1/jobs/${id}`)).json()) as Record<string, unknown>;
-    const documentedJob = responseLine(text, "### GET /v1/jobs/:id\n");
-    for (const key of Object.keys(job)) expect(documentedJob, key).toContain(`"${key}"`);
+    const documentedJob = exampleJson(text, "### GET /v1/jobs/:id\n") as Record<string, unknown>;
+    expect(Object.keys(documentedJob).sort()).toEqual(Object.keys(job).sort());
   });
 });
