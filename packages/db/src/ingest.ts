@@ -432,8 +432,11 @@ function runOutcome(
 
 /**
  * Marks runs still `running` past the lease as partial: the collector died before it could finalize.
- * It closes nothing (a partial run never proves a posting is gone) and leaves board health alone.
- * A late finalize from the dead collector is then a no-op, because the run is no longer running.
+ * It closes nothing (a partial run never proves a posting is gone). The run counts as a failed run
+ * for its board: `failure_count` grows and `next_due_at` follows the back-off, so a board whose
+ * collector keeps dying is not re-claimed every lease. The 404 streak and status are left alone (a
+ * dead collector says nothing about whether the board exists). A late finalize from the dead
+ * collector is then a no-op, because the run is no longer running.
  */
 export async function reapStaleRuns(db: Db, now = nowSeconds()): Promise<number> {
   const stale = await db
@@ -441,20 +444,56 @@ export async function reapStaleRuns(db: Db, now = nowSeconds()): Promise<number>
     .from(runs)
     .where(and(eq(runs.status, "running"), lt(runs.startedAt, now - RUN_LEASE_SECONDS)))
     .limit(1000);
+  let reaped = 0;
   for (const ids of chunks(
     stale.map((r) => r.id),
     CHUNK,
   )) {
-    await db
+    // The status guard and RETURNING make this race-free with a finalize: only runs this statement
+    // flipped are counted as failures.
+    const flipped = await db
       .update(runs)
       .set({
         status: "partial",
         finishedAt: now,
         issues: [{ code: "stopped", message: "Collector process stopped before finalize" }],
       })
-      .where(sql`${runs.id} IN ${jsonIds(ids)}`);
+      .where(and(eq(runs.status, "running"), sql`${runs.id} IN ${jsonIds(ids)}`))
+      .returning({ sourceId: runs.sourceId });
+    reaped += flipped.length;
+    const failed = new Map<string, number>();
+    for (const r of flipped) failed.set(r.sourceId, (failed.get(r.sourceId) ?? 0) + 1);
+    const boards = [...failed.keys()];
+    if (boards.length === 0) continue;
+    const health = await db
+      .select({
+        id: sources.id,
+        tier: sources.tier,
+        failureCount: sources.failureCount,
+        lastListedAt: sources.lastListedAt,
+      })
+      .from(sources)
+      .where(sql`${sources.id} IN ${jsonIds(boards)}`);
+    const statements: BatchItem<"sqlite">[] = health.map((b) => {
+      const failures = b.failureCount + (failed.get(b.id) ?? 1);
+      return db
+        .update(sources)
+        .set({
+          lastStatus: "partial",
+          failureCount: failures,
+          nextDueAt: nextDueAt({
+            tier: b.tier,
+            outcome: "partial",
+            finishedAt: now,
+            failures,
+            neverListed: b.lastListedAt == null,
+          }),
+        })
+        .where(eq(sources.id, b.id));
+    });
+    for (const group of chunks(statements, 100)) await batch(db, group);
   }
-  return stale.length;
+  return reaped;
 }
 
 /**

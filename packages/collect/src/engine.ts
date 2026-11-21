@@ -81,6 +81,14 @@ export interface Progress {
   rawParts: string[];
 }
 
+/**
+ * What `advance` returns. `rawTail` is this slice's raw part, held in memory instead of written to
+ * scratch, and is set only when the slice finished the run (no postings left): `complete` takes it
+ * as the last part. A slice that leaves work behind writes its part to scratch and leaves this unset.
+ * It never goes into a queue message.
+ */
+export type Advanced = Progress & { rawTail?: Uint8Array };
+
 export type Outcome = Finalize & { changed: number };
 
 /** Issues kept on the run row. */
@@ -264,7 +272,7 @@ export async function advance(
   plan: Plan,
   progress: Progress,
   stop: () => boolean = () => false,
-): Promise<Progress> {
+): Promise<Advanced> {
   const { ingest } = options;
   const platform = platformFor(plan.source);
   const counter = { requests: progress.requests };
@@ -326,41 +334,54 @@ export async function advance(
   }
 
   const rawParts = [...progress.rawParts];
+  const offset = progress.offset + started;
+  let rawTail: Uint8Array | undefined;
   if (raw.length) {
-    const key = rawPartKey(plan.runId, progress.offset);
     // One newline-terminated line per posting, so parts join into valid ndjson.
     const lines = raw.map((p) => `${JSON.stringify(p)}\n`).join("");
-    await options.scratch.put(key, await gzip(new TextEncoder().encode(lines)));
-    rawParts.push(key);
+    const part = await gzip(new TextEncoder().encode(lines));
+    if (offset >= plan.changed.length) {
+      // The run ends here: `complete` runs in this invocation, so the bytes need no round trip.
+      rawTail = part;
+    } else {
+      const key = rawPartKey(plan.runId, progress.offset);
+      await options.scratch.put(key, part);
+      rawParts.push(key);
+    }
   }
   return {
-    offset: progress.offset + started,
+    offset,
     requests: counter.requests,
     issues: issues.slice(0, ISSUE_CAP),
     detailsComplete,
     rawParts,
+    ...(rawTail ? { rawTail } : {}),
   };
 }
 
 /**
- * Close the run once every changed posting has been attempted. The raw pack is the slice parts,
- * recompressed as one gzip stream.
+ * Close the run once every changed posting has been attempted. The raw pack is the slice parts
+ * (those in scratch, then `progress.rawTail` if the last slice kept its part in memory),
+ * recompressed as one gzip stream. `planStored` says whether a plan was written to scratch (a run that
+ * finished in its first slice never wrote one, so there is nothing to delete).
  */
 export async function complete(
   options: EngineOptions,
   plan: Plan,
-  progress: Progress,
+  progress: Advanced,
+  { planStored = true }: { planStored?: boolean } = {},
 ): Promise<Outcome> {
   if (progress.offset < plan.changed.length)
     throw new Error(`Run ${plan.runId} has ${plan.changed.length - progress.offset} postings left`);
   let rawKey: string | null = null;
-  if (progress.rawParts.length) {
+  if (progress.rawParts.length || progress.rawTail) {
     const parts: Uint8Array[] = [];
     for (const key of progress.rawParts) {
       const bytes = await options.scratch.get(key);
       if (!bytes) throw new Error(`Missing raw part ${key}`);
       parts.push(bytes);
     }
+    if (progress.rawTail) parts.push(progress.rawTail);
     rawKey = await options.ingest.putRaw(plan.runId, await regzip(parts));
   }
   const body: Finalize = {
@@ -377,7 +398,7 @@ export async function complete(
   const outcome = await finishRun(options.ingest, plan.runId, body, plan.changed.length);
   // Only after the run is closed: a retry of a failed finalize must still find its parts.
   for (const key of progress.rawParts) await options.scratch.delete(key);
-  await options.scratch.delete(planKey(plan.runId));
+  if (planStored) await options.scratch.delete(planKey(plan.runId));
   options.log.info(
     {
       source: plan.source.id,
@@ -405,7 +426,7 @@ export async function collectSource(
   const { plan } = begun;
   try {
     const progress = await advance(options, plan, begun.progress);
-    return await complete(options, plan, progress);
+    return await complete(options, plan, progress, { planStored: false });
   } catch (error) {
     options.log.error({ source: source.id, error: String(error) }, "upload failed");
     return finishRun(options.ingest, plan.runId, {

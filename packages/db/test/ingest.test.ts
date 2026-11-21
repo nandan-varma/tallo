@@ -1,5 +1,5 @@
 import { prepareJob } from "@tallo/catalog";
-import type { MappedJob, SourceConfig } from "@tallo/contracts";
+import { type MappedJob, nextDueAt, type SourceConfig } from "@tallo/contracts";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -432,6 +432,51 @@ describe("stuck runs", () => {
       [null, 0],
       [null, 0],
     ]);
+  });
+
+  it("a reaped run counts as a failed run: failure_count grows and the board backs off", async () => {
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1")]);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const reapAt = T + 2000 + 3 * 3600;
+    const stuck = await start(T + 2000);
+    await reapStaleRuns(db, reapAt);
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(row).toMatchObject({
+      failureCount: 1,
+      lastStatus: "partial",
+      consecutiveFailures: 0,
+      status: "active",
+      nextDueAt: nextDueAt({
+        tier: row!.tier,
+        outcome: "partial",
+        finishedAt: reapAt,
+        failures: 1,
+        neverListed: false,
+      }),
+    });
+    expect(row!.nextDueAt).toBeGreaterThan(reapAt);
+    // A second reaped run deepens the back-off; reaping again does not double count the first.
+    await reapStaleRuns(db, reapAt + 1);
+    const again = await start(reapAt + 10);
+    await reapStaleRuns(db, reapAt + 10 + 3 * 3600);
+    const [after] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(after!.failureCount).toBe(2);
+    expect(after!.nextDueAt).toBe(
+      nextDueAt({
+        tier: after!.tier,
+        outcome: "partial",
+        finishedAt: reapAt + 10 + 3 * 3600,
+        failures: 2,
+        neverListed: false,
+      }),
+    );
+    // Closed nothing, and the late finalize of the reaped run does not count again.
+    await finalize(db, stuck, fin([], { listingComplete: false }), reapAt + 20);
+    await finalize(db, again, fin([], { listingComplete: false }), reapAt + 20);
+    const [last] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(last!.failureCount).toBe(2);
+    expect((await db.select().from(schema.jobs)).map((j) => j.closedAt)).toEqual([null]);
   });
 
   it("a late finalize from a reaped collector cannot close jobs", async () => {

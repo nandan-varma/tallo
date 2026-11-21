@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { gunzip } from "@tallo/catalog";
 import type { CollectMessage } from "@tallo/collect";
 import type { SourceConfig } from "@tallo/contracts";
 import { memoryBlobs, registerSources, schema, sourceConfig, startRun } from "@tallo/db";
@@ -170,6 +171,112 @@ describe("handleCollect", () => {
       .where(eq(schema.runs.id, "run-cloud-0002"));
     expect(run?.status).toBe("complete");
     expect(await db.select().from(schema.jobs)).toHaveLength(2);
+  });
+
+  describe("scratch use", () => {
+    /** Record every R2 put under work/ (the plan and raw parts), and every delete. */
+    function spy(blobs: ReturnType<typeof memoryBlobs>) {
+      const puts: string[] = [];
+      const deletes: string[] = [];
+      return {
+        puts,
+        deletes,
+        wrapped: {
+          ...blobs,
+          put: async (key: string, bytes: Uint8Array) => {
+            if (key.startsWith("work/")) puts.push(key);
+            return blobs.put(key, bytes);
+          },
+          delete: async (key: string) => {
+            deletes.push(key);
+            return blobs.delete(key);
+          },
+        },
+      };
+    }
+    const rawLines = async (blobs: ReturnType<typeof memoryBlobs>) => {
+      const key = blobs.keys().find((k) => k.startsWith("raw/greenhouse:stripe/"))!;
+      const gz = (await blobs.get(key))!;
+      const text = new TextDecoder().decode(await gunzip(gz));
+      return text
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as { id: string });
+    };
+
+    it("a run that finishes in one slice writes and deletes no plan or raw part", async () => {
+      const h = harness();
+      const s = spy(h.blobs);
+      h.env.blobs = s.wrapped;
+      await registerSources(h.db, [stripe], new Set());
+      await handleCollect({ kind: "start", sourceId: stripe.id, runId: "run-cloud-0010" }, h.env);
+      expect(s.puts).toEqual([]);
+      expect(s.deletes).toEqual([]);
+      expect(h.blobs.keys().filter((k) => k.startsWith("work/"))).toEqual([]);
+      // The raw pack is still stored, with every posting.
+      expect((await rawLines(h.blobs)).length).toBe(2);
+      expect(h.logs.at(-1)).toMatchObject({ outcome: "complete", changed: 2 });
+    });
+
+    it("a run that continues stores its plan before the slice message, and cleans up at the end", async () => {
+      const h = harness({ sliceSubrequests: 1 });
+      const s = spy(h.blobs);
+      h.env.blobs = s.wrapped;
+      const seen: boolean[] = [];
+      h.env.queue.send = async (body) => {
+        // The plan must already be readable when the slice message exists.
+        seen.push(h.blobs.keys().includes("work/run-cloud-0011/plan.json"));
+        h.messages.push(body);
+      };
+      await registerSources(h.db, [stripe], new Set());
+      await drain(h.env, h.messages, {
+        kind: "start",
+        sourceId: stripe.id,
+        runId: "run-cloud-0011",
+      });
+      expect(seen.length).toBeGreaterThan(0);
+      expect(seen.every(Boolean)).toBe(true);
+      // One plan write per run (not per slice); no work/ key is left behind.
+      expect(s.puts.filter((k) => k.endsWith("plan.json"))).toHaveLength(1);
+      expect(h.blobs.keys().filter((k) => k.startsWith("work/"))).toEqual([]);
+      expect(s.deletes).toContain("work/run-cloud-0011/plan.json");
+      // The raw pack holds every posting, the early parts and the in-memory last one.
+      expect((await rawLines(h.blobs)).map((l) => l.id).sort()).toHaveLength(2);
+      const [run] = await h.db
+        .select({ status: schema.runs.status })
+        .from(schema.runs)
+        .where(eq(schema.runs.id, "run-cloud-0011"));
+      expect(run?.status).toBe("complete");
+    });
+
+    it("a start message retried after the slice message failed to send still completes", async () => {
+      const h = harness({ sliceSubrequests: 1 });
+      const send = h.env.queue.send;
+      let failed = false;
+      h.env.queue.send = async (body) => {
+        if (!failed) {
+          failed = true;
+          throw new Error("queue unavailable");
+        }
+        return send(body);
+      };
+      await registerSources(h.db, [stripe], new Set());
+      const start: CollectMessage = {
+        kind: "start",
+        sourceId: stripe.id,
+        runId: "run-cloud-0012",
+      };
+      await expect(handleCollect(start, h.env)).rejects.toThrow("queue unavailable");
+      // The queue redelivers the same start message.
+      await drain(h.env, h.messages, start);
+      const [run] = await h.db
+        .select({ status: schema.runs.status })
+        .from(schema.runs)
+        .where(eq(schema.runs.id, "run-cloud-0012"));
+      expect(run?.status).toBe("complete");
+      // The failed attempt had already applied the first posting, so the retry's diff is smaller.
+      expect(await h.db.select().from(schema.jobs)).toHaveLength(2);
+    });
   });
 
   it("a board another run holds is acknowledged as busy, not failed", async () => {
