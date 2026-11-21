@@ -11,10 +11,17 @@ import { workday } from "./workday/index.ts";
 
 /** Register a platform here once; nothing else needs to change. */
 export const platforms: Record<string, Platform> = Object.fromEntries(
-  [greenhouse, lever, ashby, smartrecruiters, workday, oraclecloud, personio, workable, recruitee].map((p) => [
-    p.id,
-    p,
-  ]),
+  [
+    greenhouse,
+    lever,
+    ashby,
+    smartrecruiters,
+    workday,
+    oraclecloud,
+    personio,
+    workable,
+    recruitee,
+  ].map((p) => [p.id, p]),
 );
 
 export function platformFor(source: SourceConfig): Platform {
@@ -27,4 +34,14 @@ export function platformFor(source: SourceConfig): Platform {
 export const allowedHosts = (): string[] => Object.values(platforms).flatMap((p) => p.hosts);
 
 export * from "./kit.ts";
-export { ashby, greenhouse, lever, oraclecloud, personio, smartrecruiters, workable, workday, recruitee };
+export {
+  ashby,
+  greenhouse,
+  lever,
+  oraclecloud,
+  personio,
+  recruitee,
+  smartrecruiters,
+  workable,
+  workday,
+};
