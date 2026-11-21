@@ -2,6 +2,15 @@
 
 _Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-11-21: cloud collection is OFF
+
+**Cloud collection is stopped (issue #77).** `COLLECT_ENABLED` is `"0"` and the `*/5` collect cron is removed from
+`apps/api/wrangler.jsonc` and `cloudflare.config.ts`. The hourly housekeeping cron (`17 * * * *`: reap, purge, prune,
+regroup) stays. The Mac runner is the only collector (`pnpm --filter @tallo/runner tallo sync`). The queue consumer, the
+`tallo-collect` queue and the `HostGate` Durable Object stay deployed and idle. Turn cloud collection back on: runbook,
+"Cloud collection (queue)", step 6 (set `COLLECT_ENABLED` to `"1"` and restore the `*/5 * * * *` trigger in both files).
+The "Session 2026-10-28" notes below describe the previous, cloud-collecting state.
+
 ## Session 2026-11-11: public search pivot (issue #72, PR open, not merged)
 
 - Removed: the assistant, resume builder, application tracker, saved searches, profile, status page, access-key
@@ -37,7 +46,7 @@ _Last updated: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8
 
 ## Session 2026-10-28: read this first
 
-**Collection now runs in Cloudflare; the Mac runs nothing.** Cron `*/5` claims due boards (D1 `sources.next_due_at`,
+**(Superseded 2026-11-21: cloud collection is off, see above.) Collection ran in Cloudflare; the Mac ran nothing.** Cron `*/5` claims due boards (D1 `sources.next_due_at`,
 `tier`), a Queue (`tallo-collect`, DLQ `tallo-collect-dlq`) feeds a consumer in `tallo-api` that calls ingest directly,
 a Durable Object gates hosts. Default interval is weekly; `sources/hot.json` boards are daily; dead boards 30 days.
 Live settings (`apps/api/wrangler.jsonc` and `cloudflare.config.ts`, keep both in step): `COLLECT_ENABLED=1`,

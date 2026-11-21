@@ -18,9 +18,6 @@ export default defineConfig({
       triggers.scheduled({
         schedule: "17 * * * *",
       }),
-      triggers.scheduled({
-        schedule: "*/5 * * * *",
-      }),
       triggers.queue({
         name: "tallo-collect",
         deadLetterQueue: "tallo-collect-dlq",
@@ -48,7 +45,7 @@ export default defineConfig({
         worker: "tallo-api",
         exportName: "HostGate",
       }),
-      COLLECT_ENABLED: bindings.text("1"),
+      COLLECT_ENABLED: bindings.text("0"),
       COLLECT_BATCH: bindings.text("3000"),
       COLLECT_SLICE_SUBREQUESTS: bindings.text("800"),
       COLLECT_SLICE_MS: bindings.text("300000"),

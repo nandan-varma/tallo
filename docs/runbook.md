@@ -78,6 +78,11 @@ run against the old one (`classifier_version` is NOT NULL). Do these back to bac
 
 ## Cloud collection (queue)
 
+**Status: OFF since 2026-11-21 (issue #77).** `COLLECT_ENABLED` is `"0"` and the `*/5 * * * *` collect cron is not in
+either config file; only the hourly housekeeping cron (`17 * * * *`) runs. The Mac runner is the only collector. To turn
+cloud collection back on: restore `"*/5 * * * *"` in `triggers.crons` (`wrangler.jsonc`) and the matching
+`triggers.scheduled` entry (`cloudflare.config.ts`), set `COLLECT_ENABLED` to `"1"` in both, and deploy (step 6 below).
+
 Collection moves into the API Worker (design: `docs/architecture.md`, "Where collection runs"). The Mac runner keeps
 `tallo sync` and `tallo register` for manual use. Until cloud collection has run clean, the launchd job below remains the
 daily collector. At cutover, unload it: `launchctl unload ~/Library/LaunchAgents/fyi.nandan.tallo.sync.plist`.
