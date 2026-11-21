@@ -6,6 +6,7 @@ import { greenhouse } from "./greenhouse/index.ts";
 import { icims } from "./icims/index.ts";
 import { jobvite } from "./jobvite/index.ts";
 import { lever } from "./lever/index.ts";
+import { netflix } from "./netflix/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
 import { personio } from "./personio/index.ts";
 import { recruitee } from "./recruitee/index.ts";
@@ -26,6 +27,7 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     smartrecruiters,
     workday,
     oraclecloud,
+    netflix,
     personio,
     workable,
     recruitee,
@@ -52,6 +54,7 @@ export {
   icims,
   jobvite,
   lever,
+  netflix,
   oraclecloud,
   personio,
   recruitee,
