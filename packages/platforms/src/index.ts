@@ -1,5 +1,6 @@
 import type { Platform, SourceConfig } from "@tallo/contracts";
 import { ashby } from "./ashby/index.ts";
+import { bamboohr } from "./bamboohr/index.ts";
 import { greenhouse } from "./greenhouse/index.ts";
 import { lever } from "./lever/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
