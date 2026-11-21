@@ -55,15 +55,40 @@ describe("meterD1", () => {
     expect(cost).toEqual({ statements: 2, rows_read: 42, rows_written: 3, rows_returned: 2 });
   });
 
-  it("counts a raw() read as a statement and its rows, with no meta, so rows_read stays unknown", async () => {
-    const { d1 } = fakeD1({ "SELECT 2": { results: [[1], [2], [3]] } });
+  it("reads a raw() select through all() in a measured request: D1's meta, and the rows as arrays", async () => {
+    const { d1, calls } = fakeD1({
+      "SELECT 2": {
+        results: [
+          { id: 1, name: "a" },
+          { id: 2, name: "b" },
+        ],
+        meta: { rows_read: 9 },
+      },
+    });
     const db = meterD1(d1);
 
+    let rows: unknown[] = [];
     const cost = await measure(async () => {
-      await db.prepare("SELECT 2").bind().raw();
+      rows = await db.prepare("SELECT 2").bind().raw();
     });
 
-    expect(cost).toEqual({ statements: 1, rows_read: null, rows_written: null, rows_returned: 3 });
+    expect(rows).toEqual([
+      [1, "a"],
+      [2, "b"],
+    ]);
+    expect(cost).toEqual({ statements: 1, rows_read: 9, rows_written: null, rows_returned: 2 });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("leaves raw() with options, and raw() outside a measured request, as D1 answers it", async () => {
+    const { d1 } = fakeD1({ "SELECT 8": { results: [[1], [2]] } });
+    const db = meterD1(d1);
+
+    expect(await db.prepare("SELECT 8").bind().raw()).toEqual([[1], [2]]);
+    const cost = await measure(async () => {
+      await db.prepare("SELECT 8").bind().raw({ columnNames: true });
+    });
+    expect(cost).toEqual({ statements: 1, rows_read: null, rows_written: null, rows_returned: 2 });
   });
 
   it("reads a batch's meta per statement, and runs the wrapped statements it was given", async () => {

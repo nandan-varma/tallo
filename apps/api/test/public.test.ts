@@ -134,8 +134,8 @@ describe("GET /v1/jobs/:id", () => {
       });
       expect(cost.statements, path).toBeGreaterThan(0);
       expect(cost.rows_returned, path).toBeGreaterThan(0);
-      // Drizzle's select path reads through D1's raw(), which carries no meta: rows_read stays unknown, not zero.
-      expect(cost.rows_read, path).toBeNull();
+      // Drizzle reads through D1's raw(), which carries no meta; the meter runs it through all() so rows_read is real.
+      expect(cost.rows_read, path).toBeGreaterThan(0);
     }
   });
 

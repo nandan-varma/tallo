@@ -1,7 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import type { Db } from "./db.ts";
+import { payOf, visibleJobs } from "./queries.ts";
 import * as schema from "./schema.ts";
 
 const MIGRATIONS = new URL("../drizzle/", import.meta.url);
@@ -144,4 +146,31 @@ export function testDb() {
   reads.set(db, read);
   engines.set(db, sqlite);
   return db;
+}
+
+/** One job row by id, with its stored facts. Tests only. */
+export async function getJob(db: Db, id: number) {
+  const row = (await db.select().from(schema.jobs).where(eq(schema.jobs.id, id)).limit(1))[0];
+  return row ? { ...row, pay: payOf(row.facts) } : undefined;
+}
+
+/**
+ * What a default search shows (`visibleJobs`), newest first, with `variants` (open listings of the posting, this row
+ * included). The visibility oracle for the ingest and dedupe tests. Tests only.
+ */
+export async function visibleList(
+  db: Db,
+  { limit, includeStale }: { limit: number; includeStale?: boolean },
+  now = Math.floor(Date.now() / 1000),
+) {
+  const rows = await db
+    .select({
+      ...getTableColumns(schema.jobs),
+      variants: sql<number>`(SELECT count(*) FROM jobs AS dup WHERE dup.dup_of = "jobs"."id" AND dup.closed_at IS NULL) + 1`,
+    })
+    .from(schema.jobs)
+    .where(and(...visibleJobs(now, { includeStale })))
+    .orderBy(desc(schema.jobs.sortAt), desc(schema.jobs.id))
+    .limit(limit);
+  return { jobs: rows.map((row) => ({ ...row, pay: payOf(row.facts) })) };
 }

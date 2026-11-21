@@ -2,8 +2,9 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 /**
  * What one request cost the database. `rows_read` and `rows_written` are D1's own `meta` figures, summed over the
- * statements that reported them; null when none did. D1's `raw()` (which drizzle's select path uses) returns no meta, so a
- * read through it adds to `statements` and `rows_returned` only. `rows_returned` is what the driver handed back.
+ * statements that reported them; null when none did. D1's `raw()` (which drizzle's select path uses) returns no meta, so
+ * inside a measured request `raw()` runs through `all()` to get it (see `wrapStatement`). `rows_returned` is what the
+ * driver handed back.
  */
 export interface Cost {
   statements: number;
@@ -81,9 +82,19 @@ function wrapStatement(statement: StatementLike): StatementLike {
       return row;
     },
     raw: async (options?: unknown) => {
-      const rows = await statement.raw(options);
-      record(undefined, rows.length);
-      return rows;
+      // Drizzle reads every select through `raw()`, which D1 answers without meta. In a measured request the statement
+      // runs through `all()` instead (the same query and cost), so its `rows_read` is real, and each row is handed back
+      // as the array `raw()` would give. That is lossless only while the result columns have distinct names (an object
+      // keeps one value per name); the public reads select uniquely named columns, and a new read with two same-named columns must not run measured. `raw` options are passed through.
+      if (options !== undefined || !scope.getStore()) {
+        const rows = await statement.raw(options);
+        record(undefined, rows.length);
+        return rows;
+      }
+      const result = await statement.all();
+      const rows = result.results ?? [];
+      record(result.meta, rows.length);
+      return rows.map((row) => Object.values(row as Record<string, unknown>));
     },
   };
   inner.set(wrapped, statement);

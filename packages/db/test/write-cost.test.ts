@@ -8,9 +8,9 @@ import {
   jdKey,
   memoryBlobs,
   purgeClosed,
+  rankedJobs,
   rebuildDuplicates,
   schema,
-  searchJobs,
   startRun,
 } from "../src/index.ts";
 import { testDb, writeCost } from "../src/testing.ts";
@@ -160,8 +160,10 @@ describe("full-text index", () => {
   it("a changed title is searchable under its new words only", async () => {
     await sync([mapped("1")], ["p1"], T);
     await sync([mapped("1", { title: "Quantum Analyst" })], ["p1"], T + DAY);
-    expect((await searchJobs(db, { q: "quantum", limit: 10 }, T + DAY)).jobs).toHaveLength(1);
-    expect((await searchJobs(db, { q: "engineer", limit: 10 }, T + DAY)).jobs).toHaveLength(0);
+    const find = (title: string) =>
+      rankedJobs(db, { titles: [title] }, { limit: 10, offset: 0 }, T + DAY);
+    expect(await find("quantum")).toHaveLength(1);
+    expect(await find("engineer")).toHaveLength(0);
   });
 
   it("a changed location is searchable, and a location change alone keeps the group's updated_at", async () => {
@@ -171,7 +173,14 @@ describe("full-text index", () => {
       ["p1"],
       T + DAY,
     );
-    expect((await searchJobs(db, { q: "reykjavik", limit: 10 }, T + DAY)).jobs).toHaveLength(1);
+    expect(
+      await rankedJobs(
+        db,
+        { titles: ["engineer"], locations: ["reykjavik"] },
+        { limit: 10, offset: 0 },
+        T + DAY,
+      ),
+    ).toHaveLength(1);
     expect((await row("p1")).updatedAt).toBe(T);
   });
 });
