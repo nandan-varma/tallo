@@ -1,0 +1,256 @@
+{
+ "offers": [
+  {
+   "position": 432,
+   "title": "Clinical Research Scientist",
+   "max_hours_per_week": null,
+   "open_questions": [
+    {
+     "id": 4499376,
+     "position": 1,
+     "options": {},
+     "required": true,
+     "body": "Will you now or in the future require sponsorship to legally work in the United States? ",
+     "kind": "boolean",
+     "translations": {
+      "en": {
+       "body": "Will you now or in the future require sponsorship to legally work in the United States? "
+      }
+     },
+     "open_question_options": []
+    }
+   ],
+   "education_code": "master_degree",
+   "country_code": "US",
+   "close_at": null,
+   "postal_code": null,
+   "min_hours": null,
+   "state_code": "MA",
+   "updated_at": "2026-11-11 18:29:10 UTC",
+   "options_title": "off",
+   "on_site": true,
+   "category_code": "internet",
+   "locations_question": "What is your preferred work location?",
+   "tags": [],
+   "min_hours_per_week": null,
+   "guid": "bsvnf",
+   "locations_question_required": true,
+   "created_at": "2026-11-11 17:55:08 UTC",
+   "options_cv": "required",
+   "country": "United States",
+   "cover_image": null,
+   "careers_apply_url": "https://deephealth.recruitee.com/o/clinical-research-scientist/c/new",
+   "options_cover_letter": "optional",
+   "careers_url": "https://deephealth.recruitee.com/o/clinical-research-scientist",
+   "max_hours": null,
+   "options_phone": "required",
+   "location": "Remote job",
+   "description": "<p>The Clinical Research Scientist I conducts analyses that help DeepHealth evaluate new product opportunities, understand clinical needs, and assess the performance and potential impact of AI-enabled medical imaging products. Working within the Clinical Development division, this scientist translates clinical and product questions into analytical tasks, analyzes real-world healthcare data, and communicates findings that support product decisions and inform clinical evidence activities. The position works under guidance while taking responsibility for assigned analyses and developing expertise in medical imaging and clinical analytics.</p><p style=\"min-height: 1.7em;\"></p><p><strong>NOTE:</strong> Candidate <strong><u>must</u></strong> reside in Massachusetts</p><p style=\"min-height: 1.7em;\"></p><p>Essential Duties and Responsibilities</p><ul><li><p>Collaborate with clinical, product, and technical teams to deliver analytics supporting clinical AI product validation.</p></li><li><p>Query, combine, clean, and validate healthcare datasets, working with technical teams to resolve data issues and documenting definitions and limitations.</p></li><li><p>Conduct exploratory and statistical analyses to characterize patient populations and clinical workflows, assess product performance, and evaluate the feasibility and potential clinical value of new product opportunities.</p></li><li><p>Develop reproducible analyses and reusable tools, checking the accuracy of code and outputs and documenting assumptions, methods, and analytical decisions.</p></li><li><p>Communicate findings and practical implications with non-technical stakeholders to support product decisions, clinical evidence planning, and scientific communications.</p></li><li><p>Follow applicable data privacy, security, and quality requirements.</p></li></ul><p style=\"min-height: 1.7em;\"></p><p>PLEASE NOTE: This is not an exhaustive list of all duties, responsibilities and requirements of the position described above. Other functions may be assigned and management retains the right to add or change duties at any time.</p>",
+   "highlight": null,
+   "department": null,
+   "sharing_description": "The Clinical Research Scientist I conducts analyses that help DeepHealth evaluate new product opportunities, understand clinical needs, and assess the performance and potential impact of AI-enabled me",
+   "hybrid": true,
+   "remote": true,
+   "requirements": "<p class=\"MsoNormal\"><strong>Minimum Qualifications, Education and Experience</strong></p><ul><li><p class=\"MsoListParagraph\">Advanced degree with experience in medical R&amp;D (e.g., PhD or MD with 0-3 years of experience, or MS with 4-8 years of experience) (required).</p></li><li><p class=\"MsoListParagraph\">Demonstrated experience conducting clinical research and data analysis using real-world clinical data, including EHR, RIS, and imaging data (required).</p></li><li><p class=\"MsoListParagraph\">Deep knowledge of biostatistics, including mixed effects models and Bayesian inference (required).</p></li><li><p class=\"MsoListParagraph\">Strong analytical skills and ability to communicate analytical findings to clinical, technical, and non-technical audiences (required).</p></li><li><p class=\"MsoListParagraph\">Proficiency in Python for data preparation, analysis, and visualization (required).</p></li><li><p class=\"MsoListParagraph\">Familiarity with Git (or another version control system), Linux (or another Unix operating system), and command-line tools (required).</p></li><li><p class=\"MsoListParagraph\">Experience writing and presenting scientific work, including scientific publications, scientific presentations, or technical reports (required).</p></li><li><p class=\"MsoListParagraph\">Preferred: R or SQL skills.</p></li><li><p class=\"MsoListParagraph\">Preferred: Experience using Google Cloud Platform, particularly BigQuery, for data storage, querying, or analysis.</p></li><li><p class=\"MsoListParagraph\">Preferred: Familiarity with dbt and analytics engineering practices, including organizing source data into documented, reusable analytical tables and implementing data quality checks.</p></li></ul><p class=\"MsoNormal\"><strong>&nbsp;</strong></p><p class=\"MsoNormal\"><strong>Quality Standards</strong></p><ul><li><p class=\"MsoListParagraph\">Communicates, cooperates, and consistently functions professionally and harmoniously with all levels of supervision, co-workers, visitors, and vendors.</p></li><li><p class=\"MsoListParagraph\">Demonstrates initiative, personal awareness, professionalism and integrity, and exercises confidentiality in all areas of performance.&nbsp;</p></li><li><p class=\"MsoListParagraph\">Follows all local, regional and country laws concerning employment.</p></li><li><p class=\"MsoListParagraph\">Follows all DeepHealth policies and procedures.</p></li><li><p class=\"MsoListParagraph\">Follows data privacy, compliance, safety and confidentiality standards at all times.</p></li><li><p class=\"MsoListParagraph\">Practices universal safety precautions.</p></li><li><p class=\"MsoListParagraph\">Promotes good public relations on the phone and in person.</p></li><li><p class=\"MsoListParagraph\">Adapts and is willing to learn new tasks, methods, and systems.</p></li><li><p class=\"MsoListParagraph\">Reports to work regularly as scheduled; consistently punctual with respect to working hours, meal and rest breaks, and maintains satisfactory personal attendance in accordance with DeepHealth guidelines.</p></li><li><p class=\"MsoListParagraph\">Completes job responsibilities in a quality and timely manner.</p></li></ul><p class=\"MsoNormal\">&nbsp;</p><p class=\"MsoNormal\"><strong>Travel</strong></p><p class=\"MsoNormal\">This position requires domestic / international travel up to 10%.</p><p class=\"MsoNormal\">&nbsp;</p><p class=\"MsoNormal\"><strong>Working Environment</strong></p><p class=\"MsoNormal\">Remote / Office / Hybrid. USA.</p><p style=\"min-height: 1.7em;\"></p><p>Compensation:</p><p>Based on experience, $110,000-$130,000</p>",
+   "published_at": "2026-11-11 18:12:53 UTC",
+   "translations": {
+    "en": {
+     "title": "Clinical Research Scientist",
+     "locations_question": "What is your preferred work location?"
+    }
+   },
+   "dynamic_fields": [],
+   "id": 2824483,
+   "salary": {
+    "max": "130000.00",
+    "min": "110000.00",
+    "period": "year",
+    "currency": "USD"
+   },
+   "employment_type_code": "fulltime_permanent",
+   "sharing_image": null,
+   "locations_question_type": "multiple_choice",
+   "city": "Boston",
+   "company_name": "DeepHealth",
+   "experience_code": "experienced",
+   "location_question_visible": false,
+   "status": "published",
+   "mailbox_email": "job.bsvnf@deephealth.recruitee.com",
+   "slug": "clinical-research-scientist",
+   "locations": [
+    {
+     "id": 98206,
+     "name": "Boston",
+     "state": "Massachusetts",
+     "country": "United States",
+     "city": "Boston",
+     "translations": {
+      "en": {
+       "name": "Boston",
+       "city": "Boston",
+       "postal_code": null,
+       "street": null,
+       "note": null
+      }
+     },
+     "country_code": "US",
+     "state_code": "MA",
+     "postal_code": null,
+     "street": null,
+     "note": null
+    }
+   ],
+   "sharing_title": "Clinical Research Scientist",
+   "options_photo": "off",
+   "options_salutation": "off",
+   "state_name": "Massachusetts"
+  },
+  {
+   "locations": [
+    {
+     "id": 39979,
+     "name": "Amsterdam",
+     "state": "Noord-Holland",
+     "country": "Netherlands",
+     "city": "Amsterdam",
+     "translations": {
+      "en": {
+       "name": "Amsterdam",
+       "city": "Amsterdam",
+       "postal_code": null,
+       "street": null,
+       "note": null
+      }
+     },
+     "country_code": "NL",
+     "postal_code": null,
+     "state_code": "NH",
+     "street": null,
+     "note": null
+    },
+    {
+     "id": 39977,
+     "name": "Istanbul",
+     "state": "İstanbul",
+     "country": "Türkiye",
+     "city": "İstanbul",
+     "translations": {
+      "en": {
+       "name": "Istanbul",
+       "city": "İstanbul",
+       "postal_code": null,
+       "street": null,
+       "note": null
+      }
+     },
+     "country_code": "TR",
+     "postal_code": null,
+     "state_code": "34",
+     "street": null,
+     "note": null
+    },
+    {
+     "id": 39967,
+     "name": "Sofia",
+     "state": "Sofia (stolitsa)",
+     "country": "Bulgaria",
+     "city": "Sofia",
+     "translations": {
+      "en": {
+       "name": "Sofia",
+       "city": "Sofia",
+       "postal_code": null,
+       "street": null,
+       "note": null
+      }
+     },
+     "country_code": "BG",
+     "postal_code": null,
+     "state_code": "22",
+     "street": null,
+     "note": null
+    }
+   ],
+   "position": 1663,
+   "locations_question": "What is your preferred work location?",
+   "state_code": "NH",
+   "sharing_title": "Copywriter",
+   "min_hours_per_week": "40",
+   "hybrid": true,
+   "country_code": "NL",
+   "title": "Copywriter",
+   "sharing_description": "At bunq, we’re on a mission to Make Life Easy for our users by creating the most user-centric banking experience out there. Every email, push notification and in-app message we send should feel like i",
+   "close_at": null,
+   "guid": "16oc8",
+   "slug": "copywriter-3",
+   "category_code": "banking",
+   "on_site": false,
+   "options_title": "off",
+   "location_question_visible": true,
+   "max_hours_per_week": "40",
+   "city": "Amsterdam",
+   "max_hours": 40,
+   "dynamic_fields": [],
+   "postal_code": null,
+   "tags": [],
+   "open_questions": [
+    {
+     "id": 4514403,
+     "position": 1,
+     "options": {},
+     "required": true,
+     "body": "What country do you currently live in?",
+     "kind": "string",
+     "translations": {
+      "en": {
+       "body": "What country do you currently live in?"
+      }
+     },
+     "open_question_options": []
+    }
+   ],
+   "locations_question_required": true,
+   "cover_image": null,
+   "country": "Netherlands",
+   "options_photo": "off",
+   "options_cover_letter": "off",
+   "state_name": "Noord-Holland",
+   "options_cv": "off",
+   "careers_apply_url": "https://careers.bunq.com/o/copywriter-3/c/new",
+   "translations": {
+    "en": {
+     "title": "Copywriter",
+     "locations_question": "What is your preferred work location?"
+    }
+   },
+   "description": "<p>At bunq, we’re on a mission to Make Life Easy for our users by creating the most user-centric banking experience out there. Every email, push notification and in-app message we send should feel like it was written for the person reading it, not for us. Right now, nobody owns that.</p><p>That’s where you come in. As our Copywriter, you will own every message our users get across email, push and in-app, plus the updates they read when something goes wrong. AI will write most of the first drafts. You’ll build the system that writes them, judge what it gets wrong, and add the creative edge AI always misses.</p><p style=\"min-height: 1.7em;\"></p><p><strong>Take Ownership 🚀</strong></p><p>You’ll own the words our users read every day. Here’s how you’ll do it:</p><ul><li><p>Build, maintain and improve AI copywriting agents for email, push and in-app, and feed your edits back in so their output keeps getting better. </p></li><li><p>Turn every draft into copy that starts from the user’s world, not ours (“your rate just jumped to 3.01%” instead of “we increased your rate”), with hooks, subject lines and tone that make people act. </p></li><li><p>Own the moments that matter most, from the messages users see before they leave to incident banners and status page updates, and write the one-off copy the system can’t produce.</p></li></ul>",
+   "experience_code": "experienced",
+   "education_code": "professional",
+   "remote": false,
+   "created_at": "2026-11-18 16:12:44 UTC",
+   "highlight": null,
+   "min_hours": 40,
+   "id": 2832667,
+   "published_at": "2026-11-18 16:23:32 UTC",
+   "sharing_image": null,
+   "mailbox_email": "job.16oc8@bunq.recruitee.com",
+   "locations_question_type": "single_choice",
+   "requirements": "<ul><li><p>Your English is fluent at a professional level, and your grammar and spelling are spotless. Native or near-native is a plus.</p></li><li><p>You’ve built or improved AI agents or prompts that produce copy, and you know how to fix them when the output drifts.</p></li><li><p>You write creative, user-first copy that gets people to open, click and act.</p></li><li><p>You’ve turned briefs into finished copy across multiple channels, on time. Lifecycle or CRM experience is a bonus.</p></li><li><p>You’re reachable outside working hours when an incident needs copy fast.</p><p style=\"min-height: 1.7em;\"></p></li></ul><p style=\"text-align:start;\"><em>Curious to see how we make life easy? - try the <a rel=\"noopener\" target=\"_blank\" href=\"https://app.adjust.com/1tyd4x67?fallback=https%3A%2F%2Fwww.bunq.com%2F&redirect_macos=https%3A%2F%2Fwww.bunq.com%2F\">bunq app</a>, it only takes 5 minutes to sign up.</em></p><p style=\"min-height: 1.7em;\"></p><p><strong>Your space to perform</strong></p><p>We give you the space and the tools you need to succeed 💪</p><p>🤟 Great, international colleagues who share your mindset</p><p>👩‍💻 Hybrid setup: after 3 months in-office, work 2 days remote, 3 days in-office weekly.</p><p>📚 We support growth with bunq Academy and €1500 annual learning budget</p><p>🇧🇬 Flex Benefits: €70 monthly budget via Re: benefit, offering access to 150+ perks tailored to your lifestyle.</p><p>🚌 Travel expenses are covered whether you come walking or by bike, bus or car (though we prefer green choices 🌳) (in the Netherlands)</p><p>🧳 Digital Nomad Program: After your first year, enjoy up to 20 days per year to work while traveling, combining flexibility with strong team collaboration</p><p>🚀 We reward tenure with a dedicated travel budget: €1.5k after 2 years and €3k after 4 years to visit another core office.</p><p>💻 A MacBook so you can Get Shit Done with us</p><p>🥦 Delicious lunches from our fabulous in-house chefs with vegan and vegetarian options</p><p>💰 An optional pension plan with monthly contribution from bunq (in the Netherlands)</p><p>⚕️ Private health insurance, just in case (in Turkey or Bulgaria)</p><p>🧘 €60 monthly allowance via Alleo by Epassi, rolling over monthly and resetting annually (in the Netherlands)</p><p>🍻 Friday drinks and other celebrations - bunq style</p><p style=\"min-height: 1.7em;\"></p><p style=\"text-align:start;\"><em>All new hires are subject to Pre-employment Screening (PES), which includes checks conducted by our third-party partner, Zinc. This is part of our commitment to a secure and trustworthy workplace</em></p>",
+   "location": "Amsterdam, Noord-Holland, Netherlands",
+   "salary": {
+    "max": null,
+    "min": null,
+    "period": null,
+    "currency": null
+   },
+   "options_phone": "required",
+   "status": "published",
+   "company_name": "bunq",
+   "updated_at": "2026-11-18 17:10:12 UTC",
+   "employment_type_code": "fulltime_permanent",
+   "careers_url": "https://careers.bunq.com/o/copywriter-3",
+   "options_salutation": "off",
+   "department": "Content & Design"
+  }
+ ]
+}
