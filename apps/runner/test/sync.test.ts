@@ -6,6 +6,7 @@ import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 import { createApi } from "../src/api.ts";
 import { dueSources } from "../src/due.ts";
+import { createCpuPool } from "../src/pool.ts";
 import { syncSource } from "../src/sync.ts";
 import { verifySource } from "../src/verify.ts";
 
@@ -67,6 +68,34 @@ describe("syncSource end to end", () => {
     expect(detail.variants).toHaveLength(2);
     expect(detail.description.length).toBeGreaterThan(100);
     expect(detail.company).toBe("Stripe");
+  });
+
+  it("through a worker-thread pool the catalog is identical to the in-thread run", async () => {
+    const pool = createCpuPool(2);
+    const run = async (cpu?: ReturnType<typeof createCpuPool>) => {
+      const { app, api, blobs } = stack();
+      await syncSource(source, {
+        api,
+        log,
+        runnerId: "test",
+        version: "t",
+        fetch: greenhouse(),
+        ...(cpu ? { cpu } : {}),
+      });
+      const { jobs } = await read(app, "/v1/jobs?q=revenue");
+      return {
+        jobs: jobs.map((j: { id: string }) => j.id),
+        blobs: blobs
+          .keys()
+          .map((k) => k.replace(/[0-9a-f-]{36}/, "<run>"))
+          .sort(),
+      };
+    };
+    const inThread = await run();
+    const pooled = await run(pool);
+    await pool.close();
+    expect(pooled.jobs).toHaveLength(1);
+    expect(pooled).toEqual(inThread);
   });
 
   it("a second run with nothing changed fetches no details and writes no jobs", async () => {

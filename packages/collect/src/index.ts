@@ -1,4 +1,5 @@
 /** Collection shared by the Mac runner and the Worker: list, diff, detail, map, upload, close. */
+export * from "./cpu.ts";
 export * from "./engine.ts";
 export * from "./gate.ts";
 export * from "./messages.ts";

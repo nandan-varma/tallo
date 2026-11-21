@@ -14,6 +14,8 @@ import {
   LOCAL_EGRESS_STALE_HOURS,
   localEgressSources,
 } from "./due.ts";
+import { createPooledFetch } from "./net.ts";
+import { createCpuPool, defaultThreads } from "./pool.ts";
 import { loadHot, loadSources } from "./sources.ts";
 import { syncSource } from "./sync.ts";
 import { verifySource } from "./verify.ts";
@@ -72,7 +74,22 @@ program
   .option("-p, --platform <id>", "only this platform")
   .option("-s, --source <id>", "only this source, e.g. greenhouse:stripe")
   .option("-n, --limit <n>", "at most n sources", numberFlag("--limit", 1))
-  .option("-c, --concurrency <n>", "sources in parallel", numberFlag("--concurrency", 1), 4)
+  .option(
+    "--exclude-platform <id>",
+    "skip this platform (repeatable; default: none excluded)",
+    (id: string, previous: string[] = []) => [...previous, id],
+  )
+  .option(
+    "-c, --concurrency <n>",
+    "sources in parallel; stages of different boards overlap (default 16)",
+    numberFlag("--concurrency", 1),
+    16,
+  )
+  .option(
+    "--threads <n>",
+    "worker threads for hashing, HTML to text and gzip; 0 runs them on the main thread (env TALLO_THREADS, default min(4, cores-1))",
+    numberFlag("--threads", 0),
+  )
   .option(
     "--stale-hours <h>",
     `skip sources completed more recently than this (default ${CLOUD_STALE_HOURS}, or ${LOCAL_EGRESS_STALE_HOURS} with --local-egress)`,
@@ -99,7 +116,10 @@ program
     const perHost = (opts.perHost as number | undefined) ?? envNumber("TALLO_PER_HOST", 1, 8);
     const hostIntervalMs =
       (opts.hostIntervalMs as number | undefined) ?? envNumber("TALLO_HOST_INTERVAL_MS", 0, 0);
-    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+    const threads =
+      (opts.threads as number | undefined) ?? envNumber("TALLO_THREADS", 0, defaultThreads());
+    const net = createPooledFetch();
+    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"), net.fetch);
     const state = new Map((await api.sources()).map((s) => [s.id, s]));
     const configured = loadSources(SOURCES_DIR);
     const staleHours =
@@ -107,16 +127,21 @@ program
       (opts.localEgress ? LOCAL_EGRESS_STALE_HOURS : CLOUD_STALE_HOURS);
     const due = dueSources(opts.localEgress ? localEgressSources(configured) : configured, state, {
       ...(opts.platform ? { platform: opts.platform as string } : {}),
+      ...(opts.excludePlatform ? { excludePlatforms: opts.excludePlatform as string[] } : {}),
       ...(opts.source ? { source: opts.source as string } : {}),
       includeDead: Boolean(opts.includeDead),
       cutoff: Date.now() / 1000 - staleHours * 3600,
       ...(opts.limit ? { limit: opts.limit as number } : {}),
     });
-    log.info({ due: due.length, localEgress: Boolean(opts.localEgress) }, "starting sync");
+    log.info(
+      { due: due.length, localEgress: Boolean(opts.localEgress), concurrency, threads },
+      "starting sync",
+    );
     const limiter = createHostLimiter({
       perHostConcurrency: perHost,
       minHostIntervalMs: hostIntervalMs,
     });
+    const cpu = threads > 0 ? createCpuPool(threads) : undefined;
     const queue = new PQueue({ concurrency });
     let failed = 0;
     await Promise.all(
@@ -127,6 +152,8 @@ program
               api,
               log,
               limiter,
+              fetch: net.fetch,
+              ...(cpu ? { cpu } : {}),
               runnerId: process.env.TALLO_RUNNER_ID ?? hostname(),
               version: process.env.npm_package_version ?? "dev",
             });
@@ -138,7 +165,9 @@ program
         }),
       ),
     );
-    log.info({ sources: due.length, incomplete: failed }, "sync finished");
+    await cpu?.close();
+    await net.close();
+    log.info({ sources: due.length, incomplete: failed, threads }, "sync finished");
   });
 
 program
@@ -147,7 +176,8 @@ program
   .option("-n, --sample <n>", "postings to sample", numberFlag("--sample", 1), 5)
   .option("--json", "machine-readable output")
   .action(async (id: string, opts) => {
-    const result = await verifySource(pick(id), opts.sample);
+    const net = createPooledFetch();
+    const result = await verifySource(pick(id), opts.sample, net.fetch).finally(() => net.close());
     console.log(JSON.stringify(result, null, opts.json ? 0 : 2));
   });
 

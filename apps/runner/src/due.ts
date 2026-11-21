@@ -21,6 +21,8 @@ export interface SourceState {
 
 interface DueOptions {
   platform?: string;
+  /** Platforms to skip (`--exclude-platform`). Nothing is excluded by default. */
+  excludePlatforms?: readonly string[];
   source?: string;
   includeDead?: boolean;
   /** Skip sources whose last complete run is at or after this epoch second. */
@@ -52,6 +54,7 @@ export function dueSources<T extends { id: string; platform: string }>(
   };
   const due = configured
     .filter((s) => !options.platform || s.platform === options.platform)
+    .filter((s) => !options.excludePlatforms?.includes(s.platform))
     .filter((s) => !options.source || s.id === options.source)
     .filter((s) => options.includeDead || state.get(s.id)?.status !== "dead")
     .filter((s) => options.source || last(s.id) < options.cutoff)

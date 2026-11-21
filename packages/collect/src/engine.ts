@@ -1,4 +1,4 @@
-import { gunzip, gzip, PREPARE_VERSION, prepareJob, sha256, stableStringify } from "@tallo/catalog";
+import { gunzip, gzip } from "@tallo/catalog";
 import type {
   CollectContext,
   CreateRun,
@@ -14,6 +14,7 @@ import type {
 import { createHostLimiter, createHttp, type HostLimiter, HttpError } from "@tallo/http";
 import { platformFor } from "@tallo/platforms";
 import PQueue from "p-queue";
+import { type Cpu, inThreadCpu } from "./cpu.ts";
 import { policyFor } from "./policy.ts";
 
 /**
@@ -56,6 +57,8 @@ export interface EngineOptions {
   now?: () => number;
   /** Parallel detail fetches. Default: the platform's policy concurrency. */
   detailConcurrency?: number;
+  /** Where hashing, map, prepare and gzip run. Default: this thread. The runner passes a thread pool. */
+  cpu?: Cpu;
 }
 
 /** What `begin` decided: the listing, the diff and the work that remains. Immutable once written. */
@@ -266,13 +269,21 @@ export async function begin(
   }
 
   // 2. Which postings are new or changed? The fingerprint ignores volatile fields.
+  const cpu = options.cpu ?? inThreadCpu;
   const hashes = new Map<string, string>();
-  for (const posting of listed) {
-    const stable = platform.fingerprint?.(posting.listing) ?? posting.listing;
-    // The prepare version is part of the hash so a catalog rule change re-prepares unchanged postings.
-    const version = { platform: platform.version, prepare: PREPARE_VERSION };
-    hashes.set(posting.id, await sha256(stableStringify({ stable, ...version })));
-  }
+  const HASH_CHUNK = 200;
+  const chunks: RawPosting[][] = [];
+  for (let i = 0; i < listed.length; i += HASH_CHUNK) chunks.push(listed.slice(i, i + HASH_CHUNK));
+  const hashed = await Promise.all(
+    chunks.map((chunk) =>
+      cpu.hashes(
+        source,
+        chunk.map((p) => p.listing),
+      ),
+    ),
+  );
+  for (const [c, chunk] of chunks.entries())
+    for (const [i, posting] of chunk.entries()) hashes.set(posting.id, hashed[c]![i]!);
   const changedIds = new Set(
     await ingest.diff(
       runId,
@@ -329,9 +340,46 @@ export async function advance(
     record: (issue) => void issues.push(issue),
   };
 
-  // 3. Details only for changed postings, then map and prepare.
-  const prepared: { facts: JobFacts; jd: Uint8Array }[] = [];
-  const raw: RawPosting[] = [];
+  // 3. Details only for changed postings, then map and prepare (on the cpu hook).
+  // 4. Upload and apply as postings are ready, in batches, so uploading overlaps fetching.
+  const cpu = options.cpu ?? inThreadCpu;
+  const lines: string[] = [];
+  const ready: { facts: JobFacts; jd: Uint8Array }[] = [];
+  const uploads = new PQueue({ concurrency: 8 });
+  // Batches are applied one at a time, in order; at most MAX_QUEUED wait, which bounds memory.
+  let applied: Promise<void> = Promise.resolve();
+  let queued = 0;
+  let failure: { error: unknown } | undefined;
+  const MAX_QUEUED = 2;
+  const send = async (batch: { facts: JobFacts; jd: Uint8Array }[]) => {
+    const missing = new Set(
+      await ingest.missingBlobs([...new Set(batch.map((p) => p.facts.jdHash))]),
+    );
+    const byHash = new Map(batch.map((p) => [p.facts.jdHash, p.jd]));
+    await Promise.all(
+      [...missing].map((hash) => uploads.add(() => ingest.putJd(hash, byHash.get(hash)!))),
+    );
+    const result = await ingest.applyJobs(
+      plan.runId,
+      batch.map((p) => p.facts),
+    );
+    if (result.missingBlobs.length)
+      throw new Error(`Server still missing ${result.missingBlobs.length} blobs`);
+  };
+  const enqueue = async (batch: { facts: JobFacts; jd: Uint8Array }[]) => {
+    queued++;
+    applied = applied.then(async () => {
+      try {
+        if (!failure) await send(batch);
+      } catch (error) {
+        failure = { error };
+      } finally {
+        queued--;
+      }
+    });
+    if (queued > MAX_QUEUED) await applied;
+  };
+
   let started = 0;
   const queue = new PQueue({
     concurrency: options.detailConcurrency ?? policyFor(platform.id).concurrency,
@@ -339,43 +387,26 @@ export async function advance(
   await Promise.all(
     plan.changed.slice(progress.offset).map(({ posting, hash }) =>
       queue.add(async () => {
-        if (stop()) return;
+        if (stop() || failure) return;
         started++;
         try {
           const full = platform.detail
             ? { ...posting, detail: await platform.detail(plan.source, posting, ctx) }
             : posting;
-          const mapped = platform.map(full, plan.source);
-          if (!mapped.title) throw new Error("Posting has no title");
-          prepared.push(await prepareJob(mapped, plan.source, hash));
-          raw.push(full);
+          const done = await cpu.prepare(plan.source, full, hash);
+          lines.push(done.line);
+          ready.push({ facts: done.facts, jd: done.jd });
         } catch (error) {
           detailsComplete = false;
           issues.push({ code: "detail", message: message(error), postingId: posting.id });
         }
+        if (ready.length >= BATCH) await enqueue(ready.splice(0, BATCH));
       }),
     ),
   );
-
-  // 4. Upload new description blobs, then apply jobs in batches.
-  if (prepared.length) {
-    const missing = new Set(
-      await ingest.missingBlobs([...new Set(prepared.map((p) => p.facts.jdHash))]),
-    );
-    const uploads = new PQueue({ concurrency: 8 });
-    const byHash = new Map(prepared.map((p) => [p.facts.jdHash, p.jd]));
-    await Promise.all(
-      [...missing].map((hash) => uploads.add(() => ingest.putJd(hash, byHash.get(hash)!))),
-    );
-    for (let i = 0; i < prepared.length; i += BATCH) {
-      const result = await ingest.applyJobs(
-        plan.runId,
-        prepared.slice(i, i + BATCH).map((p) => p.facts),
-      );
-      if (result.missingBlobs.length)
-        throw new Error(`Server still missing ${result.missingBlobs.length} blobs`);
-    }
-  }
+  if (ready.length) await enqueue(ready.splice(0));
+  await applied;
+  if (failure) throw failure.error;
 
   const rawParts = [...progress.rawParts];
   const offset = progress.offset + started;
@@ -392,6 +423,11 @@ export async function advance(
       await options.scratch.put(key, part);
       rawParts.push(key);
     }
+  if (lines.length) {
+    const key = rawPartKey(plan.runId, progress.offset);
+    // One newline-terminated line per posting, so parts join into valid ndjson.
+    await options.scratch.put(key, await gzip(new TextEncoder().encode(lines.join(""))));
+    rawParts.push(key);
   }
   return {
     offset,
