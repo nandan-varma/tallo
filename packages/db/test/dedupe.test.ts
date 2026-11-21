@@ -4,13 +4,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   backfillDedupeKeys,
   finalize,
+  getJob,
   listVariants,
   rebuildDuplicates,
   schema,
+  searchJobs,
+  searchSchema,
   startRun,
 } from "../src/index.ts";
 import { crossedKeys } from "../src/ingest.ts";
-import { getJob, testDb, visibleList } from "../src/testing.ts";
+import { testDb } from "../src/testing.ts";
 
 const DAY = 86400;
 const NOW = 2_000_000_000;
@@ -75,7 +78,9 @@ async function row(over: Partial<typeof schema.jobs.$inferInsert> = {}): Promise
 
 const dupOf = async (id: number) => (await getJob(db, id))?.dupOf ?? undefined;
 const visibleIds = async (opts: { includeStale?: boolean } = {}) =>
-  (await visibleList(db, { ...opts, limit: 100 }, NOW)).jobs.map((j) => j.id).sort((a, b) => a - b);
+  (await searchJobs(db, searchSchema.parse({ ...opts, limit: 100 }), NOW)).jobs
+    .map((j) => j.id)
+    .sort((a, b) => a - b);
 const rebuild = (opts: Parameters<typeof rebuildDuplicates>[2] = {}) =>
   rebuildDuplicates(db, NOW, opts);
 
@@ -101,7 +106,7 @@ describe("duplicate groups", () => {
     const b = await row({ locationText: "Denver, CO", applyUrl: "https://x/b" });
     await rebuild();
 
-    const [hit] = (await visibleList(db, { limit: 25 }, NOW)).jobs;
+    const [hit] = (await searchJobs(db, searchSchema.parse({}), NOW)).jobs;
     expect(hit?.id).toBe(a);
     expect(hit?.variants).toBe(2);
 
