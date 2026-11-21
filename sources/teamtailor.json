@@ -1,87 +1,155 @@
 [
  {
-  "key": "sellpy",
-  "company": "Sellpy"
- },
- {
-  "key": "bokio",
-  "company": "Bokio"
- },
- {
-  "key": "hemnet",
-  "company": "Hemnet"
- },
- {
-  "key": "polestar",
-  "company": "Polestar"
- },
- {
   "key": "anyfin",
   "company": "Anyfin"
- },
- {
-  "key": "tibber",
-  "company": "Tibber"
- },
- {
-  "key": "storytel",
-  "company": "Storytel"
- },
- {
-  "key": "schibsted",
-  "company": "Schibsted"
- },
- {
-  "key": "dustin",
-  "company": "Dustin"
- },
- {
-  "key": "hiq",
-  "company": "HiQ"
- },
- {
-  "key": "instabee",
-  "company": "Instabee"
- },
- {
-  "key": "oatly",
-  "company": "Oatly"
- },
- {
-  "key": "lindex",
-  "company": "Lindex"
- },
- {
-  "key": "mindler",
-  "company": "Mindler"
- },
- {
-  "key": "securitas",
-  "company": "Securitas"
- },
- {
-  "key": "stena",
-  "company": "Stena"
- },
- {
-  "key": "kambi",
-  "company": "Kambi"
- },
- {
-  "key": "svenskaspel",
-  "company": "Svenska Spel"
  },
  {
   "key": "apotea",
   "company": "Apotea"
  },
  {
+  "key": "bokio",
+  "company": "Bokio"
+ },
+ {
+  "key": "career",
+  "company": "Teamtailor"
+ },
+ {
+  "key": "clinisys",
+  "company": "Clinisys"
+ },
+ {
+  "key": "doktor",
+  "company": "Doktor"
+ },
+ {
+  "key": "dolead",
+  "company": "Dolead"
+ },
+ {
+  "key": "dustin",
+  "company": "Dustin"
+ },
+ {
+  "key": "ensek",
+  "company": "ENSEK"
+ },
+ {
+  "key": "flokk",
+  "company": "Flokk"
+ },
+ {
+  "key": "graviteetopcoltd",
+  "company": "Gravitee"
+ },
+ {
+  "key": "hemnet",
+  "company": "Hemnet"
+ },
+ {
+  "key": "hiq",
+  "company": "HiQ"
+ },
+ {
+  "key": "huaweiresearchcentergermanyaustria",
+  "company": "Huawei Research Center Germany & Austria"
+ },
+ {
+  "key": "incision",
+  "company": "Incision"
+ },
+ {
+  "key": "instabee",
+  "company": "Instabee"
+ },
+ {
+  "key": "justergroupab",
+  "company": "Justera Group"
+ },
+ {
+  "key": "kambi",
+  "company": "Kambi"
+ },
+ {
+  "key": "kustom",
+  "company": "Kustom"
+ },
+ {
+  "key": "leafspace",
+  "company": "Leaf Space"
+ },
+ {
+  "key": "lindex",
+  "company": "Lindex"
+ },
+ {
+  "key": "luminorbank",
+  "company": "Luminor Bank"
+ },
+ {
+  "key": "mathem",
+  "company": "Mathem"
+ },
+ {
+  "key": "mindler",
+  "company": "Mindler"
+ },
+ {
+  "key": "multiversecomputing",
+  "company": "Multiverse Computing"
+ },
+ {
   "key": "mwm",
   "company": "MWM"
  },
  {
-  "key": "usgnorthamerica",
-  "company": "USG Corporation"
+  "key": "oatly",
+  "company": "Oatly"
+ },
+ {
+  "key": "peakperformance",
+  "company": "Peak Performance"
+ },
+ {
+  "key": "polestar",
+  "company": "Polestar"
+ },
+ {
+  "key": "puzzel",
+  "company": "Puzzel"
+ },
+ {
+  "key": "rebtel",
+  "company": "Rebtel"
+ },
+ {
+  "key": "schibsted",
+  "company": "Schibsted"
+ },
+ {
+  "key": "securitas",
+  "company": "Securitas"
+ },
+ {
+  "key": "sellpy",
+  "company": "Sellpy"
+ },
+ {
+  "key": "stena",
+  "company": "Stena"
+ },
+ {
+  "key": "storytel",
+  "company": "Storytel"
+ },
+ {
+  "key": "svenskaspel",
+  "company": "Svenska Spel"
+ },
+ {
+  "key": "tibber",
+  "company": "Tibber"
  },
  {
   "key": "tlcworldwide",
@@ -92,47 +160,11 @@
   "company": "TMG Chicago"
  },
  {
-  "key": "ensek",
-  "company": "ENSEK"
+  "key": "usgnorthamerica",
+  "company": "USG Corporation"
  },
  {
-  "key": "kustom",
-  "company": "Kustom"
- },
- {
-  "key": "dolead",
-  "company": "Dolead"
- },
- {
-  "key": "rebtel",
-  "company": "Rebtel"
- },
- {
-  "key": "peakperformance",
-  "company": "Peak Performance"
- },
- {
-  "key": "doktor",
-  "company": "Doktor"
- },
- {
-  "key": "justergroupab",
-  "company": "Justera Group"
- },
- {
-  "key": "flokk",
-  "company": "Flokk"
- },
- {
-  "key": "puzzel",
-  "company": "Puzzel"
- },
- {
-  "key": "mathem",
-  "company": "Mathem"
- },
- {
-  "key": "career",
-  "company": "Teamtailor"
+  "key": "vuonogroup",
+  "company": "Vuono Group"
  }
 ]
