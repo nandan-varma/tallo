@@ -22,6 +22,8 @@ Resource ids and URLs are recorded in `docs/PROGRESS.md`. Secrets are never comm
 
 ## Public API (issue #75)
 
+The zone's **Browser Cache TTL** is 14400 seconds (`cf zones settings get browser_cache_ttl -z nandan.fyi`), so a cached `/v1/*` answer reaches a browser with `max-age=14400` while the Worker's edge cache still honors the API's `s-maxage` (300 s search, 3600 s postings and discovery). Revalidate client-side when freshness matters. A scoped Cache Rule could set the browser TTL to respect the origin for `tallo.nandan.fyi/v1/*`; the zone-wide setting is shared with other hostnames, so it is not changed here.
+
 `https://tallo.nandan.fyi/v1/*` is served by the web Worker, which forwards only the paths in `PUBLIC_PATHS`
 (`packages/contracts`: search, job, description, companies, titles, OpenAPI), matched in
 `apps/web/src/lib/public.ts`). Everything else under `/v1` answers 404 there, admin and ingest included. `/llms.txt` is a
