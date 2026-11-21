@@ -136,7 +136,7 @@ export function ingestRoutes({
           .enum(["true", "false"])
           .transform((v) => v === "true")
           .optional(),
-        after: z.string().max(64).optional(),
+        after: z.string().max(8192).optional(),
         limit: z.coerce.number().int().min(1).max(5000).optional(),
       }),
     ),

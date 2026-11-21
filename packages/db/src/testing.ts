@@ -17,6 +17,10 @@ export interface WriteCost {
 }
 
 const costs = new WeakMap<Db, WriteCost>();
+const reads = new WeakMap<Db, { rows: number; queries: number }>();
+
+/** Rows materialized by reads, including cursor/candidate reads; a proxy for D1 response work. */
+export const readCost = (db: Db) => ({ ...(reads.get(db) ?? { rows: 0, queries: 0 }) });
 
 /** Cumulative write cost of everything run through a `testDb()` instance. Tests only. */
 export const writeCost = (db: Db): WriteCost => ({
@@ -36,6 +40,7 @@ export function testDb() {
     }
   }
   const cost: WriteCost = { rows: 0, indexEntries: 0 };
+  const read = { rows: 0, queries: 0 };
   const totalChanges = () => Number(sqlite.prepare("SELECT total_changes() AS n").get()?.n);
   const indexRoots = () =>
     new Set(
@@ -60,6 +65,8 @@ export function testDb() {
     }
     stmt.setReturnArrays(true);
     const rows = stmt.all(...(params as never[])) as unknown as unknown[][];
+    read.rows += rows.length;
+    read.queries++;
     return { rows: method === "get" ? (rows[0] ?? []) : rows };
   };
   const db = drizzle(
@@ -78,5 +85,6 @@ export function testDb() {
     { schema },
   );
   costs.set(db, cost);
+  reads.set(db, read);
   return db;
 }

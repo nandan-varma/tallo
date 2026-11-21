@@ -1,5 +1,5 @@
 import { gzip, prepareJob, sha256 } from "@tallo/catalog";
-import { memoryBlobs } from "@tallo/db";
+import { memoryBlobs, schema } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.ts";
@@ -353,5 +353,42 @@ describe("api", () => {
     expect(
       await (await call("/v1/admin/dedupe/backfill?after=0", INGEST, { method: "POST" })).json(),
     ).toEqual({ updated: 0, more: false, next: 0 });
+  });
+
+  it("resumes the admin regroup from the opaque cursor it returned", async () => {
+    const { call, db } = setup();
+    const at = now();
+    await db.insert(schema.jobs).values(
+      [1, 2, 3].map((i) => ({
+        sourceId: source.id,
+        postingId: `cursor-${i}`,
+        company: "Acme",
+        companySlug: "acme",
+        title: `Engineer ${i}`,
+        excerpt: "",
+        jdHash: "a".repeat(64),
+        jdBytes: 1,
+        sourceHash: "b".repeat(64),
+        facts: {},
+        sortAt: at,
+        firstSeenAt: at,
+        updatedAt: at,
+        dedupeKey: `key-${i}`,
+      })),
+    );
+
+    const first = (await (
+      await call("/v1/admin/dedupe?limit=1", INGEST, { method: "POST" })
+    ).json()) as { next: string | null };
+    expect(first.next).not.toBeNull();
+    // The old route cap was 64 characters; the opaque cursor is longer.
+    expect(first.next!.length).toBeGreaterThan(64);
+    expect(
+      (
+        await call(`/v1/admin/dedupe?limit=1&after=${encodeURIComponent(first.next!)}`, INGEST, {
+          method: "POST",
+        })
+      ).status,
+    ).toBe(200);
   });
 });
