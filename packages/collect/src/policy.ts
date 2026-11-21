@@ -29,6 +29,7 @@ export const POLICY: Record<string, HostPolicy> = {
   personio: TENANT,
   // One RSS feed per board (up to ~0.4 MB), on each company's own subdomain.
   teamtailor: FAST,
+  bamboohr: TENANT,
 };
 
 /** Unknown platforms get the careful policy. */
