@@ -1,0 +1,51 @@
+{
+ "error": null,
+ "hits": 75,
+ "facets": {},
+ "content": {
+  "sidebar": {},
+  "search_results": {}
+ },
+ "jobs": [
+  {
+   "basic_qualifications": "- Speak, write, and read fluently in English<br/>- 1+ years of customer support, or 1+ years of contact center experience<br/>- Experience in English-language communication skills, both written and verbal<br/>- Experience with computer trou",
+   "business_category": "customer-trust-and-partner-support",
+   "city": "Virtual",
+   "company_name": "Amazon.com Services LLC",
+   "country_code": "USA",
+   "description": "Application deadline: Applications will be accepted on an ongoing basis<br/><br/>This fully remote position is available to candidates residing in most U.S. states, excluding New York and California.<br/><br/>As a Selling Partner Support (SP-S) Specialist, you'll be a crucial part of the Connect wit",
+   "department_cost_center": null,
+   "description_short": "This fully remote position is available to candidates residing in most U.S. states, excluding New York and California.As a Selling Partner S",
+   "display_distance": null,
+   "id": "91580d93-4025-41ee-9d1a-ef82362888de",
+   "id_icims": "10607387",
+   "is_intern": null,
+   "is_manager": null,
+   "job_category": "Administrative Support",
+   "job_family": "Seller Support Operations",
+   "job_function_id": null,
+   "job_path": "/en/jobs/10607387/selling-partner-support-sp-s-specialist-connect-with-a-specialist",
+   "job_schedule_type": "full-time",
+   "location": "US, Virtual",
+   "locations": [
+    "{\"normalizedCountryCode\":\"USA\",\"city\":\"Virtual\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, Virtual\",\"coordinates\":\"38.89036,-77.03196\",\"type\":\"VIRTUAL\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"USA\",\"location\":\"US, Virtual\",\"region\":\"\"}"
+   ],
+   "normalized_location": "USA",
+   "optional_search_labels": [],
+   "posted_date": "November 17, 2026",
+   "preferred_qualifications": "- 2+ years of experience in customer or account support, with a track record of strengthening relationships and delivering effective support.<br/>- Experience supporting e-commerce sellers, merchants, or small business owners, particularly ",
+   "primary_search_label": "customer-trust-and-partner-support.team-selling-partner-support",
+   "source_system": "JobCreator",
+   "state": null,
+   "title": "Selling Partner Support (SP-S) Specialist, Connect With a Specialist",
+   "university_job": null,
+   "updated_time": "4 days",
+   "url_next_step": "https://account.amazon.jobs/jobs/10607387/apply",
+   "team": {
+    "id": null,
+    "identifier": null,
+    "label": "team-selling-partner-support"
+   }
+  }
+ ]
+}

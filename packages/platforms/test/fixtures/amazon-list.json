@@ -1,0 +1,98 @@
+{
+ "error": null,
+ "hits": 2609,
+ "facets": {},
+ "content": {
+  "sidebar": {},
+  "search_results": {}
+ },
+ "jobs": [
+  {
+   "basic_qualifications": "- 2+ years of embedded firmware development experience<br/>- 3+ years of non-internship professional software development experience<br/>- Experience debugging, profiling, and implementing best software engineering practices in large-scale systems<br/>- Knowledge of system performance, memory management, and parallel c",
+   "business_category": "aws",
+   "city": "Cupertino",
+   "company_name": "Amazon Data Services, Inc.",
+   "country_code": "USA",
+   "description": "AWS Infrastructure Services owns the design, planning, delivery, and operation of all AWS global infrastructure. In other words, we’re the people who keep the cloud running. We support all AWS data centers and all of the servers, storage, networking, power, and cooling equipment that ensure our customers have continual access to the innovation they rely on. We work on the most challenging problems, with thousands of ",
+   "department_cost_center": null,
+   "description_short": "AWS Infrastructure Services owns the design, planning, delivery, and operation of all AWS global infrastructure. In other words, we’re the p",
+   "display_distance": null,
+   "id": "5e506135-cde5-4d3b-a2ff-1b0b65f00637",
+   "id_icims": "10610733",
+   "is_intern": null,
+   "is_manager": null,
+   "job_category": "Software Development",
+   "job_family": "Software Development",
+   "job_function_id": null,
+   "job_path": "/en/jobs/10610733/embedded-sde-ii-hardware-engineering-services",
+   "job_schedule_type": "full-time",
+   "location": "US, CA, Cupertino",
+   "locations": [
+    "{\"normalizedStateName\":\"California\",\"normalizedCountryCode\":\"USA\",\"city\":\"Cupertino\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, CA, Cupertino\",\"coordinates\":\"37.31912,-122.02932\",\"type\":\"ONSITE\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"Cupertino, California, USA\",\"location\":\"US, CA, Cupertino\",\"region\":\"CA\"}"
+   ],
+   "normalized_location": "Cupertino, California, USA",
+   "optional_search_labels": [
+    "aws.team-hardware-eng"
+   ],
+   "posted_date": "November 20, 2026",
+   "preferred_qualifications": "- 3+ years of embedded firmware development experience<br/>- 3+ years of full software development life cycle, including coding standards, code reviews, source control management, build processes, testing, and operations experience<br/>- Master's degree or equivalent<br/><br/>Amazon is an equal opportunity employer and",
+   "primary_search_label": "aws.team-sde-primary",
+   "source_system": "JobCreator",
+   "state": "CA",
+   "title": "Embedded SDE II, Hardware Engineering Services",
+   "university_job": null,
+   "updated_time": "about 10 hours",
+   "url_next_step": "https://account.amazon.jobs/jobs/10610733/apply",
+   "team": {
+    "id": null,
+    "identifier": null,
+    "label": "team-sde-primary"
+   }
+  },
+  {
+   "basic_qualifications": "- 5+ years of non-internship professional software development experience<br/>- 5+ years of programming with at least one software programming language experience<br/>- 5+ years of leading design or architecture (design patterns, reliability and scaling) of new and existing systems experience<br/>- Experience as a ment",
+   "business_category": "alexa-and-amazon-devices",
+   "city": "Sunnyvale",
+   "company_name": "KGS LLC",
+   "country_code": "USA",
+   "description": "Build brand-new, mission-critical embedded software, with no legacy code, that connects U.S. and allied government customers to Amazon Leo's low Earth orbit satellite network. As a Sr. SDE on the Amazon Leo Government (ALG) Software team, you'll design high-assurance systems for RF, optical and networking device endpoints that connect government customers to the Leo network in mission-critical environments.\"<br/><br/",
+   "department_cost_center": null,
+   "description_short": "Build brand-new, mission-critical embedded software, with no legacy code, that connects U.S. and allied government customers to Amazon Leo's",
+   "display_distance": null,
+   "id": "6bc4d820-5732-4188-b28a-66360602ddae",
+   "id_icims": "10610535",
+   "is_intern": null,
+   "is_manager": null,
+   "job_category": "Software Development",
+   "job_family": "Software Development",
+   "job_function_id": null,
+   "job_path": "/en/jobs/10610535/sr-software-development-engineer-amazon-leo-government-alg-software",
+   "job_schedule_type": "full-time",
+   "location": "US, CA, Sunnyvale",
+   "locations": [
+    "{\"normalizedStateName\":\"Texas\",\"normalizedCountryCode\":\"USA\",\"city\":\"Austin\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, TX, Austin\",\"coordinates\":\"30.26759,-97.74299\",\"type\":\"ONSITE\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"Austin, Texas, USA\",\"location\":\"US, TX, Austin\",\"region\":\"TX\"}",
+    "{\"normalizedStateName\":\"California\",\"normalizedCountryCode\":\"USA\",\"city\":\"Sunnyvale\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, CA, Sunnyvale\",\"coordinates\":\"37.37188,-122.03751\",\"type\":\"ONSITE\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"Sunnyvale, California, USA\",\"location\":\"US, CA, Sunnyvale\",\"region\":\"CA\"}",
+    "{\"normalizedStateName\":\"Washington\",\"normalizedCountryCode\":\"USA\",\"city\":\"Redmond\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, WA, Redmond\",\"coordinates\":\"47.67858,-122.13158\",\"type\":\"ONSITE\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"Redmond, Washington, USA\",\"location\":\"US, WA, Redmond\",\"region\":\"WA\"}",
+    "{\"normalizedStateName\":\"California\",\"normalizedCountryCode\":\"USA\",\"city\":\"Irvine\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, CA, Irvine\",\"coordinates\":\"33.68753,-117.82623\",\"type\":\"ONSITE\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"Irvine, California, USA\",\"location\":\"US, CA, Irvine\",\"region\":\"CA\"}",
+    "{\"normalizedStateName\":\"California\",\"normalizedCountryCode\":\"USA\",\"city\":\"El Segundo\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, CA, El Segundo\",\"coordinates\":\"33.92084,-118.41597\",\"type\":\"ONSITE\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"El Segundo, California, USA\",\"location\":\"US, CA, El Segundo\",\"region\":\"CA\"}",
+    "{\"normalizedStateName\":\"California\",\"normalizedCountryCode\":\"USA\",\"city\":\"NORTHRIDGE\",\"countryIso3a\":\"USA\",\"countryIso2a\":\"US\",\"locationNonStemming\":\"United States, CA, NORTHRIDGE\",\"coordinates\":\"34.23512,-118.53385\",\"type\":\"ONSITE\",\"normalizedCountryName\":\"United States\",\"normalizedLocation\":\"Northridge, California, USA\",\"location\":\"US, CA, NORTHRIDGE\",\"region\":\"CA\"}"
+   ],
+   "normalized_location": "Sunnyvale, California, USA",
+   "optional_search_labels": [],
+   "posted_date": "November 20, 2026",
+   "preferred_qualifications": "- 5+ years of full software development life cycle, including coding standards, code reviews, source control management, build processes, testing, and operations experience<br/>- Bachelor's degree in computer science or equivalent<br/><br/>Amazon is an equal opportunity employer and does not discriminate on the basis o",
+   "primary_search_label": "alexa-and-amazon-devices.team-project-kuiper",
+   "source_system": "JobCreator",
+   "state": "CA",
+   "title": "Sr. Software Development Engineer, Amazon Leo Government, ALG Software",
+   "university_job": null,
+   "updated_time": "about 12 hours",
+   "url_next_step": "https://account.amazon.jobs/jobs/10610535/apply",
+   "team": {
+    "id": null,
+    "identifier": null,
+    "label": "team-project-kuiper"
+   }
+  }
+ ]
+}
