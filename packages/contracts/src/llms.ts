@@ -26,6 +26,9 @@ function parameterLines(shape: Record<string, { description?: string }>): string
     .join("\n");
 }
 
+const EXAMPLE_DESCRIPTION =
+  "We are looking for a backend engineer to build the payments API. You will work with a small team on the payment pipeline.";
+
 /**
  * The example answers in `/llms.txt`. They are ordinary values, validated by the contract tests against the same
  * schemas the API answers with, so an assistant reads a real shape rather than a field list.
@@ -107,16 +110,16 @@ export const LLMS_EXAMPLES: {
         applyUrl: "https://boards.example.com/stripe/apply/48211",
       },
     ],
-    descriptionChars: 4218,
-    description: "We are looking for a backend engineer to build the payments API.",
-    descriptionNext: 4000,
+    descriptionChars: EXAMPLE_DESCRIPTION.length,
+    description: EXAMPLE_DESCRIPTION,
+    descriptionNext: null,
   },
   description: {
     apiVersion: PUBLIC_API_VERSION,
     id: "48211",
-    offset: 4000,
-    descriptionChars: 4218,
-    description: "You will work with a small team on the payment pipeline.",
+    offset: 20,
+    descriptionChars: EXAMPLE_DESCRIPTION.length,
+    description: EXAMPLE_DESCRIPTION.slice(20),
     descriptionNext: null,
   },
   companies: {
@@ -207,7 +210,7 @@ Optional: a part of a description. GET /v1/jobs/:id already returns it whole; us
 Parameters:
 ${parameterLines(publicDescriptionSchema.shape)}
 
-Example: curl -s "${PUBLIC_ORIGIN}/v1/jobs/48211/description?offset=4000"
+Example: curl -s "${PUBLIC_ORIGIN}/v1/jobs/48211/description?offset=20"
 
 ${exampleBlock(LLMS_EXAMPLES.description)}
 

@@ -41,6 +41,7 @@ describe("llmsText", () => {
     expect(text).toContain("About 60 requests a minute");
     expect(text).toContain("Search limit: 1 to 25, default 10");
     expect(text).not.toContain("Description chunk");
+    expect(text).not.toContain("4000");
     expect(text).not.toMatch(/undefined|\$\{/);
   });
 
