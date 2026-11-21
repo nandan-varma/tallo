@@ -1,6 +1,6 @@
-# Google careers: measured public surface
+# Google and Apple careers: measured public surfaces
 
-Research for the Google collector. Measured on 2026-11-21 from this Mac, anonymously, with
+Research for the Google and Apple collectors. Measured on 2026-11-21 from this Mac, anonymously, with
 one request in flight unless noted. No production ingest, no `.env` and no credentials were used.
 
 ## Google
@@ -18,6 +18,24 @@ one request in flight unless noted. No production ingest, no `.env` and no crede
   `ceil(total / page_size)`. A changed total, a short non-final page or a repeated id reports
   `complete: false`.
 - The old `careers.google.com/api/v3/search` endpoint is retired. It is not used.
+
+## Apple
+
+- Board API: `POST https://jobs.apple.com/api/v1/search` with
+  `{"query":"","filters":{},"page":N,"locale":"en-us","sort":"newest","format":{"longDate":"MMMM D, YYYY","mediumDate":"MMM D, YYYY"}}`.
+  20 rows a page, `res.totalRecords` 6,474 on 2026-11-21, 324 pages; page 325 returned zero rows.
+  The response is about 30 KB and carries `jobSummary`, locations, team, dates and the public title
+  slug, but no full description. A GET to the same path answers 401; the POST body (including
+  `format`) is required.
+- Detail API: `GET https://jobs.apple.com/api/v1/jobDetails/<id>` answers anonymously (about
+  13.6 KB has a sample) with `description`, `responsibilities`, `minimumQualifications`,
+  `preferredQualifications`, `teamNames`, `locations`, `postingFooters` (including the Pay & Benefits
+  prose) and `employmentType` / `jobType`.
+- Canonical public URL: `/en-us/details/<jobNumber-or-positionId>/<transformedPostingTitle>`.
+  REQ roles use `jobNumber` (`200696388-0836`); PIPE roles use `positionId` (`114438210`).
+- The authenticated/CSRF family (`/api/v1/js/...`) and the reference-data routes answer 401 to
+  anonymous clients. The search filter shape is available for logged-in UI use, but not anonymously;
+  the collectors therefore read the full unfiltered board instead of inventing a filter.
 
 ## Cost
 

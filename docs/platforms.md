@@ -27,6 +27,7 @@ sites and long-tail ATS.
 | icims | 3 | shipped, 25 seeded boards | yes for portals; no for Jibe | Portal HTML and JSON-LD; six explicit Jibe hosts. Empty listings are not authoritative. |
 | jobvite | 3 | shipped, 26 seeded boards | no | Public XML feed, full descriptions; shared host limited to one request per 3 seconds. Empty feeds are not authoritative. |
 | google | 3 | shipped, live-verified | no (results page has full descriptions) | Public results page's `AF_initDataCallback` `ds:1` payload, 20 postings a page; 3,015 postings / 151 pages measured 2026-11-21. Positional records (no field names); description, responsibilities and qualifications inline; no structured pay or work mode. Total changes or repeated pages report incomplete. |
+| apple | 3 | shipped, live-verified | yes (description, qualifications, Pay & Benefits prose) | `POST /api/v1/search` (20 a page) + `GET /api/v1/jobDetails/<id>`; 6,474 postings / 324 pages measured 2026-11-21. Detail is one request per changed posting; no typed pay band (Pay & Benefits is prose in a footer). Total changes or repeated pages report incomplete. |
 | meta | 3 | shipped, live-verified | yes (job page JSON-LD + preloaded detail) | Anonymous Relay search (one response, the site paginates in the browser) plus the public job page; `params.teams` is the site's structured team filter and needs a distinct source key. No department, pay, work mode or dates are parsed from text. Robot notice on the host asks for written permission before automated collection; collect gently. |
 
 ## Conditional listing (ETag)

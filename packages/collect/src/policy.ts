@@ -37,6 +37,8 @@ export const POLICY: Record<string, HostPolicy> = {
   amazon: { concurrency: 1, gapMs: 500 },
   // Whole-board HTML pages (about 1.3 MB each): 151 requests for the full board.
   google: { concurrency: 2, gapMs: 250 },
+  // One 30 KB listing page plus one compact detail per changed posting, on Apple's shared API host.
+  apple: { concurrency: 3, gapMs: 150 },
   // One shared host, and each detail is a ~1 MB job page: read a few at a time.
   meta: { concurrency: 2, gapMs: 500 },
   // Eightfold answers 429 after short bursts; one detail request per second stays polite.
