@@ -264,10 +264,6 @@
   "company": "Alchemy"
  },
  {
-  "key": "alden",
-  "company": "Alden Labs, Inc."
- },
- {
   "key": "alembic",
   "company": "Alembic"
  },
@@ -366,10 +362,6 @@
  {
   "key": "ambrook",
   "company": "Ambrook"
- },
- {
-  "key": "ameba",
-  "company": "Ameba"
  },
  {
   "key": "amenitiz",
@@ -1000,10 +992,6 @@
   "company": "Benevity"
  },
  {
-  "key": "beside",
-  "company": "Beside"
- },
- {
   "key": "bespokelabs",
   "company": "Bespoke Labs"
  },
@@ -1164,10 +1152,6 @@
   "company": "Blumen Systems"
  },
  {
-  "key": "boam",
-  "company": "Boam AI"
- },
- {
   "key": "bobyard",
   "company": "Bobyard"
  },
@@ -1282,10 +1266,6 @@
  {
   "key": "broccoli",
   "company": "Broccoli AI"
- },
- {
-  "key": "browserbase",
-  "company": "Browserbase"
  },
  {
   "key": "brunswick",
@@ -1520,10 +1500,6 @@
   "company": "Carolina Complete Health Network"
  },
  {
-  "key": "cedar",
-  "company": "Cedar"
- },
- {
   "key": "cellular-intelligence",
   "company": "Cellular Intelligence"
  },
@@ -1660,10 +1636,6 @@
   "company": "Clarion"
  },
  {
-  "key": "clarity",
-  "company": "Clarity"
- },
- {
   "key": "claritypay",
   "company": "ClarityPay"
  },
@@ -1694,10 +1666,6 @@
  {
   "key": "clera",
   "company": "Clera"
- },
- {
-  "key": "cleric",
-  "company": "Cleric"
  },
  {
   "key": "clickhouse",
@@ -1974,10 +1942,6 @@
  {
   "key": "coreplan",
   "company": "CorePlan"
- },
- {
-  "key": "corridor",
-  "company": "Corridor"
  },
  {
   "key": "cortea",
@@ -3772,10 +3736,6 @@
   "company": "Hike Medical"
  },
  {
-  "key": "hilberts",
-  "company": "Hilbert's AI"
- },
- {
   "key": "hims-and-hers",
   "company": "Hims & Hers"
  },
@@ -4352,10 +4312,6 @@
   "company": "Kindred"
  },
  {
-  "key": "kinetic",
-  "company": "Kinetic"
- },
- {
   "key": "kingdom",
   "company": "Kingdom"
  },
@@ -4760,16 +4716,8 @@
   "company": "LiveFlow"
  },
  {
-  "key": "liveitup",
-  "company": "Live it Up"
- },
- {
   "key": "livekit",
   "company": "LiveKit"
- },
- {
-  "key": "liven",
-  "company": "Liven"
  },
  {
   "key": "livinghr",
@@ -4952,10 +4900,6 @@
   "company": "Mandolin"
  },
  {
-  "key": "mandrel",
-  "company": "Mandrel"
- },
- {
   "key": "mangomint",
   "company": "Mangomint"
  },
@@ -4966,10 +4910,6 @@
  {
   "key": "mapbox",
   "company": "Mapbox"
- },
- {
-  "key": "maple",
-  "company": "Maple"
  },
  {
   "key": "marble",
@@ -5456,10 +5396,6 @@
   "company": "Neara"
  },
  {
-  "key": "nectar-social",
-  "company": "Nectar"
- },
- {
   "key": "neko-health",
   "company": "Neko Health"
  },
@@ -5622,10 +5558,6 @@
  {
   "key": "nord-security",
   "company": "nord-security"
- },
- {
-  "key": "norm-ai",
-  "company": "Norm Ai"
  },
  {
   "key": "normalcomputing",
@@ -5986,10 +5918,6 @@
  {
   "key": "osmo",
   "company": "Osmo"
- },
- {
-  "key": "oso",
-  "company": "Oso"
  },
  {
   "key": "oumi",
@@ -7032,10 +6960,6 @@
   "company": "RepRally"
  },
  {
-  "key": "reprise",
-  "company": "Reprise"
- },
- {
   "key": "rerun",
   "company": "Rerun"
  },
@@ -7082,10 +7006,6 @@
  {
   "key": "reviserobotics",
   "company": "Revise Robotics"
- },
- {
-  "key": "revive",
-  "company": "Revive"
  },
  {
   "key": "rewind",
@@ -7290,10 +7210,6 @@
  {
   "key": "saltz",
   "company": "Saltz Marketplace"
- },
- {
-  "key": "sana-roles",
-  "company": "Sana"
  },
  {
   "key": "sanctuary",
@@ -8040,10 +7956,6 @@
   "company": "Sticker Mule"
  },
  {
-  "key": "stork",
-  "company": "Stork Labs"
- },
- {
   "key": "stradahq",
   "company": "Strada"
  },
@@ -8322,10 +8234,6 @@
  {
   "key": "tavahealth",
   "company": "Tava Health"
- },
- {
-  "key": "tavily",
-  "company": "Tavily"
  },
  {
   "key": "tavus",
@@ -8800,10 +8708,6 @@
   "company": "Ultralytics"
  },
  {
-  "key": "umbrel",
-  "company": "Umbrel"
- },
- {
   "key": "unblocked",
   "company": "Unblocked"
  },
@@ -9234,10 +9138,6 @@
  {
   "key": "whoop",
   "company": "Whoop"
- },
- {
-  "key": "willow-health",
-  "company": "Willow Health"
  },
  {
   "key": "wincent",

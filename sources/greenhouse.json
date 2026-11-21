@@ -196,10 +196,6 @@
   "company": "AccountsIQ"
  },
  {
-  "key": "accrue",
-  "company": "Accrue"
- },
- {
   "key": "accuweather",
   "company": "AccuWeather Careers"
  },
@@ -516,10 +512,6 @@
   "company": "AI Security Institute"
  },
  {
-  "key": "aisquared",
-  "company": "AI Squared"
- },
- {
   "key": "akersystems",
   "company": "Aker Systems"
  },
@@ -776,10 +768,6 @@
   "company": "Amoria Group"
  },
  {
-  "key": "amount",
-  "company": "FIS® Amount™"
- },
- {
   "key": "amperity",
   "company": "Amperity"
  },
@@ -818,10 +806,6 @@
  {
   "key": "animed",
   "company": "AniMed Animal Hospital"
- },
- {
-  "key": "aninebing",
-  "company": "ANINE BING"
  },
  {
   "key": "anodize",
@@ -1074,10 +1058,6 @@
  {
   "key": "arkestroinc",
   "company": "Arkestro"
- },
- {
-  "key": "arkoselabs",
-  "company": "Arkose Labs"
  },
  {
   "key": "arlosolutionsllc",
@@ -1688,10 +1668,6 @@
   "company": "Behavox"
  },
  {
-  "key": "bellacanvas",
-  "company": "BELLA+CANVAS"
- },
- {
   "key": "bellroy",
   "company": "Bellroy"
  },
@@ -2294,10 +2270,6 @@
  {
   "key": "bugcrowd",
   "company": "Bugcrowd"
- },
- {
-  "key": "builder",
-  "company": "Builder.io"
  },
  {
   "key": "buildkite",
@@ -2906,10 +2878,6 @@
  {
   "key": "clarksoneyecare",
   "company": "Clarkson Eyecare"
- },
- {
-  "key": "classpass",
-  "company": "ClassPass"
  },
  {
   "key": "claudecorps",
@@ -4384,10 +4352,6 @@
   "company": "LINQ"
  },
  {
-  "key": "emtrain",
-  "company": "Emtrain"
- },
- {
   "key": "enavatecareers",
   "company": "Enavate"
  },
@@ -4938,10 +4902,6 @@
  {
   "key": "feedzai",
   "company": "Feedzai"
- },
- {
-  "key": "fellow",
-  "company": "Fellow"
  },
  {
   "key": "fender",
@@ -5700,10 +5660,6 @@
   "company": "GigFinesse"
  },
  {
-  "key": "gigs",
-  "company": "Gigs"
- },
- {
   "key": "gillig",
   "company": "GILLIG"
  },
@@ -5896,10 +5852,6 @@
   "company": "Good Inside"
  },
  {
-  "key": "goodjobgames",
-  "company": "Good Job Games"
- },
- {
   "key": "goodman",
   "company": "Goodman"
  },
@@ -5950,10 +5902,6 @@
  {
   "key": "gps",
   "company": "Thredd"
- },
- {
-  "key": "gr8tech",
-  "company": "GR8_TECH"
  },
  {
   "key": "gracent",
@@ -6306,14 +6254,6 @@
  {
   "key": "headlandstechnologiesllc",
   "company": "Headlands Tech Holdings"
- },
- {
-  "key": "headoutcareers",
-  "company": "Headout"
- },
- {
-  "key": "headoutlinkedin",
-  "company": "Headout LI"
  },
  {
   "key": "headquarter",
@@ -7132,10 +7072,6 @@
   "company": "itd"
  },
  {
-  "key": "iterable",
-  "company": "Iterable"
- },
- {
   "key": "iterativehealth",
   "company": "Iterative Health"
  },
@@ -7326,10 +7262,6 @@
  {
   "key": "jshiddenevents",
   "company": "Hidden Events"
- },
- {
-  "key": "jugabet",
-  "company": "jugabet"
  },
  {
   "key": "jukeboxhealth",
@@ -7700,10 +7632,6 @@
   "company": "Kulfi Collective"
  },
  {
-  "key": "kunai",
-  "company": "Kunai"
- },
- {
   "key": "kuraoncology",
   "company": "kuraoncology"
  },
@@ -8018,10 +7946,6 @@
  {
   "key": "link",
   "company": "LINK"
- },
- {
-  "key": "linkhealth",
-  "company": "linkhealth"
  },
  {
   "key": "linksquaresinc",
@@ -10212,10 +10136,6 @@
   "company": "outsiders"
  },
  {
-  "key": "overstory",
-  "company": "Overstory"
- },
- {
   "key": "ovoenergy",
   "company": "ovoenergy"
  },
@@ -10326,10 +10246,6 @@
  {
   "key": "parkland",
   "company": "parkland"
- },
- {
-  "key": "parloa",
-  "company": "Parloa"
  },
  {
   "key": "parsecautomationcorp",
@@ -11154,10 +11070,6 @@
  {
   "key": "quintoandar",
   "company": "Grupo QuintoAndar"
- },
- {
-  "key": "quip",
-  "company": "quip"
  },
  {
   "key": "quisitivejobs",
@@ -13228,10 +13140,6 @@
   "company": "swoogo"
  },
  {
-  "key": "sxseenterprisesllc",
-  "company": "sxseenterprisesllc"
- },
- {
   "key": "symphony",
   "company": "symphony"
  },
@@ -13880,10 +13788,6 @@
   "company": "tigera"
  },
  {
-  "key": "tigergraph",
-  "company": "TigerGraph"
- },
- {
   "key": "timeleft",
   "company": "timeleft"
  },
@@ -14104,10 +14008,6 @@
   "company": "Triple Whale"
  },
  {
-  "key": "tripwireinteractive",
-  "company": "tripwireinteractive"
- },
- {
   "key": "triumvirateenvironmental",
   "company": "Triumvirate Environmental"
  },
@@ -14146,10 +14046,6 @@
  {
   "key": "truehold",
   "company": "truehold"
- },
- {
-  "key": "truelayer",
-  "company": "truelayer"
  },
  {
   "key": "truemedia",
@@ -14218,10 +14114,6 @@
  {
   "key": "tuesdayhealth",
   "company": "tuesdayhealth"
- },
- {
-  "key": "tula",
-  "company": "TULA Skincare"
  },
  {
   "key": "tulip",
@@ -14832,10 +14724,6 @@
   "company": "Virtu Financial"
  },
  {
-  "key": "viseai",
-  "company": "Vise"
- },
- {
   "key": "visualconcepts",
   "company": "Visual Concepts"
  },
@@ -15442,10 +15330,6 @@
  {
   "key": "yurtsai",
   "company": "Legion Intelligence"
- },
- {
-  "key": "zam",
-  "company": "zam"
  },
  {
   "key": "zambold",
