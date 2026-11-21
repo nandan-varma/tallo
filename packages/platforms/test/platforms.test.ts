@@ -1,6 +1,5 @@
-import type { CollectContext, HttpInit, HttpResponse, Json, RawPosting } from "@tallo/contracts";
 import { readFileSync } from "node:fs";
-import type { CollectContext, Http, Json, RawPosting } from "@tallo/contracts";
+import type { CollectContext, CollectContext, Http, HttpInit, HttpResponse, Json, Json, RawPosting, RawPosting } from "@tallo/contracts";
 import { arr, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import {
@@ -12,8 +11,8 @@ import {
   recruitee,
   SchemaError,
   smartrecruiters,
-  workable,
   teamtailor,
+  workable,
   workday,
 } from "../src/index.ts";
 import { drain, fakeCtx, fixture, source } from "./helpers.ts";
