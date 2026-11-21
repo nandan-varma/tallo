@@ -117,7 +117,7 @@ An error answer is {"error": {"code", "message", "hint"}}. The message says what
 - Search limit: 1 to ${SEARCH_MAX_LIMIT}, default ${SEARCH_DEFAULT_LIMIT}. Description chunk: 1 to ${DESCRIPTION_MAX_CHUNK}, default ${DESCRIPTION_CHUNK}. Discovery limit: 1 to ${DISCOVERY_MAX_RESULTS}.
 - A search lists at most ${SEARCH_RESULT_CAP} results in total. There is no exact count. count is the number on this page.
 - About ${PUBLIC_RATE_PER_MINUTE} requests a minute per address. Over that answers 429 with Retry-After.
-- Answers are cached: searches for up to 5 minutes, postings and discovery for up to an hour. Keep your own copy rather than asking again.
+- Answers are cached: at the edge, searches for up to 5 minutes, postings and discovery for up to an hour. Browsers may keep a posting or discovery answer for up to 4 hours (the zone's browser TTL); send Cache-Control: no-cache when a fresh answer matters. Keep your own copy rather than asking again.
 
 ## Reading the fields
 
