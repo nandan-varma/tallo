@@ -26,13 +26,4 @@ export function platformFor(source: SourceConfig): Platform {
 export const allowedHosts = (): string[] => Object.values(platforms).flatMap((p) => p.hosts);
 
 export * from "./kit.ts";
-export {
-  ashby,
-  greenhouse,
-  lever,
-  oraclecloud,
-  personio,
-  smartrecruiters,
-  workable,
-  workday,
-};
+export { ashby, greenhouse, lever, oraclecloud, personio, smartrecruiters, workable, workday };
