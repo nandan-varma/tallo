@@ -17,7 +17,8 @@ Resource ids and URLs are recorded in `docs/PROGRESS.md`. Secrets are never comm
 - API: `INGEST_TOKEN` (Wrangler secret on `tallo-api`). The public reads need no token.
 - Web: no secrets. The public pages and the public API proxy are open; there is no access key.
 - Runner: `apps/runner/.env` with `TALLO_API_URL` and `TALLO_INGEST_TOKEN`.
-- Retired: `READ_TOKEN` (issue #75). Delete it from both Workers with `wrangler secret delete READ_TOKEN`.
+- Retired bindings were removed on 2026-11-20: `READ_TOKEN` on both Workers, `ACCESS_TOKEN` on the web,
+  and `OPENCODE_API_KEY` on the API. The API now has only `INGEST_TOKEN`; the web has no secrets.
 
 ## Public API (issue #75)
 
