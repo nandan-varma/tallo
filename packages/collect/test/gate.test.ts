@@ -104,6 +104,38 @@ describe("batchedGate", () => {
     expect(w.calls).toHaveLength(2);
   });
 
+  it("ends the window at the reserved slots, not after the reserve response latency", async () => {
+    let clock = 10_000;
+    const calls: number[] = [];
+    const reserve = async () => {
+      calls.push(clock);
+      clock += 400; // the Durable Object call takes 400 ms to answer; its slots were fixed at the start
+      return 0;
+    };
+    const gate = batchedGate(reserve, { count: 3, now: () => clock, sleep: async () => {} });
+    await gate("h", 250);
+    expect(clock).toBe(10_400);
+    // Reserved slots: 10000, 10250, 10500. The next start (10650) is past the last one, so the
+    // gate must reserve again rather than trust a window stretched by the latency (to 10900).
+    clock += 250;
+    await gate("h", 250);
+    expect(calls).toEqual([10_000, 10_650]);
+  });
+
+  it("logs when it proceeds without a slot", async () => {
+    let clock = 0;
+    const logs: string[] = [];
+    const gate = batchedGate(async () => 0, {
+      count: 1,
+      now: () => clock++ * 1000,
+      sleep: async () => {},
+      log: (m) => logs.push(m),
+    });
+    await Promise.all([gate("busy", 250), gate("busy", 250), gate("busy", 250), gate("busy", 250)]);
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs[0]).toContain("busy");
+  });
+
   it("concurrent callers share one in-flight reserve call", async () => {
     const w = world();
     const gate = w.gate(4);

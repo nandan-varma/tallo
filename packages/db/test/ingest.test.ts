@@ -479,6 +479,50 @@ describe("stuck runs", () => {
     expect((await db.select().from(schema.jobs)).map((j) => j.closedAt)).toEqual([null]);
   });
 
+  it("reaping an older run leaves the board health a newer finished run wrote", async () => {
+    const a = await start(T + 1000); // run A's collector dies
+    const b = await start(T + 1000 + 2 * 3600); // lease lapsed, board claimed again
+    await ingest(b, [mapped("1")]);
+    await finalize(db, b, fin(["1"]), T + 1000 + 2 * 3600 + 10);
+    const [before] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(before).toMatchObject({ failureCount: 0, lastStatus: "complete" });
+    expect(await reapStaleRuns(db, T + 1000 + 3 * 3600)).toBe(1);
+    const [runA] = await db.select().from(schema.runs).where(eq(schema.runs.id, a));
+    expect(runA!.status).toBe("partial");
+    const [after] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(after).toMatchObject({
+      failureCount: 0,
+      lastStatus: before!.lastStatus,
+      nextDueAt: before!.nextDueAt,
+    });
+  });
+
+  it("a dead board keeps its dead interval when its run is reaped", async () => {
+    const reapAt = T + 2000 + 3 * 3600;
+    await start(T + 2000);
+    await db.update(schema.sources).set({ status: "dead" }).where(eq(schema.sources.id, source.id));
+    await reapStaleRuns(db, reapAt);
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(row!.nextDueAt).toBe(
+      nextDueAt({
+        tier: row!.tier,
+        outcome: "dead",
+        finishedAt: reapAt,
+        failures: 1,
+        neverListed: row!.lastListedAt == null,
+      }),
+    );
+    expect(row!.nextDueAt).toBeGreaterThan(
+      nextDueAt({
+        tier: row!.tier,
+        outcome: "partial",
+        finishedAt: reapAt,
+        failures: 1,
+        neverListed: row!.lastListedAt == null,
+      }),
+    );
+  });
+
   it("a late finalize from a reaped collector cannot close jobs", async () => {
     const first = await start(T + 1000);
     await ingest(first, [mapped("1")]);

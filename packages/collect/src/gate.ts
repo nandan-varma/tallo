@@ -25,7 +25,9 @@ export const GATE_BLOCK = 8;
  * gap, so the global gap between starts is the same as with one call per request. A caller that is
  * late takes its start later but never closer than `gapMs` to the previous start; a start that
  * would leave the window is not allowed, so the window is dropped and a new block is reserved.
- * `reserve` resolves with the wait (ms) for the first slot of the block.
+ * `reserve` resolves with the wait (ms) for the first slot of the block. The window end is computed
+ * from a time taken before `reserve` was called, so the response latency never pushes the window
+ * past the slots the Durable Object actually reserved (the next block starts right after them).
  */
 export function batchedGate(
   reserve: (host: string, gapMs: number, count: number) => Promise<number>,
@@ -33,21 +35,26 @@ export function batchedGate(
     count?: number;
     now?: () => number;
     sleep?: (ms: number) => Promise<unknown>;
+    log?: (message: string) => void;
   } = {},
 ): (host: string, gapMs: number) => Promise<void> {
   const count = Math.max(1, options.count ?? GATE_BLOCK);
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const log = options.log ?? ((message: string) => console.warn(message));
   const windows = new Map<string, { prev: number; last: number }>();
   const refills = new Map<string, Promise<void>>();
 
   const refill = (host: string, gapMs: number): Promise<void> => {
     let pending = refills.get(host);
     if (!pending) {
+      const t0 = now();
       pending = reserve(host, gapMs, count)
         .then((waitMs) => {
           const first = now() + waitMs;
-          windows.set(host, { prev: first - gapMs, last: first + (count - 1) * gapMs });
+          // The reserved slots are t0 + waitMs + i * gapMs at the latest; never end later than that.
+          const last = Math.max(first, t0 + waitMs + (count - 1) * gapMs);
+          windows.set(host, { prev: first - gapMs, last });
         })
         .finally(() => void refills.delete(host));
       refills.set(host, pending);
@@ -71,7 +78,10 @@ export function batchedGate(
       await refill(host, gapMs);
       // A block reserved a moment ago is almost always usable. If it was spent while we waited
       // (a very slow reserve), reserve again; after that, go rather than loop.
-      if (attempt >= 2) return;
+      if (attempt >= 2) {
+        log(`gate: no slot for ${host} after ${attempt + 1} attempts, proceeding without one`);
+        return;
+      }
     }
   };
 }

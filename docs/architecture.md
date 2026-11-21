@@ -59,9 +59,12 @@ with the same code (`packages/collect`), and it writes through the same HTTP ing
   `packages/collect/src/engine.ts`) with the D1 and R2 bindings instead of HTTP.
 - **Slices**: a board's detail work is cut into slices of at most 100 postings and 800 subrequests (wall time 5 minutes).
   A slice that stops early puts a `slice` message back on the queue with its progress (offset, counters, raw part keys).
-  The plan (listing and diff) and the raw parts live in R2 under `work/<run>/`. Closure happens only in the final
+  The plan (listing and diff) and the raw parts live in R2 under `work/<run>/` only for runs that continue past one
+  slice; a run that finishes in its first slice writes no scratch. Closure happens only in the final
   slice, and only from a complete listing. A slice that throws is retried from the same offset, so a retry repeats the
-  same postings. A run that is never finished stays `running` until the hourly reaper marks it partial.
+  same postings. A run that is never finished stays `running` until the hourly reaper marks it partial. A reaped run counts as a failed run for its board
+  (`failure_count` grows, `next_due_at` backs off; a dead board keeps its dead interval), but only when it is the
+  board's latest run.
 - **Per-host politeness**: `packages/collect/src/policy.ts` sets a concurrency and a start gap per platform. Public JSON
   boards (Greenhouse, Lever, Ashby, SmartRecruiters) use 8 in flight per host and no gap. Workday and Oracle Cloud use 2
   in flight and a 250 ms gap. The gap is enforced across invocations by a `HostGate` Durable Object per host (SQLite
