@@ -33,6 +33,24 @@ const isoFromSeconds = (value: unknown): string | undefined => {
   return seconds === undefined || seconds < 0 ? undefined : new Date(seconds * 1000).toISOString();
 };
 
+/**
+ * The detail's structured `posting_date` is the date the employer page states (MM-DD-YYYY).
+ * `t_create` can be older when a role is reposted, so prefer the stated date when it parses.
+ */
+const postingDate = (value: unknown): string | undefined => {
+  const m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(str(value) ?? "");
+  if (!m) return undefined;
+  const [month, day, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  )
+    return undefined;
+  return date.toISOString();
+};
+
 const firstString = (value: unknown): string | undefined =>
   arr(value)
     .map((item) => str(item))
@@ -150,7 +168,7 @@ export const netflix: Platform = {
       workMode: workModeOf(j("work_location_option")) ?? workModeOf(firstString(fields.work_type)),
       department: str(j("department")) ?? team,
       requisitionId: str(j("ats_job_id")) ?? str(j("display_job_id")),
-      postedAt: isoFromSeconds(j("t_create")),
+      postedAt: postingDate(firstString(fields.posting_date)) ?? isoFromSeconds(j("t_create")),
       updatedAt: isoFromSeconds(j("t_update")),
       // Netflix states pay in the description text, not in a structured field.
       compensation: [],

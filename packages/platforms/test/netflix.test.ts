@@ -67,7 +67,7 @@ describe("netflix", () => {
       workMode: "onsite",
       department: "Data & Insights",
       requisitionId: "AJRT30201",
-      postedAt: "2024-07-23T00:00:00.000Z",
+      postedAt: "2026-10-19T00:00:00.000Z",
       compensation: [],
       experience: [],
     });
@@ -104,9 +104,23 @@ describe("netflix", () => {
     const job = netflix.map({ id: "790319610169", listing: rows[1]! }, src);
     expect(job.description).toBe("");
     expect(job.workMode).toBe("remote");
+    expect(job.postedAt).toBe("2026-11-19T00:00:00.000Z");
     expect(job.applyUrl).toBe("https://explore.jobs.netflix.net/careers/job/790319610169");
     const prepared = await prepareJob(job, src, "c".repeat(64));
     expect(jobFactsSchema.safeParse(prepared.facts).success).toBe(true);
+  });
+
+  it("falls back to t_create when the structured posting date is missing or invalid", () => {
+    const detail = obj(fixture("netflix-detail-onsite"));
+    const custom = obj(detail.custom_JD);
+    obj(custom.data_fields).posting_date = [];
+    expect(netflix.map({ id: "790298014263", listing: rows[0]!, detail }, src).postedAt).toBe(
+      "2024-07-23T00:00:00.000Z",
+    );
+    obj(custom.data_fields).posting_date = ["not-a-date"];
+    expect(netflix.map({ id: "790298014263", listing: rows[0]!, detail }, src).postedAt).toBe(
+      "2024-07-23T00:00:00.000Z",
+    );
   });
 
   it("never claims completeness for a repeated page", async () => {
