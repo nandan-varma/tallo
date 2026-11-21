@@ -170,12 +170,13 @@ Then check, with the ingest token: `GET /v1/admin/collect/status` (runs in fligh
   `resume-delivery` to undo. Check the exact subcommand with `wrangler queues --help` first.
 - Roll back the code: redeploy the previous API (revert the collection commits). The schema change is additive and the old
   API ignores the new columns, so no migration rollback is needed. Runs left `running` are reaped as `partial` by the hourly
-  cron within two hours. Nothing closes on them.
+  cron within two hours. Nothing closes on them, but each counts as a failed run for its board (back-off), unless a
+  newer run of that board exists.
 - The Mac launchd job keeps working throughout. Both collectors can run; a board another run holds is refused (`busy`).
 
 ### Failures and dead letters
 
-- A message that fails three times goes to `tallo-collect-dlq`. Its run is reaped as partial. Re-collect the board with
+- A message that fails three times goes to `tallo-collect-dlq`. Its run is reaped as partial and counts as a failure (the board backs off). Re-collect the board with
   the staged route once the cause is fixed.
 - `outcome: "error"` lines carry the error message (up to 300 characters). `not_found` after three runs marks the board
   dead, and it is then collected every 30 days (`sources` `dead` in `GET /v1/admin/collect/status`).
@@ -188,7 +189,7 @@ Then check, with the ingest token: `GET /v1/admin/collect/status` (runs in fligh
   is not claimed again on every tick while the other run lasts. A later schedule is kept.
 - The hourly cron repairs one case: an active board whose due time is more than 30 days out (a bad write) is made due
   now. Without the repair it would not be collected for months.
-- Raw parts of a run that never closed stay under `work/<run>/` in R2 (small; cleanup is not automated yet).
+- The plan and raw parts of a continuing run that never closed stay under `work/<run>/` in R2 (small; cleanup is not automated yet). Single-slice runs write none.
 
 ### Local rehearsal (no Cloudflare resources)
 

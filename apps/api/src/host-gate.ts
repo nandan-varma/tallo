@@ -7,9 +7,10 @@ import { reserveSlot } from "@tallo/collect";
  * state is one number; it lives in the object's SQLite-backed storage so a restart keeps it.
  */
 export class HostGate extends DurableObject {
-  async reserve(gapMs: number): Promise<number> {
+  /** Reserve `count` consecutive slots; resolves with the wait (ms) for the first one. */
+  async reserve(gapMs: number, count = 1): Promise<number> {
     const nextFreeAt = (await this.ctx.storage.get<number>("nextFreeAt")) ?? 0;
-    const slot = reserveSlot(nextFreeAt, Date.now(), gapMs);
+    const slot = reserveSlot(nextFreeAt, Date.now(), gapMs, count);
     await this.ctx.storage.put("nextFreeAt", slot.nextFreeAt);
     return slot.waitMs;
   }

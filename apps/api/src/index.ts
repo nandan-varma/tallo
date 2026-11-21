@@ -64,7 +64,8 @@ const collectEnv = (env: Env): CollectEnv => ({
   db: drizzle(env.DB, { schema }),
   blobs: r2(env.BLOBS),
   queue: env.COLLECT,
-  reserve: (host, gapMs) => env.HOST_GATE.get(env.HOST_GATE.idFromName(host)).reserve(gapMs),
+  reserve: (host, gapMs, count) =>
+    env.HOST_GATE.get(env.HOST_GATE.idFromName(host)).reserve(gapMs, count),
   enabled: env.COLLECT_ENABLED === "1",
   sliceSubrequests: intVar(env.COLLECT_SLICE_SUBREQUESTS, DEFAULT_SLICE_SUBREQUESTS),
   sliceMs: intVar(env.COLLECT_SLICE_MS, DEFAULT_SLICE_MS),

@@ -1,5 +1,5 @@
 import { prepareJob } from "@tallo/catalog";
-import type { MappedJob, SourceConfig } from "@tallo/contracts";
+import { type MappedJob, nextDueAt, type SourceConfig } from "@tallo/contracts";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -432,6 +432,95 @@ describe("stuck runs", () => {
       [null, 0],
       [null, 0],
     ]);
+  });
+
+  it("a reaped run counts as a failed run: failure_count grows and the board backs off", async () => {
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1")]);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const reapAt = T + 2000 + 3 * 3600;
+    const stuck = await start(T + 2000);
+    await reapStaleRuns(db, reapAt);
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(row).toMatchObject({
+      failureCount: 1,
+      lastStatus: "partial",
+      consecutiveFailures: 0,
+      status: "active",
+      nextDueAt: nextDueAt({
+        tier: row!.tier,
+        outcome: "partial",
+        finishedAt: reapAt,
+        failures: 1,
+        neverListed: false,
+      }),
+    });
+    expect(row!.nextDueAt).toBeGreaterThan(reapAt);
+    // A second reaped run deepens the back-off; reaping again does not double count the first.
+    await reapStaleRuns(db, reapAt + 1);
+    const again = await start(reapAt + 10);
+    await reapStaleRuns(db, reapAt + 10 + 3 * 3600);
+    const [after] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(after!.failureCount).toBe(2);
+    expect(after!.nextDueAt).toBe(
+      nextDueAt({
+        tier: after!.tier,
+        outcome: "partial",
+        finishedAt: reapAt + 10 + 3 * 3600,
+        failures: 2,
+        neverListed: false,
+      }),
+    );
+    // Closed nothing, and the late finalize of the reaped run does not count again.
+    await finalize(db, stuck, fin([], { listingComplete: false }), reapAt + 20);
+    await finalize(db, again, fin([], { listingComplete: false }), reapAt + 20);
+    const [last] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(last!.failureCount).toBe(2);
+    expect((await db.select().from(schema.jobs)).map((j) => j.closedAt)).toEqual([null]);
+  });
+
+  it("reaping an older run leaves the board health a newer finished run wrote", async () => {
+    const a = await start(T + 1000); // run A's collector dies
+    const b = await start(T + 1000 + 2 * 3600); // lease lapsed, board claimed again
+    await ingest(b, [mapped("1")]);
+    await finalize(db, b, fin(["1"]), T + 1000 + 2 * 3600 + 10);
+    const [before] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(before).toMatchObject({ failureCount: 0, lastStatus: "complete" });
+    expect(await reapStaleRuns(db, T + 1000 + 3 * 3600)).toBe(1);
+    const [runA] = await db.select().from(schema.runs).where(eq(schema.runs.id, a));
+    expect(runA!.status).toBe("partial");
+    const [after] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(after).toMatchObject({
+      failureCount: 0,
+      lastStatus: before!.lastStatus,
+      nextDueAt: before!.nextDueAt,
+    });
+  });
+
+  it("a dead board keeps its dead interval when its run is reaped", async () => {
+    const reapAt = T + 2000 + 3 * 3600;
+    await start(T + 2000);
+    await db.update(schema.sources).set({ status: "dead" }).where(eq(schema.sources.id, source.id));
+    await reapStaleRuns(db, reapAt);
+    const [row] = await db.select().from(schema.sources).where(eq(schema.sources.id, source.id));
+    expect(row!.nextDueAt).toBe(
+      nextDueAt({
+        tier: row!.tier,
+        outcome: "dead",
+        finishedAt: reapAt,
+        failures: 1,
+        neverListed: row!.lastListedAt == null,
+      }),
+    );
+    expect(row!.nextDueAt).toBeGreaterThan(
+      nextDueAt({
+        tier: row!.tier,
+        outcome: "partial",
+        finishedAt: reapAt,
+        failures: 1,
+        neverListed: row!.lastListedAt == null,
+      }),
+    );
   });
 
   it("a late finalize from a reaped collector cannot close jobs", async () => {

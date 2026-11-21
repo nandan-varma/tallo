@@ -1,5 +1,7 @@
 import {
+  type Advanced,
   advance,
+  batchedGate,
   begin,
   type CollectMessage,
   complete,
@@ -49,8 +51,11 @@ export interface CollectEnv {
     send(body: CollectMessage): Promise<unknown>;
     sendBatch(messages: { body: CollectMessage }[]): Promise<unknown>;
   };
-  /** Reserve a start slot for a host; resolves with how long to wait (ms). Backed by the HostGate DO. */
-  reserve: (host: string, gapMs: number) => Promise<number>;
+  /**
+   * Reserve `count` consecutive start slots for a host in one call; resolves with how long to wait
+   * (ms) for the first. Backed by the HostGate DO.
+   */
+  reserve: (host: string, gapMs: number, count: number) => Promise<number>;
   /** Kill switch for the cron: when false it claims and enqueues nothing. Named collection ignores it. */
   enabled: boolean;
   sliceSubrequests: number;
@@ -94,6 +99,9 @@ function metered<A extends unknown[], R>(meter: Meter, fn: (...args: A) => R) {
     return fn(...args);
   };
 }
+
+/** A queue message carries the counters only; the in-memory raw tail is never set on a continuing slice. */
+const withoutTail = ({ rawTail: _tail, ...progress }: Advanced): Progress => progress;
 
 const outcomeOf = (o: Outcome) =>
   o.boardNotFound
@@ -147,11 +155,10 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
     limiter: gatedLimiter(
       counted,
       (host) => policyForHost(host).gapMs,
-      async (host, gapMs) => {
+      batchedGate((host, gapMs, count) => {
         meter.subrequests++;
-        const waitMs = await env.reserve(host, gapMs);
-        if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
-      },
+        return env.reserve(host, gapMs, count);
+      }),
     ),
   };
   // The engine asks before each posting. The first ask always says go: a slice that spends its budget
@@ -172,7 +179,7 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
 
   if (msg.kind === "slice") {
     const plan = await loadPlan(scratch, msg.runId);
-    return resume(env, options, plan, msg.progress, stop, line);
+    return resume(env, options, plan, msg.progress, stop, line, true);
   }
 
   const source = await sourceConfig(env.db, msg.sourceId);
@@ -208,8 +215,7 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
       changed: 0,
     });
   }
-  await savePlan(scratch, begun.plan);
-  return resume(env, options, begun.plan, begun.progress, stop, line);
+  return resume(env, options, begun.plan, begun.progress, stop, line, false);
 }
 
 async function resume(
@@ -219,15 +225,19 @@ async function resume(
   progress: Progress,
   stop: () => boolean,
   line: (fields: Record<string, unknown>) => void,
+  planStored: boolean,
 ): Promise<void> {
   const fields = { source: plan.source.id, platform: plan.source.platform };
   const next = await advance(options, plan, progress, stop);
   if (next.offset < plan.changed.length) {
+    // Only a run that continues needs its plan in scratch (a start message that finishes in one
+    // slice never writes it). Written before the slice message is sent, so the message finds it.
+    if (!planStored) await savePlan(options.scratch, plan);
     await env.queue.send({
       kind: "slice",
       sourceId: plan.source.id,
       runId: plan.runId,
-      progress: next,
+      progress: withoutTail(next),
     });
     return line({
       ...fields,
@@ -237,7 +247,7 @@ async function resume(
       requests: next.requests,
     });
   }
-  const outcome = await complete(options, plan, next);
+  const outcome = await complete(options, plan, next, { planStored });
   line({
     ...fields,
     outcome: outcomeOf(outcome),
