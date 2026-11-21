@@ -53,3 +53,24 @@ export async function drain<T, R>(gen: AsyncGenerator<T, R>): Promise<{ items: T
     items.push(next.value);
   }
 }
+
+/** Fake Http whose `getText` answers `body` (for XML/HTML sources). */
+export function textCtx(body: string): { ctx: CollectContext; urls: string[] } {
+  const urls: string[] = [];
+  const http: Http = {
+    getJson: async () => {
+      throw new Error("unexpected getJson");
+    },
+    postJson: async () => {
+      throw new Error("unexpected postJson");
+    },
+    getText: async (url) => {
+      urls.push(url);
+      return { status: 200, url, data: body };
+    },
+  };
+  return { ctx: { http, maxPostings: 1_000_000, record: () => {} }, urls };
+}
+
+export const textFixture = (name: string): string =>
+  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");

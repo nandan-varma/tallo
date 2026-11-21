@@ -2,6 +2,8 @@ import type { Platform, SourceConfig } from "@tallo/contracts";
 import { ashby } from "./ashby/index.ts";
 import { bamboohr } from "./bamboohr/index.ts";
 import { greenhouse } from "./greenhouse/index.ts";
+import { icims } from "./icims/index.ts";
+import { jobvite } from "./jobvite/index.ts";
 import { lever } from "./lever/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
 import { personio } from "./personio/index.ts";
@@ -14,6 +16,8 @@ import { workday } from "./workday/index.ts";
 /** Register a platform here once; nothing else needs to change. */
 export const platforms: Record<string, Platform> = Object.fromEntries(
   [
+    jobvite,
+    icims,
     greenhouse,
     lever,
     ashby,
@@ -42,6 +46,8 @@ export {
   ashby,
   bamboohr,
   greenhouse,
+  icims,
+  jobvite,
   lever,
   oraclecloud,
   personio,

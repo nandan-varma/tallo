@@ -70,8 +70,7 @@ describe("syncSource end to end", () => {
     expect(detail.company).toBe("Stripe");
   });
 
-  // TODO(#108): fails after merging #103 with the ETag/validator changes (JSON parse error); re-enable once diagnosed.
-  it.skip("through a worker-thread pool the catalog is identical to the in-thread run", async () => {
+  it("through a worker-thread pool the catalog is identical to the in-thread run", async () => {
     const pool = createCpuPool(2);
     const run = async (cpu?: ReturnType<typeof createCpuPool>) => {
       const { app, api, blobs } = stack();
@@ -83,7 +82,7 @@ describe("syncSource end to end", () => {
         fetch: greenhouse(),
         ...(cpu ? { cpu } : {}),
       });
-      const { jobs } = await read(app, "/v1/jobs?q=revenue");
+      const { results: jobs } = await read(app, "/v1/search?title=revenue+accounting");
       return {
         jobs: jobs.map((j: { id: string }) => j.id),
         blobs: blobs
@@ -92,11 +91,14 @@ describe("syncSource end to end", () => {
           .sort(),
       };
     };
-    const inThread = await run();
-    const pooled = await run(pool);
-    await pool.close();
-    expect(pooled.jobs).toHaveLength(1);
-    expect(pooled).toEqual(inThread);
+    try {
+      const inThread = await run();
+      const pooled = await run(pool);
+      expect(pooled.jobs).toHaveLength(1);
+      expect(pooled).toEqual(inThread);
+    } finally {
+      await pool.close();
+    }
   });
 
   it("a second run with nothing changed fetches no details and writes no jobs", async () => {

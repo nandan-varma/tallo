@@ -1,0 +1,120 @@
+[
+  {
+    "key": "careers-patternenergy",
+    "company": "Pattern Energy"
+  },
+  {
+    "key": "careers-githubinc",
+    "company": "GitHub",
+    "params": {
+      "jibeHost": "www.github.careers"
+    }
+  },
+  {
+    "key": "careers-primehealthcare",
+    "company": "Prime Healthcare"
+  },
+  {
+    "key": "careers-piedmont",
+    "company": "Piedmont Healthcare"
+  },
+  {
+    "key": "careers-parker",
+    "company": "Parker Hannifin"
+  },
+  {
+    "key": "careers-libertymutual",
+    "company": "Liberty Mutual"
+  },
+  {
+    "key": "careers-vanguard",
+    "company": "Vanguard"
+  },
+  {
+    "key": "careers-kehe",
+    "company": "KeHE"
+  },
+  {
+    "key": "careers-sound",
+    "company": "Sound Physicians"
+  },
+  {
+    "key": "careers-usap",
+    "company": "US Anesthesia Partners"
+  },
+  {
+    "key": "careers-wakemed",
+    "company": "WakeMed",
+    "params": {
+      "jibeHost": "jobs.wakemed.org"
+    }
+  },
+  {
+    "key": "careers-statefarm",
+    "company": "State Farm",
+    "params": {
+      "jibeHost": "jobs.statefarm.com"
+    }
+  },
+  {
+    "key": "careers-principal",
+    "company": "Principal Financial",
+    "params": {
+      "jibeHost": "careers.principal.com"
+    }
+  },
+  {
+    "key": "careers-heb",
+    "company": "H-E-B",
+    "params": {
+      "jibeHost": "careers.heb.com"
+    }
+  },
+  {
+    "key": "careers-costco",
+    "company": "Costco",
+    "params": {
+      "jibeHost": "careers.costco.com"
+    }
+  },
+  {
+    "key": "careers-teleperformance",
+    "company": "Teleperformance"
+  },
+  {
+    "key": "careers-aerotek",
+    "company": "Aerotek"
+  },
+  {
+    "key": "careers-teksystems",
+    "company": "TEKsystems"
+  },
+  {
+    "key": "careers-connection",
+    "company": "PC Connection"
+  },
+  {
+    "key": "careers-sentinel",
+    "company": "Sentinel"
+  },
+  {
+    "key": "careers-lowesfoods",
+    "company": "Lowes Foods"
+  },
+  {
+    "key": "careers-skanska",
+    "company": "Skanska"
+  },
+  {
+    "key": "careers-hoffman",
+    "company": "Hoffman Construction"
+  },
+  {
+    "key": "careers-quanta",
+    "company": "Quanta Services"
+  },
+  {
+    "key": "careers-gray",
+    "company": "Gray Media"
+  }
+]
