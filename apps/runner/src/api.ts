@@ -3,6 +3,7 @@ import type {
   Finalize,
   FinalizeResult,
   JobFacts,
+  RetireResult,
   SourceConfig,
   StartedRun,
 } from "@tallo/contracts";
@@ -71,6 +72,9 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
     /** Clear dead status and the 404 streak of these boards, and make them due now. */
     reviveSources: (sources: string[]) =>
       client.post("v1/admin/sources/revive", { json: { sources } }).json<{ revived: string[] }>(),
+    /** Retire reviewed boards; `dryRun` is explicit so a preview can never delete. */
+    retireSources: (sources: string[], dryRun: boolean) =>
+      client.post("v1/admin/sources/retire", { json: { sources, dryRun } }).json<RetireResult>(),
     collectStatus: () => client.get("v1/admin/collect/status").json<unknown>(),
   };
 }

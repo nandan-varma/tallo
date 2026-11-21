@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
-import type { SourceConfig } from "@tallo/contracts";
-import { collectStatus, type Db, registerSources, reviveSources } from "@tallo/db";
+import { RETIRE_MAX_SOURCES, type SourceConfig } from "@tallo/contracts";
+import { collectStatus, type Db, registerSources, retireSources, reviveSources } from "@tallo/db";
 import { platformFor } from "@tallo/platforms";
 import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
@@ -24,6 +24,11 @@ const collectSchema = z.object({
   sources: z.array(z.string().min(3).max(200)).min(1).max(100),
 });
 const reviveSchema = collectSchema;
+/** An explicit `dryRun` is required: an operator must state whether the preview or the write is meant. */
+const retireSchema = z.object({
+  sources: z.array(z.string().min(3).max(200)).min(1).max(RETIRE_MAX_SOURCES),
+  dryRun: z.boolean(),
+});
 
 /**
  * Board registration and staged collection. Writes need the ingest token. Configs are trusted:
@@ -67,6 +72,11 @@ export function adminRoutes({
   routes.post("/v1/admin/sources/revive", write, zValidator("json", reviveSchema), async (c) => {
     const { sources } = c.req.valid("json");
     return c.json({ revived: await reviveSources(db, sources) });
+  });
+
+  routes.post("/v1/admin/sources/retire", write, zValidator("json", retireSchema), async (c) => {
+    const { sources, dryRun } = c.req.valid("json");
+    return c.json(await retireSources(db, sources, { dryRun }));
   });
 
   routes.get("/v1/admin/collect/status", write, async (c) => {

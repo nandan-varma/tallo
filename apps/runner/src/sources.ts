@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SourceConfig } from "@tallo/contracts";
+import { RETIRE_MAX_SOURCES, type SourceConfig } from "@tallo/contracts";
 import { platformFor } from "@tallo/platforms";
 import { z } from "zod";
 
@@ -14,6 +14,21 @@ const entrySchema = z.array(
 
 /** The reviewed hot list: an array of source ids (see `loadHot`). Not a platform file. */
 export const HOT_FILE = "hot.json";
+
+/**
+ * Retirement is for boards already removed from `sources/`. Refuse any still-configured id so a typo
+ * cannot delete a live board, then apply the API's per-request bound. Ids keep their given order.
+ */
+export function retirableSourceIds(ids: string[], configured: Iterable<string>): string[] {
+  const unique = [...new Set(ids)];
+  const still = new Set(configured);
+  const active = unique.filter((id) => still.has(id));
+  if (active.length)
+    throw new Error(`Remove confirmed retired boards from sources/ first: ${active.join(", ")}`);
+  if (unique.length > RETIRE_MAX_SOURCES)
+    throw new Error(`Retire at most ${RETIRE_MAX_SOURCES} reviewed sources per invocation`);
+  return unique;
+}
 
 /** `sources/<platform>.json`: one array of boards per platform. Trusted, reviewed configuration. */
 export function loadSources(dir: string): SourceConfig[] {

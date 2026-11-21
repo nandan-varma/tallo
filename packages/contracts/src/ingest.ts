@@ -132,3 +132,20 @@ export function emptyBackoffSeconds(
 /** A source with no successful listing for this long is flagged, then hidden from search. */
 export const STALE_FLAG_DAYS = 7;
 export const STALE_HIDE_DAYS = 14;
+
+/** Bounds on one reviewed retirement request (Worker and D1 read work per call). */
+export const RETIRE_MAX_SOURCES = 10;
+export const RETIRE_MAX_ROWS = 5000;
+
+/**
+ * What a retirement did (or, for a dry run, would do). `rawKeys` are the retiring sources' own run
+ * packs; `orphanJdHashes` are descriptions no catalog row references any more. Both are audit and
+ * cleanup candidates, not deletion instructions: retention owns R2.
+ */
+export interface RetireResult {
+  sources: string[];
+  jobs: number;
+  rawKeys: string[];
+  orphanJdHashes: string[];
+  dryRun: boolean;
+}

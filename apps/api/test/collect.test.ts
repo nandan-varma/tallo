@@ -436,6 +436,71 @@ describe("admin routes", () => {
     expect(row).toMatchObject({ status: "active", consecutiveFailures: 0, nextDueAt: 0 });
   });
 
+  it("retires only with the ingest token, an explicit dryRun and at most ten ids", async () => {
+    const { application, db } = app();
+    await registerSources(db, [stripe], new Set());
+    const path = "/v1/admin/sources/retire";
+    const body = { sources: [stripe.id], dryRun: true };
+
+    expect((await post(application, path, body, WRONG)).status).toBe(401);
+    expect((await post(application, path, { sources: [stripe.id] })).status).toBe(400);
+    expect((await post(application, path, { sources: [stripe.id], dryRun: "yes" })).status).toBe(
+      400,
+    );
+    expect(
+      (
+        await post(application, path, {
+          sources: Array.from({ length: 11 }, (_, i) => `greenhouse:s${i}`),
+          dryRun: true,
+        })
+      ).status,
+    ).toBe(400);
+
+    const preview = await post(application, path, body);
+    expect(await preview.json()).toEqual({
+      sources: [stripe.id],
+      jobs: 0,
+      rawKeys: [],
+      orphanJdHashes: [],
+      dryRun: true,
+    });
+    expect(await db.select().from(schema.sources)).toHaveLength(1);
+
+    // Unknown ids are idempotent through the route too.
+    const unknown = await post(application, path, {
+      sources: ["greenhouse:nope"],
+      dryRun: false,
+    });
+    expect(await unknown.json()).toMatchObject({ sources: [], jobs: 0, dryRun: false });
+  });
+
+  it("refuses a running source, then retires it through the admin route", async () => {
+    const { application, db } = app();
+    await registerSources(db, [stripe], new Set());
+    const path = "/v1/admin/sources/retire";
+    await startRun(
+      db,
+      { runId: "run-retire", source: stripe, runnerId: "mac", collectorVersion: "t", startedAt: T },
+      T,
+    );
+    const busy = await post(application, path, { sources: [stripe.id], dryRun: false });
+    expect(busy.status).toBe(409);
+    expect(await db.select().from(schema.sources)).toHaveLength(1);
+
+    await db.update(schema.runs).set({ status: "partial" }).where(eq(schema.runs.id, "run-retire"));
+    const res = await post(application, path, { sources: [stripe.id], dryRun: false });
+    expect(await res.json()).toEqual({
+      sources: [stripe.id],
+      jobs: 0,
+      rawKeys: [],
+      orphanJdHashes: [],
+      dryRun: false,
+    });
+    expect(await db.select().from(schema.sources)).toHaveLength(0);
+    // The historical run stays for audit.
+    expect(await db.select().from(schema.runs)).toHaveLength(1);
+  });
+
   it("staged collect enqueues named boards even while the cron is off", async () => {
     const off = app({ enabled: false });
     await registerSources(off.db, [stripe], new Set());
