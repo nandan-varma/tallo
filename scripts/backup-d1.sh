@@ -94,7 +94,7 @@ PLAN
 }
 
 run() {
-  local stamp work dest tables name
+  local stamp dest tables name
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   dest="$BACKUP_ROOT/tallo-d1-$stamp"
   if [ -e "$dest" ]; then
@@ -102,10 +102,11 @@ run() {
     exit 1
   fi
   mkdir -p "$BACKUP_ROOT"
-  work="$(mktemp -d "$BACKUP_ROOT/.tallo-d1-$stamp.XXXXXX")"
-  # A failed run must leave nothing behind; a finished run has already moved $work to $dest. The trap expands the path
-  # at cleanup time, in double quotes, so spaces, globs and single quotes in the backup root are safe.
-  trap 'rm -rf -- "$work"' EXIT
+  WORK="$(mktemp -d "$BACKUP_ROOT/.tallo-d1-$stamp.XXXXXX")"
+  # A failed run must leave nothing behind; a finished run has already moved WORK to $dest. WORK is global so the
+  # EXIT trap can still see it after this function returns, and it is expanded in double quotes at cleanup time, so
+  # spaces, globs and single quotes in the backup root are safe.
+  trap 'rm -rf -- "$WORK"' EXIT
 
   cd "$REPO"
   # Read-only listing. Node parses the JSON so the script needs no jq.
@@ -124,18 +125,19 @@ run() {
     args+=(--table "$name")
   done <<<"$tables"
 
-  "${WRANGLER[@]}" d1 export "$DB_NAME" --remote --output "$work/tallo.sql" "${args[@]}"
-  grep -q '^CREATE TABLE' "$work/tallo.sql" || { echo "export has no CREATE TABLE; refusing to keep it" >&2; exit 1; }
-  gzip -9 "$work/tallo.sql"
-  "${WRANGLER[@]}" d1 time-travel info "$DB_NAME" --json >"$work/time-travel.json"
+  "${WRANGLER[@]}" d1 export "$DB_NAME" --remote --output "$WORK/tallo.sql" "${args[@]}"
+  grep -q '^CREATE TABLE' "$WORK/tallo.sql" || { echo "export has no CREATE TABLE; refusing to keep it" >&2; exit 1; }
+  gzip -9 "$WORK/tallo.sql"
+  "${WRANGLER[@]}" d1 time-travel info "$DB_NAME" --json >"$WORK/time-travel.json"
   {
     echo "created_utc=$stamp"
     echo "database=$DB_NAME"
     echo "tables=$(echo "$tables" | tr '\n' ' ')"
     echo "excluded=jobs_fts* (FTS5; rebuild after restore)"
-  } >"$work/meta.txt"
+  } >"$WORK/meta.txt"
 
-  mv "$work" "$dest"
+  mv "$WORK" "$dest"
+  WORK=""
   trap - EXIT
   echo "backup written: $dest"
 
