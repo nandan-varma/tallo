@@ -59,7 +59,7 @@ async function startAndFinish(
       seenIds: [],
       listingComplete: over.listingComplete ?? true,
       detailsComplete: true,
-      emptyIsAuthoritative: false,
+      emptyIsAuthoritative: true,
       requests: 1,
       finishedAt: over.finishedAt ?? T,
       rawKey: null,

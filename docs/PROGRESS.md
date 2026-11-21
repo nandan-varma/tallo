@@ -2,6 +2,15 @@
 
 _Last updated: 2026-11-21; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Session 2026-11-21: retry of failed detail fetches (issue #140, branch `fix/detail-retry`)
+
+- Audited the assumption: a posting whose detail throws is never applied, so its stored `source_hash` does not advance
+  and the next diff lists it as changed. Netflix, Meta and Apple use the same engine path; none of them needed a fix.
+  Each run with `detailsComplete: false` also stores a null listing validator, so the next run never gets a 304 for it.
+- `apps/runner/test/detail-retry.test.ts` pins this per platform with the real runner, test DB and fixture fakes: the
+  failed posting is absent, only it is fetched again, and a changed posting keeps its old hash until its detail succeeds.
+- No live sync was run. Re-running the three boards after the upstream limits settle is the main agent's call.
+
 ## Session 2026-11-21: public API cost P0 (issue #141, branch `perf/public-api-cost`)
 
 - `rankedJobs` is three queries: leaders (id and score per group, paged on those), the page's rows by id, and one grouped

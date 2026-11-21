@@ -297,6 +297,32 @@ export async function applyJobs(
       );
   }
   await batch(db, [...upserts, ...discovery, counters, listed]);
+
+  // `purgeClosed` can delete a blob between the existence check above and the batch above. Re-check the
+  // blobs of rows this call wrote that purge could have been racing: new rows, reopened (closed) rows and
+  // rows pointing at a new description. A row whose blob vanished gets a source hash no listing can match,
+  // so the next diff re-sends it and the runner re-uploads the description; the hash is also reported now.
+  const risky = [
+    ...new Set(
+      ready
+        .filter((j) => {
+          const prior = stored.get(j.postingId);
+          return !prior || prior.closedAt !== null || prior.jdHash !== j.jdHash;
+        })
+        .map((j) => j.jdHash),
+    ),
+  ];
+  const lost = (
+    await Promise.all(risky.map(async (h) => ((await blobs.has(jdKey(h))) ? null : h)))
+  ).filter((h): h is string => h !== null);
+  if (lost.length > 0) {
+    for (const part of chunks(lost, HASH_CHUNK))
+      await db
+        .update(jobs)
+        .set({ sourceHash: "" })
+        .where(and(eq(jobs.sourceId, sourceId), sql`${jobs.jdHash} IN ${jsonIds(part)}`));
+    missingBlobs.push(...lost);
+  }
   return { applied: ready.length, missingBlobs };
 }
 
@@ -433,14 +459,23 @@ export async function finalize(
       );
     }
   }
-  const status = fin.listingComplete ? "complete" : "partial";
-  // A listing that returned (complete, or any postings seen) counts for freshness; a failed one does not.
-  const listed = fin.listingComplete || fin.seenIds.length > 0;
+  // A complete listing with no postings that the platform does not vouch for (and that is not a 304) proves
+  // neither that the board is alive nor that it is empty: a retired board can answer exactly that way. It
+  // is treated as a failed run for health, freshness and back-off, and it still closes nothing.
+  const unproven =
+    fin.listingComplete &&
+    !fin.notModified &&
+    fin.seenIds.length === 0 &&
+    !fin.emptyIsAuthoritative;
+  const listingOk = fin.listingComplete && !unproven;
+  const status = listingOk ? "complete" : "partial";
+  // A listing that returned (proven complete, or any postings seen) counts for freshness; a failed one does not.
+  const listed = listingOk || fin.seenIds.length > 0;
   // Board health. Only a successful listing resets the not-found streak and revives a dead board.
   // A board-not-found run adds to the streak. Any other failure says nothing about whether the
   // board exists, so it leaves the streak as it is: a timeout between two 404s must not hide them.
   // `consecutive_failures` holds that streak.
-  const health = fin.listingComplete
+  const health = listingOk
     ? { consecutiveFailures: 0, status: "active" as const, lastCompleteRunAt: now }
     : fin.boardNotFound
       ? {
@@ -468,7 +503,7 @@ export async function finalize(
         lastStatus: status,
         ...health,
         // Any run that did not list completely is a failed run; a complete one resets the back-off.
-        failureCount: fin.listingComplete ? 0 : sql`${sources.failureCount} + 1`,
+        failureCount: listingOk ? 0 : sql`${sources.failureCount} + 1`,
         // Kept only by a listing that was complete and fully applied; a 304 re-confirms the stored one.
         ...(fin.notModified
           ? {}
@@ -481,9 +516,9 @@ export async function finalize(
         ...(listed ? { lastListedAt: now } : {}),
         nextDueAt: nextDueAt({
           tier: before?.tier ?? "normal",
-          outcome: runOutcome(fin, before),
+          outcome: runOutcome({ ...fin, listingComplete: listingOk }, before),
           finishedAt: fin.finishedAt,
-          failures: fin.listingComplete ? 0 : (before?.failureCount ?? 0) + 1,
+          failures: listingOk ? 0 : (before?.failureCount ?? 0) + 1,
           neverListed: before?.lastListedAt == null,
         }),
       })
@@ -514,6 +549,15 @@ function runOutcome(
   return dead ? "dead" : "partial";
 }
 
+/** Runs still `running` past the lease. A literal status, not a bound one, so SQLite can use `runs_running_idx`. */
+export function staleRunsQuery(db: Db, now: number) {
+  return db
+    .select({ id: runs.id, sourceId: runs.sourceId, startedAt: runs.startedAt })
+    .from(runs)
+    .where(and(sql`${runs.status} = 'running'`, lt(runs.startedAt, now - RUN_LEASE_SECONDS)))
+    .limit(1000);
+}
+
 /**
  * Marks runs still `running` past the lease as partial: the collector died before it could finalize.
  * It closes nothing (a partial run never proves a posting is gone). The run counts as a failed run
@@ -525,75 +569,87 @@ function runOutcome(
  * collector is then a no-op, because the run is no longer running.
  */
 export async function reapStaleRuns(db: Db, now = nowSeconds()): Promise<number> {
-  const stale = await db
-    .select({ id: runs.id })
-    .from(runs)
-    .where(and(eq(runs.status, "running"), lt(runs.startedAt, now - RUN_LEASE_SECONDS)))
-    .limit(1000);
+  const stale = await staleRunsQuery(db, now);
+  const byBoard = new Map<string, { ids: string[]; newest: number }>();
+  for (const r of stale) {
+    const group = byBoard.get(r.sourceId) ?? { ids: [], newest: 0 };
+    group.ids.push(r.id);
+    group.newest = Math.max(group.newest, r.startedAt);
+    byBoard.set(r.sourceId, group);
+  }
   let reaped = 0;
-  for (const ids of chunks(
-    stale.map((r) => r.id),
-    CHUNK,
-  )) {
-    // The status guard and RETURNING make this race-free with a finalize: only runs this statement
-    // flipped are counted as failures.
-    const flipped = await db
-      .update(runs)
-      .set({
-        status: "partial",
-        finishedAt: now,
-        issues: [{ code: "stopped", message: "Collector process stopped before finalize" }],
-      })
-      .where(and(eq(runs.status, "running"), sql`${runs.id} IN ${jsonIds(ids)}`))
-      .returning({ sourceId: runs.sourceId, startedAt: runs.startedAt });
-    reaped += flipped.length;
-    const failed = new Map<string, number>();
-    for (const r of flipped) failed.set(r.sourceId, (failed.get(r.sourceId) ?? 0) + 1);
+  for (const boards of chunks([...byBoard.keys()], 50)) {
     // Boards with a newer run than any run reaped here keep the health that run wrote.
-    const newest = new Map<string, number>();
-    for (const r of flipped)
-      newest.set(r.sourceId, Math.max(newest.get(r.sourceId) ?? 0, r.startedAt));
-    const boards = [...failed.keys()];
-    if (boards.length === 0) continue;
     const latest = await db
       .select({ sourceId: runs.sourceId, startedAt: sql<number>`max(${runs.startedAt})` })
       .from(runs)
       .where(sql`${runs.sourceId} IN ${jsonIds(boards)}`)
       .groupBy(runs.sourceId);
     const current = new Set(
-      latest.filter((l) => l.startedAt <= (newest.get(l.sourceId) ?? 0)).map((l) => l.sourceId),
+      latest
+        .filter((l) => l.startedAt <= (byBoard.get(l.sourceId)?.newest ?? 0))
+        .map((l) => l.sourceId),
     );
-    const health = await db
-      .select({
-        id: sources.id,
-        tier: sources.tier,
-        failureCount: sources.failureCount,
-        lastListedAt: sources.lastListedAt,
-        status: sources.status,
-        consecutiveFailures: sources.consecutiveFailures,
-      })
-      .from(sources)
-      .where(sql`${sources.id} IN ${jsonIds(boards)}`);
-    const statements: BatchItem<"sqlite">[] = health
-      .filter((b) => current.has(b.id))
-      .map((b) => {
-        const failures = b.failureCount + (failed.get(b.id) ?? 1);
-        return db
-          .update(sources)
-          .set({
-            lastStatus: "partial",
-            failureCount: failures,
-            nextDueAt: nextDueAt({
-              tier: b.tier,
-              outcome: runOutcome({ listingComplete: false, boardNotFound: false }, b),
-              finishedAt: now,
-              failures,
-              neverListed: b.lastListedAt == null,
-            }),
+    const health = new Map(
+      (
+        await db
+          .select({
+            id: sources.id,
+            tier: sources.tier,
+            failureCount: sources.failureCount,
+            lastListedAt: sources.lastListedAt,
+            status: sources.status,
+            consecutiveFailures: sources.consecutiveFailures,
           })
-          .where(eq(sources.id, b.id));
-      });
-    for (const group of chunks(statements, 100)) await batch(db, group);
+          .from(sources)
+          .where(sql`${sources.id} IN ${jsonIds(boards)}`)
+      ).map((b) => [b.id, b]),
+    );
+    // Per board, the run flip and the health write are one batch, so a crash cannot leave a reaped run
+    // without its failure. Both carry the same guard: every run read as stale is still running. A finalize
+    // that lands in between makes the guard false for that board; nothing is written for it and the runs
+    // still running are picked up by the next pass. The guard is what keeps a failure from being counted
+    // for a run this reap did not flip.
+    const statements: BatchItem<"sqlite">[] = [];
+    const flips: number[] = [];
+    for (const sourceId of boards) {
+      const { ids } = byBoard.get(sourceId)!;
+      const untouched = sql`(SELECT count(*) FROM ${runs} WHERE ${runs.sourceId} = ${sourceId} AND ${runs.status} = 'running' AND ${runs.id} IN ${jsonIds(ids)}) = ${ids.length}`;
+      const b = health.get(sourceId);
+      if (b && current.has(sourceId)) {
+        const failures = b.failureCount + ids.length;
+        statements.push(
+          db
+            .update(sources)
+            .set({
+              lastStatus: "partial",
+              failureCount: failures,
+              nextDueAt: nextDueAt({
+                tier: b.tier,
+                outcome: runOutcome({ listingComplete: false, boardNotFound: false }, b),
+                finishedAt: now,
+                failures,
+                neverListed: b.lastListedAt == null,
+              }),
+            })
+            .where(and(eq(sources.id, sourceId), untouched)),
+        );
+      }
+      statements.push(
+        db
+          .update(runs)
+          .set({
+            status: "partial",
+            finishedAt: now,
+            issues: [{ code: "stopped", message: "Collector process stopped before finalize" }],
+          })
+          .where(and(eq(runs.status, "running"), sql`${runs.id} IN ${jsonIds(ids)}`, untouched))
+          .returning({ id: runs.id }),
+      );
+      flips.push(statements.length - 1);
+    }
+    const results = (await batch(db, statements)) as { id: string }[][];
+    for (const i of flips) reaped += results[i]?.length ?? 0;
   }
   return reaped;
 }
@@ -652,7 +708,20 @@ export async function purgeClosed(
           .where(sql`${jobs.jdHash} IN ${jsonIds(part)}`)
       ).map((r) => r.hash),
     );
-    for (const hash of part) if (!used.has(hash)) await blobs.delete(jdKey(hash));
+    for (const hash of part) {
+      if (used.has(hash)) continue;
+      // An `applyJobs` may have checked this blob and be about to write a row that references it. Keep the
+      // bytes, delete, and look again: a reference that appeared meanwhile gets the blob put back.
+      const bytes = await blobs.get(jdKey(hash));
+      if (!bytes) continue;
+      await blobs.delete(jdKey(hash));
+      const [again] = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(eq(jobs.jdHash, hash))
+        .limit(1);
+      if (again) await blobs.put(jdKey(hash), bytes);
+    }
   }
   return stale.length;
 }

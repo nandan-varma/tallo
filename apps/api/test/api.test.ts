@@ -220,7 +220,7 @@ describe("api", () => {
           seenIds: [],
           listingComplete: finish.listingComplete,
           detailsComplete: true,
-          emptyIsAuthoritative: false,
+          emptyIsAuthoritative: true,
           requests: 1,
           finishedAt: now(),
           rawKey: null,

@@ -26,7 +26,8 @@ const finish = (runId: string, over: Partial<Parameters<typeof finalize>[2]>) =>
     seenIds: [],
     listingComplete: true,
     detailsComplete: true,
-    emptyIsAuthoritative: false,
+    // An empty listing that is not vouched for is not a clean run; these fixtures are clean ones.
+    emptyIsAuthoritative: true,
     requests: 1,
     finishedAt: T + 10,
     rawKey: null,
