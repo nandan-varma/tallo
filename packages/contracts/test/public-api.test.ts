@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { openApiDocument } from "../src/openapi.ts";
 import {
-  DESCRIPTION_CHUNK,
-  DESCRIPTION_MAX_CHUNK,
   decodeCursor,
   descriptionChunk,
   encodeCursor,
@@ -113,9 +111,10 @@ describe("descriptionChunk", () => {
     }
   });
 
-  it("the default chunk and the maximum are the documented sizes", () => {
-    expect(DESCRIPTION_CHUNK).toBe(4000);
-    expect(DESCRIPTION_MAX_CHUNK).toBe(8000);
+  it("without a limit, everything from the offset to the end comes back", () => {
+    const text = "x".repeat(20000);
+    expect(descriptionChunk(text, 0)).toEqual({ text, next: null });
+    expect(descriptionChunk(text, 15000).text).toHaveLength(5000);
   });
 });
 
@@ -185,9 +184,10 @@ describe("search query schema", () => {
 });
 
 describe("description query schema", () => {
-  it("defaults to the first chunk and bounds the chunk size", () => {
-    expect(publicDescriptionSchema.parse({})).toEqual({ offset: 0, limit: 4000 });
-    expect(publicDescriptionSchema.safeParse({ limit: "8001" }).success).toBe(false);
+  it("reads the rest from the offset unless a limit is given", () => {
+    expect(publicDescriptionSchema.parse({})).toEqual({ offset: 0 });
+    expect(publicDescriptionSchema.parse({ limit: "50000" })).toEqual({ offset: 0, limit: 50000 });
+    expect(publicDescriptionSchema.safeParse({ limit: "0" }).success).toBe(false);
     expect(publicDescriptionSchema.safeParse({ offset: "-1" }).success).toBe(false);
   });
 });

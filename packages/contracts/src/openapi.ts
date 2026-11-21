@@ -1,7 +1,5 @@
 import { z } from "zod";
 import {
-  DESCRIPTION_CHUNK,
-  DESCRIPTION_MAX_CHUNK,
   DISCOVERY_MAX_RESULTS,
   PUBLIC_API_VERSION,
   PUBLIC_MAX_URL_CHARS,
@@ -188,7 +186,6 @@ export function openApiDocument(): Record<string, unknown> {
         defaultLimit: SEARCH_DEFAULT_LIMIT,
         maxLimit: SEARCH_MAX_LIMIT,
       },
-      description: { defaultChunk: DESCRIPTION_CHUNK, maxChunk: DESCRIPTION_MAX_CHUNK },
       discovery: { maxResults: DISCOVERY_MAX_RESULTS },
       maxUrlChars: PUBLIC_MAX_URL_CHARS,
       ratePerMinute: PUBLIC_RATE_PER_MINUTE,
