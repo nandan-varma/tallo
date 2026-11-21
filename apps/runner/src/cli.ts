@@ -16,7 +16,7 @@ import {
 } from "./due.ts";
 import { createPooledFetch } from "./net.ts";
 import { createCpuPool, defaultThreads } from "./pool.ts";
-import { loadHot, loadSources } from "./sources.ts";
+import { loadHot, loadSources, retirableSourceIds } from "./sources.ts";
 import { syncSource } from "./sync.ts";
 import { verifySource } from "./verify.ts";
 
@@ -242,6 +242,22 @@ program
     const { revived } = await api.reviveSources(ids);
     const missing = ids.filter((id) => !revived.includes(id));
     log.info({ revived, ...(missing.length ? { missing } : {}) }, "revived");
+  });
+
+program
+  .command("retire <source...>")
+  .description(
+    "Remove reviewed retired boards from the catalog; preserve historical runs and R2 objects",
+  )
+  .option("--dry-run", "preview affected sources, jobs and cleanup candidates without writing")
+  .action(async (ids: string[], opts) => {
+    const retired = retirableSourceIds(
+      ids,
+      loadSources(SOURCES_DIR).map((s) => s.id),
+    );
+    const dryRun = Boolean(opts.dryRun);
+    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+    log.info(await api.retireSources(retired, dryRun), dryRun ? "retirement preview" : "retired");
   });
 
 program

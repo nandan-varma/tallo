@@ -76,9 +76,10 @@ with the same code (`packages/collect`), and it writes through the same HTTP ing
   `blocked`, `continued`, `busy`, `skipped`; `listed`, `changed`, `requests`, `subrequests`, `wall_ms`). Status (ingest token):
   `GET /v1/admin/collect/status` shows due counts by tier and platform, runs in flight, and the last 24 hours.
 - **Admin**: `POST /v1/admin/sources` (registers reviewed configs and the hot list; `tallo register`),
-  `POST /v1/admin/collect` with `{sources: [...]}` (collects named boards now, even with the cron off), and
-  `POST /v1/admin/sources/revive` with `{sources: [...]}` (clears dead status and the 404 streak; `tallo revive`).
-  All need the ingest token.
+  `POST /v1/admin/collect` with `{sources: [...]}` (collects named boards now, even with the cron off),
+  `POST /v1/admin/sources/revive` with `{sources: [...]}` (clears dead status and the 404 streak; `tallo revive`), and
+  `POST /v1/admin/sources/retire` with `{sources: [...], dryRun}` (removes a reviewed retired board's rows; `tallo
+  retire`). All need the ingest token.
 
 Limits: a Worker's subrequests per invocation are 10,000 on the paid plan; the slice budget is 800 so a slice has room.
 R2 and D1 calls, Durable Object calls and every outbound request count against it. A listing is not sliced. If one

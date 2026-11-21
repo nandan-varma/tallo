@@ -366,6 +366,30 @@ it is retried on the partial schedule, and someone removes it from `sources/*.js
   collects them. It touches no run, posting or closure. Use it after a reviewed mistake, then check the board's
   next run. The API route is `POST /v1/admin/sources/revive` (ingest token, `{"sources": [...]}`).
 
+### Retiring a board from the catalog
+
+Removing a board from `sources/*.json` stops new runs but leaves its `sources` row, postings and history. Review it,
+remove the config, then retire the stored rows explicitly:
+1. Remove the board from its `sources/<platform>.json` file and commit that reviewed change first. `tallo sources` must
+   no longer list it. The command refuses any id that is still configured, so a typo cannot delete a live board.
+2. Preview with `pnpm --filter @tallo/runner tallo retire <source-id...> --dry-run` (the API requires an explicit
+   `dryRun`). The preview reports the sources, the number of postings, the retiring sources' own raw-pack keys and the
+   descriptions no stored row references any more. It writes nothing.
+3. Apply with the same command without `--dry-run`. The API route is `POST /v1/admin/sources/retire` (ingest token):
+   `{"sources": ["<platform>:<key>", ...], "dryRun": false}`.
+
+One call accepts at most 10 source ids and 5000 jobs or historical runs in total; split a larger reviewed batch. A
+source with a running run is refused with 409 before any write, so finish or let the run be reaped first. Unknown and
+already-retired ids are idempotent and reported as an empty result.
+
+Retirement deletes only the named sources' `sources` rows and postings, in one D1 batch. Before deleting, that batch
+unlinks surviving duplicate postings that pointed at a retiring canonical (`dup_of` is cleared and `updated_at` is
+stamped), then the dedupe regroup picks the next surviving canonical. If the regroup fails, those postings stay visible
+and unlinked; the hourly incremental regroup repairs them from `updated_at`. Historical runs and every R2 object are
+kept: raw packs stay under `raw/<source>/`, descriptions under `jd/<sha256>`. The returned raw keys and orphan JD
+hashes are audit and optional cleanup candidates only; this command never deletes blobs, and a description shared with
+a surviving posting is not listed as an orphan.
+
 ## Troubleshooting
 
 - _Run stuck "running"_: a run older than 2h no longer blocks the source, and the hourly cron marks it `partial`

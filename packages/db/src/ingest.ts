@@ -4,12 +4,15 @@ import type {
   FinalizeInput,
   FinalizeResult,
   JobFacts,
+  RetireResult,
   StartedRun,
 } from "@tallo/contracts";
 import {
   CLOSE_AFTER_ABSENT_RUNS,
   DEAD_AFTER_NOT_FOUND_RUNS,
   nextDueAt,
+  RETIRE_MAX_ROWS,
+  RETIRE_MAX_SOURCES,
   type RunOutcome,
   STALE_HIDE_DAYS,
 } from "@tallo/contracts";
@@ -33,6 +36,8 @@ export class IngestError extends Error {
 const RUN_LEASE_SECONDS = 2 * 60 * 60;
 /** Description hashes checked per purge lookup (one statement each). */
 const HASH_CHUNK = 100;
+/** Hashes per retirement reference lookup: larger is fewer D1 round trips, still a small SQL text. */
+const RETIRE_HASH_CHUNK = 500;
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 const slug = (name: string) =>
   name
@@ -960,4 +965,107 @@ async function regroupSince(db: Db, now: number): Promise<number> {
     .where(eq(regroupState.id, 1))
     .limit(1);
   return row ? row.checkedAt - REGROUP_MARGIN : now - DEDUPE_WINDOW;
+}
+
+/**
+ * Explicit operator retirement, after removing reviewed boards from sources/. Historical runs and
+ * all R2 objects remain for audit. Returned orphan hashes are cleanup candidates, not deletion
+ * permission: another board can acquire a reference after this call.
+ */
+export async function retireSources(
+  db: Db,
+  requested: string[],
+  { dryRun = false, now = nowSeconds() }: { dryRun?: boolean; now?: number } = {},
+): Promise<RetireResult> {
+  const ids = [...new Set(requested)];
+  if (ids.length > RETIRE_MAX_SOURCES)
+    throw new IngestError(409, `Retire at most ${RETIRE_MAX_SOURCES} reviewed sources per request`);
+  const resultWith = (
+    sourceIds: string[],
+    jobCount: number,
+    rawKeys: string[],
+    orphanJdHashes: string[],
+  ): RetireResult => ({ sources: sourceIds, jobs: jobCount, rawKeys, orphanJdHashes, dryRun });
+  if (ids.length === 0) return resultWith([], 0, [], []);
+  const selected = await db
+    .select({ id: sources.id })
+    .from(sources)
+    .where(sql`${sources.id} IN ${jsonIds(ids)}`);
+  const sourceIds = selected.map((s) => s.id).sort();
+  // Unknown and already-retired ids are idempotent; only boards still in the catalog are acted on.
+  if (sourceIds.length === 0) return resultWith([], 0, [], []);
+  const running = await db
+    .select({ id: runs.id, sourceId: runs.sourceId })
+    .from(runs)
+    .where(and(sql`${runs.sourceId} IN ${jsonIds(sourceIds)}`, eq(runs.status, "running")))
+    .limit(1);
+  if (running[0])
+    throw new IngestError(
+      409,
+      `Source ${running[0].sourceId} has a running run (${running[0].id})`,
+    );
+  const history = await db
+    .select({ sourceId: runs.sourceId, id: runs.id, rawKey: runs.rawKey })
+    .from(runs)
+    .where(sql`${runs.sourceId} IN ${jsonIds(sourceIds)}`)
+    .orderBy(runs.startedAt, runs.id)
+    .limit(RETIRE_MAX_ROWS + 1);
+  const removed = await db
+    .select({ id: jobs.id, hash: jobs.jdHash, key: jobs.dedupeKey })
+    .from(jobs)
+    .where(sql`${jobs.sourceId} IN ${jsonIds(sourceIds)}`)
+    .orderBy(jobs.id)
+    .limit(RETIRE_MAX_ROWS + 1);
+  if (removed.length > RETIRE_MAX_ROWS || history.length > RETIRE_MAX_ROWS)
+    throw new IngestError(
+      409,
+      `Retirement exceeds ${RETIRE_MAX_ROWS} jobs or historical runs; use a smaller source batch`,
+    );
+  const hashes = [...new Set(removed.map((j) => j.hash))];
+  const referenced = new Set<string>();
+  for (const part of chunks(hashes, RETIRE_HASH_CHUNK)) {
+    const kept = await db
+      .selectDistinct({ hash: jobs.jdHash })
+      .from(jobs)
+      .where(
+        and(
+          sql`${jobs.jdHash} IN ${jsonIds(part)}`,
+          sql`${jobs.sourceId} NOT IN ${jsonIds(sourceIds)}`,
+        ),
+      );
+    for (const row of kept) referenced.add(row.hash);
+  }
+  const result = resultWith(
+    sourceIds,
+    removed.length,
+    // Only this source's own pack path: a foreign or hand-written key is not source-owned.
+    [
+      ...new Set(
+        history.flatMap((r) =>
+          r.rawKey !== null && r.rawKey === rawKey(r.sourceId, r.id) ? [r.rawKey] : [],
+        ),
+      ),
+    ],
+    hashes.filter((h) => !referenced.has(h)),
+  );
+  if (dryRun) return result;
+  await batch(db, [
+    // Unlink before deleting canonicals so a failed regroup can never hide surviving listings.
+    db
+      .update(jobs)
+      .set({ dupOf: null, updatedAt: now })
+      .where(
+        and(
+          isNotNull(jobs.dupOf),
+          sql`${jobs.dupOf} IN ${jsonIds(removed.map((j) => j.id))}`,
+          sql`${jobs.sourceId} NOT IN ${jsonIds(sourceIds)}`,
+        ),
+      ),
+    db.delete(jobs).where(sql`${jobs.sourceId} IN ${jsonIds(sourceIds)}`),
+    db.delete(sources).where(sql`${sources.id} IN ${jsonIds(sourceIds)}`),
+  ]);
+  // A surviving duplicate becomes the next canonical; the helper owns that choice and its cursor.
+  const keys = [...new Set(removed.flatMap((j) => (j.key === null ? [] : [j.key])))];
+  await regroup(db, keys, now - STALE_HIDE_DAYS * 86400);
+  return result;
 }
