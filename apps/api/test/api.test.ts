@@ -1,7 +1,7 @@
 import { gzip, prepareJob, sha256 } from "@tallo/catalog";
 import { memoryBlobs } from "@tallo/db";
 import { testDb } from "@tallo/db/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.ts";
 
 const source = {
@@ -33,6 +33,36 @@ function setup() {
 const now = () => Math.floor(Date.now() / 1000);
 
 describe("api", () => {
+  it.each([
+    [
+      new Error(
+        "D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window.",
+      ),
+      503,
+    ],
+    [new Error("Failed query", { cause: new Error("D1_ERROR: D1 DB is overloaded") }), 503],
+    [new Error("Failed query", { cause: new Error("no such column") }), 500],
+    [new Error("D1_ERROR: Too many resources consumed within a 10 second window."), 503],
+    [new Error("upstream overloaded"), 500],
+  ])("signals retry only for D1 overload: %s", async (error, status) => {
+    const { call, db } = setup();
+    const report = vi.spyOn(console, "error").mockImplementation(() => {});
+    const select = vi.spyOn(db, "select").mockImplementation(() => {
+      throw error;
+    });
+    try {
+      const response = await call("/v1/sources", INGEST);
+      expect(response.status).toBe(status);
+      expect(response.headers.get("retry-after")).toBe(status === 503 ? "10" : null);
+      expect(await response.json()).toEqual({
+        error: status === 503 ? "Database busy; retry later" : "Internal error",
+      });
+    } finally {
+      select.mockRestore();
+      report.mockRestore();
+    }
+  });
+
   it("serves the public reads without a token and needs the ingest token for everything else", async () => {
     const { call } = setup();
     expect((await call("/health", null)).status).toBe(200);

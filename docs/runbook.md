@@ -47,8 +47,8 @@ pnpm check
 pnpm --filter @tallo/db exec drizzle-kit generate  # generate from schema.ts
 cf d1 migrations list 001b036c-2e15-45c8-9284-edb9d374b849 --dir packages/db/drizzle
 cf d1 migrations apply 001b036c-2e15-45c8-9284-edb9d374b849 --dir packages/db/drizzle
-pnpm --filter @tallo/api deploy
-pnpm --filter @tallo/web deploy
+pnpm --filter @tallo/api run deploy
+pnpm --filter @tallo/web run deploy
 ```
 
 API deployment uses `cf` and `apps/api/cloudflare.config.ts`; its build delegates to Wrangler.
@@ -90,7 +90,7 @@ The migration drops the flag and pay columns, so the old API cannot run against 
 run against the old one (`classifier_version` is NOT NULL). Do these back to back, with no sync running:
 1. Stop the daily sync (launchd) and wait for any running `tallo sync` to finish.
 2. `cf d1 migrations apply` for `0013_equal_toro`. On a 500k-row table it ran in about 2.4 s locally (SQLite `DROP COLUMN`).
-3. Deploy the API (`pnpm --filter @tallo/api deploy`), then the web.
+3. Deploy the API (`pnpm --filter @tallo/api run deploy`), then the web.
 4. Re-enable the sync. Platform version 2 means the next sync re-fetches and re-maps every posting, so run a full pass
    (`tallo sync`) once to replace the old text-derived facts. Until then, old rows keep their stored facts.
 5. Then `tallo dedupe`. Duplicate groups no longer split on the old hidden flag, so postings that were grouped apart
@@ -128,7 +128,7 @@ daily collector. At cutover, unload it: `launchctl unload ~/Library/LaunchAgents
    `next_due_at = 0`, so they are due at the first tick). List first, then apply:
    `cf d1 migrations list 001b036c-2e15-45c8-9284-edb9d374b849 --dir packages/db/drizzle`, then `... migrations apply ...`.
 2. Create the two queues (above).
-3. Deploy the API with `COLLECT_ENABLED` `"0"`: `pnpm --filter @tallo/api deploy`.
+3. Deploy the API with `COLLECT_ENABLED` `"0"`: `pnpm --filter @tallo/api run deploy`.
 4. Register the reviewed boards and the hot list (idempotent; a board keeps its schedule when re-registered):
    `pnpm --filter @tallo/runner tallo register` (needs `TALLO_API_URL` and `TALLO_INGEST_TOKEN`).
 5. Staged test, with the cron still off (see below).
