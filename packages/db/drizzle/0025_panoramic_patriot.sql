@@ -1,0 +1,1 @@
+CREATE INDEX `runs_running_idx` ON `runs` (`started_at`) WHERE "runs"."status" = 'running';

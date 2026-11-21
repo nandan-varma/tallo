@@ -82,6 +82,8 @@ export const runs = sqliteTable(
     index("runs_source_idx").on(t.sourceId, t.startedAt),
     // Retention reads runs by age (expired history, abandoned packs). Without it each hourly prune scans every run.
     index("runs_started_idx").on(t.startedAt),
+    // Only unfinished runs: what the lease reaper and the status scan read. A handful of rows instead of the table.
+    index("runs_running_idx").on(t.startedAt).where(sql`${t.status} = 'running'`),
     // Only the finalized, uploaded packs: the rows retention ranks per source. A partial index keeps the
     // ranking off the rows that have no pack (most of the table) and costs one entry per pack.
     index("runs_pack_idx")
