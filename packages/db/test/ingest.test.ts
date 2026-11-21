@@ -115,7 +115,12 @@ describe("ingest", () => {
     const run = await start();
     const [p] = [await prepareJob(mapped("1"), source, "a".repeat(64))];
     const result = await applyJobs(db, blobs, run, [p!.facts], T + 1000);
-    expect(result).toEqual({ applied: 0, missingBlobs: [p!.facts.jdHash] });
+    expect(result).toEqual({
+      applied: 0,
+      invalid: [],
+      bounded: [],
+      missingBlobs: [p!.facts.jdHash],
+    });
   });
 
   it("refuses a second concurrent run for the same source, but is idempotent per run id", async () => {

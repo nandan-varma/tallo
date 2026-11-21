@@ -120,7 +120,12 @@ describe("api", () => {
     const early = await (
       await call(`/v1/runs/${runId}/jobs`, INGEST, { method: "POST", json: { jobs: [job.facts] } })
     ).json();
-    expect(early).toEqual({ applied: 0, missingBlobs: [job.facts.jdHash] });
+    expect(early).toEqual({
+      applied: 0,
+      invalid: [],
+      bounded: [],
+      missingBlobs: [job.facts.jdHash],
+    });
 
     const wrong = await call(`/v1/blobs/jd/${"b".repeat(64)}`, INGEST, {
       method: "PUT",
@@ -147,7 +152,7 @@ describe("api", () => {
           json: { jobs: [job.facts] },
         })
       ).json(),
-    ).toEqual({ applied: 1, missingBlobs: [] });
+    ).toEqual({ applied: 1, invalid: [], bounded: [], missingBlobs: [] });
     const raw = await gzip(new TextEncoder().encode('{"id":"7"}\n'));
     expect(
       await (await call(`/v1/runs/${runId}/raw`, INGEST, { method: "PUT", body: raw })).json(),

@@ -6,6 +6,8 @@ import { platformFor } from "@tallo/platforms";
 export interface PreparedPosting {
   facts: JobFacts;
   jd: Uint8Array;
+  /** Fields nulled or cut to fit the wire contract; the engine reports them as an issue. */
+  notes: string[];
   /** `JSON.stringify(posting)` plus a newline: one line of the run's raw pack. */
   line: string;
 }
@@ -38,7 +40,7 @@ export const inThreadCpu: Cpu = {
   async prepare(source, posting, hash) {
     const mapped = platformFor(source).map(posting, source);
     if (!mapped.title) throw new Error("Posting has no title");
-    const { facts, jd } = await prepareJob(mapped, source, hash);
-    return { facts, jd, line: `${JSON.stringify(posting)}\n` };
+    const { facts, jd, notes } = await prepareJob(mapped, source, hash);
+    return { facts, jd, notes, line: `${JSON.stringify(posting)}\n` };
   },
 };

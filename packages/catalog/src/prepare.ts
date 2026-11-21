@@ -1,4 +1,5 @@
 import type { JobFacts, MappedJob, SourceConfig } from "@tallo/contracts";
+import { boundFacts } from "./bound.ts";
 import { dedupeKey } from "./dedupe.ts";
 import { gzip, sha256, stableStringify } from "./hash.ts";
 import { cleanTitle, excerpt } from "./text.ts";
@@ -13,6 +14,8 @@ interface PreparedJob {
   facts: JobFacts;
   /** Gzipped description text, addressed by `facts.jdHash`. */
   jd: Uint8Array;
+  /** Fields that did not fit the wire contract and were nulled or cut (see `boundFacts`). */
+  notes: string[];
 }
 
 const MAX_EXTRAS_BYTES = 4096;
@@ -68,14 +71,12 @@ export async function prepareJob(
     extras,
   };
   const jdHash = await sha256(text);
-  return {
-    facts: {
-      ...columns,
-      jdHash,
-      dedupeKey: await dedupeKey({ company: source.company, title, jdHash }),
-      sourceHash,
-      facts,
-    },
-    jd: await gzip(text),
-  };
+  const bounded = boundFacts({
+    ...columns,
+    jdHash,
+    dedupeKey: await dedupeKey({ company: source.company, title, jdHash }),
+    sourceHash,
+    facts,
+  });
+  return { ...bounded, jd: await gzip(text) };
 }

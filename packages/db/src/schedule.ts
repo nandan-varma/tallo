@@ -1,3 +1,4 @@
+import { slug } from "@tallo/catalog";
 import { LOCAL_EGRESS, leaseUntil, SCHEDULE, type SourceConfig, tierFor } from "@tallo/contracts";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { batch, type Db } from "./db.ts";
@@ -143,12 +144,6 @@ export async function registerSources(
   }
   return { registered: configs.length };
 }
-
-const slug = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 
 /**
  * What the collector is doing and what is waiting: due boards by tier and platform, running runs

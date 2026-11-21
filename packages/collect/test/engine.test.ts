@@ -10,6 +10,7 @@ import {
   type EngineOptions,
   emptyProgress,
   type Ingest,
+  inThreadCpu,
   loadPlan,
   memoryScratch,
   type Plan,
@@ -86,6 +87,38 @@ describe("collectSource", () => {
     expect(calls.finalize).toHaveLength(1);
     expect(calls.applied).toHaveLength(2);
     expect(calls.raw).toHaveLength(1);
+  });
+});
+
+describe("bounded fields and rejected postings", () => {
+  it("reports a bounded field as a schema issue and still applies and completes the run", async () => {
+    const { ingest, calls } = fakeIngest();
+    const cpu = {
+      ...inThreadCpu,
+      prepare: async (...args: Parameters<typeof inThreadCpu.prepare>) => ({
+        ...(await inThreadCpu.prepare(...args)),
+        notes: ["url is 3000 characters (max 2048); stored as null"],
+      }),
+    };
+    const result = await collectSource(source, meta, { ...options(ingest), cpu });
+    expect(result).toMatchObject({ listingComplete: true, detailsComplete: true });
+    expect(calls.applied).toHaveLength(2);
+    expect(calls.finalize[0]!.issues.filter((i) => i.code === "schema")).toHaveLength(2);
+  });
+
+  it("a posting the server rejects is an issue and the run is not claimed detail-complete", async () => {
+    const { ingest, calls } = fakeIngest({
+      applyJobs: async (_runId, jobs) => ({
+        applied: jobs.length - 1,
+        missingBlobs: [],
+        invalid: [{ postingId: "x", reason: "postingId length 600 is outside 1..512" }],
+      }),
+    });
+    const result = await collectSource(source, meta, options(ingest));
+    expect(result.detailsComplete).toBe(false);
+    expect(calls.finalize[0]!.issues).toContainEqual(
+      expect.objectContaining({ code: "schema", postingId: "x" }),
+    );
   });
 });
 

@@ -1,3 +1,4 @@
+import { boundFacts, slug } from "@tallo/catalog";
 import type {
   CreateRun,
   Finalize,
@@ -41,11 +42,6 @@ const HASH_CHUNK = 100;
 /** Hashes per retirement reference lookup: larger is fewer D1 round trips, still a small SQL text. */
 const RETIRE_HASH_CHUNK = 500;
 const nowSeconds = () => Math.floor(Date.now() / 1000);
-const slug = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 const jsonIds = (ids: readonly (string | number)[]) =>
   sql`(SELECT value FROM json_each(${JSON.stringify(ids)}))`;
 
@@ -146,6 +142,10 @@ export interface ApplyResult {
   applied: number;
   /** JD blobs the runner must upload before these postings can be applied. */
   missingBlobs: string[];
+  /** Postings not written because they cannot be bounded (an id outside 1..512 characters), with why. */
+  invalid: { postingId: string; reason: string }[];
+  /** Postings written with a field nulled or cut to fit the contract (see `boundFacts`). */
+  bounded: { postingId: string; notes: string[] }[];
 }
 
 /** Equal as stored. JSON columns compare by value, since they come back parsed. */
@@ -163,13 +163,29 @@ export async function applyJobs(
   db: Db,
   blobs: BlobStore,
   runId: string,
-  incoming: JobFacts[],
+  received: JobFacts[],
   now = nowSeconds(),
 ): Promise<ApplyResult> {
   const { sourceId } = await run(db, runId);
   const source = (await db.select().from(sources).where(eq(sources.id, sourceId)).limit(1))[0];
   if (!source) throw new IngestError(404, `Unknown source ${sourceId}`);
 
+  // The Worker path reaches here without the wire schema: fit each posting instead of failing the batch.
+  const incoming: JobFacts[] = [];
+  const invalid: ApplyResult["invalid"] = [];
+  const bounded: ApplyResult["bounded"] = [];
+  for (const job of received) {
+    try {
+      const fit = boundFacts(job);
+      incoming.push(fit.facts);
+      if (fit.notes.length) bounded.push({ postingId: job.postingId, notes: fit.notes });
+    } catch (error) {
+      invalid.push({
+        postingId: String(job.postingId).slice(0, 100),
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   // One row per posting, the last one sent (what sequential upserts would leave behind).
   const latest = [...new Map(incoming.map((j) => [j.postingId, j])).values()];
   const stored = new Map(
@@ -197,7 +213,7 @@ export async function applyJobs(
   const present = new Set([...known, ...found.filter((h): h is string => !!h)]);
   const ready = latest.filter((j) => present.has(j.jdHash));
   const missingBlobs = hashes.filter((h) => !present.has(h));
-  if (ready.length === 0) return { applied: 0, missingBlobs };
+  if (ready.length === 0) return { applied: 0, missingBlobs, invalid, bounded };
 
   const added = ready.filter((j) => !stored.has(j.postingId)).length;
 
@@ -323,7 +339,7 @@ export async function applyJobs(
         .where(and(eq(jobs.sourceId, sourceId), sql`${jobs.jdHash} IN ${jsonIds(part)}`));
     missingBlobs.push(...lost);
   }
-  return { applied: ready.length, missingBlobs };
+  return { applied: ready.length, missingBlobs, invalid, bounded };
 }
 
 /**
