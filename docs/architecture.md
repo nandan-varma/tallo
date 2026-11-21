@@ -184,6 +184,14 @@ October 28, 2026). The regroup row is about half of the window-driven reads, and
 band (sources that stopped listing), which was read three times too. The `sources` scan (8,894 boards) is still read each hour.
 Estimates from the query plans and row counts; re-check with `EXPLAIN QUERY PLAN` on production after the migrations.
 
+The hourly cursor is opaque (`i1:` plus JSON) and pages candidate rows, not distinct keys, in three phases: changed rows,
+duplicates of changed canonicals, then crossed stale sources. Each phase continues with an equality/tie seek plus a newer
+range (`updated_at = ? AND rowid > ?`, then `updated_at > ?`; for duplicates, `jobs_dup_of_idx` under each canonical; for
+stale sources, `jobs_source_posting_idx` under the next source). A row-value `(updated_at, id) > (...)` cursor is not used:
+SQLite filters it after reading every equal-timestamp row, which made small pages re-read the whole change window. Resuming
+an interrupted incremental pass keeps the original pass time, so the next pass still covers writes that landed while it ran.
+Full rebuilds keep plain dedupe-key cursors and never move the incremental checkpoint. No schema or index change is needed.
+
 ### Write cost per posting (local harness, 100 postings)
 
 Scenario on SQLite (`testDb`): 100 postings are new, then re-applied unchanged, then re-applied with every title changed,

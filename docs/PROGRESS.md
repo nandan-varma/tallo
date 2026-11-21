@@ -2,6 +2,18 @@
 
 _Last updated: 2026-11-20; current handoff below. Historical notes: 2026-10-28 (cloud collection on branch `worktree-agent-a62304caf8f590baa-collect`: queue, HostGate, schedule in D1; Mac runner keeps manual sync). Earlier: 2026-10-26 (write-cost quick wins; ranked search; no heuristics in the database; tracker, saved searches, fit, cover letter, dark mode)._ Stateless handoff: also read `gh issue list` and `gh pr list` (see `docs/workflow.md`).
 
+## Core DB audit patch (branch `fix/db-audit`, review pending)
+
+- #99: a non-authoritative empty listing no longer stores a cached validator; `finalize` writes it only when closure was
+  applied, details were complete and no absence is pending. Regression added in `validator.test.ts`.
+- #114: the hourly regroup now pages opaque `i1:` cursors over changed rows, changed canonicals and crossed stale sources.
+  Each continuation uses indexed equality/tie and newer-range seeks instead of re-reading the change window per page.
+  A resumed pass keeps its original pass time; full dedupe-key rebuilds never advance the incremental checkpoint.
+  The admin `after` cap grew to 8192 for the opaque cursor. No migration or index change.
+- Local evidence: DB suite 145 tests and the added cursor/API tests pass; the optional
+  `node packages/db/bench/regroup-scan.ts` shows the old row-value cursor at about 99k SQLite VM steps for a 10k-row
+  equal-timestamp backlog versus tens of steps for the captured equality/tie query. Main owns review, merge and deploy.
+
 ## Session 2026-11-20: production outcome
 
 - Recovery changes merged: #110 (`bd3837e`, adapters and restored tests), #115 (`379dfd8`, D1 retry

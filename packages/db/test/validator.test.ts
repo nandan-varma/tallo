@@ -110,6 +110,15 @@ describe("listing validator", () => {
     expect((await stored()) ?? null).toBeNull();
   });
 
+  it("does not cache a non-authoritative empty listing", async () => {
+    await firstRun();
+    const { runId } = await start(T + DAY);
+    const before = await jobRows();
+    await finalize(db, runId, fin([], { emptyIsAuthoritative: false }), T + DAY);
+    expect(await stored()).toBeNull();
+    expect(await jobRows()).toEqual(before);
+  });
+
   it("a later failed run clears the validator", async () => {
     await firstRun();
     const { runId } = await start(T + DAY);
