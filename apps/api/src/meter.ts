@@ -2,9 +2,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 /**
  * What one request cost the database. `rows_read` and `rows_written` are D1's own `meta` figures, summed over the
- * statements that reported them; null when none did. D1's `raw()` (which drizzle's select path uses) returns no meta, so
- * inside a measured request `raw()` runs through `all()` to get it (see `wrapStatement`). `rows_returned` is what the
- * driver handed back.
+ * statements that reported them; null when none did. D1's `raw()` (which drizzle's select path uses) returns no meta, so a
+ * read through it adds to `statements` and `rows_returned` only. `rows_returned` is what the driver handed back.
  */
 export interface Cost {
   statements: number;
@@ -63,12 +62,9 @@ interface ResultLike {
 /** Each wrapper statement's underlying statement, so `batch` can take the wrappers it was handed. */
 const inner = new WeakMap<object, StatementLike>();
 
-/** Per SQL text: whether its result columns are all distinctly named (true), or not (false). Unknown until seen. */
-const distinct = new Map<string, boolean>();
-
-function wrapStatement(statement: StatementLike, query: string): StatementLike {
+function wrapStatement(statement: StatementLike): StatementLike {
   const wrapped: StatementLike = {
-    bind: (...values: unknown[]) => wrapStatement(statement.bind(...values), query),
+    bind: (...values: unknown[]) => wrapStatement(statement.bind(...values)),
     all: async () => {
       const result = await statement.all();
       record(result.meta, result.results?.length ?? 0);
@@ -85,39 +81,9 @@ function wrapStatement(statement: StatementLike, query: string): StatementLike {
       return row;
     },
     raw: async (options?: unknown) => {
-      // Drizzle reads every select through `raw()`, which D1 answers without meta. In a measured request a statement
-      // whose result columns are known to be distinct runs through `all()` instead (same query), so `rows_read` is
-      // real; its objects become the arrays `raw()` gives. An object keeps one value per name, so a statement whose
-      // columns are not known to be distinct never takes that path: its first measured call reads through
-      // `raw({ columnNames: true })` (the original data, rows_read stays null) to learn the names, and any duplicate or
-      // unreadable shape keeps it on `raw()` for good.
-      if (options !== undefined || !scope.getStore()) {
-        const rows = await statement.raw(options);
-        record(undefined, rows.length);
-        return rows;
-      }
-      if (distinct.get(query) !== true) {
-        if (distinct.get(query) === undefined) {
-          const named = await statement.raw({ columnNames: true });
-          const names = named[0];
-          const ok =
-            Array.isArray(names) &&
-            names.length > 0 &&
-            names.every((name) => typeof name === "string") &&
-            new Set(names).size === names.length;
-          if (Array.isArray(names)) distinct.set(query, ok);
-          const rows = Array.isArray(names) ? named.slice(1) : named;
-          record(undefined, rows.length);
-          return rows;
-        }
-        const rows = await statement.raw();
-        record(undefined, rows.length);
-        return rows;
-      }
-      const result = await statement.all();
-      const rows = result.results ?? [];
-      record(result.meta, rows.length);
-      return rows.map((row) => Object.values(row as Record<string, unknown>));
+      const rows = await statement.raw(options);
+      record(undefined, rows.length);
+      return rows;
     },
   };
   inner.set(wrapped, statement);
@@ -132,7 +98,7 @@ export function meterD1<T extends D1Like>(d1: T): T {
   return new Proxy(d1, {
     get(target, prop) {
       if (prop === "prepare") {
-        return (query: string) => wrapStatement(target.prepare(query), query);
+        return (query: string) => wrapStatement(target.prepare(query));
       }
       if (prop === "batch") {
         return async (statements: StatementLike[]) => {
