@@ -8,6 +8,20 @@ import type { CollectEnv } from "./collect.ts";
 import { ingestRoutes } from "./ingest.ts";
 import { publicRoutes } from "./public.ts";
 
+/** Drizzle wraps the binding error; inspect its cause without exposing query text to callers. */
+function d1Overloaded(error: Error): boolean {
+  let cause: unknown = error;
+  for (let depth = 0; depth < 5 && cause instanceof Error; depth++, cause = cause.cause) {
+    if (
+      /D1(?:_ERROR| DB)?.*(?:overloaded|too many resources consumed within a 10 second window)/i.test(
+        cause.message,
+      )
+    )
+      return true;
+  }
+  return false;
+}
+
 export interface Deps {
   db: Db;
   blobs: BlobStore;
@@ -30,6 +44,10 @@ export function createApp({ db, blobs, ingestToken, readsBlockedHost, collect }:
     if (error instanceof HTTPException) return error.getResponse();
     if (error instanceof IngestError) return c.json({ error: error.message }, error.status);
     console.error(error);
+    if (d1Overloaded(error)) {
+      c.header("Retry-After", "10");
+      return c.json({ error: "Database busy; retry later" }, 503);
+    }
     return c.json({ error: "Internal error" }, 500);
   });
 

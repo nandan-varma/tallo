@@ -11,8 +11,19 @@ _Last updated: 2026-11-20; current handoff below. Historical notes: 2026-10-28 (
   existing platform registrations and ETag tests. Added strict Jobvite XML validation and Jibe count validation.
 - `pnpm check`: 539 tests pass, no skips. Live sample verification: Jobvite/Forescout and
   iCIMS/Pattern Energy, two postings each. Original adapter handoffs record all seeded-board checks.
-- Cloud collection remains OFF. Production migrations 0020 and 0021 were pending at handoff recovery;
-  deployment and the one-off Mac sweep are the next operational steps.
+- PR #110 merged at `bd3837e`. Production migrations 0020 and 0021 applied; API version
+  `4b291aef-0426-429e-951f-af1130d075ae`, web `5519de0e-0409-4aa5-bba1-4c95918dc8e0`.
+  Public search and llms.txt return 200; direct API reads and public admin routes return 404.
+- The first Mac sweep hit D1 overload (7429/429 on a direct diagnostic query; ingest surfaced 500s).
+  Stopped both attempts; finalized their running runs as partial through the API, never applying closure.
+  A ten-board Greenhouse diagnostic batch completed cleanly. #114 tracks the load investigation.
+- Added overload-specific HTTP 503 with Retry-After 10, including wrapped Drizzle errors. Client tests
+  prove ingest waits the full window before retrying. Other errors retain 500 and no query text is exposed.
+- Original scope excludes Workday and Oracle Cloud from this one-off sweep. Keep them excluded until
+  follow-up optimizations are evaluated. Cloud collection remains OFF; hourly housekeeping stays.
+- Research #88 is written up in docs/research/hog-fetching.md and hog-fetching-oracle.md.
+  Follow-ups: #111 re-map raw packs, #112 Oracle listing parameters, #113 Workday early splitting.
+  Large Workday baseline comparisons did not complete; no measured savings are claimed for them.
 - HirePro remains blocked (#81: no usable unauthenticated listing surface). Non-P1 follow-ups remain in issues.
 
 ## Session 2026-11-21: cloud collection is OFF
