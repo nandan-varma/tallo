@@ -1,7 +1,15 @@
 import type { Json, JsonObject, Platform } from "@tallo/contracts";
 import { isObject, str } from "@tallo/contracts";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { describe, locations, lookup, requireKey, SchemaError, workModeOf } from "../kit.ts";
+import {
+  describe,
+  locations,
+  lookup,
+  requireKey,
+  SchemaError,
+  workModeOf,
+  XML_ENTITIES,
+} from "../kit.ts";
 
 /**
  * Jobvite's public careers feed: `Xml.aspx?c=<company id>` returns every open posting, description
@@ -9,6 +17,7 @@ import { describe, locations, lookup, requireKey, SchemaError, workModeOf } from
  * the careers page's own links (`getCompanyId()` / `companyEId` in the page source).
  */
 const parser = new XMLParser({
+  processEntities: XML_ENTITIES,
   parseTagValue: false,
   parseAttributeValue: false,
   trimValues: true,

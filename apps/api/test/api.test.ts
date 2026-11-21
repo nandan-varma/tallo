@@ -190,6 +190,7 @@ describe("api", () => {
 
   it("serves the slim status view of sources and filters run history", async () => {
     const { call } = setup();
+    const started = now();
     const board = (id: string) => ({ ...source, id, key: id.split(":")[1], company: id });
     /** Starts and finalizes one run; `listingComplete` decides complete vs partial. */
     const run = async (
@@ -200,7 +201,13 @@ describe("api", () => {
       const runId = `run-0000000${n}`;
       await call("/v1/runs", INGEST, {
         method: "POST",
-        json: { runId, source: src, runnerId: "mac", collectorVersion: "t", startedAt: now() - n },
+        json: {
+          runId,
+          source: src,
+          runnerId: "mac",
+          collectorVersion: "t",
+          startedAt: started - n,
+        },
       });
       await call(`/v1/runs/${runId}/finalize`, INGEST, {
         method: "POST",

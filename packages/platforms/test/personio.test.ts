@@ -102,6 +102,38 @@ describe("personio", () => {
     expect(odd.compensation[0]).toMatchObject({ min: 10, interval: "unknown" });
   });
 
+  it("rejects a truncated XML feed rather than accepting a partial listing", async () => {
+    const body = "<workzag-jobs><position><id>1</id><name>Engineer</name></position>";
+    await expect(drain(personio.list(src, textCtx(() => body).ctx))).rejects.toThrow(SchemaError);
+  });
+
+  it("keeps source section names as literal text", () => {
+    const job = personio.map(
+      {
+        id: "1",
+        listing: {
+          name: "Engineer",
+          jobDescriptions: {
+            jobDescription: [
+              { name: "Benefits <em>and</em> growth & learning", value: "<p>Work with us.</p>" },
+            ],
+          },
+        },
+      },
+      src,
+    );
+    expect(job.description).toContain("Benefits <em>and</em> growth & learning");
+  });
+
+  it("bounds total XML entity expansion across the response", async () => {
+    const positions = Array.from(
+      { length: 1001 },
+      (_, i) => `<position><id>${i}</id><name>${"&x;".repeat(101)}</name></position>`,
+    ).join("");
+    const body = `<!DOCTYPE workzag-jobs [<!ENTITY x "x">]><workzag-jobs>${positions}</workzag-jobs>`;
+    await expect(drain(personio.list(src, textCtx(() => body).ctx))).rejects.toThrow(SchemaError);
+  });
+
   it("validates keys", () => {
     expect(() => personio.validate(source("personio", "a/b"))).toThrow(/Invalid/);
     expect(() => personio.validate(source("personio", "peter-park"))).not.toThrow();

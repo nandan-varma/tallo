@@ -8,7 +8,7 @@ import type {
 } from "@tallo/contracts";
 import { arr, id, isObject, num, obj, str } from "@tallo/contracts";
 import { type HTMLElement, parse } from "node-html-parser";
-import { describe, locations, lookup, rows, SchemaError } from "../kit.ts";
+import { describe, htmlText, locations, lookup, rows, SchemaError } from "../kit.ts";
 
 /**
  * iCIMS career portals answer in two shapes.
@@ -67,6 +67,7 @@ function card(el: HTMLElement): JsonObject {
     }),
   );
   return {
+    rawHtml: el.toString(),
     id: jobId,
     url: url.replace(/\?.*$/, ""),
     title: clean(el.querySelector("h3")?.text),
@@ -80,6 +81,7 @@ function card(el: HTMLElement): JsonObject {
 async function* listPortal(source: SourceConfig, ctx: CollectContext) {
   const base = portalUrl(source);
   let seen = 0;
+  const ids = new Set<string>();
   for (let pr = 0; pr < MAX_PAGES; pr++) {
     const html = (await ctx.http.getText(`${base}/jobs/search?pr=${pr}&in_iframe=1`)).data;
     const root = parse(html);
@@ -95,8 +97,13 @@ async function* listPortal(source: SourceConfig, ctx: CollectContext) {
     }
     for (const el of cards) {
       const listing = card(el);
-      yield { id: String(listing.id), listing } satisfies RawPosting;
-      if (++seen > ctx.maxPostings) return;
+      const postingId = String(listing.id);
+      if (ids.has(postingId))
+        throw new SchemaError(`iCIMS portal ${source.key} repeated posting ${postingId}`);
+      ids.add(postingId);
+      yield { id: postingId, listing } satisfies RawPosting;
+      if (++seen >= ctx.maxPostings)
+        throw new SchemaError(`iCIMS portal ${source.key} exhausted its posting budget`);
     }
     if (!root.querySelector('link[rel="next"]')) return;
   }
@@ -105,22 +112,27 @@ async function* listPortal(source: SourceConfig, ctx: CollectContext) {
 
 async function* listJibe(source: SourceConfig, ctx: CollectContext, host: string) {
   let total = Number.POSITIVE_INFINITY;
+  const ids = new Set<string>();
   for (let page = 1, seen = 0; seen < total; page++) {
     const { data } = await ctx.http.getJson(`https://${host}/api/jobs?page=${page}&limit=${PAGE}`);
     const jobs = rows(obj(data).jobs, "jobs");
     const totalCount = num(obj(data).totalCount);
     if (totalCount === undefined || !Number.isSafeInteger(totalCount) || totalCount < 0)
       throw new SchemaError("Jibe response without totalCount");
-    total = totalCount;
+    total = page === 1 ? totalCount : Math.max(total, totalCount);
     for (const job of jobs) {
       const jobId = id(obj(job.data).req_id) ?? id(obj(job.data).slug);
       if (!jobId) throw new SchemaError("Jibe job without req_id");
+      if (ids.has(jobId)) throw new SchemaError(`Jibe ${source.key} repeated posting ${jobId}`);
+      ids.add(jobId);
       yield { id: jobId, listing: job } satisfies RawPosting;
+      if (ids.size >= ctx.maxPostings)
+        throw new SchemaError(`Jibe ${source.key} exhausted its posting budget`);
     }
     seen += jobs.length;
     if (jobs.length === 0 && seen < total)
       throw new SchemaError(`Jibe ${source.key} ended at ${seen} of ${total} jobs`);
-    if (page >= MAX_PAGES)
+    if (page >= MAX_PAGES && seen < total)
       throw new SchemaError(`Jibe ${source.key} paged past ${MAX_PAGES} pages`);
   }
 }
@@ -144,12 +156,12 @@ function parseJobPage(html: string): JsonObject {
   }));
   if (!ld && sections.length === 0)
     throw new SchemaError("iCIMS job page without JSON-LD or ad sections");
-  return { jsonLd: ld ?? null, fields: headerFields(root), sections };
+  return { rawHtml: html, jsonLd: ld ?? null, fields: headerFields(root), sections };
 }
 
 export const icims: Platform = {
   id: "icims",
-  version: 2,
+  version: 3,
   hosts: ["*.icims.com", ...JIBE_HOSTS],
 
   validate(source) {
@@ -180,11 +192,24 @@ export const icims: Platform = {
   fingerprint(listing) {
     const row = obj(listing);
     if (!Array.isArray(row.header)) return listing;
+    const originalHtml = str(row.rawHtml);
+    let stableHtml = originalHtml;
+    if (originalHtml) {
+      const root = parse(originalHtml);
+      for (const span of root.querySelectorAll(".header.left > span, .header.right > span")) {
+        const label = clean(span.parentNode?.querySelector(".field-label")?.text);
+        if (/^posted date$/i.test(label) && span.getAttribute("title")) span.set_content("");
+      }
+      stableHtml = root.toString();
+    }
     return {
       ...row,
+      ...(stableHtml ? { rawHtml: stableHtml } : {}),
       header: row.header.map((h) => {
         const entry = obj(h);
-        return entry.title ? { ...entry, value: null } : entry;
+        return /^posted date$/i.test(str(entry.label) ?? "") && entry.title
+          ? { ...entry, value: null }
+          : entry;
       }),
     };
   },
@@ -233,7 +258,7 @@ export const icims: Platform = {
     const sections = arr(page("sections")).map(obj);
     const html = str(ld("description"))
       ? [str(ld("description"))]
-      : sections.map((s) => `<h3>${str(s.title) ?? ""}</h3>${str(s.html) ?? ""}`);
+      : sections.map((s) => `<h3>${htmlText(str(s.title) ?? "")}</h3>${str(s.html) ?? ""}`);
     const posted = header.find((h) => /posted/i.test(str(h.label) ?? ""));
     return {
       postingId,

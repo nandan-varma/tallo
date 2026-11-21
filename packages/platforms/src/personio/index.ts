@@ -8,8 +8,16 @@ import type {
   Quantity,
 } from "@tallo/contracts";
 import { arr, id, isObject, obj, str } from "@tallo/contracts";
-import { XMLParser } from "fast-xml-parser";
-import { describe, locations, lookup, requireKey, SchemaError } from "../kit.ts";
+import { XMLParser, XMLValidator } from "fast-xml-parser";
+import {
+  describe,
+  htmlText,
+  locations,
+  lookup,
+  requireKey,
+  SchemaError,
+  XML_ENTITIES,
+} from "../kit.ts";
 
 /**
  * Personio's public XML feed: one request per board returns every position with its fields. The feed
@@ -21,12 +29,14 @@ const feedUrl = (key: string, language?: string) =>
   `https://${key}.jobs.personio.de/xml${language ? `?language=${language}` : ""}`;
 
 const parser = new XMLParser({
+  processEntities: XML_ENTITIES,
   parseTagValue: false, // keep ids and numbers as the strings the feed states
   isArray: (name) => ["position", "office", "jobDescription"].includes(name),
 });
 
 function positions(xml: unknown, label: string): JsonObject[] {
   if (typeof xml !== "string") throw new SchemaError(`Expected XML text at ${label}`);
+  if (XMLValidator.validate(xml) !== true) throw new SchemaError(`Invalid XML at ${label}`);
   let root: JsonObject;
   try {
     root = parser.parse(xml) as JsonObject;
@@ -79,7 +89,7 @@ const englishFeeds = new WeakMap<CollectContext, Map<string, Promise<JsonObject[
 
 export const personio: Platform = {
   id: "personio",
-  version: 1,
+  version: 2,
   hosts: ["*.jobs.personio.de", "*.jobs.personio.com"],
   validate: (source) => requireKey(source, /^[a-z0-9][a-z0-9-]*$/i),
 
@@ -110,7 +120,7 @@ export const personio: Platform = {
   map({ id: postingId, listing, detail }, source) {
     const j = lookup(detail, listing);
     const sections = arr(obj(j("jobDescriptions")).jobDescription).map(
-      (s) => `<h3>${str(obj(s).name) ?? ""}</h3>${str(obj(s).value) ?? ""}`,
+      (s) => `<h3>${htmlText(str(obj(s).name) ?? "")}</h3>${str(obj(s).value) ?? ""}`,
     );
     const band = EXPERIENCE[str(j("yearsOfExperience")) ?? ""];
     const experience: Quantity[] = band

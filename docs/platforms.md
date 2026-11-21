@@ -108,3 +108,17 @@ catalog's own country table), `remoteStatus` (`fully` is remote, `hybrid`, `onsi
 `tt:department`, `pubDate`, extras `role`, `division`, `companyName`, `companyUuid`. Left in raw only: `guid` (it is the
 posting id), `tt:name` (the office label), `tt:address`, `tt:zip` (no typed home). The feed carries no pay, apply URL,
 employment type or experience. Stena had one posting with no `tt:location` (warning, kept).
+
+## Collector audit, 2026-11-20
+
+- iCIMS v3 retains the original card and detail HTML in compressed raw evidence, outside D1. Fingerprints
+  include unknown markup changes and normalize only relative Posted Date display text when an absolute
+  title is present. Repeated portal/Jibe IDs and exhausted posting budgets fail rather than declaring a
+  complete listing. Jibe keeps the largest reported total across pages.
+- Personio v2 preserves literal section-heading text. Personio and Teamtailor reject malformed/truncated
+  XML before listing; every XML collector bounds total entity expansions to 100,000 per response.
+- Teamtailor accepts the verified North American `<key>.na.teamtailor.com` hostname shape; arbitrary
+  dotted keys remain invalid. `empower.na` was live-verified, not yet added as a source by this change.
+- Stratified live probes covered portal/Jibe iCIMS, Personio, Teamtailor, Recruitee, Workable and BambooHR:
+  nonempty descriptions and valid prepared wire facts on sampled postings. The two reported untitled
+  Ashby records still return literal empty title strings from their upstream API; they are not mapper bugs.

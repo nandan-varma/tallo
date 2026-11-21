@@ -109,11 +109,22 @@ describe("teamtailor", () => {
       "not xml at all",
       '<rss version="2.0"></rss>',
       wrap("<item><title>no guid</title></item>"),
+      wrap(item("one")).replace("</rss>", ""),
     ]) {
       const { ctx } = ctxFor(() => body);
       await expect(drain(teamtailor.list(src, ctx))).rejects.toThrow(SchemaError);
     }
   });
+  it("supports the real North American regional host and rejects arbitrary host labels", async () => {
+    const regional = source("teamtailor", "empower.na");
+    expect(() => platformFor(regional)).not.toThrow();
+    const { ctx, urls } = ctxFor(() => feed);
+    await drain(teamtailor.list(regional, ctx));
+    expect(urls).toEqual(["https://empower.na.teamtailor.com/jobs.rss"]);
+    for (const key of ["empower.evil.com", "empower.na.evil", "empower..na", "empower.na/"])
+      expect(() => platformFor(source("teamtailor", key))).toThrow(/Invalid/);
+  });
+
   it("rejects malformed keys", () => {
     expect(() => platformFor(source("teamtailor", "a.b/../c"))).toThrow(/Invalid/);
     expect(() => platformFor(source("teamtailor", "career"))).not.toThrow();
