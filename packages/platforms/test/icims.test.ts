@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
+import { prepareJob } from "@tallo/catalog";
 import type { CollectContext, Http, Json, RawPosting } from "@tallo/contracts";
-import { obj } from "@tallo/contracts";
+import { jobFactsSchema, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import { icims, SchemaError } from "../src/index.ts";
 import { drain, fixture, source } from "./helpers.ts";
@@ -78,6 +79,33 @@ describe("icims", () => {
       header: [{ label: "Posted Date", value: "2 days ago", title: "11/19/2026 4:56 PM" }],
     };
     expect(icims.fingerprint?.(base)).toEqual(icims.fingerprint?.(later));
+  });
+
+  it.each<[string, string | undefined]>([
+    ["United States", "US"],
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: literal unresolved template observed in source JSON-LD
+    ["Hidden (${12781}", undefined],
+  ])("keeps a non-code addressCountry as source text: %s", async (country, code) => {
+    const job = icims.map(
+      {
+        id: "264564",
+        listing: {
+          title: "Support",
+          url: "https://careers-libertymutual.icims.com/jobs/264564/support/job",
+        },
+        detail: {
+          jsonLd: {
+            description: "Support customers.",
+            jobLocation: [{ address: { addressLocality: "Remote", addressCountry: country } }],
+          },
+        },
+      },
+      src,
+    );
+    const prepared = await prepareJob(job, src, "a".repeat(64));
+    expect(jobFactsSchema.safeParse(prepared.facts).success).toBe(true);
+    expect(job.locations[0]?.countryCode).toBe(code);
+    expect(job.locations[0]?.country).toBe(country);
   });
 
   it("maps the portal card and the job page JSON-LD", async () => {
