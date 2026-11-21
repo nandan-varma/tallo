@@ -171,7 +171,13 @@ describe("one log line per public request", () => {
 
   it("names the offset bucket from the cursor, and never logs the cursor itself", async () => {
     const { lines, deps } = withLog();
-    const query = { title: ["engineer"], company: [], location: [], sort: "relevance" as const };
+    const query = {
+      title: ["engineer"],
+      company: [],
+      location: [],
+      country: [],
+      sort: "relevance" as const,
+    };
     const cursor = encodeCursor(query, 30);
     await handlePublic(get(`/v1/search?title=engineer&cursor=${cursor}`), deps);
 
