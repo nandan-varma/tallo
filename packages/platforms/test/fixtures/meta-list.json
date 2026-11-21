@@ -1,0 +1,94 @@
+{
+  "data": {
+    "job_search_with_featured_jobs_v2": {
+      "all_jobs": [
+        {
+          "id": "2486789151677735",
+          "title": "Software Engineer, Infrastructure",
+          "locations": [
+            "Sunnyvale, CA",
+            "Los Angeles, CA",
+            "Bellevue, WA",
+            "Redmond, WA",
+            "Menlo Park, CA",
+            "Seattle, WA",
+            "Burlingame, CA",
+            "Remote, US",
+            "Washington, DC",
+            "Boston, MA",
+            "New York, NY",
+            "San Francisco, CA"
+          ],
+          "teams": [
+            "Software Engineering"
+          ],
+          "sub_teams": [
+            "Engineering"
+          ]
+        },
+        {
+          "id": "1159789876480295",
+          "title": "Director - Data Scientist",
+          "locations": [
+            "Bellevue, WA",
+            "Menlo Park, CA",
+            "Seattle, WA",
+            "Remote, US"
+          ],
+          "teams": [
+            "Data & Analytics"
+          ],
+          "sub_teams": [
+            "Data Science"
+          ]
+        }
+      ],
+      "featured_jobs": [
+        {
+          "id": "1690022942358388",
+          "title": "Critical Facility Engineer",
+          "locations": [
+            "Henrico, VA",
+            "Mesa, AZ",
+            "Kansas City, MO",
+            "Temple, TX",
+            "Rayville, LA",
+            "Newton County, GA",
+            "Gallatin, TN",
+            "Menlo Park, CA",
+            "Montgomery, AL",
+            "Jeffersonville, IN",
+            "Papillion, NE",
+            "Beaver Dam, WI",
+            "Prineville, OR",
+            "Cheyenne, WY",
+            "Lebanon, IN",
+            "Goodyear, AZ",
+            "El Paso, TX",
+            "Bowling Green, OH",
+            "Cedar Rapids, IA",
+            "DeKalb, IL",
+            "New Albany, OH",
+            "Altoona, IA",
+            "Tulsa, OK",
+            "Huntsville, AL",
+            "Rosemount, MN",
+            "Eagle Mountain, UT",
+            "Kuna, ID"
+          ],
+          "teams": [
+            "Data Center"
+          ],
+          "sub_teams": [
+            "Data Center Operations"
+          ]
+        }
+      ],
+      "all_jobs_title": "All Jobs",
+      "featured_jobs_title": "Featured Jobs"
+    }
+  },
+  "extensions": {
+    "is_final": true
+  }
+}

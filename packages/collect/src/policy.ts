@@ -35,6 +35,8 @@ export const POLICY: Record<string, HostPolicy> = {
   jobvite: { concurrency: 1, gapMs: 3000 },
   // Public search JSON, 100 full rows per request: one shared host, so stay sequential and spaced.
   amazon: { concurrency: 1, gapMs: 500 },
+  // One shared host, and each detail is a ~1 MB job page: read a few at a time.
+  meta: { concurrency: 2, gapMs: 500 },
   // Eightfold answers 429 after short bursts; one detail request per second stays polite.
   netflix: { concurrency: 1, gapMs: 1000 },
 };
