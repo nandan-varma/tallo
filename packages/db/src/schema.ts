@@ -143,6 +143,8 @@ export const jobs = sqliteTable(
     index("jobs_jd_hash_idx").on(t.jdHash),
     // The 30-day purge selects closed rows only; open rows (the vast majority) are not indexed.
     index("jobs_closed_idx").on(t.closedAt).where(sql`${t.closedAt} IS NOT NULL`),
+    // Date sorts (`recent`, `posted`) read in sort_at order, tie-broken by id. The posted filter also uses it.
+    index("jobs_sort_at_idx").on(t.sortAt, t.id),
   ],
 );
 

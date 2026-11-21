@@ -23,6 +23,7 @@ export async function seed(
     location?: string;
     workMode?: "remote" | "onsite";
     sortAt?: number;
+    postedAt?: number | null;
   },
 ): Promise<number> {
   const text = args.description ?? `${args.title} description`;
@@ -68,6 +69,7 @@ export async function seed(
           }
         : { platform: "greenhouse" },
       sortAt: args.sortAt ?? 1000 + Number(args.postingId),
+      postedAt: args.postedAt ?? null,
       firstSeenAt: 1,
       updatedAt: 1,
       locationText: args.location ?? "Remote, US",

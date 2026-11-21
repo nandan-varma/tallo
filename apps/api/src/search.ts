@@ -2,6 +2,7 @@ import { expandPlaces } from "@tallo/catalog";
 import {
   type JobHit,
   type Money,
+  SEARCH_DEFAULT_SORT,
   SEARCH_RESULT_CAP,
   type SearchPage,
   type SearchSpec,
@@ -26,6 +27,7 @@ export function rankedSpec(spec: SearchSpec): RankedSpec {
       .map((c) => c.slice(0, MAX_QUERY_CHARS)),
     locations: places.locations,
     remote: places.remote,
+    sort: spec.sort ?? SEARCH_DEFAULT_SORT,
   };
 }
 
@@ -90,7 +92,7 @@ function toHit(row: HitRow): JobHit {
 }
 
 /**
- * One page of the database's answer to a search spec, most relevant first. Offset paging, capped at
+ * One page of the database's answer to a search spec, in its requested order. Offset paging, capped at
  * `SEARCH_RESULT_CAP` in total. `count` is this page's length; `capped` only says the cap stopped the list.
  */
 export async function searchPage(

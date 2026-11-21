@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { moneySchema } from "./job.ts";
-import { type JobHit, jobHitSchema, SEARCH_RESULT_CAP } from "./search.ts";
+import {
+  jobHitSchema,
+  SEARCH_DEFAULT_SORT,
+  SEARCH_RESULT_CAP,
+  type SearchSort,
+  searchSortSchema,
+} from "./search.ts";
 
 /**
  * The public read API. No auth, GET only, JSON. The web Worker serves these under `tallo.nandan.fyi` through an
@@ -87,6 +93,11 @@ export const publicSearchSchema = z.object({
     .default([])
     .describe(
       "Optional. Repeat up to 8 times, 2 to 60 characters each, in the person's own words (NYC, Bay Area, Seattle, remote). The server expands reviewed aliases and returns what it matched in expandedLocations. Repeated values are alternatives, except that they still narrow within the company and title match.",
+    ),
+  sort: searchSortSchema
+    .default(SEARCH_DEFAULT_SORT)
+    .describe(
+      `Optional. Result order. relevance (default) is best match first. recent is newest first by the source's posted date, else when Tallo first saw the posting; posted is the same order but only postings where the source stated a date; added is most recently added to the catalog first. recent and posted list every open location separately; relevance collapses one company, title and requisition. Dates are source-stated, never guessed.`,
     ),
   limit: z.coerce
     .number({ error: "must be a whole number" })
@@ -250,19 +261,20 @@ export const publicDiscoverySchema = z.object({
 });
 export type PublicDiscoveryQuery = z.infer<typeof publicDiscoverySchema>;
 
-/** The title, company and location values a cursor is bound to. */
+/** The title, company, location and sort values a cursor is bound to. */
 export interface CursorQuery {
   title: string[];
   company: string[];
   location: string[];
+  sort: SearchSort;
 }
 
 /**
- * A 32-bit FNV-1a over the query and the offset. This only catches edits and mix-ups (a cursor from another search):
- * the offset is not a secret, and a forged one can only page the same public results.
+ * A 32-bit FNV-1a over the query, its sort and the offset. This only catches edits and mix-ups (a cursor from another
+ * search): the offset is not a secret, and a forged one can only page the same public results.
  */
 function checksum(query: CursorQuery, offset: number): string {
-  const text = JSON.stringify([query.title, query.company, query.location, offset]);
+  const text = JSON.stringify([query.title, query.company, query.location, query.sort, offset]);
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);
@@ -300,14 +312,28 @@ export function decodeCursor(cursor: string, query: CursorQuery): number | null 
   return offset;
 }
 
+/** What a search answer's note calls its order. */
+function sortLead(sort: SearchSort): string {
+  if (sort === "recent") {
+    return "Newest first by the source's posted date, else when Tallo first saw the posting.";
+  }
+  if (sort === "posted") {
+    return "Newest stated posted date first; postings without a source-stated date are not listed.";
+  }
+  if (sort === "added") return "Most recently added to the catalog first.";
+  return "Best matches first.";
+}
+
 /** The note on a search answer: what the list is, and whether there is more. */
 export function searchNote(input: {
   count: number;
   hasMore: boolean;
   capped: boolean;
   offset: number;
+  sort?: SearchSort;
 }): string {
   const { count, hasMore, capped, offset } = input;
+  const sort = input.sort ?? SEARCH_DEFAULT_SORT;
   if (count === 0) {
     if (offset > 0) {
       return offset >= SEARCH_RESULT_CAP
@@ -316,12 +342,13 @@ export function searchNote(input: {
     }
     return "No open postings match. Try other title words, or drop a company or a place.";
   }
+  const lead = sortLead(sort);
   if (capped) {
-    return `Best matches first. This page reached the ${SEARCH_RESULT_CAP}-result cap for one search. Refine the titles, company or places to see a different set.`;
+    return `${lead} This page reached the ${SEARCH_RESULT_CAP}-result cap for one search. Refine the titles, company or places to see a different set.`;
   }
   return hasMore
-    ? `Best matches first. Pass next as cursor for the next page.`
-    : "Best matches first. This is the last page.";
+    ? `${lead} Pass next as cursor for the next page.`
+    : `${lead} This is the last page.`;
 }
 
 /** The chunk of a description from `offset`, and where the next chunk starts (null at the end). */

@@ -152,7 +152,11 @@ ANDed, the best 2000 candidates by bm25 (title x10, company x2, location x1), co
 paged by offset up to 300. A hit's `locations` is the count of open `dup_of` siblings of that canonical row, this one
 included, exactly the group `/v1/jobs/:id` lists as `variants`. Visibility is one predicate (`visibleJobs`): open,
 canonical (`dup_of IS NULL`), from a source that listed within 14 days. There are no other filters; the query narrows by title phrases, companies and places.
-Search sits behind these query functions; vector/context search would be another implementation of the same query surface.
+The same search also takes `sort`: `recent` and `posted` order every open location by `sort_at, id` (the stated posted
+date, else first seen), `posted` adds `posted_at IS NOT NULL`, and `added` orders by `id`; all three skip the bm25
+candidate cut and the duplicate collapse. `jobs_sort_at_idx (sort_at, id)` serves the two date orders and the posted
+filter; `added` uses the primary key. `relevance` remains the default. Search sits behind these query functions;
+vector/context search would be another implementation of the same query surface.
 
 ## Cost (10 daily users, ~300k stored jobs)
 

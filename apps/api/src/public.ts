@@ -54,8 +54,9 @@ const SEARCH_HINTS: Record<string, string> = {
   location:
     "Repeat location up to 8 times, 2 to 60 characters each, in the person's own words: /v1/search?title=backend+engineer&location=NYC&location=remote",
   limit: "A whole number from 1 to 25 (default 10): /v1/search?title=backend+engineer&limit=25",
+  sort: "One of relevance (default), recent, posted or added: /v1/search?title=backend+engineer&sort=recent",
   cursor:
-    "Pass the next value from the previous response, unchanged, with the same title, company and location.",
+    "Pass the next value from the previous response, unchanged, with the same title, company, location and sort.",
 };
 
 const DESCRIPTION_HINTS: Record<string, string> = {
@@ -224,7 +225,7 @@ export function publicRoutes({
     const parsed = readQuery(url, publicSearchSchema, SEARCH_HINTS);
     if (!parsed.ok) return fail(c, 400, parsed.body);
 
-    const { title, company, location, limit, cursor } = parsed.value;
+    const { title, company, location, sort, limit, cursor } = parsed.value;
     if (title.length === 0 && company.length === 0) {
       return fail(
         c,
@@ -236,7 +237,7 @@ export function publicRoutes({
         ),
       );
     }
-    const query = { title, company, location };
+    const query = { title, company, location, sort };
     let offset = 0;
     if (cursor !== undefined) {
       const decoded = decodeCursor(cursor, query);
@@ -247,7 +248,7 @@ export function publicRoutes({
           publicError(
             "invalid_cursor",
             "cursor: this is not a cursor for this search.",
-            "Pass the next value from the last response, unchanged, with the same title, company and location. Omit cursor to start over.",
+            "Pass the next value from the last response, unchanged, with the same title, company, location and sort. Omit cursor to start over.",
           ),
         );
       }
@@ -258,6 +259,7 @@ export function publicRoutes({
       queries: title,
       companies: company,
       locations: location,
+      sort,
       offset,
       limit,
     });
@@ -277,6 +279,7 @@ export function publicRoutes({
         hasMore: page.hasMore,
         capped: page.capped,
         offset,
+        sort,
       }),
     };
     c.header("cache-control", SEARCH_CACHE_CONTROL);
