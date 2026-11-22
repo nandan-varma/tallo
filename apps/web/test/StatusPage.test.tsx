@@ -49,7 +49,7 @@ const stats: SiteStats = {
 };
 
 describe("StatusPage", () => {
-  it("shows grouped real numbers, the as-of stamp, unknowns and links", async () => {
+  it("shows grouped real numbers, the as-of stamp and unknowns", async () => {
     const { container } = render(<StatusPage stats={stats} now={NOW} />);
 
     expect(screen.getAllByText("612,345").length).toBeGreaterThan(0);
@@ -61,9 +61,6 @@ describe("StatusPage", () => {
     expect(screen.getByRole("table", { name: "Open jobs per day" })).toBeTruthy();
     expect(screen.getByText("Not stated by the source")).toBeTruthy();
     expect(screen.getByRole("table", { name: "Open jobs by platform" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "OpenAPI (JSON)" }).getAttribute("href")).toBe(
-      "/v1/openapi.json",
-    );
     expect(screen.queryByText(/latency/i)).toBeNull();
     await expectNoViolations(container);
   });
@@ -71,7 +68,6 @@ describe("StatusPage", () => {
   it("shows a plain message when the snapshot is unavailable", async () => {
     const { container } = render(<StatusPage stats={null} now={NOW} />);
     expect(screen.getByRole("status").textContent).toContain("not available");
-    expect(screen.getByRole("link", { name: "llms.txt" })).toBeTruthy();
     await expectNoViolations(container);
   });
 

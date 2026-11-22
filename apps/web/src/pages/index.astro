@@ -27,51 +27,39 @@ if (spec) {
     limited = true;
   }
 }
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 ---
 <Base title={spec ? "Search results · Tallo" : "Tallo · Find jobs"} indexable={!spec}>
-  <section class="page-shell home-page">
-    <div class="hero">
-      <p class="eyebrow">A more direct job search</p>
-      <h1>Find your next role.<br /><span>Go straight to the source.</span></h1>
-      <p class="hero-copy">Explore postings from company job boards. Find a role that fits, then apply on the employer’s own page.</p>
-    </div>
+  <div class="mx-auto grid w-full max-w-3xl gap-8 px-4 py-8 sm:px-6 sm:py-12">
+    <h1 class="text-2xl font-semibold tracking-tight">Find jobs</h1>
     <SearchForm values={values} />
-    <div class="search-examples">
-      <span>Try a search</span>
-      <a href="/?title=software+engineer">Software engineer <span aria-hidden="true">↗</span></a>
-      <a href="/?title=product+designer">Product designer <span aria-hidden="true">↗</span></a>
-      <a href="/?company=Stripe">Roles at Stripe <span aria-hidden="true">↗</span></a>
-    </div>
-    {limited && <p role="alert" class="notice text-sm text-destructive">Too many searches from this address. Wait a minute, then try again.</p>}
-    {failed && <p role="alert" class="notice text-sm text-destructive">The search is unavailable right now. Try again in a moment.</p>}
+    {limited && <p role="alert" class="text-sm text-destructive">Too many searches. Wait a minute and try again.</p>}
+    {failed && <p role="alert" class="text-sm text-destructive">Search is unavailable. Try again in a moment.</p>}
     {page && (
-      <div class="home-results">
-        <h2 class="section-title">Search results</h2>
-        <JobResults
-          hits={page.hits}
-          start={offset + 1}
-          prevHref={offset > 0 ? searchHref(values, Math.max(0, offset - PAGE_SIZE)) : null}
-          nextHref={page.nextOffset !== null ? searchHref(values, page.nextOffset) : null}
-          capped={page.capped}
-          expanded={page.expanded}
-        />
-      </div>
+      <JobResults
+        hits={page.hits}
+        start={offset + 1}
+        prevHref={offset > 0 ? searchHref(values, Math.max(0, offset - PAGE_SIZE)) : null}
+        nextHref={page.nextOffset !== null ? searchHref(values, page.nextOffset) : null}
+        capped={page.capped}
+        expanded={page.expanded}
+      />
     )}
-    <section class="assistant-docs" aria-labelledby="assistant-heading">
-      <div class="docs-intro">
-        <p class="eyebrow">For you and your AI assistant</p>
-        <h2 id="assistant-heading">Take your search into the conversation.</h2>
-        <p>Give your assistant the link below. It can read how Tallo works, search the same company postings, and share direct application links.</p>
-        <a href="/llms.txt" class="docs-link">Read llms.txt <span aria-hidden="true">↗</span></a>
-      </div>
-      <div class="copy-block">
-        <div class="copy-header"><span>Prompt for your assistant</span><button type="button" id="copy-prompt" hidden>Copy prompt</button></div>
-        <pre><code id="assistant-prompt">Read https://tallo.nandan.fyi/llms.txt and help me find roles that fit my experience. Ask about my preferences, then search Tallo and share the employer’s application links.</code></pre>
-        <p id="copy-feedback" role="status" aria-live="polite"></p>
-      </div>
-      <div class="docs-footnote"><span>No account. No API key. No personal profiles.</span><a href="/v1/openapi.json">Explore the API <span aria-hidden="true">↗</span></a></div>
+    <section aria-label="AI assistant prompt" class="min-w-0">
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <CardTitle><a href="/llms.txt" class="underline underline-offset-4">llms.txt</a></CardTitle>
+          <Button variant="outline" type="button" id="copy-prompt" className="[&[hidden]]:hidden" hidden>Copy prompt</Button>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <pre class="rounded-md bg-muted p-4 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"><code id="assistant-prompt">Read https://tallo.nandan.fyi/llms.txt and help me find jobs that fit my experience.</code></pre>
+          <p id="copy-feedback" role="status" aria-live="polite" class="empty:hidden text-sm text-muted-foreground"></p>
+          <a href="/v1/openapi.json" class="text-xs text-muted-foreground underline underline-offset-4">OpenAPI</a>
+        </CardContent>
+      </Card>
     </section>
-  </section>
+  </div>
   <script>
     const button = document.querySelector<HTMLButtonElement>("#copy-prompt");
     const prompt = document.querySelector("#assistant-prompt");
@@ -82,9 +70,9 @@ if (spec) {
         try {
           await navigator.clipboard.writeText(prompt.textContent ?? "");
           button.textContent = "Copied";
-          feedback.textContent = "Prompt copied. Paste it into your AI assistant.";
+          feedback.textContent = "Prompt copied.";
         } catch {
-          feedback.textContent = "Could not copy. Select the prompt above and copy it manually.";
+          feedback.textContent = "Select the prompt and copy it manually.";
         }
       });
     }

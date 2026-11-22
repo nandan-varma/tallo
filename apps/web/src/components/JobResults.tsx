@@ -1,5 +1,7 @@
 import type { JobHit, SearchPage } from "@tallo/contracts";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatPay, postedAgo, safeHref } from "@/lib/search";
 
 /** A page of hits, each linking to the employer's application. Prev and next are plain links. */
@@ -22,7 +24,7 @@ export function JobResults({
 }) {
   if (hits.length === 0) {
     return (
-      <div className="empty-state">
+      <div className="rounded-lg border p-6 text-sm">
         <h2 className="font-semibold">No postings match that search.</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Try a broader title, another location, or fewer filters.
@@ -54,18 +56,18 @@ export function JobResults({
           <JobItem key={hit.id} hit={hit} />
         ))}
       </ol>
-      <nav aria-label="Pages" className="pagination">
+      <nav aria-label="Pages" className="flex justify-between gap-4 text-sm">
         {prevHref ? (
-          <a href={prevHref} className="underline underline-offset-4">
-            Previous
-          </a>
+          <Button asChild variant="outline">
+            <a href={prevHref}>Previous</a>
+          </Button>
         ) : (
           <span />
         )}
         {nextHref ? (
-          <a href={nextHref} className="underline underline-offset-4">
-            Next
-          </a>
+          <Button asChild variant="outline">
+            <a href={nextHref}>Next</a>
+          </Button>
         ) : (
           <span />
         )}
@@ -86,30 +88,36 @@ function JobItem({ hit }: { hit: JobHit }) {
     age,
   ].filter((part): part is string => Boolean(part));
   return (
-    <li className="job-card">
-      <div className="flex flex-wrap items-center gap-2">
-        {href ? (
-          <a
-            href={href}
-            rel="noopener noreferrer"
-            className="job-title font-semibold underline-offset-4 hover:underline"
-          >
-            {hit.title}
-          </a>
-        ) : (
-          <span className="font-semibold">{hit.title}</span>
-        )}
-        {hit.department && (
-          <Badge
-            variant="secondary"
-            className="max-w-full whitespace-normal break-words"
-            title={hit.department}
-          >
-            {hit.department}
-          </Badge>
-        )}
-      </div>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{details.join(" · ")}</p>
+    <li>
+      <Card>
+        <CardContent className="break-words">
+          <div className="flex flex-wrap items-center gap-2">
+            {href ? (
+              <a
+                href={href}
+                rel="noopener noreferrer"
+                className="font-medium underline-offset-4 hover:underline"
+              >
+                {hit.title}
+              </a>
+            ) : (
+              <span className="font-semibold">{hit.title}</span>
+            )}
+            {hit.department && (
+              <Badge
+                variant="secondary"
+                className="max-w-full whitespace-normal break-words"
+                title={hit.department}
+              >
+                {hit.department}
+              </Badge>
+            )}
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {details.join(" · ")}
+          </p>
+        </CardContent>
+      </Card>
     </li>
   );
 }
