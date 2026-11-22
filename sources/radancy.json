@@ -1,0 +1,16 @@
+[
+  {
+    "key": "jobs.walgreens.com",
+    "company": "Walgreens",
+    "params": {
+      "sitemapPath": "/en/sitemap.xml"
+    }
+  },
+  {
+    "key": "www.att.jobs",
+    "company": "AT&T",
+    "params": {
+      "egress": "local"
+    }
+  }
+]

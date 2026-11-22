@@ -3,11 +3,11 @@
 Already covered by existing boards: Home Depot, Lowe's, Costco (iCIMS), Verizon, T-Mobile, Nike, Target, CVS (Workday), McDonald's (SmartRecruiters corporate board).
 Added: Disney (Workday `disney/disneycareer`, wd5).
 
-## Radancy TalentBrew (AT&T, Walgreens, likely Kroger): not built yet
+## Radancy TalentBrew (AT&T, Walgreens): built as `radancy`
 
-- `www.att.jobs`: robots.txt disallows `/search-jobs/`, so listing must use `sitemap.xml` (about 2,165 `/job/<city>/<slug>/<org>/<id>` URLs). Each job page carries a schema.org JobPosting JSON-LD (title, description, datePosted, validThrough, jobLocation, hiringOrganization).
-- `jobs.walgreens.com`: robots allows all, but `sitemap.xml` lists only 500 `/en/job/` URLs (capped), so a sitemap listing cannot be complete. Needs a partitioned source (category pages) before it can close jobs.
-- Next step: generic `talentbrew` platform, key = host, list from sitemap, detail from JSON-LD; `complete` false when the sitemap holds exactly 500 jobs.
+- `www.att.jobs`: robots.txt disallows `/search-jobs/`, so listing is `sitemap.xml` (2,166 `/job/` URLs) and detail is the job page JSON-LD.
+- `jobs.walgreens.com`: `/sitemap.xml` redirects to `/en/sitemap.xml`, which holds exactly 500 `/en/job/` URLs (capped), so the listing is `complete: false` there.
+- Kroger is not on TalentBrew: `jobs.kroger.com` redirects to `krogerfamilycareers.com`, an Oracle Cloud HCM site (`eluq.fa.us2.oraclecloud.com`, `CX_2001`), already seeded in `sources/oraclecloud.json`.
 
 ## Not readable within limits
 

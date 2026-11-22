@@ -11,6 +11,7 @@ is `<platform>:<key>`.
 | ashby           | board name (`jobs.ashbyhq.com/<key>`)      | none                                                                     |
 | smartrecruiters | company identifier                         | none                                                                     |
 | workday         | `tenant/site`                              | `wd` (e.g. `wd5`), from `https://<tenant>.<wd>.myworkdayjobs.com/<site>` |
+| radancy         | site host (`www.att.jobs`, `jobs.walgreens.com`) | `sitemapPath` when not `/sitemap.xml`                         |
 | google          | `careers` (one board per company site)     | none                                                                     |
 | apple           | `careers` (one board per company site)     | none                                                                     |
 
