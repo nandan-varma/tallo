@@ -13,13 +13,9 @@ const INTERVALS: Record<string, PayInterval> = {
 
 const host = (key: string) => `https://${key}.breezy.hr`;
 
-/**
- * What a Breezy job page states: the schema.org JobPosting it publishes for search engines (not every
- * portal does) and the description block the page itself shows.
- */
-function parseJobPage(html: string): JsonObject {
-  const root = parse(html);
-  const jobPosting = root
+/** The schema.org JobPosting a Breezy job page publishes for search engines (not every portal does). */
+function jobPostingOf(html: string): Json {
+  const found = parse(html)
     .querySelectorAll('script[type="application/ld+json"]')
     .map((s) => {
       try {
@@ -29,31 +25,34 @@ function parseJobPage(html: string): JsonObject {
       }
     })
     .find((v) => isObject(v) && v["@type"] === "JobPosting");
-  const descriptionHtml = root.querySelector("div.description")?.innerHTML.trim();
-  if (!jobPosting && !descriptionHtml)
-    throw new SchemaError("Breezy job page without a description");
-  return { jobPosting: jobPosting ?? null, descriptionHtml: descriptionHtml ?? null };
+  return found ?? null;
 }
 
 export const breezy: Platform = {
   id: "breezy",
-  version: 1,
+  version: 2,
   hosts: ["*.breezy.hr"],
   validate: (source) => requireKey(source, /^[a-z0-9][a-z0-9-]*$/),
 
   async *list(source, ctx) {
-    const { data } = await ctx.http.getJson(`${host(source.key)}/json`);
+    // `verbose` adds each posting's description to the feed: one request for the whole board.
+    const { data } = await ctx.http.getJson(`${host(source.key)}/json?verbose=true`);
     for (const job of rows(data, "positions")) yield { id: id(job.id) ?? "", listing: job };
     // An unknown portal answers 404 (an error), so an empty answer means no openings.
     return { complete: true, emptyIsAuthoritative: true };
   },
 
-  /** The feed has no description; the job page states it in its JobPosting JSON-LD. */
-  async detail(source, posting, ctx) {
-    const slug = str(obj(posting.listing).friendly_id);
+  /**
+   * Only the job page's JSON-LD states pay as numbers (the feed has a display string), so the page is
+   * fetched only for a posting whose feed row states a salary.
+   */
+  async detail(source, posting, ctx): Promise<JsonObject> {
+    const listing = obj(posting.listing);
+    if (!str(listing.salary)) return {};
+    const slug = str(listing.friendly_id);
     if (!slug) throw new SchemaError("Breezy position without friendly_id");
     const html = (await ctx.http.getText(`${host(source.key)}/p/${encodeURIComponent(slug)}`)).data;
-    return parseJobPage(html);
+    return { jobPosting: jobPostingOf(html) };
   },
 
   map({ id: postingId, listing, detail }) {
@@ -84,7 +83,7 @@ export const breezy: Platform = {
       postingId,
       title: str(l.name) ?? str(posting.title) ?? "",
       url: str(l.url),
-      description: describe(posting.description ?? page("descriptionHtml")),
+      description: describe(l.description ?? posting.description),
       locations: locations(
         places.map((p) => {
           const loc = obj(p);
