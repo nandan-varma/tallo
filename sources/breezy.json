@@ -8,6 +8,10 @@
     "company": "Amity"
   },
   {
+    "key": "archangelautonomy",
+    "company": "Archangel Autonomy"
+  },
+  {
     "key": "ardent",
     "company": "Ardent"
   },
@@ -20,16 +24,104 @@
     "company": "Bridge to Enter Advanced Mathematics (BEAM)"
   },
   {
+    "key": "bear-robotics",
+    "company": "Bear Robotics"
+  },
+  {
+    "key": "bitdeer",
+    "company": "Bitdeer Technologies Group"
+  },
+  {
     "key": "bluesky-telepsych",
     "company": "BlueSky Telepsych"
+  },
+  {
+    "key": "brainscape",
+    "company": "Brainscape"
   },
   {
     "key": "caribou",
     "company": "Caribou Financial"
   },
   {
+    "key": "census",
+    "company": "CENSUS SA"
+  },
+  {
+    "key": "coinroutes-inc",
+    "company": "CoinRoutes"
+  },
+  {
+    "key": "combient",
+    "company": "Combient"
+  },
+  {
+    "key": "cove",
+    "company": "Cove Living Pte Ltd"
+  },
+  {
+    "key": "dex-labs",
+    "company": "DEX Labs"
+  },
+  {
+    "key": "ecostage",
+    "company": "EcoStage"
+  },
+  {
+    "key": "forge-nano",
+    "company": "Forge Nano"
+  },
+  {
     "key": "freeeup",
     "company": "FreeeUp"
+  },
+  {
+    "key": "jnd-inc",
+    "company": "JND Inc."
+  },
+  {
+    "key": "kredivo-group",
+    "company": "Kredivo Group"
+  },
+  {
+    "key": "lufco",
+    "company": "Lufco"
+  },
+  {
+    "key": "lumerate",
+    "company": "Lumerate"
+  },
+  {
+    "key": "navaide",
+    "company": "Navaide"
+  },
+  {
+    "key": "ninjaholdings",
+    "company": "NinjaHoldings"
+  },
+  {
+    "key": "north-wind-group",
+    "company": "North Wind Group"
+  },
+  {
+    "key": "nucleusteq",
+    "company": "NucleusTeq"
+  },
+  {
+    "key": "numrah",
+    "company": "Numrah"
+  },
+  {
+    "key": "otto-engineering-inc",
+    "company": "OTTO Engineering"
+  },
+  {
+    "key": "pyrovio",
+    "company": "Pyrovio"
+  },
+  {
+    "key": "raisingthevillage",
+    "company": "Raising The Village"
   },
   {
     "key": "salesdraft-recruiting",
@@ -40,11 +132,35 @@
     "company": "Seek Now"
   },
   {
+    "key": "simera-sense",
+    "company": "Simera Sense"
+  },
+  {
     "key": "sourcefit",
     "company": "Sourcefit"
   },
   {
+    "key": "swipejobs",
+    "company": "swipejobs"
+  },
+  {
+    "key": "telespazio-be",
+    "company": "Telespazio BeNeLux"
+  },
+  {
     "key": "urrly",
     "company": "Urrly"
+  },
+  {
+    "key": "vetsez",
+    "company": "VetsEZ"
+  },
+  {
+    "key": "whym",
+    "company": "Whym"
+  },
+  {
+    "key": "zendar",
+    "company": "Zendar"
   }
 ]

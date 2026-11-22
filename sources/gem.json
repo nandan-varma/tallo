@@ -4,12 +4,68 @@
     "company": "Forage"
   },
   {
+    "key": "43north",
+    "company": "43North"
+  },
+  {
+    "key": "accel",
+    "company": "Accel"
+  },
+  {
     "key": "accellor",
     "company": "Accellor"
   },
   {
+    "key": "aeropay",
+    "company": "Aeropay"
+  },
+  {
+    "key": "agentnoon",
+    "company": "Agentnoon"
+  },
+  {
+    "key": "agora",
+    "company": "Agora"
+  },
+  {
+    "key": "airvet-com",
+    "company": "airvet.com"
+  },
+  {
+    "key": "albacore",
+    "company": "Albacore"
+  },
+  {
+    "key": "andrenam",
+    "company": "andrenam.com"
+  },
+  {
     "key": "apartment-list",
     "company": "Apartment List"
+  },
+  {
+    "key": "ascenda-loyalty",
+    "company": "Ascenda"
+  },
+  {
+    "key": "astroforge-io",
+    "company": "AstroForge"
+  },
+  {
+    "key": "atla-ai-com",
+    "company": "atla-ai.com"
+  },
+  {
+    "key": "atomica",
+    "company": "Atomica"
+  },
+  {
+    "key": "auger",
+    "company": "Auger"
+  },
+  {
+    "key": "aurelian-io",
+    "company": "aurelian.io"
   },
   {
     "key": "aviary",
@@ -24,8 +80,28 @@
     "company": "basalt.health"
   },
   {
+    "key": "bead-ai",
+    "company": "Bead Ai"
+  },
+  {
+    "key": "betterbasket-ai",
+    "company": "Betterbasket Ai"
+  },
+  {
+    "key": "bikky",
+    "company": "Bikky"
+  },
+  {
     "key": "bilt",
     "company": "Bilt Rewards"
+  },
+  {
+    "key": "bizzen",
+    "company": "Bizzen"
+  },
+  {
+    "key": "blazetalent",
+    "company": "blazetalent.com"
   },
   {
     "key": "blue-j",
@@ -36,24 +112,100 @@
     "company": "Bluesky"
   },
   {
+    "key": "blueskyathomevetcare",
+    "company": "BlueSky At-Home"
+  },
+  {
+    "key": "bohler-",
+    "company": "Bohler"
+  },
+  {
+    "key": "bolna",
+    "company": "Bolna"
+  },
+  {
+    "key": "boost-robotics",
+    "company": "Boost Robotics"
+  },
+  {
+    "key": "butcher-power-products",
+    "company": "Butcher Power Products"
+  },
+  {
+    "key": "caelumresearch",
+    "company": "Caelum Research Corporation"
+  },
+  {
+    "key": "cellbyte",
+    "company": "Cellbyte"
+  },
+  {
     "key": "chef-robotics",
     "company": "Chef Robotics"
+  },
+  {
+    "key": "cloudraft",
+    "company": "CloudRaft"
+  },
+  {
+    "key": "codesignal",
+    "company": "CodeSignal"
+  },
+  {
+    "key": "coupa-software-inc-ats-1",
+    "company": "Coupa Software"
+  },
+  {
+    "key": "cox-exponential",
+    "company": "Cox Exponential"
   },
   {
     "key": "crabi-robotics-com",
     "company": "CRABI Robotics"
   },
   {
+    "key": "daxko",
+    "company": "Daxko"
+  },
+  {
     "key": "deep-infra",
     "company": "Deep Infra"
+  },
+  {
+    "key": "deepline-com",
+    "company": "deepline.com"
+  },
+  {
+    "key": "detections-ai",
+    "company": "detections.ai"
+  },
+  {
+    "key": "doowii",
+    "company": "Doowii"
   },
   {
     "key": "dragonfly-careers",
     "company": "Dragonfly"
   },
   {
+    "key": "eliza",
+    "company": "Eliza"
+  },
+  {
+    "key": "emerge-career",
+    "company": "Emerge"
+  },
+  {
+    "key": "excelity-careers",
+    "company": "Excelity"
+  },
+  {
     "key": "fabrichealth",
     "company": "Fabric"
+  },
+  {
+    "key": "faraday",
+    "company": "Faraday"
   },
   {
     "key": "felix",
@@ -64,12 +216,76 @@
     "company": "Fetch"
   },
   {
+    "key": "fireflies",
+    "company": "Fireflies"
+  },
+  {
+    "key": "firestorm",
+    "company": "Firestorm"
+  },
+  {
+    "key": "flatfee-corp",
+    "company": "Flatfee Corp"
+  },
+  {
+    "key": "fledge",
+    "company": "Fledge"
+  },
+  {
+    "key": "forgent-ai",
+    "company": "forgent.ai"
+  },
+  {
+    "key": "formal",
+    "company": "Formal"
+  },
+  {
+    "key": "freshbooks",
+    "company": "Freshbooks"
+  },
+  {
+    "key": "fridayharbor-ai",
+    "company": "Friday Harbor"
+  },
+  {
     "key": "function-health",
     "company": "Function Health"
   },
   {
     "key": "gem",
     "company": "Gem"
+  },
+  {
+    "key": "genesisdigital-co",
+    "company": "Genesisdigital Co"
+  },
+  {
+    "key": "gerra",
+    "company": "Gerra"
+  },
+  {
+    "key": "giwx",
+    "company": "Gunderson Marine and Iron"
+  },
+  {
+    "key": "greenlite-ai",
+    "company": "greenlite.ai"
+  },
+  {
+    "key": "groq",
+    "company": "Groq"
+  },
+  {
+    "key": "hacktron",
+    "company": "Hacktron AI"
+  },
+  {
+    "key": "hallow",
+    "company": "Hallow"
+  },
+  {
+    "key": "hash",
+    "company": "HASH"
   },
   {
     "key": "helix",
@@ -80,20 +296,52 @@
     "company": "Helm Health"
   },
   {
+    "key": "imagen-technologies",
+    "company": "Imagen Technologies"
+  },
+  {
     "key": "index-exchange",
     "company": "Index Exchange"
   },
   {
-    "key": "jetzero",
-    "company": "JetZero"
+    "key": "ironsite-ai",
+    "company": "Ironsite"
+  },
+  {
+    "key": "jetty-careers",
+    "company": "Jetty"
   },
   {
     "key": "joinanvil-com",
     "company": "Anvil"
   },
   {
+    "key": "kanu-ai",
+    "company": "Kanu Ai"
+  },
+  {
+    "key": "kinetic",
+    "company": "Kinetic"
+  },
+  {
+    "key": "knight-electric-inc-",
+    "company": "Knight Electric, Inc."
+  },
+  {
     "key": "lantern",
     "company": "Lantern"
+  },
+  {
+    "key": "leap-tools",
+    "company": "Leap Tools"
+  },
+  {
+    "key": "leona-health",
+    "company": "leona.health"
+  },
+  {
+    "key": "letsdata",
+    "company": "LetsData"
   },
   {
     "key": "level",
@@ -104,12 +352,28 @@
     "company": "Linktree"
   },
   {
+    "key": "lower-llc",
+    "company": "Lower"
+  },
+  {
+    "key": "lunos-ai",
+    "company": "lunos.ai"
+  },
+  {
     "key": "manifest",
     "company": "Manifest"
   },
   {
     "key": "marqvision",
     "company": "MarqVision"
+  },
+  {
+    "key": "mindbloom",
+    "company": "Mindbloom"
+  },
+  {
+    "key": "mixbook",
+    "company": "Mixbook"
   },
   {
     "key": "modular",
@@ -120,6 +384,30 @@
     "company": "Momentum"
   },
   {
+    "key": "motion",
+    "company": "Motion"
+  },
+  {
+    "key": "narmi",
+    "company": "Narmi"
+  },
+  {
+    "key": "nclusion",
+    "company": "nclusion"
+  },
+  {
+    "key": "nerdery",
+    "company": "Nerdery"
+  },
+  {
+    "key": "nerve",
+    "company": "Nerve"
+  },
+  {
+    "key": "niva",
+    "company": "Niva"
+  },
+  {
     "key": "nominal",
     "company": "Nominal"
   },
@@ -128,47 +416,263 @@
     "company": "nTop"
   },
   {
+    "key": "nue",
+    "company": "nue.io"
+  },
+  {
+    "key": "nuvo",
+    "company": "Nuvo"
+  },
+  {
+    "key": "obin-ai",
+    "company": "Obin AI"
+  },
+  {
+    "key": "onesignal",
+    "company": "OneSignal"
+  },
+  {
+    "key": "onfrontiers",
+    "company": "OnFrontiers, LLC"
+  },
+  {
+    "key": "openreqstaffing",
+    "company": "Openreqstaffing"
+  },
+  {
+    "key": "opine",
+    "company": "Opine"
+  },
+  {
+    "key": "overwatch",
+    "company": "We Are Overwatch"
+  },
+  {
     "key": "paces",
     "company": "Paces"
+  },
+  {
+    "key": "photalabs-com",
+    "company": "Phota Labs"
   },
   {
     "key": "photon",
     "company": "Photon"
   },
   {
+    "key": "pinnacleconnect-llc",
+    "company": "PinnacleConnect LLC"
+  },
+  {
+    "key": "piqenergy",
+    "company": "Piq Energy"
+  },
+  {
+    "key": "plixai",
+    "company": "Plix"
+  },
+  {
+    "key": "practice-by-numbers",
+    "company": "Practice By Numbers"
+  },
+  {
+    "key": "prahsys-com",
+    "company": "Prahsys"
+  },
+  {
+    "key": "productboard",
+    "company": "Productboard"
+  },
+  {
     "key": "promptql",
     "company": "PromptQL"
+  },
+  {
+    "key": "purespectrum",
+    "company": "PureSpectrum"
+  },
+  {
+    "key": "rctsglobal-com",
+    "company": "rctsglobal.com"
+  },
+  {
+    "key": "recharged",
+    "company": "Recharged"
+  },
+  {
+    "key": "renessai-com",
+    "company": "renessai.com"
   },
   {
     "key": "responsiv",
     "company": "Responsiv"
   },
   {
+    "key": "resprop",
+    "company": "ResProp Talent"
+  },
+  {
+    "key": "retool",
+    "company": "Retool"
+  },
+  {
+    "key": "rex",
+    "company": "Rex"
+  },
+  {
+    "key": "risely-ai",
+    "company": "Risely Ai"
+  },
+  {
+    "key": "rivia",
+    "company": "Rivia"
+  },
+  {
     "key": "roe-ai",
     "company": "Roe AI"
+  },
+  {
+    "key": "rootly",
+    "company": "Rootly"
+  },
+  {
+    "key": "roundhouse-media",
+    "company": "Maine & Maryland Community Solar"
+  },
+  {
+    "key": "runsybil",
+    "company": "Runsybil"
   },
   {
     "key": "samba",
     "company": "Samba"
   },
   {
+    "key": "santehq-com",
+    "company": "santehq.com"
+  },
+  {
+    "key": "sauron-systems",
+    "company": "sauron.systems"
+  },
+  {
+    "key": "senndertechnologies-gmbh",
+    "company": "sennder Technologies GmbH"
+  },
+  {
+    "key": "shorebird-dev",
+    "company": "Shorebird"
+  },
+  {
+    "key": "shorr-careers",
+    "company": "Shorr Packaging"
+  },
+  {
+    "key": "snout",
+    "company": "Snout"
+  },
+  {
+    "key": "soeffects",
+    "company": "Second Order Effects"
+  },
+  {
+    "key": "soundhound",
+    "company": "SoundHound AI"
+  },
+  {
+    "key": "spawn",
+    "company": "spawn"
+  },
+  {
+    "key": "spotnana",
+    "company": "Spotnana"
+  },
+  {
     "key": "ssg",
     "company": "SSG"
   },
   {
-    "key": "supio",
-    "company": "Supio"
+    "key": "statsby-ai",
+    "company": "statsby.ai"
+  },
+  {
+    "key": "superblocks",
+    "company": "Superblocks"
+  },
+  {
+    "key": "sway",
+    "company": "Sway"
+  },
+  {
+    "key": "syndesus",
+    "company": "Syndesus"
   },
   {
     "key": "synthio-labs",
     "company": "Synthio Labs"
   },
   {
+    "key": "taxo-ai",
+    "company": "taxo.ai"
+  },
+  {
+    "key": "tektome-com",
+    "company": "tektome.com"
+  },
+  {
+    "key": "terraai-earth",
+    "company": "terraai.earth"
+  },
+  {
+    "key": "the-swift-group",
+    "company": "The Swift Group"
+  },
+  {
+    "key": "the-talent-project-com",
+    "company": "the-talent-project.com"
+  },
+  {
+    "key": "thunder",
+    "company": "Thunder"
+  },
+  {
+    "key": "torchsystems-com",
+    "company": "torchsystems.com"
+  },
+  {
+    "key": "transluce",
+    "company": "Transluce"
+  },
+  {
+    "key": "trojan-trading",
+    "company": "Trojan Trading"
+  },
+  {
     "key": "ultra",
     "company": "Ultra"
   },
   {
+    "key": "umbrella-incorporated",
+    "company": "Umbrella"
+  },
+  {
+    "key": "unsiloed-ai",
+    "company": "Unsiloed AI"
+  },
+  {
     "key": "vantager",
     "company": "Vantager"
+  },
+  {
+    "key": "voltai-com",
+    "company": "voltai.com"
+  },
+  {
+    "key": "wyzecam-com",
+    "company": "wyzecam.com"
+  },
+  {
+    "key": "zensors-com",
+    "company": "zensors.com"
   }
 ]

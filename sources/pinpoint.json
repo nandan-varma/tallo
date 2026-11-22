@@ -32,6 +32,10 @@
     "company": "Ackermann Group"
   },
   {
+    "key": "acme",
+    "company": "ACME candidate 1"
+  },
+  {
     "key": "ada",
     "company": "Ada"
   },
@@ -54,6 +58,10 @@
   {
     "key": "alternativeheat",
     "company": "Alternative Heat"
+  },
+  {
+    "key": "anthesisgroup",
+    "company": "Anthesis Group"
   },
   {
     "key": "article",
@@ -100,24 +108,64 @@
     "company": "Bright Network"
   },
   {
+    "key": "carto",
+    "company": "CARTO"
+  },
+  {
     "key": "coforma",
     "company": "Coforma"
+  },
+  {
+    "key": "confluence",
+    "company": "Confluence Technologies"
+  },
+  {
+    "key": "convexin",
+    "company": "Convex Insurance"
+  },
+  {
+    "key": "digitalscience",
+    "company": "Digital Science"
   },
   {
     "key": "envisionageinc",
     "company": "EnvisionAge"
   },
   {
+    "key": "epuki",
+    "company": "TTEP UK&I Investments Ltd"
+  },
+  {
     "key": "finfrock",
     "company": "Finfrock"
+  },
+  {
+    "key": "franklin-electric",
+    "company": "Franklin Electric"
+  },
+  {
+    "key": "gembaadvantage",
+    "company": "Gemba Advantage"
   },
   {
     "key": "groupgti",
     "company": "Group GTI"
   },
   {
+    "key": "harnham",
+    "company": "Harnham"
+  },
+  {
     "key": "holtgrp",
     "company": "HOLT Group"
+  },
+  {
+    "key": "idtus",
+    "company": "Innovative Defense Technologies"
+  },
+  {
+    "key": "impulsespace",
+    "company": "Impulse Space"
   },
   {
     "key": "kempinski",
@@ -132,6 +180,10 @@
     "company": "Lush"
   },
   {
+    "key": "made-tech",
+    "company": "Made Tech"
+  },
+  {
     "key": "menzies",
     "company": "Menzies LLP"
   },
@@ -140,16 +192,128 @@
     "company": "Mountain Warehouse"
   },
   {
+    "key": "napier",
+    "company": "Napier AI"
+  },
+  {
+    "key": "oaknorth",
+    "company": "OakNorth"
+  },
+  {
+    "key": "ocrolus",
+    "company": "Ocrolus"
+  },
+  {
+    "key": "odysseylogistics",
+    "company": "Odyssey Logistics"
+  },
+  {
+    "key": "officeally",
+    "company": "Office Ally"
+  },
+  {
+    "key": "ogilvy",
+    "company": "Ogilvy UK"
+  },
+  {
+    "key": "ohpolly",
+    "company": "Oh Polly"
+  },
+  {
+    "key": "oilchange",
+    "company": "Oil Change International"
+  },
+  {
+    "key": "oldham",
+    "company": "Oldham College"
+  },
+  {
+    "key": "oneplan",
+    "company": "OnePlan Solutions"
+  },
+  {
+    "key": "oneworld",
+    "company": "One World GTM"
+  },
+  {
     "key": "onlineriver",
     "company": "Online River"
+  },
+  {
+    "key": "ontoinnovation",
+    "company": "Onto Innovation"
+  },
+  {
+    "key": "openspace",
+    "company": "Midpeninsula Regional Open Space District"
+  },
+  {
+    "key": "openx",
+    "company": "OpenX"
+  },
+  {
+    "key": "opsecsecurity",
+    "company": "OpSec Security"
+  },
+  {
+    "key": "orangutech",
+    "company": "Orangutech"
+  },
+  {
+    "key": "orbcomm",
+    "company": "ORBCOMM"
+  },
+  {
+    "key": "osano",
+    "company": "Osano"
+  },
+  {
+    "key": "otpp",
+    "company": "Ontario Teachers' Pension Plan"
+  },
+  {
+    "key": "outform",
+    "company": "OUTFORM"
+  },
+  {
+    "key": "oviva",
+    "company": "Oviva"
+  },
+  {
+    "key": "ovme",
+    "company": "OVME"
+  },
+  {
+    "key": "owkin",
+    "company": "Owkin"
+  },
+  {
+    "key": "oxfordpv",
+    "company": "Oxford PV"
   },
   {
     "key": "pexcard",
     "company": "PEX"
   },
   {
+    "key": "premierleague",
+    "company": "The Premier League"
+  },
+  {
     "key": "princesscruises",
     "company": "Princess Cruises"
+  },
+  {
+    "key": "projectcanary",
+    "company": "Project Canary"
+  },
+  {
+    "key": "ravelin",
+    "company": "Ravelin Technology"
+  },
+  {
+    "key": "safetywing",
+    "company": "SafetyWing"
   },
   {
     "key": "sunking",
@@ -158,5 +322,25 @@
   {
     "key": "superiorgroup",
     "company": "Superior Group"
+  },
+  {
+    "key": "surrealdb",
+    "company": "SurrealDB"
+  },
+  {
+    "key": "tabby",
+    "company": "Tabby"
+  },
+  {
+    "key": "whiteswandata",
+    "company": "White Swan Data"
+  },
+  {
+    "key": "wolve",
+    "company": "Wolverine"
+  },
+  {
+    "key": "xeneta",
+    "company": "Xeneta"
   }
 ]
