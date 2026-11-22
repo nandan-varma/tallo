@@ -1,0 +1,9 @@
+[
+  {
+    "key": "jobs.bestbuy.com",
+    "company": "Best Buy",
+    "params": {
+      "egress": "local"
+    }
+  }
+]
