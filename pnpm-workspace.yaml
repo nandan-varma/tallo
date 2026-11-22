@@ -4,3 +4,6 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+overrides:
+  # astro check peers allow a 2.0.0 beta; stay on the stable 1.x line.
+  "@emnapi/runtime": "^1.11.3"
