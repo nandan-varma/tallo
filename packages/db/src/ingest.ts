@@ -573,12 +573,29 @@ function runOutcome(
   return dead ? "dead" : "partial";
 }
 
-/** Runs still `running` past the lease. A literal status, not a bound one, so SQLite can use `runs_running_idx`. */
-export function staleRunsQuery(db: Db, now: number) {
+/**
+ * Runs still `running` past the lease. A literal status, not a bound one, so SQLite can use `runs_running_idx`.
+ * `sources` limits it to those boards, and `leaseSeconds` replaces the lease: the operator's way to release a board
+ * whose collector process was stopped, instead of waiting out the lease.
+ */
+export function staleRunsQuery(
+  db: Db,
+  now: number,
+  {
+    sources: boards,
+    leaseSeconds = RUN_LEASE_SECONDS,
+  }: { sources?: string[]; leaseSeconds?: number } = {},
+) {
   return db
     .select({ id: runs.id, sourceId: runs.sourceId, startedAt: runs.startedAt })
     .from(runs)
-    .where(and(sql`${runs.status} = 'running'`, lt(runs.startedAt, now - RUN_LEASE_SECONDS)))
+    .where(
+      and(
+        sql`${runs.status} = 'running'`,
+        lt(runs.startedAt, now - leaseSeconds),
+        boards ? sql`${runs.sourceId} IN ${jsonIds(boards)}` : undefined,
+      ),
+    )
     .limit(1000);
 }
 
@@ -592,8 +609,12 @@ export function staleRunsQuery(db: Db, now: number) {
  * about whether the board exists). A late finalize from the dead
  * collector is then a no-op, because the run is no longer running.
  */
-export async function reapStaleRuns(db: Db, now = nowSeconds()): Promise<number> {
-  const stale = await staleRunsQuery(db, now);
+export async function reapStaleRuns(
+  db: Db,
+  now = nowSeconds(),
+  options: { sources?: string[]; leaseSeconds?: number } = {},
+): Promise<number> {
+  const stale = await staleRunsQuery(db, now, options);
   const byBoard = new Map<string, { ids: string[]; newest: number }>();
   for (const r of stale) {
     const group = byBoard.get(r.sourceId) ?? { ids: [], newest: 0 };

@@ -416,6 +416,29 @@ describe("getJob", () => {
 });
 
 describe("stuck runs", () => {
+  it("abandons a named board's running run at once, and leaves other boards' runs alone", async () => {
+    const mine = await start(T + 1000);
+    const other = "other-run";
+    await startRun(
+      db,
+      {
+        runId: other,
+        runnerId: "r",
+        collectorVersion: "t",
+        startedAt: T + 1000,
+        source: { ...source, id: "greenhouse:other", key: "other", company: "Other" },
+      },
+      T + 1000,
+    );
+    // Not past the lease, so the hourly reaper would not touch either run; the operator names one board.
+    expect(await reapStaleRuns(db, T + 1100)).toBe(0);
+    expect(await reapStaleRuns(db, T + 1100, { sources: [source.id], leaseSeconds: 0 })).toBe(1);
+    const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, mine));
+    expect(row).toMatchObject({ status: "partial", closed: null });
+    const [still] = await db.select().from(schema.runs).where(eq(schema.runs.id, other));
+    expect(still?.status).toBe("running");
+  });
+
   it("marks a run left running past the lease as partial, and closes nothing", async () => {
     const first = await start(T + 1000);
     await ingest(first, [mapped("1"), mapped("2")]);
