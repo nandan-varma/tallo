@@ -75,6 +75,16 @@ pnpm --filter @tallo/runner tallo verify greenhouse:stripe      # dry run: field
 Boards tagged `"egress": "local"` (Amazon, Apple, Google, Meta, Netflix, four Workday tenants) are slow, single-host
 platforms; they are only ever collected from the Mac.
 
+**Full sweep as separate jobs.** `node scripts/sweep.ts start` runs one `tallo sync` process per platform group (greenhouse,
+lever, ashby, smartrecruiters, workday, oracle-icims, small-ats, walmart, microsoft, apple, meta, big-sites), staggered 20 s
+apart, about 30 boards in flight in total, with the Mac kept awake. Each group has its own rate limits, so a 429 on one
+platform slows only that job. Inside a job, never-synced boards go first (oldest completed run first), then the rest. A board
+that failed or ended partial is retried by the next pass of the same job after a cool-off (2, 4, 6 minutes), at half the
+concurrency and double the request gap each time; a pass that fixes nothing ends the job as `stuck` with the reason. Watch it
+with `node scripts/sweep.ts status` (per job: state, pass, boards done/due, failures, requests, 429 count, rate, ETA). Raw logs
+and `status.json` are in `~/Library/Logs/tallo/sweep/`. `node scripts/sweep.ts start workday walmart` runs only those jobs.
+SIGTERM stops it; runs left open are reaped by the hourly job as partial and never close postings.
+
 **Cloud (built, off).** The API Worker can collect a board itself: a queue consumer collects, maps and ingests it, and a
 `HostGate` Durable Object spaces requests per host. `COLLECT_ENABLED` is `"0"`: the five-minute cron is still deployed, but while the switch is off the tick enqueues nothing.
 To try a few boards once, name them (this works with the switch off):
