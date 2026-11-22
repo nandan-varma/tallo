@@ -17,7 +17,10 @@ design reasons are in `docs/decisions.md`; how to operate is `docs/runbook.md`.
   state; no heuristics in the database (D6).
 - **Collection**: local and manual (`tallo sync`, run when asked); no Mac jobs, nothing in the cloud. The cloud collector
   (queue, `HostGate`, five-minute cron) is built and toggled off by `COLLECT_ENABLED` `"0"`; named boards can be tried
-  on it once. A sweep is needed within 14 days or postings hide.
+  on it once. A sweep is needed within 14 days or postings hide. `tallo sweep` steers itself: AIMD per-host limits keyed
+  per pod for Workday and Oracle, pod-aware scheduling, learned limits in `learned.json`, per-lane timing shares and
+  bottleneck events, and `tallo abandon <source...>` releases a stopped run's board at once instead of waiting out the
+  2 h lease (nothing closes).
 - **Housekeeping**: hourly reap, purge, prune, regroup (API cron). D1 backup: `scripts/backup-d1.sh run`.
 
 ## Platforms

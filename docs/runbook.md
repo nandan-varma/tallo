@@ -69,6 +69,7 @@ pnpm --filter @tallo/runner tallo sync -p greenhouse -n 20      # one platform, 
 pnpm --filter @tallo/runner tallo sync --local-egress           # only the boards the cloud cannot reach
 pnpm --filter @tallo/runner tallo sync --stale-hours 144        # skip boards done within 6 days (a weekly sweep)
 pnpm --filter @tallo/runner tallo verify greenhouse:stripe      # dry run: fields the mapper never reads
+pnpm --filter @tallo/runner tallo abandon walmart:walmart       # release a stopped run's board now, not in 2 h
 ```
 
 `sync` skips boards completed within `--stale-hours`, so a rerun is cheap and a stopped sweep resumes where it left off.
@@ -112,7 +113,18 @@ spike halves the in-flight cap and pauses new starts briefly, then it recovers o
 estimated D1 rows written (new about 20, changed 3, closed 5, plus 8 per run; first runs of a board count all as new) are
 totalled; at `budget.maxRowsWritten` (default 6,000,000) every lane holds and an event asks the owner: raise the budget to
 continue or `stop`. Unchanged postings are never written; the sweep adds no writes. Runs left open by a killed process are
-reaped as partial by the hourly job and never close postings.
+reaped as partial by the hourly job and never close postings; to release such a board at once, use `tallo abandon
+<source...>` (its runs go partial immediately, same path as the reaper; only for runs you know are dead).
+
+**Adaptive per-host limits.** `concurrency` stays the lane's ceiling; what a lane actually runs is `perHost` requests to
+one host, one lane-wide AIMD: +1 after 150 clean requests up to the lane's `perHostCeiling`, halved on a 429 with a
+hold-down, never back into a rate that drew a 429. Detail fetches to one host follow `perHost` (max 8). Workday and
+Oracle are keyed per pod (tenant host), so one badly behaving pod does not slow the whole lane, and a board on a full or
+held pod is not started. Learned values are written to `learned.json` (every minute and on exit; ignored after 7 days) so
+a restart starts where the last run stopped. `tallo sweep status` shows `perHost n/ceiling` with the reason, per-pod rows,
+and _where the time goes_ per lane: shares of source, limiter wait, cpu, ingest and retry waits, board wall p50/p90 and
+requests per second per board (also in `--json`). A lane whose dominant cost stays put for five minutes says so in an
+event, so a slow sweep can be read rather than guessed.
 
 **Cloud (built, off).** The API Worker can collect a board itself: a queue consumer collects, maps and ingests it, and a
 `HostGate` Durable Object spaces requests per host. `COLLECT_ENABLED` is `"0"`: the five-minute cron is still deployed, but while the switch is off the tick enqueues nothing.
