@@ -62,6 +62,32 @@ describe("discover", () => {
   });
 });
 
+describe("discover concurrency", () => {
+  it("verifies up to the limit at once and reports in input order", async () => {
+    let active = 0;
+    let peak = 0;
+    const keys = ["a", "b", "c", "d", "e", "f"];
+    const found = await discover(
+      keys.map((k) => `https://jobs.gem.com/${k}`),
+      [],
+      async (source) => {
+        active++;
+        peak = Math.max(peak, active);
+        // Earlier boards finish last.
+        await new Promise((r) => setTimeout(r, 30 - keys.indexOf(source.key) * 4));
+        active--;
+        return source.key === "c"
+          ? { listed: 0, issues: [], warnings: [] }
+          : { listed: 1, issues: [], warnings: [] };
+      },
+      3,
+    );
+    expect(peak).toBe(3);
+    expect(found.accepted.map((s) => s.key)).toEqual(["a", "b", "d", "e", "f"]);
+    expect(found.rejected).toEqual([{ id: "gem:c", reason: "no postings" }]);
+  });
+});
+
 describe("writeAccepted", () => {
   it("adds boards to the platform file in key order", () => {
     const dir = mkdtempSync(join(tmpdir(), "tallo-sources-"));

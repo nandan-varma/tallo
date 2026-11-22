@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SourceConfig } from "@tallo/contracts";
 import { platformFor } from "@tallo/platforms";
+import PQueue from "p-queue";
 import type { Verification } from "./verify.ts";
 
 interface Board {
@@ -76,16 +77,24 @@ export interface Discovery {
 
 /**
  * Turn a list of careers URLs into verified, not-yet-configured boards. Nothing is written here and
- * every board is dry-run through `verifySource` (the same check as `tallo verify`).
+ * every board (up to `concurrency` at a time) is dry-run through `verifySource` (the same check as `tallo verify`).
  */
 export async function discover(
   urls: string[],
   configured: Iterable<string>,
   verify: (source: SourceConfig) => Promise<Pick<Verification, "listed" | "issues" | "warnings">>,
+  /** Boards verified at once. Per-host limits are the verifier's (a shared limiter), not this. */
+  concurrency = 1,
 ): Promise<Discovery> {
   const have = new Set(configured);
   const out: Discovery = { accepted: [], rejected: [], unrecognized: [], known: 0 };
   const seen = new Set<string>();
+  const queue = new PQueue({ concurrency });
+  const results = new Map<
+    number,
+    { accepted?: SourceConfig; rejected?: Discovery["rejected"][0] }
+  >();
+  let n = 0;
   for (const url of urls.map((u) => u.trim()).filter(Boolean)) {
     const board = boardOfUrl(url);
     if (!board) {
@@ -100,19 +109,33 @@ export async function discover(
       continue;
     }
     const source: SourceConfig = { id, ...board, company: nameOf(board.key) };
-    try {
-      platformFor(source).validate(source);
-      const v = await verify(source);
-      if (v.listed === 0) out.rejected.push({ id, reason: "no postings" });
-      else if (v.issues.length || v.warnings.length)
-        out.rejected.push({
-          id,
-          reason: [...v.warnings, ...v.issues.map((i) => i.message)].join("; "),
+    const slot = n++;
+    void queue.add(async () => {
+      try {
+        platformFor(source).validate(source);
+        const v = await verify(source);
+        if (v.listed === 0) results.set(slot, { rejected: { id, reason: "no postings" } });
+        else if (v.issues.length || v.warnings.length)
+          results.set(slot, {
+            rejected: {
+              id,
+              reason: [...v.warnings, ...v.issues.map((i) => i.message)].join("; "),
+            },
+          });
+        else results.set(slot, { accepted: source });
+      } catch (error) {
+        results.set(slot, {
+          rejected: { id, reason: error instanceof Error ? error.message : String(error) },
         });
-      else out.accepted.push(source);
-    } catch (error) {
-      out.rejected.push({ id, reason: error instanceof Error ? error.message : String(error) });
-    }
+      }
+    });
+  }
+  await queue.onIdle();
+  // Report in input order whatever order the checks finished in.
+  for (let i = 0; i < n; i++) {
+    const r = results.get(i);
+    if (r?.accepted) out.accepted.push(r.accepted);
+    if (r?.rejected) out.rejected.push(r.rejected);
   }
   return out;
 }
