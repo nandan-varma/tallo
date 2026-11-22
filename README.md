@@ -7,6 +7,18 @@ own application page. It stores nothing about people and judges nothing: relevan
 - API: `GET /v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, `/v1/companies`, `/v1/titles`, `/v1/openapi.json`
 - For AI readers: https://tallo.nandan.fyi/llms.txt (generated from the API's own schemas)
 
+## Use the API
+
+No account or key. Each search returns `results` (id, title, company, location, pay when stated, `applyUrl`) and a `cursor` for the next page.
+
+```sh
+curl -s "https://tallo.nandan.fyi/v1/search?title=backend+engineer&location=remote&limit=5"
+curl -s "https://tallo.nandan.fyi/v1/search?company=stripe&country=US&postedWithin=14&sort=recent"
+curl -s "https://tallo.nandan.fyi/v1/jobs/48211"   # one posting with its full description (id from a search)
+```
+
+Parameters and schemas: [llms.txt](https://tallo.nandan.fyi/llms.txt) and `/v1/openapi.json`.
+
 ```
 sources/*.json ──▶ Mac runner (tallo sync, by hand) ──▶ ingest ──▶ D1 (facts) + R2 (descriptions, raw packs) ◀── API ◀── web
                    cloud collector (built, off) ──────┘

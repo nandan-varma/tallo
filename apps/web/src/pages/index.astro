@@ -57,6 +57,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
             ? searchHref(values, Math.max(0, offset - PAGE_SIZE))
             : null
         }
+        firstHref={offset > 0 ? searchHref(values, 0) : null}
         nextHref={
           page.nextOffset !== null ? searchHref(values, page.nextOffset) : null
         }

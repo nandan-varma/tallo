@@ -1,6 +1,7 @@
 # Adding a platform
 
-A platform is one folder under `packages/platforms/src/<id>/` plus one line in `src/index.ts`.
+A platform is one folder under `packages/platforms/src/<id>/` (an `index.ts`; shared helpers live in `src/kit.ts`)
+plus an import and an entry in `src/index.ts`.
 Nothing else changes: not contracts, not the db, not the runner.
 
 ## Steps
@@ -14,14 +15,17 @@ Nothing else changes: not contracts, not the db, not the runner.
    - `validate(source)`: reject malformed `key`/`params`.
    - `list`: yield `{id, listing}` per posting untouched. Return `{complete, emptyIsAuthoritative}`.
      `complete` is true only when you saw the real end of the whole listing. If the response shape is
-     unexpected, `throw new SchemaError(...)` (never return an empty list).
+     unexpected, `throw new SchemaError(...)` (from `kit.ts`) (never return an empty list).
      `emptyIsAuthoritative` is true only if an empty answer proves the board has no jobs (an unknown
      board that also answers 200 `[]` means false).
    - `detail` (optional): per-posting extra payload. Only called for changed postings. A posting the source no
      longer has (a job page that says "not found", an expired id still listed by a sitemap) throws
      `PostingGone`: the engine drops it from the listing and the posting closes by the absence rule, instead of
      failing the board's details for every run.
-   - `fingerprint` (optional): drop volatile fields (relative dates, counters).
+   - `fingerprint` (optional): drop volatile fields (relative dates, counters) so an unchanged posting is not
+     re-fetched or re-written.
+   - `version`: start at 1 and bump it on every change to `map`; the next sync re-fetches and re-maps every
+     posting of the platform.
    - `map`: pure. Read fields explicitly through `lookup(detail, listing)` (no spreads). Put typed facts in the
      typed fields; put source-specific leftovers worth searching later in `extras`; everything else
      stays in the raw payload. Use `describe(html...)` for description text and `locations([...])`.
@@ -29,11 +33,14 @@ Nothing else changes: not contracts, not the db, not the runner.
      structured source fields. Use the interval the source states and leave it `unknown` otherwise. Nothing
      is parsed from description text: the database stores what the source stated and the reader judges the rest.
 4. Register it in `src/index.ts`.
-5. Tests in `packages/platforms/test/platforms.test.ts`: list (with a fake `Http`), pagination/completeness,
+5. Tests in `packages/platforms/test/` (a `<id>.test.ts`, or `platforms.test.ts` / `generic-ats.test.ts` for
+   simple ATS boards; fake `Http` and fixture loaders are in `test/helpers.ts`): list, pagination/completeness,
    map assertions on fixtures, and the failure modes (malformed response, empty list).
 6. Add sources: `sources/<id>.json` (`[{key, company, params?}]`). The file name is the platform id.
 7. Verify live: `pnpm --filter @tallo/runner tallo verify <id>:<key> -n 5`. Check `warnings`, `presence`
    and `unmapped`; anything valuable in `unmapped` should be mapped or consciously left in raw.
+   To find boards for an existing platform from a list of careers URLs, use
+   `pnpm --filter @tallo/runner tallo discover urls.txt` (see `docs/adding-sources.md`).
 8. Update `docs/platforms.md`, then `pnpm check`, then open a PR.
 
 ## Hard cases
