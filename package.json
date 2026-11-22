@@ -12,6 +12,7 @@
     "lint": "biome check . && prettier --check \"apps/web/src/**/*.astro\" \"apps/web/src/**/*.css\"",
     "fix": "biome check --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "parity": "node scripts/parity.ts",
     "release": "pnpm check && pnpm --filter @tallo/api migrate && pnpm --filter @tallo/api run deploy && pnpm --filter @tallo/web run deploy && node scripts/smoke.ts",
     "format:web": "prettier --write \"apps/web/src/**/*.astro\" \"apps/web/src/**/*.css\""
   },
