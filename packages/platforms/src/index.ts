@@ -3,6 +3,8 @@ import { amazon } from "./amazon/index.ts";
 import { apple } from "./apple/index.ts";
 import { ashby } from "./ashby/index.ts";
 import { bamboohr } from "./bamboohr/index.ts";
+import { breezy } from "./breezy/index.ts";
+import { gem } from "./gem/index.ts";
 import { google } from "./google/index.ts";
 import { greenhouse } from "./greenhouse/index.ts";
 import { icims } from "./icims/index.ts";
@@ -12,7 +14,9 @@ import { meta } from "./meta/index.ts";
 import { netflix } from "./netflix/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
 import { personio } from "./personio/index.ts";
+import { pinpoint } from "./pinpoint/index.ts";
 import { recruitee } from "./recruitee/index.ts";
+import { rippling } from "./rippling/index.ts";
 import { smartrecruiters } from "./smartrecruiters/index.ts";
 import { teamtailor } from "./teamtailor/index.ts";
 import { workable } from "./workable/index.ts";
@@ -39,6 +43,10 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     google,
     apple,
     meta,
+    rippling,
+    gem,
+    pinpoint,
+    breezy,
   ].map((p) => [p.id, p]),
 );
 
@@ -57,6 +65,8 @@ export {
   apple,
   ashby,
   bamboohr,
+  breezy,
+  gem,
   google,
   greenhouse,
   icims,
@@ -66,7 +76,9 @@ export {
   netflix,
   oraclecloud,
   personio,
+  pinpoint,
   recruitee,
+  rippling,
   smartrecruiters,
   teamtailor,
   workable,
