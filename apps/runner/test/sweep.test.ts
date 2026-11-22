@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { Outcome } from "@tallo/collect";
 import type { SourceConfig } from "@tallo/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { estimateCost, planSweep } from "../src/sweep/board.ts";
+import { estimateCost, guardedFetch, planSweep } from "../src/sweep/board.ts";
 import { classifyError, classifyOutcome } from "../src/sweep/classify.ts";
 import { type RunBoard, Sweep, sweepPaths, type Timing } from "../src/sweep/controller.ts";
 import { Lane, TUNING, type Tuning } from "../src/sweep/lane.ts";
@@ -405,5 +405,25 @@ describe("settings and classification", () => {
     expect(
       estimateCost({ applied: 10, closed: 0, descriptions: 3, rawPacks: 1, firstRun: false }).rows,
     ).toBe(38);
+  });
+});
+
+describe("guardedFetch", () => {
+  it("passes responses through before the sweep exists (planning reads the source list first)", async () => {
+    const fetchIt = guardedFetch(
+      async () => new Response("ok", { status: 200 }),
+      () => undefined,
+    );
+    expect((await fetchIt("https://api.test/v1/sources")).status).toBe(200);
+  });
+
+  it("reports status and latency to the sweep once it exists", async () => {
+    const seen: number[] = [];
+    const fetchIt = guardedFetch(
+      async () => new Response("busy", { status: 503 }),
+      () => ({ observeApi: (status: number) => seen.push(status) }) as unknown as Sweep,
+    );
+    await fetchIt("https://api.test/v1/runs");
+    expect(seen).toEqual([503]);
   });
 });
