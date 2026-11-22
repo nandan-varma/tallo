@@ -65,9 +65,9 @@ export const LANES: LaneDef[] = [
   lane("smartrecruiters", ["smartrecruiters"], 3, 3, 0, undefined, 10),
   // 250 ms between request starts is what the fixed driver used; Workday boards are request-bound, so the
   // controller probes down to 100 ms (10 a second per pod) and backs off from there when a pod says 429.
-  multiHost(lane("workday", ["workday"], 6, 2, 250, undefined, 5, 100)),
+  multiHost(lane("workday", ["workday"], 6, 2, 250, undefined, 6, 100)),
   multiHost(
-    lane("oracle-icims", ["oraclecloud", "icims"], 2, 3, 250, { icims: { perHost: 3 } }, 5, 100),
+    lane("oracle-icims", ["oraclecloud", "icims"], 2, 3, 250, { icims: { perHost: 3 } }, 8, 100),
   ),
   multiHost(
     lane(

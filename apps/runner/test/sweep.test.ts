@@ -150,6 +150,19 @@ describe("AIMD", () => {
     expect(events.at(-1)).toBe("walmart: 5 clean boards, concurrency 1 -> 1, gap 350 -> 250 ms");
   });
 
+  it("probes the gap on clean requests, without waiting for a whole board to finish", () => {
+    const events: string[] = [];
+    const d = def("walmart", 1, 700, 250);
+    d.settings.perHost = 8;
+    d.settings.perHostCeiling = 8;
+    const l = new Lane(d, [], tuning, (m) => events.push(m));
+    for (let i = 0; i < 150; i++) l.observe(200, undefined, i, "careers.walmart.com");
+    expect(l.settings.gapMs).toBe(350);
+    for (let i = 0; i < 150; i++) l.observe(200, undefined, 1000 + i, "careers.walmart.com");
+    expect(l.settings.gapMs).toBe(250);
+    expect(events).toContain("walmart: 150 clean requests, gap 700 -> 350 ms (floor 250)");
+  });
+
   it("keeps the configured gap as the floor when no floor is given", () => {
     const l = new Lane(def("microsoft", 1, 1000), [], tuning, () => {});
     for (let i = 0; i < 50; i++) l.onClean();

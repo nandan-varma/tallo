@@ -242,17 +242,31 @@ export class Lane {
     return bad ? Math.max(1, Math.min(s.perHostCeiling, this.perHostBad - 1)) : s.perHostCeiling;
   }
 
-  /** Additive increase: +1 after enough clean requests, never past the cap, never during hold-down. */
+  /**
+   * Additive increase after enough clean requests: one more request in parallel, and one step faster on the
+   * start gap. Waiting for whole boards would never reach a lane that has one two hour board (Walmart, Apple,
+   * Microsoft), which is exactly the lane a 700 ms start gap costs the most.
+   */
   private maybeRaisePerHost(now: number): void {
     const s = this.settings;
     if (++this.perHostClean < this.tuning.perHostCleanRequests) return;
-    if (now < this.perHostHoldUntil || s.perHost >= this.perHostCap(now)) return;
+    if (now < this.perHostHoldUntil) return;
     this.perHostClean = 0;
     const before = s.perHost;
-    s.perHost = before + 1;
-    this.perHostWhy = `+1 after ${this.tuning.perHostCleanRequests} clean requests`;
+    if (s.perHost < this.perHostCap(now)) {
+      s.perHost = before + 1;
+      this.perHostWhy = `+1 after ${this.tuning.perHostCleanRequests} clean requests`;
+      this.emit(`${this.name}: perHost ${before} -> ${s.perHost} (ceiling ${s.perHostCeiling})`);
+    }
+    const floor = Math.max(this.gapFloor(), Math.ceil(this.badGap * 1.25));
+    const gapBefore = s.gapMs;
+    if (gapBefore > floor) {
+      s.gapMs = Math.max(floor, Math.floor(gapBefore / 2));
+      this.emit(
+        `${this.name}: ${this.tuning.perHostCleanRequests} clean requests, gap ${gapBefore} -> ${s.gapMs} ms (floor ${floor})`,
+      );
+    }
     this.applyLimits();
-    this.emit(`${this.name}: perHost ${before} -> ${s.perHost} (ceiling ${s.perHostCeiling})`);
   }
 
   /** Multiplicative decrease on a 429: halve (floor 1), hold down before probing up again. */
