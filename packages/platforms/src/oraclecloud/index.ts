@@ -8,7 +8,8 @@ import type {
 import { arr, id, num, obj, str } from "@tallo/contracts";
 import { describe, locations, lookup, rows, SchemaError, workModeOf } from "../kit.ts";
 
-const PAGE = 100;
+/** The finder clamps any larger `limit` to 200 rows (checked live with 500), so a short page is always a real gap. */
+const PAGE = 200;
 /** The finder answers at most 10,000 results per query; offset 10000 is an empty page, not an error. */
 const CAP = 10_000;
 /** Recruiting pods seen in seeds: `<tenant>.fa.oraclecloud.com`, `.fa.us2.`, `.fa.ocs.`. Not all of `*.oraclecloud.com`. */
@@ -23,7 +24,8 @@ const siteOf = (source: SourceConfig) => String(source.params.siteNumber ?? "");
 const finderUrl = (source: SourceConfig, site: string, limit: number, offset: number) =>
   `${api(source)}/recruitingCEJobRequisitions?onlyData=true` +
   `&expand=requisitionList.secondaryLocations` +
-  `&finder=findReqs;siteNumber=${site},limit=${limit},offset=${offset},keyword=`;
+  // Newest first keeps offsets stable while postings arrive; facetsList=NONE drops nine unread facet arrays.
+  `&finder=findReqs;siteNumber=${site},limit=${limit},offset=${offset},keyword=,sortBy=POSTING_DATES_DESC,facetsList=NONE`;
 
 /** The first item of a finder response; a missing item is a shape change, never an empty board. */
 function firstItem(data: unknown): JsonObject {

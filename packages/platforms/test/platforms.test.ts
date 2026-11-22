@@ -772,14 +772,14 @@ describe("oraclecloud", () => {
   const siteOfUrl = (url: string) => /siteNumber=([^,]+)/.exec(url)?.[1];
   const emptyBoard = { items: [{ TotalJobsCount: 0, requisitionList: [] }] };
   /**
-   * Serves `total` postings for CX_2001 in pages, like the finder (100 per page, capped at 10,000).
+   * Serves `total` postings for CX_2001 in pages, like the finder (200 per page, capped at 10,000).
    * Any other site, including the sentinel probe, sees an empty board.
    */
   const pages = (total: number) =>
     fakeCtx((url) => {
       if (siteOfUrl(url) !== "CX_2001") return emptyBoard;
       const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
-      const rowsAt = offset < total ? Math.min(100, total - offset) : 0;
+      const rowsAt = offset < total ? Math.min(200, total - offset) : 0;
       const requisitionList = Array.from({ length: rowsAt }, (_, i) => ({
         ...obj(rowsFx[0]),
         Id: String(offset + i),
@@ -790,13 +790,13 @@ describe("oraclecloud", () => {
   const probeCalls = (urls: string[]) => urls.filter((u) => siteOfUrl(u) !== "CX_2001");
 
   it("pages the finder until TotalJobsCount and keeps rows untouched", async () => {
-    const { ctx, urls } = pages(250);
+    const { ctx, urls } = pages(450);
     const { items, result } = await drain(oraclecloud.list(src, ctx));
     expect(realCalls(urls)).toHaveLength(3);
     expect(realCalls(urls)[0]).toContain(
-      "finder=findReqs;siteNumber=CX_2001,limit=100,offset=0,keyword=",
+      "finder=findReqs;siteNumber=CX_2001,limit=200,offset=0,keyword=,sortBy=POSTING_DATES_DESC,facetsList=NONE",
     );
-    expect(items).toHaveLength(250);
+    expect(items).toHaveLength(450);
     expect(items[0]?.listing).toEqual({ ...obj(rowsFx[0]), Id: "0" });
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
   });
@@ -835,7 +835,7 @@ describe("oraclecloud", () => {
     await expect(drain(oraclecloud.list(src, board.ctx))).rejects.toThrow(/defaultSite/);
   });
 
-  it.each([150, 200])(
+  it.each([450, 500])(
     "checks the host default before yielding after an empty first page (probe total %i)",
     async (probeTotal) => {
       const fallback = { Id: "DEFAULT", Title: "Host default job" };
@@ -844,7 +844,7 @@ describe("oraclecloud", () => {
           return { items: [{ TotalJobsCount: probeTotal, requisitionList: [fallback] }] };
         const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
         return {
-          items: [{ TotalJobsCount: 150, requisitionList: offset === 0 ? [] : [fallback] }],
+          items: [{ TotalJobsCount: 450, requisitionList: offset === 0 ? [] : [fallback] }],
         };
       });
       await expect(oraclecloud.list(src, ctx).next()).rejects.toThrow(/defaultSite/);
@@ -882,7 +882,7 @@ describe("oraclecloud", () => {
   it("reports a short page before the reported total as incomplete", async () => {
     const { ctx, issues } = fakeCtx((url) =>
       siteOfUrl(url) === "CX_2001"
-        ? { items: [{ TotalJobsCount: 150, requisitionList: rowsFx }] }
+        ? { items: [{ TotalJobsCount: 450, requisitionList: rowsFx }] }
         : emptyBoard,
     );
     const { result } = await drain(oraclecloud.list(src, ctx));
@@ -890,17 +890,17 @@ describe("oraclecloud", () => {
     expect(issues[0]?.code).toBe("pagination");
   });
 
-  it.each([99, 0])(
+  it.each([199, 0])(
     "continues after an intermediate page with %i rows without claiming completeness",
     async (shortRows) => {
       const { ctx, urls, issues } = fakeCtx((url) => {
         if (siteOfUrl(url) !== "CX_2001") return emptyBoard;
         const offset = Number(/offset=(\d+)/.exec(url)?.[1]);
-        const size = offset === 0 ? 100 : offset === 100 ? shortRows : 50;
+        const size = offset === 0 ? 200 : offset === 200 ? shortRows : 50;
         return {
           items: [
             {
-              TotalJobsCount: 250,
+              TotalJobsCount: 450,
               requisitionList: Array.from({ length: size }, (_, i) => ({
                 Id: String(offset + i),
                 Title: `Job ${offset + i}`,
@@ -911,15 +911,15 @@ describe("oraclecloud", () => {
       });
       const { items, result } = await drain(oraclecloud.list(src, ctx));
       expect(realCalls(urls).map((url) => Number(/offset=(\d+)/.exec(url)?.[1]))).toEqual([
-        0, 100, 200,
+        0, 200, 400,
       ]);
-      expect(items).toHaveLength(150 + shortRows);
+      expect(items).toHaveLength(250 + shortRows);
       expect(items.at(-1)).toEqual({
-        id: "249",
-        listing: { Id: "249", Title: "Job 249" },
+        id: "449",
+        listing: { Id: "449", Title: "Job 449" },
       });
       expect(result).toEqual({ complete: false, emptyIsAuthoritative: false });
-      expect(issues).toEqual([{ code: "pagination", message: "Short page at offset 100" }]);
+      expect(issues).toEqual([{ code: "pagination", message: "Short page at offset 200" }]);
     },
   );
 
@@ -931,8 +931,8 @@ describe("oraclecloud", () => {
     );
     const { items, result } = await drain(oraclecloud.list(src, ctx));
     expect(items).toEqual([]);
-    expect(realCalls(urls)).toHaveLength(100);
-    expect(realCalls(urls).at(-1)).toContain("offset=9900");
+    expect(realCalls(urls)).toHaveLength(50);
+    expect(realCalls(urls).at(-1)).toContain("offset=9800");
     expect(result.complete).toBe(false);
     expect(issues.at(-1)?.message).toContain("caps at 10000");
   });
