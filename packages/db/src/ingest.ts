@@ -107,6 +107,25 @@ export async function startRun(db: Db, input: CreateRun, now = nowSeconds()): Pr
       status: "running",
     }),
   ]);
+  // Two starts can both pass the read above. The oldest insert (rowid order) keeps the source; a later one backs out.
+  const holder = (
+    await db
+      .select({ id: runs.id })
+      .from(runs)
+      .where(
+        and(
+          eq(runs.sourceId, source.id),
+          eq(runs.status, "running"),
+          sql`${runs.startedAt} > ${now - RUN_LEASE_SECONDS}`,
+        ),
+      )
+      .orderBy(sql`rowid`)
+      .limit(1)
+  )[0];
+  if (holder && holder.id !== input.runId) {
+    await db.delete(runs).where(eq(runs.id, input.runId));
+    throw new IngestError(409, `Source ${source.id} is already running (${holder.id})`);
+  }
   return { validator };
 }
 

@@ -89,3 +89,29 @@ it("starts and finalizes a run on a real D1 binding", async () => {
   const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, runId));
   expect(row?.status).toBe("complete");
 });
+
+it("lets exactly one of two concurrent starts claim a source", async () => {
+  const db = drizzle(proxy.env.DB, { schema });
+  const app = createApp({ db, blobs: memoryBlobs(), ingestToken: TOKEN });
+  const start = (runId: string) =>
+    app.request("/v1/runs", {
+      method: "POST",
+      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        runId,
+        source: { ...source, id: "greenhouse:race", key: "race" },
+        runnerId: "mac",
+        collectorVersion: "t",
+        startedAt: Math.floor(Date.now() / 1000),
+      }),
+    });
+  const statuses = (await Promise.all([start("run-race-a"), start("run-race-b")])).map(
+    (r) => r.status,
+  );
+  expect(statuses.sort()).toEqual([201, 409]);
+  const rows = await db
+    .select()
+    .from(schema.runs)
+    .where(eq(schema.runs.sourceId, "greenhouse:race"));
+  expect(rows).toHaveLength(1);
+});
