@@ -74,7 +74,8 @@ describe("llms.txt matches the public API", () => {
     const examples = [...llmsText().matchAll(/"(https:\/\/tallo\.nandan\.fyi[^"]*)"/g)].map((m) =>
       String(m[1]).replace(PUBLIC_ORIGIN, ""),
     );
-    expect(examples).toHaveLength(6);
+    // Six endpoint examples and the two quick-start commands.
+    expect(examples).toHaveLength(8);
     for (const path of examples) {
       const response = await app.request(path);
       expect(response.headers.get("content-type"), path).toContain("application/json");

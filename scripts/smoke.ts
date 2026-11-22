@@ -10,14 +10,19 @@ const failures: string[] = [];
 async function get(
   url: string,
   attempts = 3,
-): Promise<{ status: number; body: string; ms: number }> {
+): Promise<{ status: number; body: string; ms: number; type: string }> {
   for (let attempt = 1; ; attempt++) {
     const started = Date.now();
     const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     const body = await response.text();
     // A busy database answers 503 with Retry-After: a short transient after a deploy is expected, so wait it out.
     if (response.status !== 503 || attempt >= attempts) {
-      return { status: response.status, body, ms: Date.now() - started };
+      return {
+        status: response.status,
+        body,
+        ms: Date.now() - started,
+        type: response.headers.get("content-type") ?? "",
+      };
     }
     await new Promise((done) => setTimeout(done, 5_000));
   }
@@ -31,6 +36,7 @@ const check = (ok: boolean, message: string) => {
 const llms = await get(`${site}/llms.txt`);
 check(llms.status === 200, `/llms.txt answers 200 (${llms.status})`);
 check(llms.body === llmsText(), "/llms.txt is exactly what this commit generates");
+check(/charset=utf-8/i.test(llms.type), `/llms.txt is served as UTF-8 text (${llms.type})`);
 
 const openapi = await get(`${site}/v1/openapi.json`);
 check(openapi.status === 200, `/v1/openapi.json answers 200 (${openapi.status})`);
