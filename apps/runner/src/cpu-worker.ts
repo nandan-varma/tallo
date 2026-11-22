@@ -1,15 +1,21 @@
 import { parentPort } from "node:worker_threads";
-import { inThreadCpu } from "@tallo/collect";
+import { type Cpu, inThreadCpu } from "@tallo/collect";
 
 /** One pool thread: runs the same pure code as the in-thread default, one request at a time. */
 const port = parentPort;
 if (!port) throw new Error("cpu-worker must run in a worker thread");
-port.on("message", async (msg: { id: number; method: "hashes" | "prepare"; args: unknown[] }) => {
+type Message =
+  | { id: number; method: "hashes"; args: Parameters<Cpu["hashes"]> }
+  | { id: number; method: "prepare"; args: Parameters<Cpu["prepare"]> };
+
+port.on("message", async (msg: Message) => {
   try {
-    // biome-ignore lint/suspicious/noExplicitAny: the pool only sends the Cpu methods' own arguments
-    const value = await (inThreadCpu[msg.method] as (...a: any[]) => Promise<any>)(...msg.args);
-    const transfer = msg.method === "prepare" ? [value.jd.buffer as ArrayBuffer] : [];
-    port.postMessage({ id: msg.id, ok: true, value }, transfer);
+    if (msg.method === "hashes") {
+      port.postMessage({ id: msg.id, ok: true, value: await inThreadCpu.hashes(...msg.args) });
+    } else {
+      const value = await inThreadCpu.prepare(...msg.args);
+      port.postMessage({ id: msg.id, ok: true, value }, [value.jd.buffer as ArrayBuffer]);
+    }
   } catch (error) {
     port.postMessage({
       id: msg.id,
