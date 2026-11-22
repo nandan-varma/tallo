@@ -1,0 +1,146 @@
+{
+  "data": {
+    "roleSearch": {
+      "page": {
+        "pageSize": 3,
+        "pageNumber": 0,
+        "hasNext": true
+      },
+      "totalCount": 933,
+      "items": [
+        {
+          "roleId": "187448_GS_NOTICE_OF_FILING_LCA",
+          "corporateTitle": "Associate",
+          "jobTitle": "Global Banking & Markets - Dallas - Associate, Risk Governance - 10261170",
+          "jobFunction": "",
+          "locations": [
+            {
+              "state": "TX",
+              "corporateRegion": "Americas",
+              "country": "United States",
+              "city": "Dallas",
+              "longitude": null,
+              "latitude": null,
+              "primary": true
+            }
+          ],
+          "status": "POSTED",
+          "division": "Global Banking & Markets",
+          "shortDescription": "Associate, Risk Governance with Goldman Sachs Bank USA in Dallas, Texas",
+          "descriptionHtml": "<p>Job Duties: Associate, Risk Governance with Goldman Sachs Bank USA in Dallas, Texas. Improve fraud detection performance, uncover new fraud pattern, and provide deep qualitative and quantitative insights leveraging advanced data analytics tools and skills. Support the execution of fraud analytics, risk models, rules, and reporting. Collaborate with engineering and operations to develop and execute fraud strategies and capabilities. Maintain external knowledge of regulatory and compliance expectations, industry trends and emerging threats/risks as it relates to fraud risk management. Contribute to the ongoing optimization of the governance structure within the Fraud team, including but not limited to processes, procedures and decision-making forums.</p>\n<p>Job Requirements: Master’s degree (U.S. or foreign equivalent) in Mathematics, Statistics, Economics, Finance, Information Technology and Management, or a related field, and one (1) year of experience in the job offered or in a related role OR Bachelor’s degree (U.S. or foreign equivalent) in Mathematics, Statistics, Economics, Finance, Information Technology and Management, or a related field, and two (2) years of experience in the job offered or in a related role. Prior employment must include one (1) year of experience (with a Master’s) OR two (2) years of experience (with a Bachelor’s) with: utilizing data analytics tools and platforms to design fraud detection strategies; deriving key insights and signals from structured and unstructured data; detecting fraud in transaction categories including ACH, wires, real time payments, and deposits; utilizing SQL, and Microsoft Excel, Word, and PowerPoint to perform fraud pattern analytics and fraud strategy design; and machine learning algorithms for fraud detection.</p>\n<p>©The Goldman Sachs Group, Inc., 2026. All rights reserved. Goldman Sachs is an equal opportunity employer and does not discriminate on the basis of race, color, religion, sex, national origin, age, veteran status, disability, or any other characteristic protected by applicable law.</p>",
+          "skills": [],
+          "lastPostedDate": "2026-11-21T23:10:03.332Z",
+          "createdDate": "2026-11-22T00:26:24.446424472Z",
+          "lastModifiedDate": null,
+          "jobType": null,
+          "externalJobStatus": "POSTED",
+          "skillset": "",
+          "applicationFlowId": "300000585296015",
+          "compensation": {
+            "minSalary": null,
+            "maxSalary": null,
+            "currency": null
+          },
+          "externalSource": {
+            "sourceId": "187448",
+            "secondarySourceId": "300019402892161",
+            "externalSourceType": "ORACLE"
+          },
+          "educationLevel": null,
+          "gradDegreeStartDate": null,
+          "gradDegreeEndDate": null,
+          "startDate": "2026-11-06T16:47:39Z",
+          "endDate": null
+        },
+        {
+          "roleId": "178893_GS_MID_CAREER",
+          "corporateTitle": "Vice President",
+          "jobTitle": "Asset & Wealth Management, Alternative Investment Platform, GP Coverage and Sourcing, Vice President - New York",
+          "jobFunction": "Client Relationship Management",
+          "locations": [
+            {
+              "state": "NY",
+              "corporateRegion": "Americas",
+              "country": "United States",
+              "city": "New York",
+              "longitude": null,
+              "latitude": null,
+              "primary": true
+            }
+          ],
+          "status": "POSTED",
+          "division": "Asset & Wealth Management",
+          "shortDescription": "The GP Coverage and Sourcing team within the Alternative Investment Platform is seeking a Vice President focused on credit to join their team in New York City.",
+          "descriptionHtml": "<p><strong>YOUR IMPACT</strong></p><p>The GP Coverage and Sourcing team within the Alternative Investment Platform is seeking a Vice President focused on credit to join their team in New York City.  </p><p><strong>OUR IMPACT</strong></p><p><strong>Wealth Management</strong></p><p>Across Wealth Management, Goldman Sachs helps empower clients and customers around the world to reach their financial goals. Our advisor-led wealth management businesses provide financial planning, investment management, banking and comprehensive advice to a wide range of clients, including ultra-high net worth and high net worth individuals, as well as family offices, foundations and endowments, and corporations and their employees. Our consumer business provides digital solutions for customers to better spend, borrow, invest, and save. Across Wealth Management, our growth is driven by a relentless focus on our people, our clients and customers, and leading-edge technology, data and design.</p><p><strong>Alternative Investment Platform (AIP)</strong></p><p>The Alternative Investment Platform (AIP) is a global team comprised of 100&#43; alternative investment professionals across 13 global offices. The team is responsible for ~$200B in AUS, serving institutions, foundations, family offices, high net worth and ultra-high net worth individuals for Goldman Sachs Wealth Management. AIP, one of the leading allocators globally, includes the Alternative Capital Markets business, focused on curating a best-in-class alternatives platform and client experience across Goldman Sachs managed and externally managed strategies. The team curates investment opportunities for clients across the alternatives landscape, advises on building alternatives portfolios, and manages discretionary portfolios through our Alternatives Portfolio Services (APS) platform. Additionally, AIP includes our Private Company Investments (PCI) team and Private Secondaries Group (PSG).</p><p><strong>GP Coverage and Sourcing</strong></p><p>Within AIP, GP Coverage and Sourcing is responsible for leading the origination of alternative investment opportunities for GS Wealth clients. The team focuses on identifying investment strategies that meet client demand and address market opportunities by establishing and maintaining relationships with top asset managers. In addition, the team leads the structuring, capital markets and ongoing investor relations for each offering.</p><p><strong>HOW YOU WILL FULFILL YOUR POTENTIAL</strong></p><ul><li>Help establish and manage GS relationships with internal and external fund managers, with a particular focus on credit, to source and originate new alternative investment offerings across the credit ecosystem to meet client demand and address current market opportunities</li><li>Serve as an alternative investment strategist, helping establish GS Wealth’s house view on current private market trends / opportunities and providing insight to clients and internal GS constituents </li><l",
+          "skills": [],
+          "lastPostedDate": "2026-11-21T05:41:00.783Z",
+          "createdDate": "2026-11-22T00:26:48.071389181Z",
+          "lastModifiedDate": null,
+          "jobType": null,
+          "externalJobStatus": "POSTED",
+          "skillset": "",
+          "applicationFlowId": "300000585296015",
+          "compensation": {
+            "minSalary": null,
+            "maxSalary": null,
+            "currency": null
+          },
+          "externalSource": {
+            "sourceId": "178893",
+            "secondarySourceId": "300017945263556",
+            "externalSourceType": "ORACLE"
+          },
+          "educationLevel": null,
+          "gradDegreeStartDate": null,
+          "gradDegreeEndDate": null,
+          "startDate": "2026-11-20T16:25:39Z",
+          "endDate": null
+        },
+        {
+          "roleId": "187295_GS_NOTICE_OF_FILING_LCA",
+          "corporateTitle": "Associate",
+          "jobTitle": "Global Banking & Markets - New York - Associate, Banker - 10166460",
+          "jobFunction": "",
+          "locations": [
+            {
+              "state": "NY",
+              "corporateRegion": "Americas",
+              "country": "United States",
+              "city": "New York",
+              "longitude": null,
+              "latitude": null,
+              "primary": true
+            }
+          ],
+          "status": "POSTED",
+          "division": "Global Banking & Markets",
+          "shortDescription": "Associate, Banker with Goldman Sachs &amp; Co. LLC in New York, New York",
+          "descriptionHtml": "<p>Job Duties: Associate, Banker with Goldman Sachs &amp; Co. LLC in New York, New York. Generate structured solutions and provide advice on strategic hedging recommendations for cross asset and liability market risk management to corporate, financial, and project finance clients in Mexico. Develop complex presentations and financial models using internal pricing tools as well as MS Excel and Power Point. Coordinate pricing of complex derivatives and analyze the relevant associate risk factors. Establish new and build existing client relationships in the Foreign Exchange and Interest Rate hedging space with corporate and financial entities in Mexico and other Latin American countries. Coordinate financial aspects of legal negotiations, client onboarding, and credit discussions related to executing derivatives with clients. Coordinate with other internal teams, such as Debt Capital Markets, Equity Capital Markets and Mergers &amp; Acquisitions to include risk management solutions in client dialogue. Oversee live deal execution dealing with trading, confirmations, and settlements departments, as well as the client. Present to client CFOs and Treasury teams on topics such as Rates, FX &amp; Macroeconomic Market Updates, derivatives product specifics, and valuation considerations. Identify market-driven hedging opportunities for clients including Cash Flow, Fair Value and Net Investment hedging. Mentor and train Associates and Analysts while coordinating closely with internal and external senior team and executives.  </p>\n<p>Job Requirements: Bachelor’s degree (or foreign equivalent) in Mathematics, Economics, Finance, International Relations, or related field. Employer will accept bachelor&#39;s degree equivalent based on single degree, combination of degrees, or combination of degree(s) and professional work experience, where determined to be equivalent to U.S. bachelor&#39;s degree by a qualified credential evaluation service. Two (2) years of experience in the job offered or in a related role. Prior employment must include two (2) years of experience with: data analysis, including interpreting large datasets and extracting recommendations and insights; market research and analysis of key variables impacting financial and economic trends; preparing, interpreting, and presenting key metrics and insights to support financial decision making; sales and promotion of products or services, including client engagement, relationship management, and communication of value propositions; and utilizing Microsoft Excel and PowerPoint for financial analysis, data organization, modeling, and the preparation of presentations to clients and team.</p>\n<p>Salary Range: Annual base salary for this New York, New York-based position is $175,000 – $200,000.</p>\n<p>©The Goldman Sachs Group, Inc., 2026. All rights reserved. Goldman Sachs is an equal opportunity employer and does not discriminate on the basis of race, color, religion, sex, national origin, age, veteran sta",
+          "skills": [],
+          "lastPostedDate": "2026-11-20T23:10:13.511Z",
+          "createdDate": "2026-11-21T23:03:11.287833453Z",
+          "lastModifiedDate": null,
+          "jobType": null,
+          "externalJobStatus": "POSTED",
+          "skillset": "",
+          "applicationFlowId": "300000585296015",
+          "compensation": {
+            "minSalary": null,
+            "maxSalary": null,
+            "currency": "USD"
+          },
+          "externalSource": {
+            "sourceId": "187295",
+            "secondarySourceId": "300019431000985",
+            "externalSourceType": "ORACLE"
+          },
+          "educationLevel": null,
+          "gradDegreeStartDate": null,
+          "gradDegreeEndDate": null,
+          "startDate": "2026-11-05T15:53:35Z",
+          "endDate": null
+        }
+      ]
+    }
+  }
+}

@@ -5,12 +5,15 @@ import { ashby } from "./ashby/index.ts";
 import { bamboohr } from "./bamboohr/index.ts";
 import { breezy } from "./breezy/index.ts";
 import { gem } from "./gem/index.ts";
+import { goldman } from "./goldman/index.ts";
 import { google } from "./google/index.ts";
 import { greenhouse } from "./greenhouse/index.ts";
+import { ibm } from "./ibm/index.ts";
 import { icims } from "./icims/index.ts";
 import { jobvite } from "./jobvite/index.ts";
 import { lever } from "./lever/index.ts";
 import { meta } from "./meta/index.ts";
+import { microsoft } from "./microsoft/index.ts";
 import { netflix } from "./netflix/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
 import { personio } from "./personio/index.ts";
@@ -43,6 +46,9 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     google,
     apple,
     meta,
+    microsoft,
+    ibm,
+    goldman,
     rippling,
     gem,
     pinpoint,
@@ -67,12 +73,15 @@ export {
   bamboohr,
   breezy,
   gem,
+  goldman,
   google,
   greenhouse,
+  ibm,
   icims,
   jobvite,
   lever,
   meta,
+  microsoft,
   netflix,
   oraclecloud,
   personio,
