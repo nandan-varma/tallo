@@ -55,6 +55,12 @@ if a board changes while paging, and marks the listing incomplete when the final
 (unique ones plus rows without an `externalPath`) falls short. Facet coverage or duplicate pages
 cannot establish completeness from page length alone; incomplete listings never apply job closure.
 
+A slice that reports the cap is split by facet right after its first page; its other 99 pages would only repeat
+what the children list. The parent is paged in full only when the children cover fewer than 2,000 rows. Measured
+on Citi (wd5): 791 requests before, 692 after, the same 4,207 postings (identical id sets), complete. The facet is
+still the one with the most coverage; a cheaper facet was not adopted because nothing proves it covers the board.
+`remoteType` ("Remote", "Hybrid", "On-Site", "In Office") is read as work mode; version 5.
+
 Live behaviour (checked with curl and `tallo verify`, November 2026):
 - `limit` is capped at 20: 21, 50, 100, 200 and 2000 all return HTTP 400. `offset` is honoured only up to 2000 on
   capped boards: from offset 2000 on they return the first page again and report `total` 2000 (Citi, Accenture,
@@ -95,6 +101,11 @@ refuses a site whose first requisition Id or total matches the probe, unless the
 The seven seeds that carry it are the host default. Tenet (`eodr`, CX_1001) is not seeded: its first Id matches the
 host default, so it is refused, and it is a distinct board (different total, 94 of the first 100 Ids shared), so the
 acknowledgement would be false. Listing stops at 10,000 results and reports incomplete.
+
+The finder is read 200 rows a page (it clamps a larger `limit` to 200; checked live with 500), newest first
+(`sortBy=POSTING_DATES_DESC`, so offsets stay stable while postings arrive) and without facet arrays
+(`facetsList=NONE`; nothing reads them). Across the seven boards that is 90 list requests a run instead of 177.
+Two boards (eeho, edel) still end with one short page: the finder reports 2 rows more than it returns.
 
 Oracle short pages before the reported total are recorded as incomplete, but collection continues
 through later offsets up to the 10,000-result cap. This retains later postings without treating
