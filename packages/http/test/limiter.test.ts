@@ -115,6 +115,45 @@ describe("createHostLimiter interval gate", () => {
   });
 });
 
+describe("createHostLimiter setHostInterval", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("slows one host without touching another, and can be removed", async () => {
+    vi.useFakeTimers();
+    const starts: Record<string, number[]> = { slow: [], fast: [] };
+    const fetchImpl = (async (input: string | URL) => {
+      starts[
+        new URL((input as unknown as Request).url ?? String(input)).hostname.split(".")[0]!
+      ]!.push(Date.now());
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    const limiter = createHostLimiter({ perHostConcurrency: 4, minHostIntervalMs: 100 });
+    const http = createHttp({
+      fetch: fetchImpl,
+      allowedHosts: ["slow.test", "fast.test"],
+      limiter,
+    });
+    limiter.setHostInterval?.("slow.test", 1000);
+    const t0 = Date.now();
+    const run = (host: string) =>
+      Promise.all([0, 1, 2].map((i) => http.getJson(`https://${host}/${i}`)));
+    const done = Promise.all([run("slow.test"), run("fast.test")]);
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+    expect(starts.slow!.map((t) => t - t0)).toEqual([0, 1000, 2000]);
+    expect(starts.fast!.map((t) => t - t0)).toEqual([0, 100, 200]);
+    limiter.setHostInterval?.("slow.test", undefined);
+    starts.slow = [];
+    const t1 = Date.now();
+    const again = run("slow.test");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await again;
+    expect(starts.slow.map((t) => t - t1).slice(1)).toEqual([100, 200]);
+  });
+});
+
 describe("createHostLimiter setLimits", () => {
   afterEach(() => {
     vi.useRealTimers();

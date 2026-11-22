@@ -35,6 +35,8 @@ export function formatStatus(status: SweepStatus, events: string[], now = Date.n
       extra.push(`${name}: ${l.deferred} deferred, next retry ${l.nextRetryAt.slice(11, 19)}Z`);
     for (const b of l.inFlight.filter((x) => x.runningSec >= 120))
       extra.push(`${name}: ${b.id} running ${b.runningSec}s`);
+    if (l.hostsSlowed > 0)
+      extra.push(`${name}: ${l.hostsSlowed} hosts slowed, worst host gap ${l.worstHostGapMs} ms`);
     if (l.errors[0]) extra.push(`${name}: last error ${l.errors[0]}`);
   }
   if (extra.length) lines.push("", ...extra);

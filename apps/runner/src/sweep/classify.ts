@@ -3,7 +3,7 @@ import type { Outcome } from "@tallo/collect";
 /** What a finished board attempt means for the sweep. */
 export type Verdict =
   | { kind: "ok" }
-  | { kind: "retryable"; reason: string; retryAfterMs?: number }
+  | { kind: "retryable"; reason: string; retryAfterMs?: number; busy?: true }
   | { kind: "permanent"; reason: string };
 
 const RETRYABLE =
@@ -36,7 +36,7 @@ export function classifyError(error: unknown): Verdict {
   const retryAfterMs = parseRetryAfter(headers?.get?.("retry-after"));
   const after = retryAfterMs === undefined ? {} : { retryAfterMs };
   if (status !== undefined) {
-    if (status === 409) return { kind: "retryable", reason: "409 busy", ...after };
+    if (status === 409) return { kind: "retryable", reason: "409 busy", busy: true, ...after };
     if (status === 408 || status === 429 || status >= 500)
       return { kind: "retryable", reason: `HTTP ${status}`, ...after };
     return { kind: "permanent", reason: `HTTP ${status}: ${text.slice(0, 120)}` };
@@ -58,7 +58,14 @@ export function classifyOutcome(outcome: Outcome): Verdict {
   if (outcome.boardNotFound) return { kind: "permanent", reason: "404 board gone" };
   const issues = outcome.issues;
   const retry = issues.find((i) => RETRYABLE.test(i.message));
-  if (retry) return { kind: "retryable", reason: retry.message.slice(0, 120) };
+  if (retry) {
+    const busy = /\b409\b/.test(retry.message);
+    return {
+      kind: "retryable",
+      reason: retry.message.slice(0, 120),
+      ...(busy ? { busy: true } : {}),
+    };
+  }
   const fatal = issues.find(
     (i) => i.code === "schema" || i.code === "blocked" || i.code === "budget",
   );

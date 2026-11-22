@@ -19,6 +19,8 @@ export interface LaneDef {
   settings: LaneSettings;
   /** Platforms that need a tighter limit than the lane: their own host cap and start gap. */
   floors?: Record<string, { perHost?: number; gapMs?: number }>;
+  /** Many hosts (a tenant or site each): a 429 slows its host, not the lane. Absent: one host, lane-wide. */
+  multiHost?: boolean;
 }
 
 const lane = (
@@ -35,49 +37,55 @@ const lane = (
   ...(floors ? { floors } : {}),
 });
 
+const multiHost = (def: LaneDef): LaneDef => ({ ...def, multiHost: true });
+
 /** Defaults from the old scripts/sweep.ts: about 30 boards in flight in total. */
 export const LANES: LaneDef[] = [
   lane("greenhouse", ["greenhouse"], 5, 5),
   lane("lever", ["lever"], 3, 3),
   lane("ashby", ["ashby"], 3, 3),
   lane("smartrecruiters", ["smartrecruiters"], 3, 3),
-  lane("workday", ["workday"], 6, 2, 250),
-  lane("oracle-icims", ["oraclecloud", "icims"], 2, 2, 250),
-  lane(
-    "small-ats",
-    [
-      "jobvite",
-      "recruitee",
-      "teamtailor",
-      "bamboohr",
-      "personio",
-      "workable",
-      "rippling",
-      "gem",
-      "pinpoint",
-      "breezy",
-    ],
-    3,
-    3,
-    0,
-    {
-      jobvite: { perHost: 1, gapMs: 3000 },
-      bamboohr: { perHost: 2, gapMs: 250 },
-      personio: { perHost: 2, gapMs: 250 },
-      workable: { perHost: 2, gapMs: 250 },
-      breezy: { perHost: 2 },
-    },
+  multiHost(lane("workday", ["workday"], 6, 2, 250)),
+  multiHost(lane("oracle-icims", ["oraclecloud", "icims"], 2, 2, 250)),
+  multiHost(
+    lane(
+      "small-ats",
+      [
+        "jobvite",
+        "recruitee",
+        "teamtailor",
+        "bamboohr",
+        "personio",
+        "workable",
+        "rippling",
+        "gem",
+        "pinpoint",
+        "breezy",
+      ],
+      3,
+      3,
+      0,
+      {
+        jobvite: { perHost: 1, gapMs: 3000 },
+        bamboohr: { perHost: 2, gapMs: 250 },
+        personio: { perHost: 2, gapMs: 250 },
+        workable: { perHost: 2, gapMs: 250 },
+        breezy: { perHost: 2 },
+      },
+    ),
   ),
   lane("walmart", ["walmart"], 1, 1, 700),
   lane("microsoft", ["microsoft"], 1, 1, 1000),
   lane("apple", ["apple"], 1, 3, 150),
   lane("meta", ["meta"], 1, 2, 500),
-  lane("big-sites", ["google", "amazon", "netflix", "ibm", "goldman"], 1, 2, 0, {
-    google: { gapMs: 250 },
-    amazon: { perHost: 1, gapMs: 500 },
-    netflix: { perHost: 1, gapMs: 1000 },
-    goldman: { perHost: 1 },
-  }),
+  multiHost(
+    lane("big-sites", ["google", "amazon", "netflix", "ibm", "goldman"], 1, 2, 0, {
+      google: { gapMs: 250 },
+      amazon: { perHost: 1, gapMs: 500 },
+      netflix: { perHost: 1, gapMs: 1000 },
+      goldman: { perHost: 1 },
+    }),
+  ),
 ];
 
 export interface GlobalSettings {
