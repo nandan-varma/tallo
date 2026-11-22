@@ -105,6 +105,16 @@ Hourly (`:17`): reap stuck runs, purge jobs closed 30+ days and orphaned descrip
 packs (two packs per source, 30 days of other runs, at most 1,000 blob deletes an hour), regroup duplicates, repair
 boards stranded far in the future. Duplicates are one canonical row (`dup_of`); the hidden-source rule is 14 days.
 
+## Weekly check (five minutes)
+
+1. `collect/status` (above): `enabled` is true, `dueNow` near zero, `inFlight` small.
+2. `wrangler d1 info tallo --json`: `rows_written_24h`. The Workers Paid plan includes 50M writes a month (about 1.6M a
+   day); steady-state weekly collection writes roughly 0.2M to 0.8M a day. A sustained day above 1.6M means a bulk
+   re-fetch (a platform `version` bump) or a stuck retry loop: look at `runs` for repeated partials.
+3. `tallo sources --dead`: boards confirmed gone (a 404 on the board's own API) are removed from `sources/*.json` and
+   retired with `tallo retire <platform:key>`.
+4. Mac: `~/Library/Logs/tallo/local-egress.log` shows the last daily run (Amazon, Apple, Google, Meta, Netflix, four Workday tenants).
+
 ## Backup and restore
 
 D1 Time Travel (30 days) is the primary backup. `scripts/backup-d1.sh run` also exports the real tables to
