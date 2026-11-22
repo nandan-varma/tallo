@@ -11,3 +11,4 @@ export * from "./platform.ts";
 export * from "./public-api.ts";
 export * from "./schedule.ts";
 export * from "./search.ts";
+export * from "./site-stats.ts";
