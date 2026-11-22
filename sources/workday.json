@@ -36,8 +36,22 @@
   }
  },
  {
+  "key": "academy/Careers",
+  "company": "Academy Sports + Outdoors",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "accenture/AccentureCareers",
   "company": "Accenture",
+  "params": {
+   "wd": "wd103"
+  }
+ },
+ {
+  "key": "accenture/AvanadeCareers",
+  "company": "Avanade",
   "params": {
    "wd": "wd103"
   }
@@ -183,6 +197,13 @@
   }
  },
  {
+  "key": "ameriprise/Ameriprise",
+  "company": "Ameriprise Financial",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "amgen/Careers",
   "company": "Amgen",
   "params": {
@@ -246,6 +267,13 @@
   }
  },
  {
+  "key": "arrow/AC",
+  "company": "Arrow Electronics",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "ashland/AshlandCareers1",
   "company": "Ashland",
   "params": {
@@ -274,6 +302,20 @@
   }
  },
  {
+  "key": "asu/ASUStaffCareers",
+  "company": "Arizona State University",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "asurion/AsurionCareers_US",
+  "company": "Asurion",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "att/ATTGeneral",
   "company": "AT&T",
   "params": {
@@ -285,6 +327,13 @@
   "company": "Autodesk",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "autonation/Careers",
+  "company": "AutoNation",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -304,6 +353,13 @@
  {
   "key": "avisbudget/abg_careers",
   "company": "Avis Budget Group",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "avnet/External",
+  "company": "Avnet",
   "params": {
    "wd": "wd1"
   }
@@ -351,6 +407,27 @@
   }
  },
  {
+  "key": "bakerhughes/BakerHughes",
+  "company": "Baker Hughes",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "bannerhealth/Careers",
+  "company": "Banner Health",
+  "params": {
+   "wd": "wd108"
+  }
+ },
+ {
+  "key": "bannerhealth/sonoraquestcareers",
+  "company": "Banner Health",
+  "params": {
+   "wd": "wd108"
+  }
+ },
+ {
   "key": "barclays/External_Career_Site_Barclays",
   "company": "Barclays",
   "params": {
@@ -372,8 +449,22 @@
   }
  },
  {
+  "key": "baxter/baxter",
+  "company": "Baxter",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "bb/QNX",
   "company": "Black Bery",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "bbva/BBVA",
+  "company": "BBVA",
   "params": {
    "wd": "wd3"
   }
@@ -484,10 +575,31 @@
   }
  },
  {
+  "key": "brown/staff-careers-brown",
+  "company": "Brown University",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "bupa/ext_career",
   "company": "Bupa",
   "params": {
    "wd": "wd3"
+  }
+ },
+ {
+  "key": "burlington/BurlingtonCareers",
+  "company": "Burlington",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "caci/External",
+  "company": "CACI",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -547,10 +659,31 @@
   }
  },
  {
+  "key": "cardinalhealth/EXT",
+  "company": "Cardinal Health",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "carislifesciences/CLS",
   "company": "Caris",
   "params": {
    "wd": "wd12"
+  }
+ },
+ {
+  "key": "carmax/External",
+  "company": "CarMax",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "carrier/jobs",
+  "company": "Carrier",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -561,10 +694,31 @@
   }
  },
  {
+  "key": "cat/SolarTurbines",
+  "company": "Caterpillar",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "cboe/External_Career_CBOE",
   "company": "Cboe",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "cdw/Careers",
+  "company": "CDW",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "centene/Centene_External",
+  "company": "Centene",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -603,6 +757,13 @@
   }
  },
  {
+  "key": "chevron/jobs",
+  "company": "Chevron",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "chevron/University",
   "company": "Chevron Corporation",
   "params": {
@@ -614,6 +775,27 @@
   "company": "Chewy",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "chipotle/ChipotleCareers",
+  "company": "Chipotle",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "chop/CHOPExternalCareers",
+  "company": "Children's Hospital of Philadelphia",
+  "params": {
+   "wd": "wd108"
+  }
+ },
+ {
+  "key": "cibc/search",
+  "company": "CIBC",
+  "params": {
+   "wd": "wd3"
   }
  },
  {
@@ -673,10 +855,31 @@
   }
  },
  {
+  "key": "cmu/CMU",
+  "company": "Carnegie Mellon University",
+  "params": {
+   "wd": "wd115"
+  }
+ },
+ {
+  "key": "cna/CNA_Careers",
+  "company": "CNA",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "collectorsuniverse/collectors",
   "company": "Collectors",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "colliers/Colliers-External-Career-Site",
+  "company": "Colliers",
+  "params": {
+   "wd": "wd3"
   }
  },
  {
@@ -710,6 +913,20 @@
  {
   "key": "conocophillips/External",
   "company": "ConocoPhillips",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "cornell/CornellCareerPage",
+  "company": "Cornell University",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "cornell/CornellPositions",
+  "company": "Cornell University",
   "params": {
    "wd": "wd1"
   }
@@ -779,6 +996,13 @@
   }
  },
  {
+  "key": "danafarber/dana-farber",
+  "company": "Dana-Farber Cancer Institute",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "danaher/danaherjobs",
   "company": "Danaher",
   "params": {
@@ -790,6 +1014,13 @@
   "company": "Dataminr",
   "params": {
    "wd": "wd12"
+  }
+ },
+ {
+  "key": "davita/DKC_External",
+  "company": "DaVita",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -821,10 +1052,52 @@
   }
  },
  {
+  "key": "diageo/Diageo_Careers",
+  "company": "Diageo",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "dickssportinggoods/DSG",
+  "company": "DICK'S Sporting Goods",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "dimensional/dfa_careers",
   "company": "Dimensional Fund Advisors",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "dollartree/dollartreeca",
+  "company": "Dollar Tree",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "dollartree/dollartreeus",
+  "company": "Dollar Tree",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "dover/Dover",
+  "company": "Dover",
+  "params": {
+   "wd": "wd103"
+  }
+ },
+ {
+  "key": "dow/ExternalCareers",
+  "company": "Dow",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -853,6 +1126,13 @@
   "company": "Duke Energy",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "dupont/Jobs",
+  "company": "DuPont",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -926,6 +1206,20 @@
   }
  },
  {
+  "key": "essentiahealth/Essentia_Health",
+  "company": "Essentia Health",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "essentiahealth/Essentia_Health_Credentialed",
+  "company": "Essentia Health",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "evergreenix/external-careers2",
   "company": "Everfox",
   "params": {
@@ -963,6 +1257,34 @@
  {
   "key": "fico/External",
   "company": "FICO",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "fifththird/53careers",
+  "company": "Fifth Third Bank",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "fis/SearchJobs",
+  "company": "FIS",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "fiserv/EXT",
+  "company": "Fiserv",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "fivebelow/fivebelowcareers",
+  "company": "Five Below",
   "params": {
    "wd": "wd1"
   }
@@ -1017,6 +1339,13 @@
   }
  },
  {
+  "key": "fox/Domestic",
+  "company": "Fox Corporation",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "foxfactory/FOX",
   "company": "Fox Factory",
   "params": {
@@ -1059,6 +1388,20 @@
   }
  },
  {
+  "key": "gehc/GEHC_ExternalSite",
+  "company": "GE HealthCare",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "geisinger/GeisingerExternal",
+  "company": "Geisinger",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "generac/external",
   "company": "Generac",
   "params": {
@@ -1084,6 +1427,13 @@
   "company": "Gentex Corporation",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "georgetown/Georgetown_Admin_Careers",
+  "company": "Georgetown University",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -1178,10 +1528,38 @@
   }
  },
  {
+  "key": "guidewire/external",
+  "company": "Guidewire",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "harris/HarrisCompanyCareers",
+  "company": "Harris Companies",
+  "params": {
+   "wd": "wd108"
+  }
+ },
+ {
+  "key": "hcahealthcare/hcacareers",
+  "company": "HCA Healthcare",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
   "key": "hcmportal/Search",
   "company": "United Parcel Service (UPS)",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "healthcare/Search",
+  "company": "Solventum",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -1192,8 +1570,22 @@
   }
  },
  {
+  "key": "heinz/KraftHeinz_Careers",
+  "company": "Kraft Heinz",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "heinz/KraftHeinz_Careers_BC",
   "company": "Kraft Heinz",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "henryschein/External_Careers",
+  "company": "Henry Schein",
   "params": {
    "wd": "wd1"
   }
@@ -1234,10 +1626,24 @@
   }
  },
  {
+  "key": "honorhealth/HonorHealth_careers",
+  "company": "HonorHealth",
+  "params": {
+   "wd": "wd12"
+  }
+ },
+ {
   "key": "horizonmedia/CareerOpportunities",
   "company": "Horizon media",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "houstonmethodist/GTI",
+  "company": "Houston Methodist",
+  "params": {
+   "wd": "wd12"
   }
  },
  {
@@ -1269,10 +1675,38 @@
   }
  },
  {
+  "key": "hpe/WFMathpe",
+  "company": "Hewlett Packard Enterprise",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "hrhub/Euronext_Career_Page",
   "company": "Euronext",
   "params": {
    "wd": "wd3"
+  }
+ },
+ {
+  "key": "humana/CenterWell_External_Career_Site",
+  "company": "Humana",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "humana/Humana_External_Career_Site",
+  "company": "Humana",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "huntington/HNBcareers",
+  "company": "Huntington Bank",
+  "params": {
+   "wd": "wd12"
   }
  },
  {
@@ -1299,6 +1733,20 @@
  {
   "key": "imf/IMF",
   "company": "International Monetary Fund",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "ing/ICSGBLCOR",
+  "company": "ING",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "ingrammicro/IngramMicro",
+  "company": "Ingram Micro",
   "params": {
    "wd": "wd5"
   }
@@ -1346,6 +1794,13 @@
   }
  },
  {
+  "key": "iqvia/IQVIA",
+  "company": "IQVIA",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "ironmountain/iron-mountain-jobs",
   "company": "Iron Mountain",
   "params": {
@@ -1357,6 +1812,13 @@
   "company": "STOXX",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "itw/External",
+  "company": "Illinois Tool Works",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -1381,6 +1843,13 @@
   }
  },
  {
+  "key": "jbhunt/Careers",
+  "company": "J.B. Hunt",
+  "params": {
+   "wd": "wd501"
+  }
+ },
+ {
   "key": "jci/JCI",
   "company": "Johnson Controls",
   "params": {
@@ -1402,10 +1871,24 @@
   }
  },
  {
+  "key": "jeffersonhealth/ThomasJeffersonExternal",
+  "company": "Jefferson Health",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "jj/JJ",
   "company": "Johnson & Johnson",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "jll/jllcareers",
+  "company": "JLL",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -1437,6 +1920,13 @@
   }
  },
  {
+  "key": "kimberlyclark/GLOBAL",
+  "company": "Kimberly-Clark",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "kla/search",
   "company": "KLA Corporation",
   "params": {
@@ -1465,6 +1955,13 @@
   }
  },
  {
+  "key": "labcorp/External",
+  "company": "Labcorp",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "legalshieldcorp/lsc",
   "company": "PPLSI",
   "params": {
@@ -1479,6 +1976,13 @@
   }
  },
  {
+  "key": "lennar/Lennar_Jobs",
+  "company": "Lennar",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "leonardocompany/LeonardoCareerSite",
   "company": "Leonardo",
   "params": {
@@ -1490,6 +1994,13 @@
   "company": "Lexmark",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "lilly/LLY",
+  "company": "Eli Lilly",
+  "params": {
+   "wd": "wd115"
   }
  },
  {
@@ -1535,6 +2046,13 @@
   }
  },
  {
+  "key": "lvhn/LVHN",
+  "company": "Lehigh Valley Health Network",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "lytx/Lytx",
   "company": "Lytx, Inc.",
   "params": {
@@ -1556,8 +2074,22 @@
   }
  },
  {
+  "key": "mars/External",
+  "company": "Mars",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
   "key": "marvell/MarvellCareers",
   "company": "Marvell",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "masco/Masco",
+  "company": "Masco",
   "params": {
    "wd": "wd1"
   }
@@ -1581,6 +2113,76 @@
   "company": "MBDA",
   "params": {
    "wd": "wd3"
+  }
+ },
+ {
+  "key": "mckesson/External_Careers",
+  "company": "McKesson",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "mdlz/External",
+  "company": "Mondelez International",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "medtronic/MedtronicCareers",
+  "company": "Medtronic",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "meijer/Fresh_Thyme_Stores_External_Career_Site",
+  "company": "Meijer",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "meijer/Meijer",
+  "company": "Meijer",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "meijer/Meijer_Stores_Hourly",
+  "company": "Meijer",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "meijer/Meijer_Stores_Leadership",
+  "company": "Meijer",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "memorialhermann/external",
+  "company": "Memorial Hermann",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "mercy/mercycareers",
+  "company": "Mercy",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "michaels/External",
+  "company": "Michaels",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -1623,6 +2225,34 @@
   "company": "Moffitt Cancer Center",
   "params": {
    "wd": "wd108"
+  }
+ },
+ {
+  "key": "montefiore/MMC",
+  "company": "Montefiore Medicine",
+  "params": {
+   "wd": "wd12"
+  }
+ },
+ {
+  "key": "montefiore/Nyack",
+  "company": "Montefiore Medicine",
+  "params": {
+   "wd": "wd12"
+  }
+ },
+ {
+  "key": "montefiore/SLCH",
+  "company": "Montefiore Medicine",
+  "params": {
+   "wd": "wd12"
+  }
+ },
+ {
+  "key": "montefiore/WP",
+  "company": "Montefiore Medicine",
+  "params": {
+   "wd": "wd12"
   }
  },
  {
@@ -1696,6 +2326,13 @@
   }
  },
  {
+  "key": "multicare/multicare",
+  "company": "MultiCare",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "myhrabc/Global",
   "company": "Cencora",
   "params": {
@@ -1719,6 +2356,13 @@
  {
   "key": "nasdaq/Global_External_Site",
   "company": "Nasdaq",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "nationwide/Nationwide_Career",
+  "company": "Nationwide",
   "params": {
    "wd": "wd1"
   }
@@ -1773,10 +2417,24 @@
   }
  },
  {
+  "key": "nike/nke2",
+  "company": "Nike",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "nordstrom/nordstrom_careers",
   "company": "Nordstrom",
   "params": {
    "wd": "wd501"
+  }
+ },
+ {
+  "key": "northeastern/careers",
+  "company": "Northeastern University",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -1808,6 +2466,20 @@
   }
  },
  {
+  "key": "nyp/nypcareers",
+  "company": "NewYork-Presbyterian",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "ohiohealth/OhioHealthJobs",
+  "company": "OhioHealth",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "olg/Careers",
   "company": "Olg ",
   "params": {
@@ -1836,6 +2508,20 @@
   }
  },
  {
+  "key": "oreillyauto/oreilly",
+  "company": "O’Reilly Auto Parts",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "osu/OSUCareers",
+  "company": "The Ohio State University",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "osv-amerisure/Amerisure",
   "company": "Amerisure",
   "params": {
@@ -1857,6 +2543,20 @@
   }
  },
  {
+  "key": "owens/OCC",
+  "company": "Owens Community College",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "pacificlife/PacificLifeCareers",
+  "company": "Pacific Life",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "pae/amentum_careers",
   "company": "Amentum",
   "params": {
@@ -1868,6 +2568,13 @@
   "company": "Palo Alto Networks",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "papajohns/PapaJohnsCareers",
+  "company": "Papa Johns",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -1969,6 +2676,27 @@
   }
  },
  {
+  "key": "ppg/PPG_CAREERS",
+  "company": "PPG",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "prologis/Prologis_External_Careers",
+  "company": "Prologis",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "prudential/prudential",
+  "company": "Prudential Financial",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
   "key": "psu/PSU_Staff",
   "company": "Pennsylvania State University",
   "params": {
@@ -1976,7 +2704,35 @@
   }
  },
  {
+  "key": "ptc/PTC",
+  "company": "PTC",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "pultegroup/PGI",
+  "company": "PulteGroup",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "pvh/PVH_Careers",
+  "company": "PVH",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "pwc/Global_Experienced_Careers",
+  "company": "PwC",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "pwc/US_Experienced_Careers",
   "company": "PwC",
   "params": {
    "wd": "wd3"
@@ -1994,6 +2750,13 @@
   "company": "Rakuten",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "randstad/randstadcareers",
+  "company": "Randstad",
+  "params": {
+   "wd": "wd502"
   }
  },
  {
@@ -2018,10 +2781,38 @@
   }
  },
  {
+  "key": "rbc/RBCGLOBAL1",
+  "company": "Royal Bank of Canada",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "regeneron/Careers",
+  "company": "Regeneron",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "regions/Regions_Careers",
+  "company": "Regions Bank",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "reliaquest/ReliaQuest_Careers",
   "company": "ReliaQuest",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "relx/ElsevierJobs",
+  "company": "Elsevier",
+  "params": {
+   "wd": "wd3"
   }
  },
  {
@@ -2053,6 +2844,34 @@
   }
  },
  {
+  "key": "roberthalf/ProtivitiExperiencedCareers",
+  "company": "Robert Half",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "roberthalf/ProtivitiNA",
+  "company": "Robert Half",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "roberthalf/RHAPACCareers",
+  "company": "Robert Half",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "roberthalf/RobertHalfStaffingCareers",
+  "company": "Robert Half",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "roche/roche-ext",
   "company": "Roche",
   "params": {
@@ -2071,6 +2890,13 @@
   "company": "Rocket",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "rockwellautomation/External_Rockwell_Automation",
+  "company": "Rockwell Automation",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -2095,6 +2921,13 @@
   }
  },
  {
+  "key": "ryder/RyderCareers",
+  "company": "Ryder",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "saabusa/saab_careers",
   "company": "Saab",
   "params": {
@@ -2104,6 +2937,13 @@
  {
   "key": "sabre/SabreJobs",
   "company": "Sabre India",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "saia/SaiaCareers",
+  "company": "Saia",
   "params": {
    "wd": "wd1"
   }
@@ -2125,6 +2965,20 @@
  {
   "key": "sandvik/gibbscam-jobs",
   "company": "Gibbs Cam",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "santander/SantanderCareers",
+  "company": "Santander",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
+  "key": "santander/UKSantanderCareers",
+  "company": "Santander",
   "params": {
    "wd": "wd3"
   }
@@ -2165,6 +3019,13 @@
   }
  },
  {
+  "key": "sentara/SCS",
+  "company": "Sentara",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "sentryinsurance/SentryCareers",
   "company": "Sentry Insurance",
   "params": {
@@ -2176,6 +3037,20 @@
   "company": "Scientific Games",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "sharp/External",
+  "company": "Sharp HealthCare",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "shell/ShellCareers",
+  "company": "Shell",
+  "params": {
+   "wd": "wd3"
   }
  },
  {
@@ -2221,6 +3096,13 @@
   }
  },
  {
+  "key": "sky/TUX",
+  "company": "Sky",
+  "params": {
+   "wd": "wd3"
+  }
+ },
+ {
   "key": "snapchat/snap",
   "company": "Snap Inc.",
   "params": {
@@ -2253,6 +3135,13 @@
   "company": "Sony Pictures Entertainment",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "spgi/SPGI_Careers",
+  "company": "S&P Global",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -2305,6 +3194,13 @@
   }
  },
  {
+  "key": "sutterhealth/SH",
+  "company": "Sutter Health",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "swa/external",
   "company": "Southwest Airlines",
   "params": {
@@ -2330,6 +3226,13 @@
   "company": "Syniverse",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "sysco/syscocareers",
+  "company": "Sysco",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -2397,6 +3300,20 @@
   }
  },
  {
+  "key": "thehartford/Careers_External",
+  "company": "The Hartford",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "thermofisher/ThermoFisherCareers",
+  "company": "Thermo Fisher Scientific",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "thisisglobal/Global",
   "company": "Global",
   "params": {
@@ -2404,10 +3321,31 @@
   }
  },
  {
+  "key": "thomsonreuters/External_Career_Site",
+  "company": "Thomson Reuters",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "thrivent/external",
   "company": "Thrivent",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "tiaa/Search",
+  "company": "TIAA",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "tjx/TJX_EXTERNAL",
+  "company": "TJX Companies",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -2421,6 +3359,13 @@
  {
   "key": "toppanmerrill/Toppan_Merrill",
   "company": "Toppan MErril",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "transamerica/US",
+  "company": "Transamerica",
   "params": {
    "wd": "wd5"
   }
@@ -2468,6 +3413,27 @@
   }
  },
  {
+  "key": "trimble/TrimbleCareers",
+  "company": "Trimble",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "trinityhealth/Jobs",
+  "company": "Trinity Health",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "truist/Careers",
+  "company": "Truist",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "tsc/TSC-Careers",
   "company": "TSC",
   "params": {
@@ -2496,6 +3462,13 @@
   }
  },
  {
+  "key": "uchicago/External",
+  "company": "University of Chicago",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "uline/Uline_Careers",
   "company": "Uline",
   "params": {
@@ -2507,6 +3480,13 @@
   "company": "Underwriters Laboratories",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "umd/UMCP",
+  "company": "University of Maryland",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -2545,6 +3525,20 @@
   }
  },
  {
+  "key": "upenn/careers-at-penn",
+  "company": "University of Pennsylvania",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "upenn/PSOM",
+  "company": "University of Pennsylvania",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "usaa/USAAJOBSWD",
   "company": "USAA",
   "params": {
@@ -2563,6 +3557,13 @@
   "company": "University of Southern California",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "usfoods/usfoodscareersExternal",
+  "company": "US Foods",
+  "params": {
+   "wd": "wd1"
   }
  },
  {
@@ -2587,6 +3588,13 @@
   }
  },
  {
+  "key": "uvmhealth/EXTERNAL",
+  "company": "University of Vermont Health Network",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "valeo/valeo_jobs",
   "company": "Valeo",
   "params": {
@@ -2605,6 +3613,20 @@
   "company": "Vanguard",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "verizon/frontier_career_site",
+  "company": "Verizon",
+  "params": {
+   "wd": "wd12"
+  }
+ },
+ {
+  "key": "verizon/verizon-careers",
+  "company": "Verizon",
+  "params": {
+   "wd": "wd12"
   }
  },
  {
@@ -2650,8 +3672,22 @@
   }
  },
  {
+  "key": "visa/Visa_Talent_Portal",
+  "company": "Visa",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
   "key": "vizient/Vizient_Careers",
   "company": "Vizient",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "vumc/vumccareers",
+  "company": "Vanderbilt University Medical Center",
   "params": {
    "wd": "wd1"
   }
@@ -2661,6 +3697,34 @@
   "company": "Rocksteady Studios",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "wasteconnections/Careers",
+  "company": "Waste Connections",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "wellstar/wellstarcareers",
+  "company": "Wellstar Health System",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "wellstar/wellstarprovidercareers",
+  "company": "Wellstar Health System",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "werner/Werner",
+  "company": "Werner Enterprises",
+  "params": {
+   "wd": "wd501"
   }
  },
  {
@@ -2706,10 +3770,38 @@
   }
  },
  {
+  "key": "wustl/External",
+  "company": "Washington University in St. Louis",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "xcelenergy/External",
   "company": "Xcel Energy",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "xylem/xylem-careers",
+  "company": "Xylem",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "yale/external_career_site",
+  "company": "Yale University",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
+  "key": "zebra/Zebra_careers",
+  "company": "Zebra Technologies",
+  "params": {
+   "wd": "wd501"
   }
  },
  {
@@ -2722,6 +3814,13 @@
  {
   "key": "zillow/Zillow_Group_External",
   "company": "Zillow",
+  "params": {
+   "wd": "wd5"
+  }
+ },
+ {
+  "key": "zoetis/zoetis",
+  "company": "Zoetis",
   "params": {
    "wd": "wd5"
   }

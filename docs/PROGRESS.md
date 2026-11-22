@@ -17,6 +17,10 @@ only regular chores are the ones in `docs/runbook.md`. History is in `git log`; 
   postings hide.
 - **Housekeeping**: hourly reap, purge, prune, regroup. The weekly D1 export is `scripts/backup-d1.sh run` (an optional launchd installer exists; none is installed).
 
+- **Own-site platforms**: `microsoft` (Eightfold PCSX, `egress: local`, ~2,600 requests), `ibm` (search index, 58 requests) and
+  `goldman` (public GraphQL gateway, 4 requests) are added alongside amazon, apple, google, meta and netflix. They have no
+  synced boards yet. Uber is skipped (robots.txt disallows its API). Details in `docs/platforms.md`.
+
 ## Settled in the final pass
 
 - Search cost: the ranked candidate cut runs on the FTS index first (`FTS_WINDOW`), so a broad word costs ~150 ms

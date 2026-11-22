@@ -117,7 +117,9 @@ describe("greenhouse", () => {
   it("lists every row with its listing untouched", async () => {
     const { ctx, urls } = fakeCtx(() => fixture("greenhouse-list"));
     const { items, result } = await drain(greenhouse.list(src, ctx));
-    expect(urls).toEqual(["https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true"]);
+    expect(urls).toEqual([
+      "https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true&pay_transparency=true",
+    ]);
     expect(items.map((i) => i.listing)).toEqual(jobs("greenhouse-list", "jobs"));
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: true });
   });
@@ -168,13 +170,6 @@ describe("greenhouse", () => {
         text: "Salary",
       },
     ]);
-  });
-  it("fetches pay detail by posting id", async () => {
-    const { ctx, urls } = fakeCtx(() => fixture("greenhouse-detail"));
-    await greenhouse.detail!(src, { id: "42", listing: null }, ctx);
-    expect(urls[0]).toBe(
-      "https://boards-api.greenhouse.io/v1/boards/stripe/jobs/42?questions=true&pay_transparency=true",
-    );
   });
   it("treats a malformed response as a failed run, not an empty board", async () => {
     const { ctx } = fakeCtx(() => ({ unexpected: true }));
@@ -379,6 +374,12 @@ describe("smartrecruiters", () => {
     expect(job.locations[0]).toMatchObject({ countryCode: "US", city: "Santa Clara" });
     expect(job.description).toContain("Company Description");
     expect(job.extras).toHaveProperty("customFields");
+  });
+  it("maps the scheduled unpublish date as the expiry", () => {
+    const listing = { id: "1", name: "Nurse", unpublishOn: "2026-12-01T05:00:00.000Z" };
+    expect(smartrecruiters.map({ id: "1", listing }, src).expiresAt).toBe(
+      "2026-12-01T05:00:00.000Z",
+    );
   });
 });
 

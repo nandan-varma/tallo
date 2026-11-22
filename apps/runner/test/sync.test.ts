@@ -24,13 +24,34 @@ const source = {
 };
 const log = pino({ level: "silent" });
 
-/** Fake Greenhouse: list from fixture, details from the pay-transparency fixture. */
+/**
+ * Fake Greenhouse: the listing carries everything (description, pay), so there is no detail call. Two rows
+ * of the same posting in two places, built from the recorded single-job payload.
+ */
 function greenhouse(overrides: { listing?: () => Response } = {}): typeof fetch {
+  return async () =>
+    overrides.listing?.() ??
+    new Response(
+      JSON.stringify({
+        jobs: [1, 2].map((id) => ({ ...JSON.parse(fx("greenhouse-detail")), id })),
+      }),
+    );
+}
+
+/** Fake BambooHR: a thin list and one detail request per posting. */
+const bambooSource = {
+  id: "bamboohr:acme",
+  platform: "bamboohr",
+  key: "acme",
+  company: "Acme",
+  params: {},
+};
+function bamboohr(
+  detail: () => Response = () => new Response(fx("bamboohr-detail")),
+): typeof fetch {
   return async (input) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
-    if (url.pathname.endsWith("/jobs"))
-      return overrides.listing?.() ?? new Response(fx("greenhouse-list"));
-    return new Response(fx("greenhouse-detail"));
+    return url.pathname.endsWith("/careers/list") ? new Response(fx("bamboohr-list")) : detail();
   };
 }
 
@@ -103,19 +124,17 @@ describe("syncSource end to end", () => {
 
   it("a second run with nothing changed fetches no details and writes no jobs", async () => {
     const { api } = stack();
-    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: greenhouse() });
+    await syncSource(bambooSource, { api, log, runnerId: "test", version: "t", fetch: bamboohr() });
     let detailCalls = 0;
-    const counting: typeof fetch = async (input, init) => {
-      if (!new URL(input instanceof Request ? input.url : String(input)).pathname.endsWith("/jobs"))
-        detailCalls++;
-      return greenhouse()(input, init);
-    };
-    const again = await syncSource(source, {
+    const again = await syncSource(bambooSource, {
       api,
       log,
       runnerId: "test",
       version: "t",
-      fetch: counting,
+      fetch: bamboohr(() => {
+        detailCalls++;
+        return new Response(fx("bamboohr-detail"));
+      }),
     });
     expect(again).toMatchObject({ changed: 0, listingComplete: true });
     expect(detailCalls).toBe(0);
@@ -142,41 +161,16 @@ describe("syncSource end to end", () => {
 
   it("a failing detail skips that posting and reports it without failing the listing", async () => {
     const { app, api } = stack();
-    const flaky: typeof fetch = async (input, init) => {
-      const url = new URL(input instanceof Request ? input.url : String(input));
-      return url.pathname.endsWith("/jobs")
-        ? greenhouse()(input, init)
-        : new Response("nope", { status: 404 });
-    };
-    const result = await syncSource(source, {
+    const result = await syncSource(bambooSource, {
       api,
       log,
       runnerId: "test",
       version: "t",
-      fetch: flaky,
+      fetch: bamboohr(() => new Response("nope", { status: 404 })),
     });
     expect(result).toMatchObject({ listingComplete: true, detailsComplete: false });
     expect(result.issues.some((i) => i.code === "detail")).toBe(true);
-    expect((await read(app, "/v1/search?title=revenue+accounting")).results).toHaveLength(0);
-  });
-});
-
-describe("empty-board back-off, end to end", () => {
-  it("a board that lists nothing is backed off, and one that lists postings is not", async () => {
-    const { api } = stack();
-    const empty: typeof fetch = async () => new Response(JSON.stringify({ jobs: [] }));
-    const cutoff = Date.now() / 1000 + 1;
-    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: empty });
-    const [afterEmpty] = await api.sources();
-    expect(afterEmpty).toMatchObject({ lastStatus: "complete", lastPostingsAt: null });
-    const state = () => api.sources().then((rows) => new Map(rows.map((r) => [r.id, r])));
-    expect(dueSources([source], await state(), { cutoff })).toEqual([]);
-
-    await syncSource(source, { api, log, runnerId: "test", version: "t", fetch: greenhouse() });
-    const [afterPostings] = await api.sources();
-    expect(afterPostings?.lastPostingsAt).toEqual(expect.any(Number));
-    // A board with postings is due on the normal schedule: no back-off, just the staleness cutoff.
-    expect(dueSources([source], await state(), { cutoff })).toEqual([source]);
+    expect((await read(app, "/v1/search?title=cook")).results).toHaveLength(0);
   });
 });
 

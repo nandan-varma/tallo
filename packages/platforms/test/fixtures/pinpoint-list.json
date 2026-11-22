@@ -1,0 +1,98 @@
+{
+  "data": [
+    {
+      "id": "565960",
+      "benefits": "<div><!--block-->We offer a range of professional and personal perks that you can enjoy as a member of Superior. Here are just a few examples of the benefits you can expect:</div><ul><li><!--block--><strong>Health Insurance: </strong>We pay 100% of the insurance premium to cover you, your spouse, and eligible children</li><li><!--block--><strong>Dental Plan: </strong>We pay 100% of the insurance premium to cover you, your spouse, and eligible children</li><li><!--block--><strong>Long Term Disabi</p>",
+      "benefits_header": "Our Benefits",
+      "compensation": "$32.00 - $46.00 / hour",
+      "compensation_minimum": 32,
+      "compensation_maximum": 46,
+      "compensation_currency": "USD",
+      "compensation_frequency": "hour",
+      "compensation_visible": true,
+      "deadline_at": null,
+      "description": "<div><!--block--><strong>Position:</strong> Safety Coordinator<br><strong>Reports to: </strong>Safety Manager<br><strong>Location:</strong> Central Ohio<br><strong>Pay Range:</strong> $32.00 - $46.00 per hour (Eligible for overtime)<br><br></div><div><!--block-->We consider several factors when preparing a compensation package for successful candidates.<br><br></div><div><!--block-->Superior is looking for a Construction Safety Coordinator to ensure that every team member on our job sites is saf</p>",
+      "employment_type": "full_time",
+      "employment_type_text": "Full Time",
+      "key_responsibilities": "<ul><li><!--block-->Collaborate across the jobsite with Field Operations and Project Operations team members, as well as the general contractor and other trade partners</li><li><!--block-->Assist with the collection of safety records following training sessions&nbsp;</li><li><!--block-->Document all injuries, incidents, and near misses</li><li><!--block-->Sign daily paperwork to verify proper hazard and mitigation assessment</li><li><!--block-->Monitor large construction sites and enforce compli</p>",
+      "key_responsibilities_header": "Key Responsibilities",
+      "reporting_to": "",
+      "skills_knowledge_expertise": "<ul><li><!--block-->Required: You have at least 1 year of safety experience in construction, OR 5 years of field/project experience on a commercial construction site, OR a degree in Occupational Health and Safety (or completed an apprenticeship program)</li><li><!--block-->Required: You have a First Aid/CPR certification</li><li><!--block-->Required: You have completed the OSHA 10-hour construction training course</li><li><!--block-->Bonus Points: You have completed the OSHA 30-hour construction</p>",
+      "skills_knowledge_expertise_header": "Your Expertise",
+      "title": "Construction Safety Coordinator (Central Ohio)",
+      "url": "https://superiorgroup.pinpointhq.com/en/postings/fbb8e1d3-52a6-4de4-8b41-fdce671a1ec1",
+      "path": "/en/postings/fbb8e1d3-52a6-4de4-8b41-fdce671a1ec1",
+      "workplace_type": "onsite",
+      "workplace_type_text": "Onsite",
+      "job": {
+        "id": "568652",
+        "requisition_id": "0208",
+        "department": {
+          "id": "73007",
+          "name": "Safety"
+        },
+        "division": null,
+        "structure_custom_group_one": {
+          "id": "14205",
+          "name": "Columbus",
+          "title": "City"
+        }
+      },
+      "location": {
+        "id": "94515",
+        "city": "Ohio",
+        "name": "Ohio",
+        "postal_code": "",
+        "province": "Ohio",
+        "street_address": ""
+      }
+    },
+    {
+      "id": "566026",
+      "benefits": "<div><!--block-->We offer a range of professional and personal perks that you can enjoy as a member of Superior. Here are just a few examples of the benefits you can expect:</div><ul><li><!--block--><strong>Health Insurance: </strong>We pay 100% of the insurance premium to cover you, your spouse, and eligible children</li><li><!--block--><strong>Dental Plan: </strong>We pay 100% of the insurance premium to cover you, your spouse, and eligible children</li><li><!--block--><strong>Long Term Disabi</p>",
+      "benefits_header": "Our Benefits",
+      "compensation": "$42.00 - $55.00 / hour",
+      "compensation_minimum": 42,
+      "compensation_maximum": 55,
+      "compensation_currency": "USD",
+      "compensation_frequency": "hour",
+      "compensation_visible": true,
+      "deadline_at": null,
+      "description": "<div><!--block--><strong>Position:</strong> VDC Coordinator (On-Site)<br><strong>Reports to: </strong>VDC Manager<br><strong>Location:</strong> Columbus, Ohio <br><strong>Pay Range: </strong>$42 - $55 per hour (Eligible for Overtime)<br><br></div><div><!--block-->We consider several factors when preparing a compensation package for successful candidates.<br><br></div><div><!--block-->Superior is looking for a highly motivated and organized VDC Coordinator to join our fast-paced team. The VDC Coo</p>",
+      "employment_type": "full_time",
+      "employment_type_text": "Full Time",
+      "key_responsibilities": "<ul><li><!--block-->Prepare 2D layout drawings to be used for BIM modeling or for field installation</li><li><!--block-->Produce field installation and prefabrication drawings</li><li><!--block-->Generate panel pull sheets with circuitry and wire information</li><li><!--block-->Review project drawings, specifications, and submittals</li><li><!--block-->Coordinate and interface with the Project Operations teams on submittals and discrepancies</li><li><!--block-->Provide QA/QC reviews of installat</p>",
+      "key_responsibilities_header": "Key Responsibilities",
+      "reporting_to": "",
+      "skills_knowledge_expertise": "<ul><li><!--block-->Required: You have at least 5 years of experience as a commercial electrician, or electrical engineer</li><li><!--block-->Required: You have experience with power distribution systems ranging from 120V/480V up to 15kV, including switchgear, panels, generators, UPS systems, raceways, and transformers</li><li><!--block-->Required: You have experience reviewing electrical design drawings, specifications, and equipment submittals</li><li><!--block-->Required: You have experience </p>",
+      "skills_knowledge_expertise_header": "Your Expertise",
+      "title": "VDC Designer / Coordinator (On-Site)",
+      "url": "https://superiorgroup.pinpointhq.com/en/postings/46150eb8-9f6b-40db-b3a8-8f9e2d400581",
+      "path": "/en/postings/46150eb8-9f6b-40db-b3a8-8f9e2d400581",
+      "workplace_type": "onsite",
+      "workplace_type_text": "Onsite",
+      "job": {
+        "id": "568699",
+        "requisition_id": "0224",
+        "department": {
+          "id": "73152",
+          "name": "VDC / BIM"
+        },
+        "division": null,
+        "structure_custom_group_one": {
+          "id": "14205",
+          "name": "Columbus",
+          "title": "City"
+        }
+      },
+      "location": {
+        "id": "94515",
+        "city": "Ohio",
+        "name": "Ohio",
+        "postal_code": "",
+        "province": "Ohio",
+        "street_address": ""
+      }
+    }
+  ]
+}

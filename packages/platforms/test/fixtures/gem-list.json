@@ -1,0 +1,78 @@
+[
+  {
+    "absolute_url": "https://jobs.gem.com/helm-health/am9icG9zdDrTPgJI6ur_5wseW5cpUsLK",
+    "content": "<h3><strong>About Helm Health</strong></h3><div>Helm is a Series A start-up transforming health insurance with \"Dynamic Copay\" – a new insurance plan that lets members see simple, upfront prices for all medical care before making decisions. Our team is building the infrastructure to power these plans for health insurance payors. With Helm, our clients offer simpler health plans to their members, helping them navigate to higher-value care.&nbsp;</div><div><br></div><div>Our team has specialized in Dynamic Copay solutions since 2020, and Helm is the only independent platform in the market. We ha</p>",
+    "content_plain": "About Helm Health\nHelm is a Series A start-up transforming health insurance with \"Dynamic Copay\" – a new insurance plan that lets members see simple, upfront prices for all medical care before making decisions. Our team is building the infrastructure to power these plans for health insurance payors. With Helm, our clients offer simpler health plans to their members, helping them navigate to higher-value care. \nOur team has specialized in Dynamic Copay solutions since 2020, and Helm is the only independent platform in the market. We have grown rapidly since our launch, working with clients from</p>",
+    "created_at": "2026-07-02T01:51:38.840Z",
+    "departments": [
+      {
+        "child_ids": [],
+        "id": "ZGVwdDqIGETCZTI2viquVC4D6SV_",
+        "name": "Executive",
+        "parent_id": null
+      }
+    ],
+    "employment_type": "full_time",
+    "first_published_at": "2026-07-02T02:03:23.673Z",
+    "id": "am9icG9zdDrTPgJI6ur_5wseW5cpUsLK",
+    "internal_job_id": "am9iOkHPWb0osxM1NMW4c95S8t8",
+    "location": {
+      "name": "United States - Remote"
+    },
+    "location_type": "remote",
+    "offices": [
+      {
+        "child_ids": [],
+        "child_office_external_ids": [],
+        "id": "bG9jOivQO7xfECp_W9zT_Lq_fAw",
+        "location": {
+          "name": "United States - Remote"
+        },
+        "name": "USA",
+        "parent_id": null,
+        "parent_office_external_id": null
+      }
+    ],
+    "requisition_id": "R14",
+    "title": "Chief of Staff",
+    "updated_at": "2026-09-21T20:22:45.299Z"
+  },
+  {
+    "absolute_url": "https://jobs.gem.com/helm-health/am9icG9zdDpyyaiN6BfrrMwyALS9AcWx",
+    "content": "<h3><strong>About Helm Health</strong></h3><div>Helm is a Series A start-up transforming health insurance with \"Dynamic Copay\" – a new insurance plan that lets members see simple, upfront prices for all medical care before making decisions. Our team is building the infrastructure to power these plans for health insurance payors. With Helm, our clients offer simpler health plans to their members, helping them navigate to higher-value care.&nbsp;</div><div><br></div><div>Our team has specialized in Dynamic Copay solutions since 2020, and Helm is the only independent platform in the market. We ha</p>",
+    "content_plain": "About Helm Health\nHelm is a Series A start-up transforming health insurance with \"Dynamic Copay\" – a new insurance plan that lets members see simple, upfront prices for all medical care before making decisions. Our team is building the infrastructure to power these plans for health insurance payors. With Helm, our clients offer simpler health plans to their members, helping them navigate to higher-value care. \nOur team has specialized in Dynamic Copay solutions since 2020, and Helm is the only independent platform in the market. We have grown rapidly since our launch, working with clients from</p>",
+    "created_at": "2026-07-30T17:21:13.311Z",
+    "departments": [
+      {
+        "child_ids": [],
+        "id": "ZGVwdDpEck6FvwKAlZqMqSibpJXd",
+        "name": "Engineering",
+        "parent_id": null
+      }
+    ],
+    "employment_type": "full_time",
+    "first_published_at": "2026-07-30T19:17:26.436Z",
+    "id": "am9icG9zdDpyyaiN6BfrrMwyALS9AcWx",
+    "internal_job_id": "am9iOnX0FBOYLgPcK_jfF0WjGbE",
+    "location": {
+      "name": "United States - Remote"
+    },
+    "location_type": "remote",
+    "offices": [
+      {
+        "child_ids": [],
+        "child_office_external_ids": [],
+        "id": "bG9jOivQO7xfECp_W9zT_Lq_fAw",
+        "location": {
+          "name": "United States - Remote"
+        },
+        "name": "USA",
+        "parent_id": null,
+        "parent_office_external_id": null
+      }
+    ],
+    "requisition_id": "R17",
+    "title": "Staff Back-End Engineer: Search APIs",
+    "updated_at": "2026-07-30T22:26:32.451Z"
+  }
+]

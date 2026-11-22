@@ -23,5 +23,12 @@
  { "key": "trever", "company": "Trever" },
  { "key": "arconsis", "company": "arconsis" },
  { "key": "avow", "company": "AVOW" },
- { "key": "transitionzero", "company": "TransitionZero" }
+ { "key": "transitionzero", "company": "TransitionZero" },
+ { "key": "westwing", "company": "Westwing" },
+ { "key": "outdooractive", "company": "Outdooractive" },
+ { "key": "notebooksbilliger", "company": "notebooksbilliger.de" },
+ { "key": "verivox", "company": "Verivox" },
+ { "key": "clark", "company": "Clark" },
+ { "key": "tado", "company": "Tado" },
+ { "key": "finanzguru", "company": "Finanzguru" }
 ]
