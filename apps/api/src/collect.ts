@@ -133,6 +133,7 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
       meter.subrequests++;
       return base.run(host, task);
     },
+    setLimits: (limits) => base.setLimits(limits),
   };
   // Every R2 call is a subrequest, including the existence checks the ingest makes per description.
   const blobs: BlobStore = {

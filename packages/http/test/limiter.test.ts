@@ -114,3 +114,37 @@ describe("createHostLimiter interval gate", () => {
     expect(new Set(starts).size).toBe(1);
   });
 });
+
+describe("createHostLimiter setLimits", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("applies a new concurrency to queued requests of an existing host", async () => {
+    const { fetchImpl, state } = countingFetch();
+    const limiter = createHostLimiter({ perHostConcurrency: 1 });
+    const http = createHttp({ fetch: fetchImpl, allowedHosts, limiter });
+    const first = Promise.all(urls("a", 6).map((u) => http.getJson(u)));
+    limiter.setLimits({ perHostConcurrency: 3 });
+    await first;
+    expect(state.peak).toBe(3);
+  });
+
+  it("applies a new start gap to the next requests", async () => {
+    vi.useFakeTimers();
+    const starts: number[] = [];
+    const fetchImpl = (async () => {
+      starts.push(Date.now());
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+    const limiter = createHostLimiter({ perHostConcurrency: 4 });
+    const http = createHttp({ fetch: fetchImpl, allowedHosts, limiter });
+    await http.getJson("https://api.example.com/warm");
+    limiter.setLimits({ minHostIntervalMs: 500 });
+    const t0 = Date.now();
+    const done = Promise.all(urls("g", 3).map((u) => http.getJson(u)));
+    await vi.advanceTimersByTimeAsync(2_000);
+    await done;
+    expect(starts.slice(1).map((t) => t - t0)).toEqual([0, 500, 1000]);
+  });
+});

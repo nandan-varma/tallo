@@ -75,15 +75,44 @@ pnpm --filter @tallo/runner tallo verify greenhouse:stripe      # dry run: field
 Boards tagged `"egress": "local"` (Amazon, Apple, Google, Meta, Netflix, four Workday tenants) are slow, single-host
 platforms; they are only ever collected from the Mac.
 
-**Full sweep as separate jobs.** `node scripts/sweep.ts start` runs one `tallo sync` process per platform group (greenhouse,
-lever, ashby, smartrecruiters, workday, oracle-icims, small-ats, walmart, microsoft, apple, meta, big-sites), staggered 20 s
-apart, about 30 boards in flight in total, with the Mac kept awake. Each group has its own rate limits, so a 429 on one
-platform slows only that job. Inside a job, never-synced boards go first (oldest completed run first), then the rest. A board
-that failed or ended partial is retried by the next pass of the same job after a cool-off (2, 4, 6 minutes), at half the
-concurrency and double the request gap each time; a pass that fixes nothing ends the job as `stuck` with the reason. Watch it
-with `node scripts/sweep.ts status` (per job: state, pass, boards done/due, failures, requests, 429 count, rate, ETA). Raw logs
-and `status.json` are in `~/Library/Logs/tallo/sweep/`. `node scripts/sweep.ts start workday walmart` runs only those jobs.
-SIGTERM stops it; runs left open are reaped by the hourly job as partial and never close postings.
+**Full sweep: `tallo sweep`.** One process, one lane per platform group (greenhouse, lever, ashby, smartrecruiters,
+workday, oracle-icims, small-ats, walmart, microsoft, apple, meta, big-sites), about 30 boards in flight in total, the Mac
+kept awake (`caffeinate`). Each lane has its own queue, host limiter and settings (concurrency, ceiling, perHost, gapMs,
+paused, enabled), so a rate-limited host slows only its lane. The work list is computed once at start with the staleness
+horizon fixed then (`--stale-hours`, default 20): never-synced boards first, then the oldest completed run; boards done
+meanwhile are not repeated and boards that age out meanwhile are not added.
+
+```sh
+tallo sweep start --dry-run          # due boards per lane and the first few; collects nothing
+tallo sweep start [lane ...]         # needs TALLO_API_URL / TALLO_INGEST_TOKEN; Ctrl-C or SIGTERM drains, twice kills
+tallo sweep status [--json]          # table + last 15 events (or status.json); safe any time
+tallo sweep set ashby concurrency=2 gapMs=500     # lane: concurrency ceiling perHost gapMs paused enabled
+tallo sweep set global maxInFlight=20             # global: maxInFlight paused stop
+tallo sweep set budget maxRowsWritten=8000000     # budget
+tallo sweep pause [lane] / resume [lane]
+tallo sweep stop                     # graceful drain: no new boards, in-flight boards finish, then exit
+```
+
+Files are in `~/Library/Logs/tallo/sweep/` (`--dir` or `TALLO_SWEEP_DIR`; `--control` for the control file alone):
+`control.json` (re-read every 3 s; `set` validates and writes it, a hand edit works too, and an invalid value is ignored
+with an event, never a crash), `status.json` (every 5 s: per lane state, due, done, permanent failures, stuck, deferred
+with the next retry time, in-flight boards and how long each has run, requests, 429 count, concurrency and gap, boards/min,
+requests/min, ETA, last 3 errors; globally in-flight, estimated D1 rows and R2 puts, budget used) and `events.jsonl`
+(one decision per line, for example `ashby: 429 x3, concurrency 3 -> 1, gap 0 -> 8000 ms`, `workday: accenture deferred
+6 min (409 busy)`, `budget 80% used`).
+
+How it steers itself. **Rate (AIMD per lane):** a 429 halves the lane's concurrency (minimum 1) and raises its gap
+(doubling; with Retry-After the lane also waits it out; a 429 without Retry-After, as Microsoft answers, jumps to 8 s and
+doubles from there); after 5 clean boards concurrency rises by one up to `ceiling` and the gap halves, never back into
+a gap that 429ed. **Deferral:** a board that fails with 429, 5xx, ingest 503, a network error or 409 (another run holds
+it) is not retried inline: it waits with an exponential, jittered delay (about 1, 2, 4 min) while the lane works on other
+boards, at most 4 attempts, then `stuck` with the reason. A 404 board, schema or validation error is `failed:permanent`
+and not retried. A partial run never closes postings (the engine's rule). **Global guard:** an ingest 503 or a latency
+spike halves the in-flight cap and pauses new starts briefly, then it recovers one board at a time. **Budget:** the
+estimated D1 rows written (new about 20, changed 3, closed 5, plus 8 per run; first runs of a board count all as new) are
+totalled; at `budget.maxRowsWritten` (default 6,000,000) every lane holds and an event asks the owner: raise the budget to
+continue or `stop`. Unchanged postings are never written; the sweep adds no writes. Runs left open by a killed process are
+reaped as partial by the hourly job and never close postings.
 
 **Cloud (built, off).** The API Worker can collect a board itself: a queue consumer collects, maps and ingests it, and a
 `HostGate` Durable Object spaces requests per host. `COLLECT_ENABLED` is `"0"`: the five-minute cron is still deployed, but while the switch is off the tick enqueues nothing.
