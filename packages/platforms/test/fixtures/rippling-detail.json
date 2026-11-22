@@ -1,0 +1,77 @@
+{
+  "uuid": "9a4d79c0-d602-4cb4-a1d3-629b13faaa74",
+  "name": "Build Engineer (Sign On Eligible)",
+  "description": {
+    "company": "<div><body><p style='font-family:\"Basel Grotesk\",Arial,sans-serif;font-size:11pt;font-weight:400;line-height:1.6;letter-spacing:0.25px;margin:4px 0px;padding:0px;'><br></p></body></div>",
+    "role": "<div><body><p style='font-family:\"Basel Grotesk\",Arial,sans-serif;font-size:11pt;font-weight:400;line-height:1.38;letter-spacing:0.25px;margin:4px 0px;padding:0px;'><span style=\"color:rgb(0,0,0);font-size:11pt;white-space:pre-wrap;\">A jet engine is a few thousand parts surviving temperatures above the melting point of the metals they're made from, at rotational speeds that push the limits of material science, for thousands of hours. Most engines take a decade and a billion dollars to develop. We are building ours differently.</span></p><p style='font-family:\"Basel Grotesk\",Arial,sans-serif;font-size:11pt;font-weight:400;line-height:1.38;letter-spacing:0.25px;margin:4px 0px;padding:0px;'><br></p><p style='font-family:\"Basel Grotesk\",Arial,sans-serif;font-size:11pt;font-weight:400;line-height:1.38;letter-spacing:0.25px;margin:4px 0px;padding:0px;'><span style=\"color:rgb(0,0,0);font-size:11</p>"
+  },
+  "workLocations": [
+    "Centennial, CO"
+  ],
+  "department": {
+    "name": "Build Engineering",
+    "base_department": "Build Engineering",
+    "department_tree": [
+      "Build Engineering"
+    ]
+  },
+  "employmentType": {
+    "label": "SALARIED_FT",
+    "id": "Salaried, full-time"
+  },
+  "createdOn": "2026-05-04T15:16:33.269000-07:00",
+  "activeJobApplication": {
+    "basicQuestions": [
+      {
+        "oid": "first_name",
+        "fieldType": "SHORT_ANSWER",
+        "title": "First name",
+        "required": true
+      },
+      {
+        "oid": "last_name",
+        "fieldType": "SHORT_ANSWER",
+        "title": "Last name",
+        "required": true
+      }
+    ],
+    "additionalQuestions": null
+  },
+  "eeocQuestionnaireEnabled": true,
+  "eeocQuestionnaireEnabledForJobPost": true,
+  "url": "https://ats.rippling.com/boom-supersonic/jobs/9a4d79c0-d602-4cb4-a1d3-629b13faaa74",
+  "board": {
+    "boardType": "RIPPLING",
+    "slug": "boom-supersonic",
+    "logo": {
+      "name": "Screenshot 2025-08-16 at 6.43.57 PM.png",
+      "url": "https://secured-assets.ripplingcdn.com/us1/ats/683754b7dd76ae4b666f6749/ats_public/e0eb25f5be5248f5b8f4e7673bb2f92b-sensitive.png?Expires=1795394845&Signature=cVHKpYD6wpGkk1ui2WZ7zWC7LGAG6qKfdJ~tGQL5HQkkdAqqavmAHh2ImRv9qbLC1EZbJ0imV5Pd3oT54K~z9xFU4l54M6ajFVBQmtR7DLb0~QSzCGRlwwYZAYORUbj8Ilrqfovp2KLdPGe3sBam57pcxTG9xfSfvPU4~wWIaTWKkPT0mo2GQIG~tBEg3GMhE7sQYKzKbbL~NXUwIfjBhtBQTQQ5XzhwshdaWVLs1yxS1Uq~qGqb485QTJLdpiFp8JxqqwsQD4JLkxzfQD~8BxxBoIHzUudBOSpQU0RZalfrZXAXVf7VAER9D3H6SMflzm1-3Yxl85za2a-vXdbfww__&Key-Pair-Id=K2SM3GXN9F9XGM",
+      "type": "image/png"
+    },
+    "banner": {
+      "name": "",
+      "url": null,
+      "type": ""
+    },
+    "title": "Boom Supersonic",
+    "subtitle": "Boom Supersonic is transforming air travel with Overture, the world’s fastest airliner — optimized for speed, safety, and sustainability.",
+    "boardURL": "https://ats.rippling.com/boom-supersonic/jobs",
+    "fontType": null,
+    "linkColor": null,
+    "buttonColor": null,
+    "buttonTextColor": null,
+    "legalNotice": null,
+    "noOpeningsMessage": null,
+    "groupJobsByLocation": false,
+    "showBoardLogoOnJobPost": true,
+    "showCompanyInfoUnderJobPost": false,
+    "companyName": "Boom Technology, Inc.",
+    "isTest": false
+  },
+  "payRangeDetails": [],
+  "applicationConfirmationTemplate": "689e4c1b9c6497916f158f3d",
+  "hasAIEvaluationsEnabled": false,
+  "companyName": "Boom Technology, Inc.",
+  "unlistedFromSearch": false,
+  "jsonLd": null
+}

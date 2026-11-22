@@ -1,0 +1,50 @@
+{
+  "items": [
+    {
+      "id": "28627ef1-d23d-43c6-8407-05d3e2bece1f",
+      "name": "Your Dream Job",
+      "url": "https://ats.rippling.com/boom-supersonic/jobs/28627ef1-d23d-43c6-8407-05d3e2bece1f",
+      "department": {
+        "name": "-",
+        "displayName": "-"
+      },
+      "locations": [
+        {
+          "name": "Centennial, CO",
+          "country": "United States",
+          "countryCode": "US",
+          "state": "Colorado",
+          "stateCode": "CO",
+          "city": "Centennial",
+          "workplaceType": "ON_SITE"
+        }
+      ],
+      "language": "en-US"
+    },
+    {
+      "id": "9a4d79c0-d602-4cb4-a1d3-629b13faaa74",
+      "name": "Build Engineer (Sign On Eligible)",
+      "url": "https://ats.rippling.com/boom-supersonic/jobs/9a4d79c0-d602-4cb4-a1d3-629b13faaa74",
+      "department": {
+        "name": "Build Engineering",
+        "displayName": "Build Engineering"
+      },
+      "locations": [
+        {
+          "name": "Centennial, CO",
+          "country": "United States",
+          "countryCode": "US",
+          "state": "Colorado",
+          "stateCode": "CO",
+          "city": "Centennial",
+          "workplaceType": "ON_SITE"
+        }
+      ],
+      "language": "en-US"
+    }
+  ],
+  "page": 0,
+  "pageSize": 2,
+  "totalItems": 28,
+  "totalPages": 14
+}
