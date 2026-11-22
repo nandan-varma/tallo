@@ -1,0 +1,184 @@
+{
+  "refineSearch": {
+    "status": 200,
+    "hits": 2,
+    "totalHits": 4255,
+    "data": {
+      "jobs": [
+        {
+          "ml_skills": [
+            "package delivery",
+            "valid driver's license",
+            "route navigation",
+            "package handling",
+            "vehicle operation",
+            "ups appearance guidelines compliance",
+            "customer service",
+            "physical stamina",
+            "time management"
+          ],
+          "type": "Part time",
+          "descriptionTeaser": "Drive Your Own Vehicle as a Seasonal Support Driver. Looking for a seasonal opportunity where you can stay active, work independently, and deliver in your own vehicle? As a Seasonal Support Driver (SS...",
+          "state": "Washington",
+          "siteType": "external",
+          "reqId": "260d9feb-dfb0-4830-9da0-1346ba4e6f03",
+          "city": "Seattle",
+          "latitude": "47.54593",
+          "multi_location": [
+            "4455 7th Avenue South, Seattle, WA, 98108, US"
+          ],
+          "address": "4455 7th Avenue South, Seattle, WA, 98108, US",
+          "openingPayRate": "$23.00/hour",
+          "applyUrl": "https://us-2.fountain.com/apply/ups/opening/us-seattle-hub-administration-wasea-37660-seasonal-prsnl-vehicle-driver-o318-day-external",
+          "ml_job_parser": {
+            "descriptionTeaser": "Become part of our team as a Seasonal Support Driver, delivering packages to homes and businesses using your own vehicle. This physically active role suits individuals who enjoy fast-paced work and outdoor activities. Ideal for those with a valid driver’s license, reliable vehicle, and availability for weekend and holiday shifts.",
+            "descriptionTeaser_first200": "Drive Your Own Vehicle as a Seasonal Support Driver. Looking for a seasonal opportunity where you can stay active, work independently, and deliver in your own vehicle? As a Seasonal Support Driver ...",
+            "descriptionTeaser_keyword": "Drive Your Own Vehicle as a Seasonal Support Driver. Looking for a seasonal opportunity where you can stay active, work independently, and deliver in your own vehicle? As a Seasonal Support Driver (SS...",
+            "descriptionTeaser_ats": "Drive Your Own Vehicle as a Seasonal Support Driver Looking for a seasonal opportunity where you can stay active, work independently, and deliver in your own vehicle? As a Seasonal Support Driver (SSD"
+          },
+          "externalApply": true,
+          "cityState": "Seattle, Washington",
+          "country": "United States of America",
+          "visibilityType": "External",
+          "longitude": "-122.31929",
+          "jobId": "260d9feb-dfb0-4830-9da0-1346ba4e6f03",
+          "locale": "en_US",
+          "title": "Seasonal Support Driver",
+          "jobSeqNo": "UPBUPSGLOBAL260D9FEBDFB048309DA01346BA4E6F03EXTERNALENUS",
+          "postedDate": "2026-11-19T01:04:59.000+0000",
+          "dateCreated": "2025-11-20T23:21:03.022+0000",
+          "cityStateCountry": "Seattle, Washington, United States of America",
+          "employmentType": "Temporary",
+          "jobVisibility": [
+            "external",
+            "internal"
+          ],
+          "location": "4455 7th Avenue South, Seattle, WA, 98108, US",
+          "category": "Operations",
+          "multi_category": [
+            "Operations"
+          ],
+          "bonus": "",
+          "isMultiLocation": true,
+          "multi_location_array": [
+            {
+              "latlong": {
+                "lon": -122.33207,
+                "lat": 47.60621
+              },
+              "location": "4455 7th Avenue South, Seattle, WA, 98108, US"
+            }
+          ],
+          "isMultiCategory": false,
+          "multi_category_array": [
+            {
+              "category": "Operations"
+            }
+          ],
+          "badge": ""
+        },
+        {
+          "ml_skills": [
+            ".net",
+            "azure",
+            "sql server",
+            "api development",
+            "microservices",
+            "distributed systems",
+            "ci/cd",
+            "software architecture",
+            "platform modernization",
+            "site reliability engineering",
+            "devops",
+            "containerization",
+            "technical leadership",
+            "mentoring",
+            "coaching",
+            "stakeholder management",
+            "strategic planning",
+            "operational leadership",
+            "application delivery",
+            "performance optimization",
+            "security",
+            "scalability",
+            "reliability engineering",
+            "business process improvement"
+          ],
+          "type": "Full time",
+          "descriptionTeaser": "The Director of Software Engineering is responsible for leading multiple software engineering teams that design, develop, modernize, and support business-critical applications for iShip, the shipping...",
+          "state": "New Jersey",
+          "siteType": "external",
+          "multi_category": [
+            "Information Technology"
+          ],
+          "reqId": "R26042684",
+          "city": "MAHWAH",
+          "latitude": "41.0665596",
+          "multi_location": [
+            "340 MACARTHUR BLVD, MAHWAH, NJ 07430, United States of America",
+            "3545 FACTORIA BLVD, BELLEVUE, WA 98006, United States of America",
+            "9350 WAXIE WAY STE 520, SAN DIEGO, CA 92123, United States of America"
+          ],
+          "address": "340 MACARTHUR BLVD, MAHWAH, NJ 07430, United States of America",
+          "applyUrl": "https://hcmportal.wd5.myworkdayjobs.com/Search/job/US---UPS-TECHNOLOGY-HEADQUARTERS--DATACENTER-NJRAR/Director--Software-Engineering_R26042684/apply",
+          "ml_job_parser": {
+            "descriptionTeaser": "Become part of our team as Director of Software Engineering, leading multiple engineering teams to deliver business-critical applications for iShip. Oversee application delivery, software architecture, and platform modernization. Ideal for experienced leaders with a strong background in software engineering and a proven track record in revenue-generating platforms.",
+            "descriptionTeaser_ats": "Before you apply to a job, select your language preference from the options available at the top right of this page.Explore your next opportunity at a Fortune Global 500 organization. Envision innovat",
+            "descriptionTeaser_keyword": "The Director of Software Engineering is responsible for leading multiple software engineering teams that design, develop, modernize, and support business-critical applications for iShip, the shipping...",
+            "descriptionTeaser_first200": "Before you apply to a job, select your language preference from the options available at the top right of this page. Explore your next opportunity at a Fortune Global 500 organization. Envision inn..."
+          },
+          "externalApply": false,
+          "cityState": "MAHWAH, New Jersey",
+          "country": "United States of America",
+          "visibilityType": "External",
+          "longitude": "-74.1708871",
+          "jobId": "R26042684",
+          "locale": "en_US",
+          "title": "Director, Software Engineering (Flex Location)",
+          "jobSeqNo": "UPBUPSGLOBALR26042684EXTERNALENUS",
+          "postedDate": "2026-11-18T00:00:00.000+0000",
+          "dateCreated": "2026-11-19T00:09:36.859+0000",
+          "cityStateCountry": "MAHWAH, New Jersey, United States of America",
+          "employmentType": "Permanent",
+          "jobVisibility": [
+            "external",
+            "internal"
+          ],
+          "location": "340 MACARTHUR BLVD, MAHWAH, NJ 07430, United States of America",
+          "category": "Information Technology",
+          "isMultiLocation": true,
+          "multi_location_array": [
+            {
+              "latlong": {
+                "lon": -74.1708871,
+                "lat": 41.0665596
+              },
+              "location": "340 MACARTHUR BLVD, MAHWAH, NJ 07430, United States of America"
+            },
+            {
+              "latlong": {
+                "lon": -122.1715482,
+                "lat": 47.5781989
+              },
+              "location": "3545 FACTORIA BLVD, BELLEVUE, WA 98006, United States of America"
+            },
+            {
+              "latlong": {
+                "lon": -117.1265466,
+                "lat": 32.8403544
+              },
+              "location": "9350 WAXIE WAY STE 520, SAN DIEGO, CA 92123, United States of America"
+            }
+          ],
+          "isMultiCategory": false,
+          "multi_category_array": [
+            {
+              "category": "Information Technology"
+            }
+          ],
+          "badge": ""
+        }
+      ]
+    }
+  }
+}
