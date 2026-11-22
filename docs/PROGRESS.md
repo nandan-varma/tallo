@@ -7,15 +7,23 @@ collector is built but off (`COLLECT_ENABLED` `"0"`). Postings hide after 14 day
 
 ## Catalog (2026-11-22 recount)
 
-9,528 boards on 26 platforms, 727,726 open postings, 9,303 employers.
+9,528 boards on 26 platforms at this recount (727,726 open postings, 9,303 employers). Since then: +392 boards
+(Rippling, Gem, Pinpoint, Breezy), the `radancy`, `phenom` and `bestbuy` platforms and Starbucks, FedEx and Dell.
 
 ## Next
 
-- Sweep: Workday 403 boards and Oracle 38 boards due (`--stale-hours 20`), then the full sweep at 144 h.
-- Stuck, needs a fresh lane rather than new settings: Oracle 8-9 boards (`fa.us2` 429s; let the pod cool), 3 permanent
-  Greenhouse 404s, 1 ashby, 1 meta, 1 Microsoft board.
-- Open issues: #183 Goldman/Walmart unread fields, #185 Radancy, #186 listing surface for large retailers,
-  #188 Breezy descriptions, #189 more boards, #142 Google `postedAt`, #137 Apple resume, #9 source discovery.
+Work and decisions live in GitHub issues; this is only the map.
+
+- **Credits-gated (hold until the monthly Cloudflare credits renew):** #264 cloud collector rollout, #265 D1 backup
+  schedule, #266 reprocess inferred rows, #270 the overdue sweep and first syncs of the new collectors (Starbucks,
+  FedEx, Radancy incl. Walgreens' full listing, Dell, UPS `phenom`, Best Buy).
+- **#137 Apple:** a cloud collection trial was started 2026-11-22; read its result there, then decide Mac or cloud.
+- **#271** Oracle boards that can never report complete (documented limit); **#269** TypeScript 7 / cf held back.
+- **Spend caps:** \$1 hard caps on the Workers and Durable Objects families (Cloudflare dashboard). Hitting one blocks
+  usage, including the public site, until the next billing period.
+- **Releases:** `apps/api` pins `wrangler` 4.152.0 because `cf` 1.0.0-beta.13 cannot deploy with newer ones.
+  `pnpm test` includes a local-D1 check of the run-start path (`apps/api/test/d1.test.ts`); the unit tests alone cannot
+  catch D1-only failures.
 
 ## Known limits (accepted)
 
