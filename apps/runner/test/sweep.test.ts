@@ -668,7 +668,7 @@ describe("sweep", () => {
     const t = setup([def("a", 1)], { a: ["1"] }, async () => ok);
     t.sweep.observeApi(503, 10, 40);
     const status = t.sweep.status();
-    expect(status.global.capacity).toBe(15);
+    expect(status.global.capacity).toBe(Math.floor(status.global.maxInFlight / 2));
     expect(status.global.startsPausedUntil).not.toBeNull();
     await t.sweep.run();
     expect(t.lane("a").done).toBe(1);
@@ -845,6 +845,19 @@ describe("timings", () => {
     const s = lt.summary();
     expect(s.wallP50Ms).toBe(5000);
     expect(s.wallP90Ms).toBe(9000);
+  });
+
+  it("splits the source time into paging and posting fetches", () => {
+    const lt = new LaneTimings();
+    lt.record(timings()); // list 600, detail 400
+    expect(lt.summary().phases).toEqual({ list: 0.6, detail: 0.4 });
+    const paging = new LaneTimings();
+    paging.record(timings({ listMs: 1000, detailMs: 0, limiterWaitMs: 0, retryWaitMs: 0 }));
+    const w = paging.takeWindow()!;
+    expect(w.phases.list).toBe(1);
+    expect(bottleneckMessage("workday", w.top, w.shares, 2, w.phases)).toMatch(
+      /\d+% of time in source responses, 100% of it paging the listing: more boards in parallel, not perHost/,
+    );
   });
 
   it("names the dominant bottleneck, with the perHost hint for the limiter", () => {

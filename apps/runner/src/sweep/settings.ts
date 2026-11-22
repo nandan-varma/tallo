@@ -65,9 +65,15 @@ export const LANES: LaneDef[] = [
   lane("smartrecruiters", ["smartrecruiters"], 3, 3, 0, undefined, 10),
   // 250 ms between request starts is what the fixed driver used; Workday boards are request-bound, so the
   // controller probes down to 100 ms (10 a second per pod) and backs off from there when a pod says 429.
-  multiHost(lane("workday", ["workday"], 6, 2, 250, undefined, 6, 100)),
+  // Boards only wait on their own pod, so the lane keeps many pods busy at once. Measured: 6 boards left the lane
+  // waiting on the limiter 70% of the time while other tenants' pods sat idle, and one board cannot exceed ~1.7
+  // requests a second (Workday pages 20 postings at a time and its details wait on the pod). A pod allows 4 a
+  // second at a 250 ms gap, so ~2.5 boards per pod saturate one; 105 boards spread over ~40 pods wants a wide lane.
+  multiHost(lane("workday", ["workday"], 30, 2, 250, undefined, 6, 100)),
   multiHost(
-    lane("oracle-icims", ["oraclecloud", "icims"], 2, 3, 250, { icims: { perHost: 3 } }, 8, 100),
+    // Oracle answers 8.6 MB in 25 requests a board: source latency, not the limiter, so more boards in parallel is
+    // the only lever (measured 0.46 requests a second per board with 2 boards in flight and no 429s).
+    lane("oracle-icims", ["oraclecloud", "icims"], 8, 3, 250, { icims: { perHost: 3 } }, 8, 100),
   ),
   multiHost(
     lane(
@@ -84,7 +90,7 @@ export const LANES: LaneDef[] = [
         "pinpoint",
         "breezy",
       ],
-      3,
+      6,
       3,
       0,
       {
@@ -121,7 +127,7 @@ export interface GlobalSettings {
 export interface BudgetSettings {
   maxRowsWritten: number;
 }
-export const DEFAULT_GLOBAL: GlobalSettings = { maxInFlight: 30, paused: false, stop: false };
+export const DEFAULT_GLOBAL: GlobalSettings = { maxInFlight: 40, paused: false, stop: false };
 /** Estimated D1 rows written; at this the sweep holds every lane and asks the owner. */
 export const DEFAULT_BUDGET: BudgetSettings = { maxRowsWritten: 6_000_000 };
 

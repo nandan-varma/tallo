@@ -386,7 +386,8 @@ export class Sweep {
     this.lastBottleneckAt = now;
     for (const lane of this.lanes) {
       const w = this.laneTimings.get(lane.name)?.takeWindow();
-      if (w) this.event(bottleneckMessage(lane.name, w.top, w.shares, lane.settings.perHost));
+      if (w)
+        this.event(bottleneckMessage(lane.name, w.top, w.shares, lane.settings.perHost, w.phases));
     }
   }
 

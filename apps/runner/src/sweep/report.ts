@@ -53,7 +53,11 @@ export function formatStatus(status: SweepStatus, events: string[], now = Date.n
     .filter(([, l]) => l.timings.boards > 0)
     .map(([name, l]) => {
       const t = l.timings;
-      return `${name}: ${sharesLine(t.shares)}  (board wall p50 ${(t.wallP50Ms / 1000).toFixed(1)}s p90 ${(t.wallP90Ms / 1000).toFixed(1)}s, ${t.requestsPerSecPerBoard} req/s per board)`;
+      const phases =
+        t.shares.source > 0
+          ? `, source split list ${Math.round(t.phases.list * 100)}% detail ${Math.round(t.phases.detail * 100)}%`
+          : "";
+      return `${name}: ${sharesLine(t.shares)}  (board wall p50 ${(t.wallP50Ms / 1000).toFixed(1)}s p90 ${(t.wallP90Ms / 1000).toFixed(1)}s, ${t.requestsPerSecPerBoard} req/s per board${phases})`;
     });
   if (where.length) lines.push("", "where the time goes", ...where.map((w) => `  ${w}`));
   if (extra.length) lines.push("", ...extra);
