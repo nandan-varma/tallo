@@ -45,7 +45,7 @@ touches it.
    ("posted 2 days ago", "posted 3 months ago") with the ISO date in `title=`/`<time datetime>`; the
    sampled catalog has postings up to ~3.9 years old, and today they look identical to fresh ones.
 
-## D. Data quality (not a mapping bug)
+## D. Data quality (found: sandbox boards, done in this branch)
 
 10. **Some `company` values are bare board tokens.** e.g. `sesai` (SES AI), from `sources/greenhouse.json`,
     because the config's `company` is the board key. The DB correctly stores what the config says, so this
