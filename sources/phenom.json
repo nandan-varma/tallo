@@ -1,0 +1,9 @@
+[
+  {
+    "key": "www.jobs-ups.com",
+    "company": "UPS",
+    "params": {
+      "egress": "local"
+    }
+  }
+]
