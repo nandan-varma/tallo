@@ -107,7 +107,10 @@ requests/min, ETA, last 3 errors; globally in-flight, estimated D1 rows and R2 p
 How it steers itself. **Rate (AIMD per lane):** a 429 halves the lane's concurrency (minimum 1) and raises its gap
 (doubling; with Retry-After the lane also waits it out; a 429 without Retry-After, as Microsoft answers, jumps to 8 s and
 doubles from there); after 5 clean boards concurrency rises by one up to `ceiling` and the gap halves, never back into
-a gap that 429ed. **Deferral:** a board that fails with 429, 5xx, ingest 503, a network error or 409 (another run holds
+a gap that 429ed. **Per pod, not per lane:** a 429 slows the pod that answered (its own gap, and half its board limit) and the lane's
+concurrency and `perHost` are left alone unless enough pods complain at once — two tenants out of twenty is not the lane's
+problem. A pod's board limit returns to the lane's `perHost` after a quiet spell.
+**Deferral:** a board that fails with 429, 5xx, ingest 503, a network error or 409 (another run holds
 it) is not retried inline: it waits with an exponential, jittered delay (about 1, 2, 4 min) while the lane works on other
 boards, at most 4 attempts, then `stuck` with the reason. A 404 board, schema or validation error is `failed:permanent`
 and not retried. A partial run never closes postings (the engine's rule). **Global guard:** an ingest 503 or a latency

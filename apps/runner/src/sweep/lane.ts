@@ -33,7 +33,10 @@ export interface Tuning {
   hostRecoverMs: number;
   /** A lane-wide gap that drew a 429 stops guarding (its 25% margin decays) after this long without one. */
   badGapForgetMs: number;
-  /** 429s on this many distinct hosts inside the window reduce a multi-host lane. */
+  /**
+   * 429s on this many distinct hosts inside the window reduce a multi-host lane - or on half of the hosts it
+   * has boards on, whichever is larger: two complaining tenants out of twenty are not the lane's problem.
+   */
   hostsToReduce: number;
   hostWindowMs: number;
   /** Clean requests in a row before perHost rises by one (while below its ceiling and not held down). */
@@ -435,7 +438,20 @@ export class Lane {
     }
     let recent = 0;
     for (const other of this.hosts.values()) if (now - other.last429 <= t.hostWindowMs) recent++;
-    if (recent >= t.hostsToReduce) this.laneWide429(undefined, now, true);
+    // Punish the lane only when enough of its pods are unhappy at once. Each pod already has its own gap and board
+    // limit, so one tenant's 429 must not slow the twenty that are fine.
+    const threshold = Math.max(t.hostsToReduce, Math.ceil(this.hostsBusy() / 2));
+    if (recent >= threshold) this.laneWide429(undefined, now, true);
+  }
+
+  /** Pods that currently have at least one board running. */
+  private hostsBusy(): number {
+    const pod = new Set<string>();
+    for (const id of this.inFlight.keys()) {
+      const g = this.groups.get(id);
+      if (g) pod.add(g);
+    }
+    return pod.size;
   }
 
   /** `fromHosts`: several hosts said 429, so only concurrency drops; each host already has its own gap. */
@@ -466,7 +482,9 @@ export class Lane {
     if (!fromHosts) s.gapMs = Math.min(this.tuning.gapCapMs, next);
     this.applyLimits();
     const perHostBefore = this.settings.perHost;
-    this.lowerPerHost(now);
+    // A pod-driven reduction already halved that pod's own board limit; halving the lane's perHost as well would
+    // slow every healthy pod for one tenant's 429.
+    if (!fromHosts) this.lowerPerHost(now);
     const ra =
       retryAfterMs === undefined ? "" : `, Retry-After ${Math.round(retryAfterMs / 1000)} s`;
     this.emit(
@@ -507,6 +525,11 @@ export class Lane {
    */
   tick(now: number): void {
     for (const [host, h] of this.hosts) {
+      // A pod whose board limit was halved by a 429 gets the lane's limit back after a quiet spell.
+      if (h.limit > 0 && h.gap === 0 && now - h.last429 >= this.tuning.hostRecoverMs * 2) {
+        h.limit = 0;
+        this.emit(`${this.name}: ${host} quiet, board limit back to the lane's perHost`);
+      }
       if (h.gap === 0 || now - h.lastGapAt < this.tuning.hostRecoverMs) continue;
       if (now - h.last429 < this.tuning.hostRecoverMs && h.last429 > -Infinity) continue;
       const before = h.gap;
