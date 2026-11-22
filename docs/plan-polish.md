@@ -3,10 +3,18 @@
 Found while auditing the live site and API on 2026-11-22 (sampled 75 postings, 6 searches, 400 title
 words, `descriptions`, error paths, and the web source). Nothing here is a correctness bug in the
 database: every item is a gap between what the API already knows and what the app shows, plus two
-data-quality items. Fix in the order below; the seeding sweep runs alongside and nothing here
-touches it.
+data-quality items.
 
-## A. The app says less than the API knows (highest value)
+**Status: A, B, C and D12 are done and deployed; D10 is source-config curation for later.**
+- A + C: `#220` (search sort/country/recency, company-only search, repeated params, `capped`/`expanded`
+  notices, pay and date formatting).
+- B: `#221` (status copy for manual collection, footer links).
+- D12: `#222` (sandbox tenants removed and retired from the catalog).
+- D10 (company display names in `sources/*.json`) is a curation task, not a bug: 1,139 boards have
+  `company === key`, and most are legitimate lowercase brand names (`10times`, `6sense`, `1fin`). Leave
+  them unless a reader would mistake one for a board token (as `sesai`).
+
+## A. The app says less than the API knows (done: #220)
 
 1. **Sorting is fixed to relevance.** `apps/web/src/lib/api.ts` hard-codes `sort: "relevance"`; the API's
    `sort=recent` (newest first, one hit per open location) is unreachable from the site. Add a two-state
@@ -26,7 +34,7 @@ touches it.
    (`?title=a&title=b`); `valuesFrom` reads `params.get` (first only), so the form shows one and
    re-submitting drops the rest. Read all values and join them with commas for display.
 
-## B. Status page describes collection that no longer exists — done in this branch
+## B. Status page describes collection that no longer exists (done: #221)
 
 6. **Copy assumes a schedule.** `StatusPage` calls a run within the hour "Collecting now" and says failing
    boards are "retried with back-off" — collection is manual (`tallo sweep`, run by hand), so the page will
@@ -36,7 +44,7 @@ touches it.
    reference in the app is a comment. Add it next to the llms.txt/search links (and from `/llms.txt`?
    no — that document is for machines).
 
-## C. Formatting the reader can use
+## C. Formatting the reader can use (done: #220, with A)
 
 8. **Pay is unformatted and inconsistent.** The API returns e.g. `USD 280000-425000 per year (Software
    Engineer)`; render `USD 280,000–425,000 a year` with an en dash, and drop or explain the trailing
@@ -45,7 +53,7 @@ touches it.
    ("posted 2 days ago", "posted 3 months ago") with the ISO date in `title=`/`<time datetime>`; the
    sampled catalog has postings up to ~3.9 years old, and today they look identical to fresh ones.
 
-## D. Data quality (found: sandbox boards, done in this branch)
+## D. Data quality (D12 done: #222; D10 is curation)
 
 10. **Some `company` values are bare board tokens.** e.g. `sesai` (SES AI), from `sources/greenhouse.json`,
     because the config's `company` is the board key. The DB correctly stores what the config says, so this

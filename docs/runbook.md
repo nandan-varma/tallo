@@ -98,6 +98,14 @@ tallo sweep pause [lane] / resume [lane]
 tallo sweep stop                     # graceful drain: no new boards, in-flight boards finish, then exit
 ```
 
+**Stopping for the day.** `tallo sweep stop` (or `sweep set global stop`) drains: no new boards, in-flight boards finish,
+then the process exits. That can take as long as the biggest board already running (Workday giants ran 90 minutes), so
+for an immediate stop terminate the process twice and then `tallo abandon <the boards it held>`; a hard kill leaves each
+run `running` for the 2 h lease, and without the abandon the board is held that long. Either way nothing closes, and a
+restart costs only the staleness: `tallo sweep start <lanes> --stale-hours 20` picks up everything not completed in the
+last 20 hours. `learned.json` in the sweep dir keeps the per-pod gaps the lane ended on; a new `--dir` starts from the
+configured values.
+
 Files are in `~/Library/Logs/tallo/sweep/` (`--dir` or `TALLO_SWEEP_DIR`; `--control` for the control file alone):
 `control.json` (re-read every 3 s; `set` validates and writes it, a hand edit works too, and an invalid value is ignored
 with an event, never a crash), `status.json` (every 5 s: per lane state, due, done, permanent failures, stuck, deferred
