@@ -12,6 +12,8 @@ afterEach(cleanup);
 const NOW = 1_800_000_000;
 const stats: SiteStats = {
   asOf: NOW - 3600,
+  catalogAsOf: NOW - 7200,
+  collectedTotal: 1_900_000,
   openJobs: 612_345,
   employers: 8_100,
   boards: 8_791,
@@ -39,16 +41,23 @@ const stats: SiteStats = {
     postedStated: 0.99,
     countryStated: 0.73,
   },
-  sampleSize: 150_000,
+  health: { failing: 12, dead: 40 },
+  history: [
+    { day: NOW - 2 * 86400, openJobs: 600_000, added: 3_000 },
+    { day: NOW - 86400, openJobs: 612_345, added: 4_000 },
+  ],
 };
 
 describe("StatusPage", () => {
   it("shows grouped real numbers, the as-of stamp, unknowns and links", async () => {
     const { container } = render(<StatusPage stats={stats} now={NOW} />);
 
-    expect(screen.getByText("612,345")).toBeTruthy();
+    expect(screen.getAllByText("612,345").length).toBeGreaterThan(0);
     expect(screen.getAllByText("8,000 of 8,791 boards")).toBeTruthy();
-    expect(screen.getByText(/Data as of/)).toBeTruthy();
+    expect(screen.getByText(/Health as of/)).toBeTruthy();
+    expect(screen.getByText("1,900,000")).toBeTruthy();
+    expect(screen.getByText("Collecting now")).toBeTruthy();
+    expect(screen.getByRole("table", { name: "Open jobs per day" })).toBeTruthy();
     expect(screen.getByText("Not stated by the source")).toBeTruthy();
     expect(screen.getByRole("table", { name: "Open jobs by platform" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "OpenAPI (JSON)" }).getAttribute("href")).toBe(
@@ -74,7 +83,7 @@ describe("StatusPage", () => {
       topEmployers: [],
       countries: { distinct: 0, top: [] },
       freshness: { ...stats.freshness, newestRunAt: null },
-      sampleSize: 0,
+      history: [],
     };
     const { container } = render(<StatusPage stats={empty} now={NOW} />);
     expect(screen.getByText("none yet")).toBeTruthy();
@@ -107,10 +116,10 @@ describe("loadSiteStats", () => {
     expect(upstream).toHaveBeenCalledTimes(1);
   });
 
-  it("refreshes after 12 hours, and serves the stale snapshot when the API is down", async () => {
+  it("refreshes after five minutes, and serves the stale snapshot when the API is down", async () => {
     const cache = memoryCache();
     await loadSiteStats({ upstream: async () => json(stats), cache, now: () => stats.asOf });
-    const later = () => stats.asOf + 13 * 3600;
+    const later = () => stats.asOf + 600;
 
     const down = vi.fn(async () => new Response("no", { status: 502 }));
     expect(await loadSiteStats({ upstream: down, cache, now: later })).toEqual(stats);

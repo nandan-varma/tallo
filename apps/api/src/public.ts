@@ -33,7 +33,7 @@ import {
   listCompanies,
   listTitleTokens,
   listVariants,
-  siteStats,
+  readSiteStats,
 } from "@tallo/db";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -451,10 +451,12 @@ export function publicRoutes({
   });
 
   // Internal: the /status page's snapshot, read by the web Worker over its service binding. Not in PUBLIC_PATHS,
-  // llms.txt or the OpenAPI document. A snapshot reads a few hundred thousand rows, so the web caches it for 12 hours.
+  // llms.txt or the OpenAPI document. The hourly cron stores it (refreshSiteStats); this is a one-row read.
   routes.get("/v1/site-stats", hidden, async (c) => {
+    const stats = await readSiteStats(db);
+    if (!stats) return c.json({ error: "not_ready" }, 503);
     c.header("cache-control", SITE_STATS_CACHE_CONTROL);
-    return c.json(await siteStats(db));
+    return c.json(stats);
   });
 
   return routes;

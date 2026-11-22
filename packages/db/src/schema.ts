@@ -1,4 +1,4 @@
-import { TIERS } from "@tallo/contracts";
+import { type SiteStats, TIERS } from "@tallo/contracts";
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
@@ -63,6 +63,17 @@ export const regroupState = sqliteTable("regroup_state", {
 export const regroupProgress = sqliteTable("regroup_progress", {
   id: integer().primaryKey(),
   cursor: text().notNull(),
+});
+
+/**
+ * The /status page's numbers: one row (`id` 1), replaced by the hourly cron (site-stats.ts). `catalog_at` is when the
+ * expensive catalog count last ran, so the cron repeats it only about once a day.
+ */
+export const siteSnapshot = sqliteTable("site_snapshot", {
+  id: integer().primaryKey(),
+  computedAt: integer("computed_at").notNull(),
+  catalogAt: integer("catalog_at").notNull(),
+  body: text({ mode: "json" }).$type<SiteStats>().notNull(),
 });
 
 /** Bounded operational history: what ran where and when. Old rows are pruned. */

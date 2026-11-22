@@ -120,14 +120,16 @@ boards stranded far in the future. Duplicates are one canonical row (`dup_of`); 
 
 ## Status page
 
-`https://tallo.nandan.fyi/status` shows the catalog's numbers (open jobs, employers, boards, platforms, freshness,
-coverage by platform, employer and country, work mode, share with stated pay). The web Worker reads them from the
-internal route `GET /v1/site-stats` (refused on the API's own host like the other public reads, not in `PUBLIC_PATHS`,
-`llms.txt` or OpenAPI) and caches the snapshot 12 hours. One snapshot reads about 250k D1 rows; a full scan of `jobs`
-would read 1.5M, so open jobs, employers and platform totals come from each board's last complete listing (about 5% above
-the true count, labelled approximate) and the country, work-mode, pay and date shares come from a sample. Nothing
-computes it on a timer: the first view after the cache expires does the work. Change the numbers in
-`packages/db/src/site-stats.ts` and keep each metric under about 300k rows.
+`https://tallo.nandan.fyi/status` shows the catalog's numbers (open jobs, postings collected, employers, boards,
+platforms, freshness and collection health, a daily history, coverage by platform, employer and country, work mode,
+share with stated pay). All counts are exact. The API's hourly cron (`refreshSiteStats`) stores them in one row of
+`site_snapshot`: boards, freshness and health every hour (about 30k rows read), and the catalog count (every open job,
+once, paged by id, about 1.5M rows) when the stored one is 20 hours old, which also adds the day's history point.
+That is roughly 50M rows read a month, far inside the plan's 25B. A page view never reads the catalog: the web Worker
+asks the internal route `GET /v1/site-stats` (one row; refused on the API's own host like the other public reads, not
+in `PUBLIC_PATHS`, `llms.txt` or OpenAPI; 503 until the first cron run) and keeps the answer at the edge for five
+minutes. A failed refresh leaves the last row in place (logged as `job: "site-stats"`). To refresh by hand, run the
+hourly cron from the dashboard. Change the numbers in `packages/db/src/site-stats.ts`.
 
 ## Weekly check (five minutes)
 
