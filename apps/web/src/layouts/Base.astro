@@ -42,5 +42,11 @@ const {
       <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
     </header>
     <main id="main"><slot /></main>
+    <footer class="mx-auto flex max-w-3xl flex-wrap gap-x-6 gap-y-2 px-6 py-10 text-sm print:hidden">
+      <a href="/search" class="underline underline-offset-4">Search</a>
+      <a href="/status" class="underline underline-offset-4">Status</a>
+      <a href="/llms.txt" class="underline underline-offset-4">llms.txt</a>
+      <a href="/v1/openapi.json" class="underline underline-offset-4">OpenAPI</a>
+    </footer>
   </body>
 </html>

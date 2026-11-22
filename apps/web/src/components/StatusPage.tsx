@@ -183,8 +183,11 @@ function Meter({ label, share, note }: { label: string; share: number; note: str
   );
 }
 
-/** Collecting when a run finished within the hour; the schedule runs every few minutes, so silence means trouble. */
-const LIVE_WITHIN = 3600;
+/**
+ * Collection is run by hand (`tallo sweep`), so "recent" means a run within the day: within the hour is a sweep in
+ * progress or just finished, and anything older than a day means the catalog is drifting toward its 14-day horizon.
+ */
+const RECENT_WITHIN = 24 * 3600;
 
 export function StatusPage({ stats, now }: { stats: SiteStats | null; now: number }) {
   return (
@@ -193,7 +196,8 @@ export function StatusPage({ stats, now }: { stats: SiteStats | null; now: numbe
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tallo status</h1>
         <p className="max-w-prose text-muted-foreground">
           What the catalog holds and how fresh it is: exact counts of the open postings, recounted
-          daily, with collection health refreshed hourly. Nothing here is inferred.
+          daily, with collection health refreshed hourly. Collection runs by hand, so freshness
+          moves when a sweep runs. Nothing here is inferred.
         </p>
         {stats ? (
           <p className="text-sm text-muted-foreground">
@@ -239,7 +243,7 @@ function Unavailable() {
 
 function Body({ stats, now }: { stats: SiteStats; now: number }) {
   const { freshness: f, mix } = stats;
-  const live = f.newestRunAt !== null && now - f.newestRunAt < LIVE_WITHIN;
+  const recent = f.newestRunAt !== null && now - f.newestRunAt < RECENT_WITHIN;
   return (
     <>
       <Section id="headline" title="At a glance">
@@ -249,11 +253,15 @@ function Body({ stats, now }: { stats: SiteStats; now: number }) {
         >
           <span
             aria-hidden="true"
-            className={`size-2.5 rounded-full ${live ? "bg-emerald-500" : "bg-amber-500"}`}
+            className={`size-2.5 rounded-full ${recent ? "bg-emerald-500" : "bg-amber-500"}`}
           />
-          {live ? "Collecting now" : "No collection run in the last hour"}
+          {f.newestRunAt
+            ? `Last collection run ${ago(f.newestRunAt, now)}`
+            : "No collection run yet"}
           <span className="font-normal text-muted-foreground">
-            {f.newestRunAt ? `last run ${ago(f.newestRunAt, now)}` : "no run yet"}
+            {recent
+              ? "a sweep is under way or just finished"
+              : "sweeps are run by hand; postings hide after 14 days without one"}
           </span>
         </p>
         <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -295,12 +303,12 @@ function Body({ stats, now }: { stats: SiteStats; now: number }) {
           <Card
             label="Boards not listing cleanly"
             value={num(stats.health.failing)}
-            note="partial or failed runs, retried with back-off"
+            note="partial or failed runs; the next sweep retries them"
           />
           <Card
             label="Boards retired"
             value={num(stats.health.dead)}
-            note="stopped listing (404)"
+            note="retired after repeated 404s"
           />
         </dl>
       </Section>

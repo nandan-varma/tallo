@@ -26,7 +26,7 @@ touches it.
    (`?title=a&title=b`); `valuesFrom` reads `params.get` (first only), so the form shows one and
    re-submitting drops the rest. Read all values and join them with commas for display.
 
-## B. Status page describes collection that no longer exists
+## B. Status page describes collection that no longer exists — done in this branch
 
 6. **Copy assumes a schedule.** `StatusPage` calls a run within the hour "Collecting now" and says failing
    boards are "retried with back-off" — collection is manual (`tallo sweep`, run by hand), so the page will

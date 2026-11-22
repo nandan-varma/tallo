@@ -56,7 +56,8 @@ describe("StatusPage", () => {
     expect(screen.getAllByText("8,000 of 8,791 boards")).toBeTruthy();
     expect(screen.getByText(/Health as of/)).toBeTruthy();
     expect(screen.getByText("1,900,000")).toBeTruthy();
-    expect(screen.getByText("Collecting now")).toBeTruthy();
+    expect(screen.getByText(/Last collection run/)).toBeTruthy();
+    expect(screen.getByText(/sweeps are run by hand|a sweep is under way/)).toBeTruthy();
     expect(screen.getByRole("table", { name: "Open jobs per day" })).toBeTruthy();
     expect(screen.getByText("Not stated by the source")).toBeTruthy();
     expect(screen.getByRole("table", { name: "Open jobs by platform" })).toBeTruthy();
