@@ -331,5 +331,14 @@
       "sitePath": "CX_1",
       "defaultSite": true
     }
+  },
+  {
+    "key": "enterpriseplatform.dell.com",
+    "company": "Dell Technologies",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "careers",
+      "defaultSite": true
+    }
   }
 ]

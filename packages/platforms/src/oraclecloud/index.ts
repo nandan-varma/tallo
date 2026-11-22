@@ -14,6 +14,8 @@ const PAGE = 200;
 const CAP = 10_000;
 /** Recruiting pods seen in seeds: `<tenant>.fa.oraclecloud.com`, `.fa.us2.`, `.fa.ocs.`. Not all of `*.oraclecloud.com`. */
 const HOST = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.fa\.(?:(?:us2|us6|em2|em3|em5|ocs)\.)?oraclecloud\.com$/;
+/** Tenants that serve their Oracle site on their own host (jobs.dell.com sends candidates to this one). */
+const CUSTOM_HOSTS = ["enterpriseplatform.dell.com"];
 const SITE = /^[A-Za-z0-9_]+$/;
 /** A siteNumber no board uses. Oracle answers it with the host's default site, which is what exposes a typo. */
 const NO_SUCH_SITE = "CX_TALLO_NO_SUCH_SITE";
@@ -64,11 +66,12 @@ export const oraclecloud: Platform = {
   hosts: [
     "*.fa.oraclecloud.com",
     ...["us2", "us6", "em2", "em3", "em5", "ocs"].map((pod) => `*.fa.${pod}.oraclecloud.com`),
+    ...CUSTOM_HOSTS,
   ],
   validate(source) {
-    if (!HOST.test(source.key))
+    if (!HOST.test(source.key) && !CUSTOM_HOSTS.includes(source.key))
       throw new Error(
-        `Oracle Cloud key must be a *.fa[.us2|.us6|.em2|.em3|.em5|.ocs].oraclecloud.com host: ${source.key}`,
+        `Oracle Cloud key must be a *.fa[.us2|.us6|.em2|.em3|.em5|.ocs].oraclecloud.com host or one of ${CUSTOM_HOSTS.join(", ")}: ${source.key}`,
       );
     if (!SITE.test(siteOf(source)))
       throw new Error(`Oracle Cloud source needs params.siteNumber: ${source.key}`);

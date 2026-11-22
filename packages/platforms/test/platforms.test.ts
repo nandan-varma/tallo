@@ -1145,10 +1145,16 @@ describe("oraclecloud", () => {
       "ebcs.fa.em2.oraclecloud.com",
       "hccz.fa.em3.oraclecloud.com",
       "efds.fa.em5.oraclecloud.com",
+      "enterpriseplatform.dell.com",
     ])
       expect(() =>
         oraclecloud.validate(source("oraclecloud", key, { siteNumber: "CX_1" })),
       ).not.toThrow();
+    expect(() =>
+      oraclecloud.validate(
+        source("oraclecloud", "x.enterpriseplatform.dell.com", { siteNumber: "CX_1" }),
+      ),
+    ).toThrow(/oraclecloud/);
     expect(() =>
       oraclecloud.validate(
         source("oraclecloud", "jpmc.fa.oraclecloud.com", {
