@@ -73,7 +73,7 @@ function place(entry: Json) {
 
 export const google: Platform = {
   id: "google",
-  version: 1,
+  version: 2,
   hosts: ["www.google.com"],
 
   validate(source) {
@@ -141,10 +141,13 @@ export const google: Platform = {
     const company = str(field(7));
     const targetLevel = num(field(20));
     const postedAt = isoFromSeconds(at(field(14), 0));
+    // The row's own application link (a Google sign-in that carries the job); anything else is not linked.
+    const applyUrl = str(field(2));
     return {
       postingId: id,
       title: str(field(1)) ?? "",
       url: `${BASE}${encodeURIComponent(id)}`,
+      ...(applyUrl?.startsWith("https://www.google.com/") ? { applyUrl } : {}),
       description: describe(at(field(10), 1), at(field(3), 1), at(field(4), 1)),
       locations: locations(arr(field(9)).map(place)),
       requisitionId: id,

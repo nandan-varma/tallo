@@ -67,6 +67,9 @@ describe("google", () => {
       url: "https://www.google.com/about/careers/applications/jobs/results/78511373281043142",
       requisitionId: "78511373281043142",
     });
+    expect(job.applyUrl).toMatch(
+      /^https:\/\/www\.google\.com\/about\/careers\/applications\/signin\?jobId=/,
+    );
     expect(job.postedAt).toMatch(/^2026-11-/);
     expect(job.locations[0]).toMatchObject({
       text: "Mountain View, CA, USA",
