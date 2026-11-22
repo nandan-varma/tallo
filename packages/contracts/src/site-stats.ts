@@ -1,16 +1,23 @@
 /**
- * The numbers behind the /status page. One snapshot, computed rarely (it is cached for half a day) from small tables
- * and a bounded sample, so the database is read a few hundred thousand rows per snapshot and not the whole catalog.
- * Figures marked approximate come from the last complete listing of each board or from the sample (see `sampleSize`).
+ * The numbers behind the /status page. One snapshot, computed by the API's hourly cron (the catalog part once a day)
+ * and stored as a single row, so a page view never reads the catalog: the web Worker fetches that one row and keeps it
+ * at the edge for a few minutes. Figures are exact counts of what the catalog holds, as of `asOf` / `catalogAsOf`.
  */
-export const SITE_STATS_TTL_SECONDS = 12 * 3600;
-export const SITE_STATS_CACHE_CONTROL = `public, max-age=${SITE_STATS_TTL_SECONDS}, s-maxage=${SITE_STATS_TTL_SECONDS}, stale-while-revalidate=${6 * SITE_STATS_TTL_SECONDS}`;
+export const SITE_STATS_TTL_SECONDS = 300;
+export const SITE_STATS_CACHE_CONTROL = `public, max-age=${SITE_STATS_TTL_SECONDS}, s-maxage=${SITE_STATS_TTL_SECONDS}, stale-while-revalidate=3600`;
+
+/** How many daily points of history a snapshot carries. */
+export const SITE_STATS_HISTORY_DAYS = 60;
 
 export interface SiteStats {
-  /** Epoch seconds the snapshot was computed. */
+  /** Epoch seconds the live part (boards, freshness, health) was computed. */
   asOf: number;
-  /** Open postings: the sum of what each fresh board's last complete listing contained. Approximate. */
+  /** Epoch seconds the catalog part (open jobs, employers, countries, mix) was counted. */
+  catalogAsOf: number;
+  /** Open postings of boards that listed recently, duplicates folded into one. */
   openJobs: number;
+  /** Postings ever collected, closed ones included. */
+  collectedTotal: number;
   /** Distinct companies among the boards that listed recently. */
   employers: number;
   /** Configured boards that are not retired. */
@@ -26,11 +33,17 @@ export interface SiteStats {
     added7d: number;
     closed7d: number;
   };
+  /** Collection health, from the boards' own state. */
+  health: {
+    /** Active boards whose last runs did not list completely. */
+    failing: number;
+    /** Boards retired after listing 404s. */
+    dead: number;
+  };
   byPlatform: { platform: string; boards: number; open: number }[];
   topEmployers: { name: string; open: number }[];
-  /** From the sample. `distinct` counts every country code the sample saw. */
   countries: { distinct: number; top: { code: string; share: number }[] };
-  /** Shares (0 to 1) of the sampled postings. A posting the source left blank is "unstated", never guessed. */
+  /** Shares (0 to 1) of the open postings. A posting the source left blank is "unstated", never guessed. */
   mix: {
     remote: number;
     hybrid: number;
@@ -40,6 +53,6 @@ export interface SiteStats {
     postedStated: number;
     countryStated: number;
   };
-  /** How many open postings the sample covered. */
-  sampleSize: number;
+  /** One point per day the catalog part was counted, oldest first. `day` is the UTC midnight, epoch seconds. */
+  history: { day: number; openJobs: number; added: number }[];
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { schema, siteStats } from "../src/index.ts";
+import { readSiteStats, refreshSiteStats, schema } from "../src/index.ts";
 import { readCost, testDb } from "../src/testing.ts";
 
 const NOW = 2_000_000_000;
@@ -46,7 +46,7 @@ const job = (n: number, sourceId: string, over: Partial<typeof schema.jobs.$infe
   ...over,
 });
 
-describe("siteStats", () => {
+describe("refreshSiteStats", () => {
   it("counts boards, freshness and the sample from a few seeded rows", async () => {
     const db = testDb();
     await db
@@ -78,21 +78,24 @@ describe("siteStats", () => {
       job(5, "lever:b", { dupOf: 3 }),
     ]);
 
-    const stats = await siteStats(db, NOW);
+    const stats = await refreshSiteStats(db, NOW);
+    expect(await readSiteStats(db)).toEqual(stats);
 
     expect(stats.asOf).toBe(NOW);
     expect(stats.boards).toBe(4);
     expect(stats.platforms).toBe(3);
     expect(stats.employers).toBe(2);
-    // The last complete listing of each fresh board: 10 (not the older 99) plus 5.
-    expect(stats.openJobs).toBe(15);
+    // Counted, not estimated: job 1, 2 (fresh board a) and 3 (b); closed and duplicate rows are left out.
+    expect(stats.openJobs).toBe(3);
+    expect(stats.collectedTotal).toBe(5);
+    expect(stats.health).toEqual({ failing: 0, dead: 0 });
     expect(stats.freshness).toMatchObject({ listed7d: 1, listed14d: 2, newestRunAt: NOW - 3600 });
     expect(stats.freshness.added24h).toBe(2);
     expect(stats.freshness.added7d).toBe(4);
     expect(stats.freshness.closed7d).toBe(6);
-    expect(stats.byPlatform[0]).toEqual({ platform: "greenhouse", boards: 1, open: 10 });
+    expect(stats.byPlatform[0]).toEqual({ platform: "greenhouse", boards: 1, open: 2 });
     expect(stats.topEmployers.map((e) => e.name)).toEqual(["Acme", "Beta"]);
-    expect(stats.sampleSize).toBe(3);
+    expect(stats.history).toEqual([{ day: NOW - (NOW % DAY), openJobs: 3, added: 2 }]);
     expect(stats.countries.distinct).toBe(2);
     expect(stats.countries.top[0]?.code).toBe("US");
     expect(stats.mix.remote).toBeCloseTo(1 / 3);
@@ -102,14 +105,50 @@ describe("siteStats", () => {
   });
 
   it("answers on an empty database", async () => {
-    const stats = await siteStats(testDb(), NOW);
-    expect(stats).toMatchObject({ openJobs: 0, boards: 0, sampleSize: 0, mix: { payStated: 0 } });
+    const stats = await refreshSiteStats(testDb(), NOW);
+    expect(stats).toMatchObject({
+      openJobs: 0,
+      boards: 0,
+      collectedTotal: 0,
+      mix: { payStated: 0 },
+    });
     expect(stats.freshness.newestRunAt).toBeNull();
   });
 
-  it("reads bounded rows: sources, runs and at most the sample windows", async () => {
+  it("recounts the catalog about daily and keeps one history point per day", async () => {
     const db = testDb();
-    await siteStats(db, NOW);
-    expect(readCost(db).queries).toBeLessThanOrEqual(9);
+    await db.insert(schema.sources).values(source("a", "greenhouse", "Acme", 1));
+    await db.insert(schema.jobs).values(job(1, "greenhouse:a"));
+    await refreshSiteStats(db, NOW);
+
+    await db.insert(schema.jobs).values(job(2, "greenhouse:a"));
+    const hourLater = await refreshSiteStats(db, NOW + 3600);
+    expect(hourLater.openJobs).toBe(1);
+    expect(hourLater.asOf).toBe(NOW + 3600);
+    expect(hourLater.catalogAsOf).toBe(NOW);
+
+    const nextDay = await refreshSiteStats(db, NOW + DAY);
+    expect(nextDay.openJobs).toBe(2);
+    expect(nextDay.history.map((p) => p.openJobs)).toEqual([1, 2]);
+  });
+
+  it("counts failing and retired boards", async () => {
+    const db = testDb();
+    await db.insert(schema.sources).values([
+      { ...source("a", "greenhouse", "Acme", 1), failureCount: 2 },
+      { ...source("b", "lever", "Beta", 1), status: "dead" as const },
+    ]);
+    const stats = await refreshSiteStats(db, NOW);
+    expect(stats.health).toEqual({ failing: 1, dead: 1 });
+    expect(stats.boards).toBe(1);
+  });
+
+  it("reads the catalog once a day and a page view reads one row", async () => {
+    const db = testDb();
+    await refreshSiteStats(db, NOW);
+    const afterRefresh = readCost(db).queries;
+    expect(afterRefresh).toBeLessThanOrEqual(8);
+    await readSiteStats(db);
+    expect(readCost(db).queries).toBe(afterRefresh + 1);
   });
 });

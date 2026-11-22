@@ -5,6 +5,7 @@ import {
   purgeClosed,
   reapStaleRuns,
   rebuildDuplicates,
+  refreshSiteStats,
   repairSchedule,
   schema,
 } from "@tallo/db";
@@ -98,7 +99,8 @@ export default {
   /**
    * The five-minute cron enqueues due boards. The hourly one does housekeeping: mark runs abandoned
    * by a killed collector as partial, drop jobs closed for 30+ days and their orphaned description
-   * blobs, regroup duplicate postings, and bring back into the schedule any board stranded far in the future.
+   * blobs, regroup duplicate postings, bring back into the schedule any board stranded far in the future, and
+   * store the /status snapshot.
    */
   async scheduled(event: ScheduledController, env: Env) {
     if (event.cron === COLLECT_CRON) {
@@ -116,6 +118,16 @@ export default {
         regroupPage: (after) => rebuildDuplicates(db, undefined, { after }),
       },
       (event) => console.error(JSON.stringify({ job: "hourly", ...event })),
+    );
+    // The /status snapshot: one stored row, the catalog count inside it repeated about daily. Its failure is not
+    // the housekeeping's, and the page keeps the last stored row.
+    await refreshSiteStats(db).catch((error) =>
+      console.error(
+        JSON.stringify({
+          job: "site-stats",
+          error: (error instanceof Error ? error.message : String(error)).slice(0, 300),
+        }),
+      ),
     );
   },
   /** One board per invocation (batch size 1). A failed message is retried, then dead-lettered. */

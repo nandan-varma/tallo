@@ -10,8 +10,9 @@ design reasons are in `docs/decisions.md`; how to operate is `docs/runbook.md`.
   `/v1/titles`, `/v1/openapi.json`. Served by the web Worker, which proxies to the API Worker (rate limits, edge cache).
 - **`/llms.txt`**: generated from the API's zod schemas (`packages/contracts/src/llms.ts`); `pnpm release` fails if the
   live text differs from the commit's.
-- **Web**: home, `/search`, and `/status` (catalog numbers, freshness and coverage; cached 12 hours; sampled figures
-  are labelled approximate; internal route `GET /v1/site-stats`, about 250k D1 rows per snapshot).
+- **Web**: home, `/search`, and `/status` (exact catalog numbers, freshness, collection health and a daily history;
+  stored hourly by the API cron in `site_snapshot`, catalog recount about daily; internal route `GET /v1/site-stats`
+  is a one-row read, edge-cached five minutes).
 - **Catalog**: 9,534 boards on 26 platforms (`sources/*.json`), roughly 700k open postings. Facts are what sources
   state; no heuristics in the database (D6).
 - **Collection**: local and manual (`tallo sync`, run when asked); no Mac jobs, nothing in the cloud. The cloud collector

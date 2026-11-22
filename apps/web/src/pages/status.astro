@@ -4,12 +4,12 @@ import Base from "@/layouts/Base.astro";
 import { upstreamFetch, edgeCache } from "@/lib/api";
 import { loadSiteStats } from "@/lib/site-stats";
 
-// The snapshot is cached at the edge for 12 hours (lib/site-stats.ts): a page view reaches the database only when
-// that entry has expired. A failed read shows a plain message.
+// The API stores the snapshot hourly; the edge keeps it five minutes (lib/site-stats.ts), so a page view costs at
+// most a one-row read. A failed read shows a plain message.
 const stats = await loadSiteStats({ upstream: upstreamFetch, cache: edgeCache() }).catch(() => null);
 Astro.response.headers.set(
   "cache-control",
-  "public, max-age=300, s-maxage=3600, stale-while-revalidate=43200",
+  "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
 );
 ---
 <Base

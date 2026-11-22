@@ -4,22 +4,30 @@ import {
   PUBLIC_PATHS,
   SITE_STATS_CACHE_CONTROL,
 } from "@tallo/contracts";
+import { refreshSiteStats } from "@tallo/db";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { seed, setup } from "./fixtures.ts";
 import { INGEST } from "./support.ts";
 
 describe("GET /v1/site-stats", () => {
-  it("serves the snapshot with a 12 hour cache header", async () => {
+  it("serves the stored snapshot with a short cache header", async () => {
     const { db, blobs } = setup();
     await seed(db, blobs, { postingId: "1", title: "Data Engineer", countryCode: "US" });
     const app = createApp({ db, blobs, ingestToken: INGEST });
+    await refreshSiteStats(db);
 
     const response = await app.request("/v1/site-stats");
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe(SITE_STATS_CACHE_CONTROL);
-    expect(await response.json()).toMatchObject({ boards: 1, sampleSize: 1 });
+    expect(await response.json()).toMatchObject({ boards: 1, openJobs: 1 });
+  });
+
+  it("answers 503 before the first refresh", async () => {
+    const { db, blobs } = setup();
+    const response = await createApp({ db, blobs, ingestToken: INGEST }).request("/v1/site-stats");
+    expect(response.status).toBe(503);
   });
 
   it("is refused on the API's own host and is not part of the public surface", async () => {

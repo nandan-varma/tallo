@@ -12,6 +12,8 @@ const DATE = new Intl.DateTimeFormat("en-US", {
 });
 const stamp = (epoch: number) => `${DATE.format(new Date(epoch * 1000))} UTC`;
 
+const DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
 const regions = new Intl.DisplayNames(["en"], { type: "region" });
 const countryName = (code: string) => {
   try {
@@ -181,20 +183,8 @@ function Meter({ label, share, note }: { label: string; share: number; note: str
   );
 }
 
-const STEPS = [
-  [
-    "Collect",
-    "A runner reads each employer's own job board on a schedule and keeps every field the source returns.",
-  ],
-  [
-    "Store what sources state",
-    "Facts go in as stated. Nothing is inferred: a blank stays blank and is shown as not stated.",
-  ],
-  [
-    "Search",
-    "A public, read-only API and this site search the catalog and link straight to the employer's application.",
-  ],
-];
+/** Collecting when a run finished within the hour; the schedule runs every few minutes, so silence means trouble. */
+const LIVE_WITHIN = 3600;
 
 export function StatusPage({ stats, now }: { stats: SiteStats | null; now: number }) {
   return (
@@ -202,47 +192,23 @@ export function StatusPage({ stats, now }: { stats: SiteStats | null; now: numbe
       <header className="grid gap-3">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tallo status</h1>
         <p className="max-w-prose text-muted-foreground">
-          What the catalog holds and how fresh it is, counted from the live database. Figures marked
-          approximate come from each board's last complete listing or from a sample of postings.
-          Nothing here is inferred.
+          What the catalog holds and how fresh it is: exact counts of the open postings, recounted
+          daily, with collection health refreshed hourly. Nothing here is inferred.
         </p>
         {stats ? (
           <p className="text-sm text-muted-foreground">
-            Data as of{" "}
-            <time dateTime={new Date(stats.asOf * 1000).toISOString()}>{stamp(stats.asOf)}</time>{" "}
-            (refreshed about twice a day).
+            Health as of{" "}
+            <time dateTime={new Date(stats.asOf * 1000).toISOString()}>{stamp(stats.asOf)}</time>,
+            catalog counted{" "}
+            <time dateTime={new Date(stats.catalogAsOf * 1000).toISOString()}>
+              {stamp(stats.catalogAsOf)}
+            </time>
+            .
           </p>
         ) : null}
       </header>
 
       {stats ? <Body stats={stats} now={now} /> : <Unavailable />}
-
-      <Section id="facts" title="Product facts">
-        <ul className="grid gap-2 text-sm sm:grid-cols-2">
-          {[
-            "No accounts and no sign-in.",
-            "Nothing about you is stored. There is no tracking or analytics.",
-            "Every result links straight to the employer's own application.",
-            "A public, read-only API, described for AI assistants in llms.txt and in OpenAPI.",
-          ].map((fact) => (
-            <li key={fact} className="rounded-xl border bg-card p-4">
-              {fact}
-            </li>
-          ))}
-        </ul>
-      </Section>
-
-      <Section id="how" title="How it works">
-        <ol className="grid gap-3 sm:grid-cols-3">
-          {STEPS.map(([title, text], i) => (
-            <li key={title} className="grid content-start gap-1 rounded-xl border bg-card p-4">
-              <span className="text-xs text-muted-foreground tabular-nums">Step {i + 1}</span>
-              <span className="font-medium">{title}</span>
-              <span className="text-sm text-muted-foreground">{text}</span>
-            </li>
-          ))}
-        </ol>
-      </Section>
 
       <nav aria-label="Links" className="flex flex-wrap gap-x-6 gap-y-2 text-sm print:hidden">
         <a href="/search" className="underline underline-offset-4">
@@ -273,16 +239,30 @@ function Unavailable() {
 
 function Body({ stats, now }: { stats: SiteStats; now: number }) {
   const { freshness: f, mix } = stats;
-  const sampleNote = `Sample of ${num(stats.sampleSize)} open postings spread across the catalog.`;
+  const live = f.newestRunAt !== null && now - f.newestRunAt < LIVE_WITHIN;
   return (
     <>
       <Section id="headline" title="At a glance">
-        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Card label="Open jobs" value={num(stats.openJobs)} note="approximate" />
+        <p
+          role="status"
+          className="flex items-center gap-2 rounded-xl border bg-card p-4 text-sm font-medium"
+        >
+          <span
+            aria-hidden="true"
+            className={`size-2.5 rounded-full ${live ? "bg-emerald-500" : "bg-amber-500"}`}
+          />
+          {live ? "Collecting now" : "No collection run in the last hour"}
+          <span className="font-normal text-muted-foreground">
+            {f.newestRunAt ? `last run ${ago(f.newestRunAt, now)}` : "no run yet"}
+          </span>
+        </p>
+        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <Card label="Open jobs" value={num(stats.openJobs)} note="hidden duplicates folded" />
+          <Card label="Postings collected" value={num(stats.collectedTotal)} note="all time" />
           <Card label="Employers" value={num(stats.employers)} />
           <Card label="Boards tracked" value={num(stats.boards)} />
           <Card label="Platforms" value={num(stats.platforms)} />
-          <Card label="Countries" value={num(stats.countries.distinct)} note="seen in the sample" />
+          <Card label="Countries" value={num(stats.countries.distinct)} />
         </dl>
       </Section>
 
@@ -312,8 +292,37 @@ function Body({ stats, now }: { stats: SiteStats; now: number }) {
           <Card label="New postings, 24 hours" value={num(f.added24h)} />
           <Card label="New postings, 7 days" value={num(f.added7d)} />
           <Card label="Closed, 7 days" value={num(f.closed7d)} />
+          <Card
+            label="Boards not listing cleanly"
+            value={num(stats.health.failing)}
+            note="partial or failed runs, retried with back-off"
+          />
+          <Card
+            label="Boards retired"
+            value={num(stats.health.dead)}
+            note="stopped listing (404)"
+          />
         </dl>
       </Section>
+
+      {stats.history.length > 1 ? (
+        <Section id="history" title="Open jobs over time" lead="One point per day, UTC.">
+          <Bars
+            caption="Open jobs per day"
+            column="Open jobs"
+            rows={bars(
+              stats.history
+                .slice(-14)
+                .reverse()
+                .map((p) => ({
+                  label: DAY.format(new Date(p.day * 1000)),
+                  n: p.openJobs,
+                  extra: `+${num(p.added)} new`,
+                })),
+            )}
+          />
+        </Section>
+      ) : null}
 
       <Section
         id="platforms"
@@ -333,7 +342,7 @@ function Body({ stats, now }: { stats: SiteStats; now: number }) {
         />
       </Section>
 
-      <Section id="employers" title="Top employers" lead="By open postings, approximate.">
+      <Section id="employers" title="Top employers" lead="By open postings.">
         <Bars
           caption="Top 15 employers by open postings"
           column="Open jobs"
@@ -341,11 +350,7 @@ function Body({ stats, now }: { stats: SiteStats; now: number }) {
         />
       </Section>
 
-      <Section
-        id="countries"
-        title="Top countries"
-        lead={`Share of postings, approximate. ${sampleNote}`}
-      >
+      <Section id="countries" title="Top countries" lead="Share of open postings.">
         <Bars
           caption="Top 12 countries by share of open postings"
           column="Share"
@@ -362,7 +367,7 @@ function Body({ stats, now }: { stats: SiteStats; now: number }) {
         </p>
       </Section>
 
-      <Section id="mix" title="What postings state" lead={sampleNote}>
+      <Section id="mix" title="What postings state" lead="Share of open postings.">
         <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
           <Split
             caption="Work mode of open postings"

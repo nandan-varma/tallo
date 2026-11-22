@@ -2,9 +2,8 @@ import { PUBLIC_ORIGIN, SITE_STATS_TTL_SECONDS, type SiteStats } from "@tallo/co
 import type { EdgeCache } from "@/lib/public";
 
 /**
- * The snapshot behind /status, through the edge cache. A snapshot reads a few hundred thousand rows, so it is computed
- * at most once per 12 hours per location: a fresh entry is served as is, an entry between 12 hours and a week old is
- * served when the API cannot answer, and a page view never reaches the database otherwise. Never computed on a timer.
+ * The snapshot behind /status, through the edge cache. The API stores it hourly, so a miss is a one-row read: an entry
+ * is served for five minutes from when it was fetched, an older one (up to a week) when the API cannot answer.
  */
 const KEY = `${PUBLIC_ORIGIN}/__site-stats`;
 const KEEP_SECONDS = 7 * 86400;
@@ -14,6 +13,8 @@ export interface SiteStatsDeps {
   cache?: EdgeCache;
   now?: () => number;
 }
+
+const FETCHED_AT = "x-fetched-at";
 
 const read = async (response: Response | undefined): Promise<SiteStats | null> => {
   if (!response?.ok) return null;
@@ -30,8 +31,10 @@ export async function loadSiteStats({
   now = () => Date.now() / 1000,
 }: SiteStatsDeps): Promise<SiteStats | null> {
   const request = new Request(KEY);
-  const cached = await read(await cache?.match(request).catch(() => undefined));
-  if (cached && now() - cached.asOf < SITE_STATS_TTL_SECONDS) return cached;
+  const hit = await cache?.match(request).catch(() => undefined);
+  const cached = await read(hit?.clone());
+  const fetchedAt = Number(hit?.headers.get(FETCHED_AT));
+  if (cached && now() - fetchedAt < SITE_STATS_TTL_SECONDS) return cached;
   try {
     const fresh = await read(await upstream("/v1/site-stats"));
     if (fresh) {
@@ -42,6 +45,7 @@ export async function loadSiteStats({
             headers: {
               "content-type": "application/json",
               "cache-control": `public, max-age=${KEEP_SECONDS}`,
+              [FETCHED_AT]: String(Math.floor(now())),
             },
           }),
         )
