@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
 import { createPlatformLimiter } from "@tallo/collect";
@@ -6,6 +7,7 @@ import { Command, InvalidArgumentError } from "commander";
 import PQueue from "p-queue";
 import pino from "pino";
 import { createApi } from "./api.ts";
+import { discover, writeAccepted } from "./discover.ts";
 import {
   CLOUD_STALE_HOURS,
   deadSources,
@@ -183,6 +185,35 @@ program
     const net = createPooledFetch();
     const result = await verifySource(pick(id), opts.sample, net.fetch).finally(() => net.close());
     console.log(JSON.stringify(result, null, opts.json ? 0 : 2));
+  });
+
+program
+  .command("discover <file>")
+  .description("Verify the boards behind a list of careers URLs (one per line, - for stdin)")
+  .option("-n, --sample <n>", "postings to sample per board", numberFlag("--sample", 1), 3)
+  .option("--write", "add the boards that verify cleanly to sources/<platform>.json")
+  .action(async (file: string, opts) => {
+    const urls = readFileSync(file === "-" ? 0 : file, "utf8").split("\n");
+    const net = createPooledFetch();
+    const found = await discover(
+      urls,
+      loadSources(SOURCES_DIR).map((s) => s.id),
+      (source) => verifySource(source, opts.sample, net.fetch),
+    ).finally(() => net.close());
+    if (opts.write) writeAccepted(SOURCES_DIR, found.accepted);
+    console.log(
+      JSON.stringify(
+        {
+          accepted: found.accepted.map((s) => s.id),
+          rejected: found.rejected,
+          unrecognized: found.unrecognized,
+          alreadyConfigured: found.known,
+          written: Boolean(opts.write),
+        },
+        null,
+        2,
+      ),
+    );
   });
 
 program
