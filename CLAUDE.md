@@ -17,7 +17,7 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
 | `packages/http`      | Outbound HTTP (ky + p-queue): retries, per-host limits, https/allowlist/SSRF guard, size caps.                                                         |
 | `packages/catalog`   | Pure normalization: HTML→text, hashing, dedupe keys, `prepareJob`. Derives nothing from text (no heuristics).                                          |
 | `packages/platforms` | One folder per ATS: `list` + optional `detail` + pure `map` + `fingerprint`. Registered in `src/index.ts`.                                             |
-| `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` (the only write path), `queries.ts`, `BlobStore`.                                                |
+| `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` + `dedupe.ts` (catalog writes), `queries.ts`, `BlobStore`.                                                |
 | `apps/api`           | Hono Worker: public read API (`/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, no auth) + ingest/admin (INGEST_TOKEN). D1 + R2.               |
 | `apps/web`           | Astro SSR pages (home, `/search`, `/llms.txt`) and the public proxy `/v1/*` (allowlist, rate limit, edge cache). Talks to the API via service binding. |
 | `apps/runner`        | Mac CLI (`tallo sync`, `verify`, `register`, ...). Collects the `egress: local` boards, runs by hand.                                                  |
@@ -30,7 +30,7 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
 2. **A failed or partial run never closes jobs.** Closure needs `listing.complete` and a non-empty (or
    authoritatively empty) listing, then `CLOSE_AFTER_ABSENT_RUNS` (2) consecutive complete absences.
    A platform that cannot finish listing must throw or return `complete: false`.
-3. **`packages/db/src/ingest.ts` is the only writer** of catalog tables. D1 has no interactive
+3. **Catalog writes belong to `packages/db/src`**, in `ingest.ts` and `dedupe.ts`; routes and collectors call those functions. D1 has no interactive
    transactions: multi-statement writes go through `batch()`; never bind more than ~100 params
    (use `json_each` for id lists).
 4. **The database stays lean.** No descriptions, no raw payloads in D1. Description text is gzip in R2
