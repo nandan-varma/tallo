@@ -380,14 +380,15 @@ describe("per-host 429", () => {
     expect(lane.cooldownUntil).toBe(0);
   });
 
-  it("reduces the lane only when two hosts say 429 within 60 s", () => {
-    const { lane } = mk(multi(6));
+  it("slows the lane's start gap, not its parallelism, when several hosts say 429", () => {
+    const { lane, events } = mk(multi(6));
     lane.on429(undefined, 1000, A);
     lane.on429(undefined, 100_000, B); // A's 429 is too old
-    expect(lane.settings.concurrency).toBe(6);
-    lane.on429(undefined, 110_000, A);
-    expect(lane.settings.concurrency).toBe(3);
     expect(lane.settings.gapMs).toBe(0);
+    lane.on429(undefined, 110_000, A);
+    expect(lane.settings.gapMs).toBe(500); // retryAfterGapMs
+    expect(lane.settings.concurrency).toBe(6);
+    expect(events.at(-1)).toBe("workday: 429 on 2+ hosts, gap 0 -> 500 ms");
   });
 
   it("decays a host gap after clean requests", () => {

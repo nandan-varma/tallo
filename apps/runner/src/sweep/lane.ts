@@ -454,7 +454,11 @@ export class Lane {
     return pod.size;
   }
 
-  /** `fromHosts`: several hosts said 429, so only concurrency drops; each host already has its own gap. */
+  /**
+   * `fromHosts`: many of the lane's pods said 429 at once. The lane then slows its own start gap - the floor every
+   * pod's limiter honours - and leaves concurrency alone: halving a wide lane starves every healthy pod, and a lane
+   * of one board would stop starting boards entirely. Each host still has its own gap on top of this one.
+   */
   private laneWide429(retryAfterMs: number | undefined, now: number, fromHosts = false): void {
     if (!fromHosts) this.r429++;
     this.burst++;
@@ -478,18 +482,23 @@ export class Lane {
           ? this.tuning.noRetryAfterGapMs
           : gap * 2;
     const before = s.concurrency;
-    s.concurrency = Math.max(1, Math.floor(s.concurrency / 2));
-    if (!fromHosts) s.gapMs = Math.min(this.tuning.gapCapMs, next);
-    this.applyLimits();
     const perHostBefore = this.settings.perHost;
-    // A pod-driven reduction already halved that pod's own board limit; halving the lane's perHost as well would
-    // slow every healthy pod for one tenant's 429.
-    if (!fromHosts) this.lowerPerHost(now);
+    if (fromHosts) {
+      // Broad 429: slow the rate the whole lane may start requests at. Parallelism stays, so the pods that are fine
+      // keep working; a pod that complained has its own larger gap on top of this.
+      s.gapMs = Math.min(this.tuning.gapCapMs, Math.max(gap * 2, this.tuning.retryAfterGapMs));
+      this.applyLimits();
+    } else {
+      s.concurrency = Math.max(1, Math.floor(s.concurrency / 2));
+      s.gapMs = Math.min(this.tuning.gapCapMs, next);
+      this.applyLimits();
+      this.lowerPerHost(now);
+    }
     const ra =
       retryAfterMs === undefined ? "" : `, Retry-After ${Math.round(retryAfterMs / 1000)} s`;
     this.emit(
       fromHosts
-        ? `${this.name}: 429 on several hosts, concurrency ${before} -> ${s.concurrency}`
+        ? `${this.name}: 429 on ${this.tuning.hostsToReduce}+ hosts, gap ${gap} -> ${s.gapMs} ms`
         : `${this.name}: 429 x${this.burst}${ra}, concurrency ${before} -> ${s.concurrency}, gap ${gap} -> ${s.gapMs} ms, perHost ${perHostBefore} -> ${s.perHost}`,
     );
     this.burst = 0;
