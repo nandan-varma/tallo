@@ -12,6 +12,11 @@ import {
 describe("llmsText", () => {
   const text = llmsText();
 
+  it("links people to homepage search instead of the removed search page", () => {
+    expect(text).toContain("[Search jobs](https://tallo.nandan.fyi/)");
+    expect(text).not.toContain("https://tallo.nandan.fyi/search");
+  });
+
   it("stays under 30 KB, even with the real example answers", () => {
     // The three-line pseudo-shapes were replaced with pretty-printed, schema-valid examples, which is what grew
     // this document past the old 12 KB ceiling.

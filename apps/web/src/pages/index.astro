@@ -1,23 +1,92 @@
 ---
+import { JobResults } from "@/components/JobResults";
 import { SearchForm } from "@/components/SearchForm";
 import Base from "@/layouts/Base.astro";
-import { valuesFrom } from "@/lib/search";
+import { PAGE_SIZE, publicDeps, runSearch } from "@/lib/api";
+import { admit } from "@/lib/public";
+import { offsetFrom, searchHref, specFrom, valuesFrom } from "@/lib/search";
 
-const empty = valuesFrom(new URLSearchParams());
+const values = valuesFrom(Astro.url.searchParams);
+const offset = offsetFrom(Astro.url.searchParams);
+const spec = specFrom(values);
+const deps = publicDeps();
+
+// The page counts against the same per-address budget as the public API. A failed search shows a plain message; the
+// form stays usable.
+let page: Awaited<ReturnType<typeof runSearch>> | null = null;
+let failed = false;
+let limited = false;
+if (spec) {
+  if (await admit(Astro.request, deps.limiter)) {
+    try {
+      page = await runSearch(spec, offset, deps);
+    } catch {
+      failed = true;
+    }
+  } else {
+    limited = true;
+  }
+}
 ---
-<Base title="Tallo · Find jobs" indexable>
-  <section class="mx-auto grid max-w-3xl gap-8 px-6 py-16">
-    <div class="grid gap-3">
-      <h1 class="text-3xl font-semibold tracking-tight">Find the role, apply on the employer's page.</h1>
-      <p class="text-muted-foreground">
-        Tallo collects postings straight from company job boards. Every result links to the employer's own application.
-      </p>
+<Base title={spec ? "Search results · Tallo" : "Tallo · Find jobs"} indexable={!spec}>
+  <section class="page-shell home-page">
+    <div class="hero">
+      <p class="eyebrow">A more direct job search</p>
+      <h1>Find your next role.<br /><span>Go straight to the source.</span></h1>
+      <p class="hero-copy">Explore postings from company job boards. Find a role that fits, then apply on the employer’s own page.</p>
     </div>
-    <SearchForm values={empty} autoFocus />
-    <p class="text-sm text-muted-foreground">
-      Using an AI assistant? Give it <a href="/llms.txt" class="underline underline-offset-4">tallo.nandan.fyi/llms.txt</a>
-      and it can search these postings for you through a public, read-only API.
-      <a href="/search" class="underline underline-offset-4">Search here</a> to see the results yourself.
-    </p>
+    <SearchForm values={values} />
+    <div class="search-examples">
+      <span>Try a search</span>
+      <a href="/?title=software+engineer">Software engineer <span aria-hidden="true">↗</span></a>
+      <a href="/?title=product+designer">Product designer <span aria-hidden="true">↗</span></a>
+      <a href="/?company=Stripe">Roles at Stripe <span aria-hidden="true">↗</span></a>
+    </div>
+    {limited && <p role="alert" class="notice text-sm text-destructive">Too many searches from this address. Wait a minute, then try again.</p>}
+    {failed && <p role="alert" class="notice text-sm text-destructive">The search is unavailable right now. Try again in a moment.</p>}
+    {page && (
+      <div class="home-results">
+        <h2 class="section-title">Search results</h2>
+        <JobResults
+          hits={page.hits}
+          start={offset + 1}
+          prevHref={offset > 0 ? searchHref(values, Math.max(0, offset - PAGE_SIZE)) : null}
+          nextHref={page.nextOffset !== null ? searchHref(values, page.nextOffset) : null}
+          capped={page.capped}
+          expanded={page.expanded}
+        />
+      </div>
+    )}
+    <section class="assistant-docs" aria-labelledby="assistant-heading">
+      <div class="docs-intro">
+        <p class="eyebrow">For you and your AI assistant</p>
+        <h2 id="assistant-heading">Take your search into the conversation.</h2>
+        <p>Give your assistant the link below. It can read how Tallo works, search the same company postings, and share direct application links.</p>
+        <a href="/llms.txt" class="docs-link">Read llms.txt <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="copy-block">
+        <div class="copy-header"><span>Prompt for your assistant</span><button type="button" id="copy-prompt" hidden>Copy prompt</button></div>
+        <pre><code id="assistant-prompt">Read https://tallo.nandan.fyi/llms.txt and help me find roles that fit my experience. Ask about my preferences, then search Tallo and share the employer’s application links.</code></pre>
+        <p id="copy-feedback" role="status" aria-live="polite"></p>
+      </div>
+      <div class="docs-footnote"><span>No account. No API key. No personal profiles.</span><a href="/v1/openapi.json">Explore the API <span aria-hidden="true">↗</span></a></div>
+    </section>
   </section>
+  <script>
+    const button = document.querySelector<HTMLButtonElement>("#copy-prompt");
+    const prompt = document.querySelector("#assistant-prompt");
+    const feedback = document.querySelector("#copy-feedback");
+    if (button && prompt && feedback && navigator.clipboard) {
+      button.hidden = false;
+      button.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(prompt.textContent ?? "");
+          button.textContent = "Copied";
+          feedback.textContent = "Prompt copied. Paste it into your AI assistant.";
+        } catch {
+          feedback.textContent = "Could not copy. Select the prompt above and copy it manually.";
+        }
+      });
+    }
+  </script>
 </Base>

@@ -36,7 +36,9 @@ function Card({ label, value, note }: { label: string; value: string; note?: str
   return (
     <div className="grid content-start gap-1 rounded-xl border bg-card p-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-3xl font-semibold tracking-tight tabular-nums">{value}</dd>
+      <dd className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl break-words">
+        {value}
+      </dd>
       {note ? <dd className="text-xs text-muted-foreground">{note}</dd> : null}
     </div>
   );
@@ -191,8 +193,9 @@ const RECENT_WITHIN = 24 * 3600;
 
 export function StatusPage({ stats, now }: { stats: SiteStats | null; now: number }) {
   return (
-    <div className="mx-auto grid max-w-4xl gap-12 px-4 py-10 sm:px-6 sm:py-14">
-      <header className="grid gap-3">
+    <div className="page-shell status-page">
+      <header className="page-heading">
+        <p className="eyebrow">An open look at the catalog</p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tallo status</h1>
         <p className="max-w-prose text-muted-foreground">
           What the catalog holds and how fresh it is: exact counts of the open postings, recounted
@@ -215,7 +218,7 @@ export function StatusPage({ stats, now }: { stats: SiteStats | null; now: numbe
       {stats ? <Body stats={stats} now={now} /> : <Unavailable />}
 
       <nav aria-label="Links" className="flex flex-wrap gap-x-6 gap-y-2 text-sm print:hidden">
-        <a href="/search" className="underline underline-offset-4">
+        <a href="/" className="underline underline-offset-4">
           Search jobs
         </a>
         <a href="/llms.txt" className="underline underline-offset-4">
@@ -249,7 +252,7 @@ function Body({ stats, now }: { stats: SiteStats; now: number }) {
       <Section id="headline" title="At a glance">
         <p
           role="status"
-          className="flex items-center gap-2 rounded-xl border bg-card p-4 text-sm font-medium"
+          className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-4 text-sm font-medium"
         >
           <span
             aria-hidden="true"

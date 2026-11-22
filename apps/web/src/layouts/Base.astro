@@ -7,6 +7,7 @@ interface Props {
   indexable?: boolean;
   description?: string;
 }
+const pathname = Astro.url.pathname;
 const {
   title = "Tallo",
   indexable = false,
@@ -20,7 +21,7 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="alternate" type="text/plain" href="/llms.txt" title="Tallo for AI assistants (llms.txt)" />
     <meta name="robots" content={indexable ? "index, follow" : "noindex"} />
-    <meta name="theme-color" content="#fafafa" />
+    <meta name="theme-color" content="#f8f9f6" />
     <meta name="description" content={description} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -32,21 +33,30 @@ const {
         const dark = matchMedia("(prefers-color-scheme: dark)").matches;
         document.documentElement.classList.toggle("dark", dark);
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute("content", dark ? "#09090b" : "#fafafa");
+        if (meta) meta.setAttribute("content", dark ? "#09090b" : "#f8f9f6");
       })();
     </script>
   </head>
   <body>
     <a href="#main" class="skip-link">Skip to content</a>
     <header class="site-header">
-      <a href="/" class="wordmark" aria-label="Tallo home">tallo</a>
+      <div class="header-inner">
+        <a href="/" class="wordmark" aria-label="Tallo home">tallo<span aria-hidden="true">.</span></a>
+        <nav aria-label="Main navigation" class="main-nav">
+          <a href="/" aria-current={pathname === "/" ? "page" : undefined}>Find jobs</a>
+          <a href="/status" aria-current={pathname === "/status" ? "page" : undefined}>Catalog status</a>
+        </nav>
+      </div>
     </header>
     <main id="main"><slot /></main>
-    <footer class="mx-auto flex max-w-3xl flex-wrap gap-x-6 gap-y-2 px-6 py-10 text-sm print:hidden">
-      <a href="/search" class="underline underline-offset-4">Search</a>
-      <a href="/status" class="underline underline-offset-4">Status</a>
-      <a href="/llms.txt" class="underline underline-offset-4">llms.txt</a>
-      <a href="/v1/openapi.json" class="underline underline-offset-4">OpenAPI</a>
+    <footer class="site-footer print:hidden">
+      <div><a href="/" class="font-semibold">tallo.</a><p>Direct from company job boards. Always yours to explore.</p></div>
+      <nav aria-label="Footer navigation">
+        <a href="/">Search</a>
+        <a href="/status">Status</a>
+        <a href="/llms.txt">llms.txt</a>
+        <a href="/v1/openapi.json">OpenAPI</a>
+      </nav>
     </footer>
   </body>
 </html>

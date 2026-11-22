@@ -95,7 +95,7 @@ export function searchHref(values: SearchValues, offset = 0): string {
   for (const [name, value] of Object.entries(values)) if (value) params.set(name, value);
   if (offset > 0) params.set("offset", String(offset));
   const query = params.toString();
-  return query ? `/search?${query}` : "/search";
+  return query ? `/?${query}` : "/";
 }
 
 /** Only web links leave the site as hrefs; a source's stated link is never trusted as a scheme. */

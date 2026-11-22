@@ -3,7 +3,7 @@
 ## Goals and non-goals (v1)
 
 Public, read-only job search over ~9k company boards (the database stores what they state; the reader judges fit),
-refreshed weekly by a cloud collector (hot boards daily; boards that refuse Cloudflare's egress from a Mac), hosted cheaply on Cloudflare (about $5/month). The web offers a home page and `/search`;
+refreshed weekly by a cloud collector (hot boards daily; boards that refuse Cloudflare's egress from a Mac), hosted cheaply on Cloudflare (about $5/month). The web offers search on the home page;
 each result links to the employer's application. Not planned: accounts, any per-person data, AI in the product, SEO
 work, vector search, closed-job history. See `decisions.md` D15.
 

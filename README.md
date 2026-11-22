@@ -3,7 +3,7 @@
 A public, read-only job-search API and a small search page. Tallo collects postings from company ATS boards
 (about 9,500 boards on 26 platforms, from Workday and Greenhouse tenants to Walmart, Microsoft and IBM), keeps what each source states, and links every result straight to the employer's
 own application page. It stores nothing about people and judges nothing: relevance is the reader's call.
-- Site: https://tallo.nandan.fyi (home, `/search`, `/status` for the live numbers)
+- Site: https://tallo.nandan.fyi (search on the homepage, `/status` for the live numbers)
 - API: `GET /v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, `/v1/companies`, `/v1/titles`, `/v1/openapi.json`
 - For AI readers: https://tallo.nandan.fyi/llms.txt (generated from the API's own schemas)
 
