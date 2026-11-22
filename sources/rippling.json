@@ -1,5 +1,9 @@
 [
   {
+    "key": "4ag",
+    "company": "4AG Robotics Inc."
+  },
+  {
     "key": "aalyria-careers",
     "company": "Aalyria"
   },
@@ -12,6 +16,46 @@
     "company": "ACE"
   },
   {
+    "key": "adelaide",
+    "company": "Adelaide Metrics"
+  },
+  {
+    "key": "advocate-technologies-inc",
+    "company": "Advocate Technologies Inc."
+  },
+  {
+    "key": "agilitypr",
+    "company": "Agility PR Solutions"
+  },
+  {
+    "key": "amika-careers",
+    "company": "amika"
+  },
+  {
+    "key": "ampersand-biomedicines",
+    "company": "Ampersand Biomedicines"
+  },
+  {
+    "key": "ampliwork-inc",
+    "company": "Ampliwork, Inc"
+  },
+  {
+    "key": "ams",
+    "company": "AMS"
+  },
+  {
+    "key": "analog-bits-inc",
+    "company": "Analog Bits, Inc."
+  },
+  {
+    "key": "anthony-sylvan-pools",
+    "company": "Anthony & Sylvan Pools"
+  },
+  {
+    "key": "apexanalytix-careers",
+    "company": "apexanalytix"
+  },
+  {
     "key": "arbor",
     "company": "Arbor Biotechnologies"
   },
@@ -20,24 +64,76 @@
     "company": "Archer Veterinary Clinic"
   },
   {
+    "key": "ascentt",
+    "company": "Ascentt"
+  },
+  {
     "key": "asite",
     "company": "Asite"
+  },
+  {
+    "key": "atlas-data-storage",
+    "company": "AtlasBase"
+  },
+  {
+    "key": "axio",
+    "company": "Axio"
+  },
+  {
+    "key": "barrys-careers",
+    "company": "Barry's"
   },
   {
     "key": "billingsleycareers",
     "company": "Billingsley Company"
   },
   {
+    "key": "bloomgrowth",
+    "company": "Bloom Growth"
+  },
+  {
+    "key": "blue-robotics",
+    "company": "Blue Robotics"
+  },
+  {
+    "key": "bonsairoboticsmain",
+    "company": "Bonsai Robotics"
+  },
+  {
     "key": "boom-supersonic",
     "company": "Boom Supersonic"
+  },
+  {
+    "key": "bound",
+    "company": "Bound"
   },
   {
     "key": "branch",
     "company": "Branch"
   },
   {
+    "key": "briowt",
+    "company": "Brio Water Technology"
+  },
+  {
     "key": "burnt",
     "company": "XION"
+  },
+  {
+    "key": "buxtoncocareers",
+    "company": "Buxton"
+  },
+  {
+    "key": "camlin-careers",
+    "company": "Camlin"
+  },
+  {
+    "key": "capacity",
+    "company": "Capacity"
+  },
+  {
+    "key": "cardamom",
+    "company": "Cardamom Health"
   },
   {
     "key": "centricity-research",
@@ -48,6 +144,10 @@
     "company": "Cerby"
   },
   {
+    "key": "chess",
+    "company": "Chess.com"
+  },
+  {
     "key": "chrome-hearts-careers",
     "company": "Chrome Hearts"
   },
@@ -56,8 +156,28 @@
     "company": "CIBSE"
   },
   {
+    "key": "cintal",
+    "company": "Cintal"
+  },
+  {
+    "key": "citylogix",
+    "company": "Citylogix"
+  },
+  {
+    "key": "colheli",
+    "company": "Columbia Helicopters, Inc."
+  },
+  {
+    "key": "collieraerospace",
+    "company": "Collier Aerospace"
+  },
+  {
     "key": "commandlink",
     "company": "Command Link"
+  },
+  {
+    "key": "conceptplus",
+    "company": "Concept Plus"
   },
   {
     "key": "consensus",
@@ -72,6 +192,22 @@
     "company": "Cortex"
   },
   {
+    "key": "createmusicgroup",
+    "company": "Create Music Group"
+  },
+  {
+    "key": "critical-response-group",
+    "company": "Critical Response Group"
+  },
+  {
+    "key": "cruiseplanners",
+    "company": "Cruise Planners"
+  },
+  {
+    "key": "d-wave-quantum",
+    "company": "D-Wave Quantum"
+  },
+  {
     "key": "daloopa",
     "company": "Daloopa"
   },
@@ -84,12 +220,56 @@
     "company": "Decisions"
   },
   {
+    "key": "democratic-national-committee",
+    "company": "Democratic National Committee"
+  },
+  {
+    "key": "dext-capital-llc",
+    "company": "Dext Capital"
+  },
+  {
+    "key": "dgrsystems",
+    "company": "DGR Systems LLC"
+  },
+  {
+    "key": "dialogue-en",
+    "company": "Dialogue (EN)"
+  },
+  {
+    "key": "dialogue-fr",
+    "company": "Dialogue (FR)"
+  },
+  {
+    "key": "dlb-associates",
+    "company": "DLB Associates"
+  },
+  {
+    "key": "dlsengineering",
+    "company": "DLS Engineering"
+  },
+  {
     "key": "domaine-careers",
     "company": "Domaine"
   },
   {
+    "key": "door",
+    "company": "DOOR"
+  },
+  {
+    "key": "door-controls-usa",
+    "company": "Door Controls USA"
+  },
+  {
+    "key": "duku-ai",
+    "company": "Duku AI"
+  },
+  {
     "key": "dynamo-ai",
     "company": "Dynamo AI"
+  },
+  {
+    "key": "eagle-wireless",
+    "company": "Eagle Wireless"
   },
   {
     "key": "east-west-hospitality",
@@ -104,28 +284,96 @@
     "company": "EdgeConneX"
   },
   {
+    "key": "edgehog-trading",
+    "company": "Edgehog Trading"
+  },
+  {
+    "key": "ega-job-board",
+    "company": "EGA"
+  },
+  {
+    "key": "electrosonic-careers",
+    "company": "Electrosonic"
+  },
+  {
+    "key": "empowerly",
+    "company": "Empowerly"
+  },
+  {
+    "key": "encore-auctions",
+    "company": "Encore Auctions"
+  },
+  {
     "key": "endpointsnews",
     "company": "Endpoints News"
+  },
+  {
+    "key": "eridu-ai",
+    "company": "Eridu"
   },
   {
     "key": "eurasia-group",
     "company": "Eurasia Group"
   },
   {
+    "key": "exacare-inc",
+    "company": "exacare ai"
+  },
+  {
     "key": "excel",
     "company": "Excel Learning Center"
+  },
+  {
+    "key": "external-job-board",
+    "company": "FlexGen"
+  },
+  {
+    "key": "facereality",
+    "company": "Face Reality"
+  },
+  {
+    "key": "fieldpulse",
+    "company": "FieldPulse"
   },
   {
     "key": "findhelp",
     "company": "Findhelp"
   },
   {
+    "key": "flexai",
+    "company": "FlexAI"
+  },
+  {
+    "key": "fluidai-medical-careers",
+    "company": "FluidAI Medical"
+  },
+  {
     "key": "forbes-advisor",
     "company": "Forbes Advisor"
   },
   {
+    "key": "forterra",
+    "company": "Forterra"
+  },
+  {
+    "key": "foundation-robotics",
+    "company": "Foundation"
+  },
+  {
+    "key": "fragile",
+    "company": "Fragile"
+  },
+  {
+    "key": "free-market-health",
+    "company": "Free Market Health's"
+  },
+  {
     "key": "fresh-careers",
     "company": "Fresh Clinics"
+  },
+  {
+    "key": "gaiias-open-positions",
+    "company": "gaiia"
   },
   {
     "key": "gather",
@@ -136,12 +384,32 @@
     "company": "Genios AI"
   },
   {
+    "key": "genlogs-corporation",
+    "company": "GenLogs Corporation"
+  },
+  {
+    "key": "glass-roots-construction-llc",
+    "company": "Glass Roots Construction, LLC"
+  },
+  {
     "key": "glasshouse",
     "company": "Glasshouse"
   },
   {
     "key": "gobolt",
     "company": "GoBolt"
+  },
+  {
+    "key": "gofishdigital",
+    "company": "Go Fish"
+  },
+  {
+    "key": "golden",
+    "company": "Golden Analytics"
+  },
+  {
+    "key": "greengas",
+    "company": "Mobius Renewables"
   },
   {
     "key": "gridsight",
@@ -152,32 +420,116 @@
     "company": "Hammerspace"
   },
   {
+    "key": "hearth-careers",
+    "company": "Hearth"
+  },
+  {
+    "key": "hunterstrategy",
+    "company": "Hunter Strategy"
+  },
+  {
+    "key": "infra",
+    "company": "INFRA"
+  },
+  {
+    "key": "inscipher-careers",
+    "company": "InsCipher"
+  },
+  {
+    "key": "intelliguard",
+    "company": "Intelliguard"
+  },
+  {
+    "key": "intersection",
+    "company": "Intersection"
+  },
+  {
+    "key": "ip-house",
+    "company": "IP House"
+  },
+  {
     "key": "iugis-job-board",
     "company": "Eastern Builders"
+  },
+  {
+    "key": "jitsu",
+    "company": "Jitsu"
   },
   {
     "key": "job-openings",
     "company": "Nextdoor, Inc."
   },
   {
+    "key": "jobs-at-tuesday-health",
+    "company": "Tuesday Health"
+  },
+  {
     "key": "joinroot",
     "company": "Root Insurance"
+  },
+  {
+    "key": "journaltech",
+    "company": "Journal Technologies"
   },
   {
     "key": "just-appraised-jobs",
     "company": "Just Appraised"
   },
   {
+    "key": "kraken-robotics-inc",
+    "company": "Kraken Robotics"
+  },
+  {
+    "key": "legitscript-careers",
+    "company": "LegitScript"
+  },
+  {
+    "key": "les-olson-it",
+    "company": "Les Olson IT"
+  },
+  {
+    "key": "lightguide",
+    "company": "LightGuide, Inc."
+  },
+  {
     "key": "lightship",
     "company": "Lightship"
+  },
+  {
+    "key": "linea-energy",
+    "company": "Linea Energy"
   },
   {
     "key": "locateai",
     "company": "Locate"
   },
   {
+    "key": "logicbroker-inc",
+    "company": "Logicbroker, Inc."
+  },
+  {
+    "key": "longevity-holdings",
+    "company": "Longevity Holdings"
+  },
+  {
+    "key": "longshot",
+    "company": "Longshot"
+  },
+  {
+    "key": "loop-careers",
+    "company": "Loop"
+  },
+  {
     "key": "luma-financial-technologies",
     "company": "Luma Financial Technologies"
+  },
+  {
+    "key": "lynx-software-technologies",
+    "company": "Lynx"
+  },
+  {
+    "key": "lyte",
+    "company": "Lyte AI"
   },
   {
     "key": "mainline",
@@ -192,24 +544,156 @@
     "company": "Morris & Dickson"
   },
   {
+    "key": "mei-employment",
+    "company": "Middle East Institute"
+  },
+  {
+    "key": "memryx",
+    "company": "MemryX"
+  },
+  {
+    "key": "mile-marker",
+    "company": "Mile Marker"
+  },
+  {
+    "key": "mindspan-institute",
+    "company": "Mindspan Institute"
+  },
+  {
+    "key": "momentumcareers",
+    "company": "Momentum Engineering, Inc."
+  },
+  {
+    "key": "moon",
+    "company": "Moon"
+  },
+  {
+    "key": "msm",
+    "company": "MSM Inc."
+  },
+  {
+    "key": "mytra",
+    "company": "Mytra"
+  },
+  {
     "key": "nanovation-careers",
     "company": "NanoVation Therapeutics"
+  },
+  {
+    "key": "naxo",
+    "company": "NAXO"
+  },
+  {
+    "key": "neosigma",
+    "company": "NeoSigma"
+  },
+  {
+    "key": "nerdio-careers",
+    "company": "Nerdio"
+  },
+  {
+    "key": "nesto",
+    "company": "nesto"
+  },
+  {
+    "key": "nestocloud",
+    "company": "Nesto Cloud"
+  },
+  {
+    "key": "netwrix-corporation",
+    "company": "Netwrix Corporation"
+  },
+  {
+    "key": "neurospark",
+    "company": "NeuroSpark"
+  },
+  {
+    "key": "north-cloud",
+    "company": "North Cloud"
+  },
+  {
+    "key": "noviam",
+    "company": "Noviam"
+  },
+  {
+    "key": "nws",
+    "company": "NWS"
+  },
+  {
+    "key": "octasic-inc",
+    "company": "Octasic Inc."
   },
   {
     "key": "odyssey-therapeutics-inc",
     "company": "Odyssey Therapeutics"
   },
   {
+    "key": "omnis-corporation",
+    "company": "Sovera Corporation"
+  },
+  {
+    "key": "open-roles",
+    "company": "Tidal Financial Group"
+  },
+  {
+    "key": "opiniion",
+    "company": "Opiniion"
+  },
+  {
+    "key": "orderco",
+    "company": "Order.co"
+  },
+  {
     "key": "ourcalling",
     "company": "OurCalling"
+  },
+  {
+    "key": "overland-ai",
+    "company": "Overland AI"
+  },
+  {
+    "key": "oxbridge-health",
+    "company": "Oxbridge Health"
+  },
+  {
+    "key": "ozmocareers",
+    "company": "Ozmo"
+  },
+  {
+    "key": "packetlabs",
+    "company": "Packetlabs"
   },
   {
     "key": "pathos",
     "company": "Pathos"
   },
   {
+    "key": "pcmi",
+    "company": "PCMI, LLC"
+  },
+  {
     "key": "pdq",
     "company": "PDQ"
+  },
+  {
+    "key": "peakhealth-ai",
+    "company": "Peakhealth AI Inc"
+  },
+  {
+    "key": "petfolk",
+    "company": "Petfolk"
+  },
+  {
+    "key": "plmrcareers",
+    "company": "Palomar"
+  },
+  {
+    "key": "popstroke-job-board-1924",
+    "company": "PopStroke"
+  },
+  {
+    "key": "positron",
+    "company": "Positron"
   },
   {
     "key": "princesspolly",
@@ -218,6 +702,14 @@
   {
     "key": "private-job-board",
     "company": "Private Job Board"
+  },
+  {
+    "key": "proper-voltage",
+    "company": "Proper Voltage"
+  },
+  {
+    "key": "purefacts_jobs",
+    "company": "PureFacts"
   },
   {
     "key": "pythian",
@@ -232,8 +724,28 @@
     "company": "Recom"
   },
   {
+    "key": "redesigncareers",
+    "company": "Redesign"
+  },
+  {
+    "key": "rev-robotics",
+    "company": "REV"
+  },
+  {
+    "key": "reverb-careers",
+    "company": "Reverb"
+  },
+  {
+    "key": "riot-platforms-careers",
+    "company": "Riot Platforms"
+  },
+  {
     "key": "rippling",
     "company": "Rippling"
+  },
+  {
+    "key": "routeware-careers",
+    "company": "Routeware"
   },
   {
     "key": "rovia",
@@ -248,6 +760,10 @@
     "company": "RudderStack"
   },
   {
+    "key": "rugsusa",
+    "company": "Rugs USA"
+  },
+  {
     "key": "seasoncareers",
     "company": "Season"
   },
@@ -256,8 +772,16 @@
     "company": "Secura Bio"
   },
   {
+    "key": "shadowdragon",
+    "company": "ShadowDragon"
+  },
+  {
     "key": "sifted-open-jobs",
     "company": "Sifted"
+  },
+  {
+    "key": "sightmachine",
+    "company": "Sight Machine, Inc."
   },
   {
     "key": "siris",
@@ -268,8 +792,24 @@
     "company": "Skillable"
   },
   {
+    "key": "smarty",
+    "company": "Smarty"
+  },
+  {
     "key": "source",
     "company": "Source"
+  },
+  {
+    "key": "sperry-rail-inc",
+    "company": "Sperry Rail, Inc."
+  },
+  {
+    "key": "spreeai",
+    "company": "SpreeAI"
+  },
+  {
+    "key": "stag-careers",
+    "company": "STAG"
   },
   {
     "key": "steno-careers-page",
@@ -280,8 +820,28 @@
     "company": "Storesight"
   },
   {
+    "key": "studyfetch",
+    "company": "StudyFetch"
+  },
+  {
+    "key": "supernova-technology",
+    "company": "Supernova Technology"
+  },
+  {
+    "key": "supper",
+    "company": "Supper"
+  },
+  {
+    "key": "talent-101-inc",
+    "company": "Talent 101"
+  },
+  {
     "key": "talentneuroncareers",
     "company": "Talent Neuron"
+  },
+  {
+    "key": "tavernresearch",
+    "company": "Tavern Research"
   },
   {
     "key": "temp",
@@ -296,6 +856,26 @@
     "company": "Thrive Global"
   },
   {
+    "key": "tive-careers",
+    "company": "Tive"
+  },
+  {
+    "key": "topdoglaw",
+    "company": "TopDog Law"
+  },
+  {
+    "key": "torus",
+    "company": "Torus"
+  },
+  {
+    "key": "truepointcareers",
+    "company": "Truepoint Wealth Counsel"
+  },
+  {
+    "key": "uplinq",
+    "company": "Uplinq Inc"
+  },
+  {
     "key": "veryable-careers",
     "company": "Veryable"
   },
@@ -308,7 +888,27 @@
     "company": "Voltaiq"
   },
   {
+    "key": "vortex-companies-llc",
+    "company": "Vortex Companies, LLC"
+  },
+  {
+    "key": "wdscareers",
+    "company": "Wildfire Defense Systems, Inc."
+  },
+  {
+    "key": "whc",
+    "company": "Web Hosting Canada"
+  },
+  {
     "key": "xenter",
     "company": "Xenter"
+  },
+  {
+    "key": "zededa",
+    "company": "ZEDEDA"
+  },
+  {
+    "key": "zuckerman-investment-group",
+    "company": "Zuckerman Investment Group"
   }
 ]
