@@ -26,6 +26,7 @@ interface SyncOptions {
   cpu?: Cpu;
   /** Injected in tests. */
   fetch?: typeof fetch;
+  retryDelay?: (attempt: number) => number;
 }
 
 /** One source, one run: list, diff, fetch details for what changed, upload, finalize. */
@@ -36,6 +37,7 @@ export async function syncSource(source: SourceConfig, options: SyncOptions): Pr
     log: options.log as Log,
     ...(options.limiter ? { limiter: options.limiter } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(options.retryDelay ? { retryDelay: options.retryDelay } : {}),
     ...(options.cpu ? { cpu: options.cpu } : {}),
     ...(options.maxPostings ? { maxPostings: options.maxPostings } : {}),
     ...(options.detailConcurrency ? { detailConcurrency: options.detailConcurrency } : {}),

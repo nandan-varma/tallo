@@ -71,6 +71,8 @@ export interface EngineOptions {
   limiter?: HostLimiter;
   /** Injected in tests. */
   fetch?: typeof fetch;
+  /** Injected in tests: backoff before a retry, so failure paths do not sleep. */
+  retryDelay?: (attempt: number) => number;
   maxPostings?: number;
   /** Epoch seconds. Injected in tests and by the Worker; default: the wall clock. */
   now?: () => number;
@@ -172,6 +174,7 @@ function httpFor(source: SourceConfig, options: EngineOptions, counter: { reques
   const platform = platformFor(source);
   return createHttp({
     ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(options.retryDelay ? { retryDelay: options.retryDelay } : {}),
     ...(options.maxResponseBytes !== undefined
       ? { maxResponseBytes: options.maxResponseBytes }
       : {}),

@@ -151,6 +151,7 @@ describe("syncSource end to end", () => {
         runnerId: "test",
         version: "t",
         fetch: broken,
+        retryDelay: () => 0,
       });
       expect(failed.listingComplete).toBe(false);
     }
@@ -335,6 +336,7 @@ describe("dead boards", () => {
       runnerId: "test",
       version: "t",
       fetch: broken,
+      retryDelay: () => 0,
     });
     expect(result.boardNotFound).toBe(false);
     expect(await sourceRow(app)).toMatchObject({ status: "active", consecutiveFailures: 0 });

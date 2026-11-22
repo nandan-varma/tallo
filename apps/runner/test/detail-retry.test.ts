@@ -160,6 +160,7 @@ describe.each(boards)(
           runnerId: "test",
           version: "t",
           fetch: serve(board, state),
+          retryDelay: () => 0,
         });
 
       const first = await run();
@@ -192,6 +193,7 @@ describe.each(boards)(
           runnerId: "test",
           version: "t",
           fetch: serve(board, state),
+          retryDelay: () => 0,
         });
 
       await run();
