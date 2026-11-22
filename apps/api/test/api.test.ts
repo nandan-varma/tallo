@@ -495,16 +495,12 @@ describe("ingest body limits", () => {
 });
 
 describe("POST /v1/admin/runs/abandon", () => {
-  it("needs the ingest token", async () => {
-    const response = await createApp({
-      db: setup().db,
-      blobs: setup().blobs,
-      ingestToken: INGEST,
-    }).request("/v1/admin/runs/abandon", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sources: ["greenhouse:x"] }),
-    });
-    expect(response.status).toBe(401);
+  it("needs the ingest token and answers with how many runs it released", async () => {
+    const { call } = setup();
+    const body = { json: { sources: ["greenhouse:x"] }, method: "POST" };
+    expect((await call("/v1/admin/runs/abandon", null, body)).status).toBe(401);
+    const released = await call("/v1/admin/runs/abandon", INGEST, body);
+    expect(released.status).toBe(200);
+    expect(await released.json()).toEqual({ abandoned: 0 });
   });
 });
