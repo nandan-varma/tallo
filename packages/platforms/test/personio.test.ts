@@ -128,7 +128,7 @@ describe("personio", () => {
   it("bounds total XML entity expansion across the response", async () => {
     const positions = Array.from(
       { length: 1001 },
-      (_, i) => `<position><id>${i}</id><name>${"&x;".repeat(101)}</name></position>`,
+      (_, i) => `<position><id>${i}</id><name>${"&x;".repeat(1001)}</name></position>`,
     ).join("");
     const body = `<!DOCTYPE workzag-jobs [<!ENTITY x "x">]><workzag-jobs>${positions}</workzag-jobs>`;
     await expect(drain(personio.list(src, textCtx(() => body).ctx))).rejects.toThrow(SchemaError);

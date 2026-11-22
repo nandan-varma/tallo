@@ -11,8 +11,12 @@ import type {
 } from "@tallo/contracts";
 import { arr, isObject, obj, str } from "@tallo/contracts";
 
-/** Bound entity work across every value in one XML response. */
-export const XML_ENTITIES = { maxTotalExpansions: 100_000 };
+/**
+ * Bound entity work across every value in one XML response. Escaped HTML in a large feed (every `&lt;` and `&amp;`
+ * in thousands of descriptions) is a legitimate expansion count well over 100k, so the cap is 1M: still a hard stop
+ * for an entity bomb, and the response size cap bounds real feeds long before it.
+ */
+export const XML_ENTITIES = { maxTotalExpansions: 1_000_000 };
 
 /** A source label embedded inside generated HTML is text, never markup. */
 export const htmlText = (value: string): string =>
