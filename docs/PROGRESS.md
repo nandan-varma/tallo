@@ -34,5 +34,7 @@ only regular chores are the ones in `docs/runbook.md`. History is in `git log`; 
 - Search lists at most 300 results per query (`SEARCH_RESULT_CAP`); refine the query rather than page deeper.
 - `countryCode`, `postedAt`, pay and work mode are null where the source states nothing; they are never inferred.
 - Apple is only partly ingested (a resumable Mac sync: `tallo sync -p apple`). HirePro has no usable public listing.
-- Four boards that returned 404 are retired by the dead-board rule on their own.
+- Retired in the final pass: four boards that returned 404 (Ashby cedar, Greenhouse goodjobgames, kunai, tula) and the
+  NXP Workday tenant (422 on every host). Two Oracle boards (eeho, edel) still end partial with "Short page"; a partial
+  run never closes postings, so they only lose freshness.
 - Workday and Oracle boards with very large listings may finish partial; partial runs never close postings.
