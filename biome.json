@@ -13,6 +13,7 @@
       "!**/fixtures",
       "!**/test/golden",
       "!sources",
+      "!**/*.md",
       "!**/*.astro",
       "!**/*.css",
       "!pnpm-lock.yaml",
