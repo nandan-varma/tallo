@@ -13,7 +13,7 @@ const PAGE = 200;
 /** The finder answers at most 10,000 results per query; offset 10000 is an empty page, not an error. */
 const CAP = 10_000;
 /** Recruiting pods seen in seeds: `<tenant>.fa.oraclecloud.com`, `.fa.us2.`, `.fa.ocs.`. Not all of `*.oraclecloud.com`. */
-const HOST = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.fa\.(?:(?:us2|ocs)\.)?oraclecloud\.com$/;
+const HOST = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.fa\.(?:(?:us2|us6|em2|em3|em5|ocs)\.)?oraclecloud\.com$/;
 const SITE = /^[A-Za-z0-9_]+$/;
 /** A siteNumber no board uses. Oracle answers it with the host's default site, which is what exposes a typo. */
 const NO_SUCH_SITE = "CX_TALLO_NO_SUCH_SITE";
@@ -61,11 +61,14 @@ async function assertNotHostDefault(
 export const oraclecloud: Platform = {
   id: "oraclecloud",
   version: 3,
-  hosts: ["*.fa.oraclecloud.com", "*.fa.us2.oraclecloud.com", "*.fa.ocs.oraclecloud.com"],
+  hosts: [
+    "*.fa.oraclecloud.com",
+    ...["us2", "us6", "em2", "em3", "em5", "ocs"].map((pod) => `*.fa.${pod}.oraclecloud.com`),
+  ],
   validate(source) {
     if (!HOST.test(source.key))
       throw new Error(
-        `Oracle Cloud key must be a *.fa[.us2|.ocs].oraclecloud.com host: ${source.key}`,
+        `Oracle Cloud key must be a *.fa[.us2|.us6|.em2|.em3|.em5|.ocs].oraclecloud.com host: ${source.key}`,
       );
     if (!SITE.test(siteOf(source)))
       throw new Error(`Oracle Cloud source needs params.siteNumber: ${source.key}`);
