@@ -161,7 +161,7 @@ function parseJobPage(html: string): JsonObject {
 
 export const icims: Platform = {
   id: "icims",
-  version: 4,
+  version: 5,
   hosts: ["*.icims.com", ...JIBE_HOSTS],
 
   validate(source) {
@@ -316,11 +316,12 @@ function mapJibe(postingId: string, listing: Json, host: string) {
         },
       },
     ]),
-    department: str(j("department")),
+    department: str(j("department")) ?? str(obj(arr(j("categories"))[0]).name),
     employmentType: str(j("employment_type")),
     requisitionId: str(j("req_id")),
     postedAt: str(j("posted_date")),
     updatedAt: str(j("update_date")),
+    expiresAt: str(j("posting_expiry_date")),
     compensation: [],
     experience: [],
     extras: {
