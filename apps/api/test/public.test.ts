@@ -1,4 +1,4 @@
-import { NEGATIVE_CACHE_CONTROL } from "@tallo/contracts";
+import { NEGATIVE_CACHE_CONTROL, PUBLIC_COST_HEADER } from "@tallo/contracts";
 import { jdKey, schema } from "@tallo/db";
 import { d1Like } from "@tallo/db/testing";
 import { eq } from "drizzle-orm";
@@ -233,6 +233,25 @@ describe("public CORS", () => {
     expect(preflight.headers.get("access-control-allow-methods")).toContain("GET");
     const answer = await server.request("/v1/search?title=data+engineer");
     expect(answer.headers.get("access-control-allow-origin")).toBe("*");
+  });
+});
+
+describe("ingest and admin routes", () => {
+  it("carry neither the public CORS nor the cost header", async () => {
+    const { db, blobs } = setup();
+    const server = app(db, blobs);
+    const headers = { authorization: `Bearer ${INGEST}` };
+    for (const [method, path] of [
+      ["GET", "/v1/sources"],
+      ["GET", "/v1/admin/collect/status"],
+      ["OPTIONS", "/v1/runs"],
+    ] as const) {
+      const response = await server.request(path, { method, headers });
+      expect(response.headers.has("access-control-allow-origin"), path).toBe(false);
+      expect(response.headers.has(PUBLIC_COST_HEADER), path).toBe(false);
+    }
+    const open = await server.request("/v1/search?title=x");
+    expect(open.headers.has(PUBLIC_COST_HEADER)).toBe(true);
   });
 });
 

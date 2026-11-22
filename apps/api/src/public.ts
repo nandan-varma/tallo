@@ -213,6 +213,16 @@ function notReadable(c: Context, id: number, state: Exclude<JobState, { kind: "o
   return c.json(unknown(id), 404);
 }
 
+const PUBLIC_PATHS = [
+  "/v1/openapi.json",
+  "/v1/search",
+  "/v1/jobs/:id",
+  "/v1/jobs/:id/description",
+  "/v1/companies",
+  "/v1/titles",
+  "/v1/site-stats",
+];
+
 /**
  * The public read routes: search, one posting, its description, and discovery. No auth. Only these paths are served
  * to the public; the web Worker forwards exactly these (see `apps/web/src/lib/public.ts`).
@@ -231,21 +241,23 @@ export function publicRoutes({
   const descriptionOf = descriptionReader(blobs);
   const hidden = hiddenOn(blockedHost);
 
-  // Public, credential-free, GET only: `*` is the honest origin policy. Preflight is answered here too.
-  routes.use("*", async (c, next) => {
-    c.header("access-control-allow-origin", "*");
-    c.header("access-control-allow-methods", "GET, OPTIONS");
-    c.header("access-control-allow-headers", "content-type");
-    await next();
-  });
-  routes.options("*", (c) => c.body(null, 204));
-
+  // Public, credential-free, GET only: `*` is the honest origin policy. Preflight is answered here too. Both layers are
+  // registered per public path: a wildcard would also wrap the token-guarded ingest and admin routes.
   // Every public read is measured: what the database did for it leaves in one header, which the public proxy logs and
   // strips before anything is cached or returned.
-  routes.use("/v1/*", async (c, next) => {
-    const cost = await measure(next);
-    c.res.headers.set(PUBLIC_COST_HEADER, JSON.stringify(cost));
-  });
+  for (const path of PUBLIC_PATHS) {
+    routes.use(path, async (c, next) => {
+      c.header("access-control-allow-origin", "*");
+      c.header("access-control-allow-methods", "GET, OPTIONS");
+      c.header("access-control-allow-headers", "content-type");
+      await next();
+    });
+    routes.options(path, (c) => c.body(null, 204));
+    routes.use(path, async (c, next) => {
+      const cost = await measure(next);
+      c.res.headers.set(PUBLIC_COST_HEADER, JSON.stringify(cost));
+    });
+  }
 
   routes.get("/v1/openapi.json", hidden, (c) => {
     c.header("cache-control", "public, max-age=3600, s-maxage=3600");

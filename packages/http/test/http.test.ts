@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { backoffMs, createHttp, failureOf, HttpError, hostAllowed } from "../src/index.ts";
+import {
+  backoffMs,
+  createHttp,
+  failureOf,
+  HttpError,
+  hostAllowed,
+  isPrivateHost,
+} from "../src/index.ts";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), { status, headers });
@@ -33,6 +40,52 @@ describe("time accounting", () => {
     expect(waits.retry).toBeLessThan(200);
     expect(waits.limiter).toBeLessThan(30);
     expect(bytes).toBe('{"ok":true}'.length);
+  });
+});
+
+describe("isPrivateHost", () => {
+  it("refuses special-use addresses and names", () => {
+    for (const host of [
+      "localhost",
+      "0.0.0.0",
+      "10.1.2.3",
+      "100.64.0.1",
+      "100.127.255.254",
+      "127.0.0.1",
+      "169.254.169.254",
+      "172.16.0.1",
+      "192.0.0.1",
+      "192.168.1.1",
+      "198.18.0.1",
+      "198.19.255.255",
+      "224.0.0.1",
+      "255.255.255.255",
+      "[::1]",
+      "[fc00::1]",
+      "[fe80::1]",
+      "[::ffff:7f00:1]",
+    ])
+      expect(isPrivateHost(host), host).toBe(true);
+  });
+
+  it("lets public addresses through", () => {
+    for (const host of [
+      "8.8.8.8",
+      "100.63.255.255",
+      "100.128.0.1",
+      "172.32.0.1",
+      "198.17.0.1",
+      "api.example.com",
+    ])
+      expect(isPrivateHost(host), host).toBe(false);
+  });
+
+  it("is what the client applies to a literal URL host", async () => {
+    const f = vi.fn<typeof fetch>();
+    await expect(make(f).getJson("https://[::ffff:7f00:1]/")).rejects.toMatchObject({
+      kind: "blocked",
+    });
+    expect(f).not.toHaveBeenCalled();
   });
 });
 

@@ -2,7 +2,7 @@ import { prepareJob, slug } from "@tallo/catalog";
 import type { JobFacts, MappedJob, SourceConfig } from "@tallo/contracts";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyJobs, jdKey, memoryBlobs, schema, startRun } from "../src/index.ts";
+import { applyJobs, finalize, jdKey, memoryBlobs, schema, startRun } from "../src/index.ts";
 import { testDb } from "../src/testing.ts";
 
 const T = Math.floor(Date.now() / 1000);
@@ -101,5 +101,29 @@ describe("non-Latin company slugs", () => {
     expect(slugs).toContain(slug("株式会社テスト"));
     const companyRows = (await db.select().from(schema.companies)).map((r) => r.slug).sort();
     expect(companyRows).toEqual(slugs);
+  });
+});
+
+describe("applyJobs on a run that is no longer running", () => {
+  it("refuses a late write after the run was finalized", async () => {
+    const source = sourceOf("Acme", "late");
+    const runId = await start(source);
+    const jobs = await prepared(source, ["1"]);
+    await finalize(db, runId, {
+      seenIds: [],
+      listingComplete: false,
+      detailsComplete: true,
+      emptyIsAuthoritative: false,
+      requests: 1,
+      finishedAt: T + 1,
+      rawKey: null,
+      issues: [],
+      boardNotFound: false,
+    });
+    await expect(applyJobs(db, blobs, runId, jobs, T + 2)).rejects.toMatchObject({
+      status: 409,
+      message: "Run is not running",
+    });
+    expect(await db.select().from(schema.jobs)).toHaveLength(0);
   });
 });
