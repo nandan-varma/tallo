@@ -157,22 +157,32 @@ export function hostAllowed(hostname: string, patterns: readonly string[]): bool
   });
 }
 
-function isPrivateHost(hostname: string): boolean {
-  if (hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal"))
-    return true;
-  if (hostname.startsWith("[")) return true; // literal IPv6
-  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(hostname);
-  if (!m) return false;
-  const a = Number(m[1]);
-  const b = Number(m[2]);
+/** Special-use IPv4 ranges that are not the public internet. */
+function privateV4(a: number, b: number, c: number): boolean {
   return (
+    a === 0 ||
     a === 10 ||
     a === 127 ||
-    a === 0 ||
+    (a === 100 && b >= 64 && b <= 127) || // CGNAT
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168)
+    (a === 192 && b === 0 && (c === 0 || c === 2)) || // IETF protocol assignments, TEST-NET-1
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) || // benchmarking
+    (a === 198 && b === 51 && c === 100) || // TEST-NET-2
+    (a === 203 && b === 0 && c === 113) || // TEST-NET-3
+    a >= 224 // multicast, reserved, broadcast
   );
+}
+
+export function isPrivateHost(hostname: string): boolean {
+  if (hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal"))
+    return true;
+  // A literal IPv6 host (a URL hostname keeps the brackets) is refused outright: that covers ::1, ULA fc00::/7,
+  // link-local fe80::/10 and IPv4-mapped ::ffff:a.b.c.d alike.
+  if (hostname.startsWith("[")) return true;
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(hostname);
+  return m ? privateV4(Number(m[1]), Number(m[2]), Number(m[3])) : false;
 }
 
 /**
