@@ -13,8 +13,8 @@ design reasons are in `docs/decisions.md`; how to operate is `docs/runbook.md`.
 - **Web**: home, `/search`, and `/status` (exact catalog numbers, freshness, collection health and a daily history;
   stored hourly by the API cron in `site_snapshot`, catalog recount about daily; internal route `GET /v1/site-stats`
   is a one-row read, edge-cached five minutes).
-- **Catalog**: 9,534 boards on 26 platforms (`sources/*.json`), roughly 700k open postings. Facts are what sources
-  state; no heuristics in the database (D6).
+- **Catalog**: 9,533 boards on 26 platforms (`sources/*.json`), 665,983 open postings at the last recount. Facts are
+  what sources state; no heuristics in the database (D6).
 - **Collection**: local and manual (`tallo sync`, run when asked); no Mac jobs, nothing in the cloud. The cloud collector
   (queue, `HostGate`, five-minute cron) is built and toggled off by `COLLECT_ENABLED` `"0"`; named boards can be tried
   on it once. A sweep is needed within 14 days or postings hide. `tallo sweep` steers itself: AIMD per-host limits keyed
