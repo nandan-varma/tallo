@@ -14,7 +14,7 @@ const DAY = 86400;
 /** The catalog count is repeated after this long; the cheap live part runs on every refresh. */
 const CATALOG_EVERY = 20 * 3600;
 /** Job ids per catalog query: keeps each statement short and the number of statements small. */
-const PAGE = 50_000;
+const PAGE = 10_000;
 
 interface SourceRow {
   id: string;
@@ -36,7 +36,7 @@ type Catalog = Omit<
 /**
  * The /status numbers. `refreshSiteStats` (the API's hourly cron) is the only thing that reads the catalog for them:
  * - every run: `sources` (~9k rows) and the runs of the last 7 days (~19k rows): boards, freshness, health.
- * - about once a day: every open job once, paged by id (a few hundred thousand rows), grouped in SQL: open jobs,
+ * - about once a day: every open job once, paged by id in 10,000-row pages (about 100 light queries instead of a few heavy ones, so a busy D1 can serve ingest in between), grouped in SQL: open jobs,
  *   employers, platforms, countries, work mode, pay and posted-date shares. Exact counts, no sampling.
  * The result is one row; `readSiteStats` is a single-row read, which is all a page view ever costs the database.
  */
