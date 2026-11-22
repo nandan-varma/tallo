@@ -1,0 +1,19 @@
+name: liveness
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: The site and API answer
+        run: |
+          for path in / /llms.txt /status "/v1/search?title=engineer&limit=1" /v1/openapi.json; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 2 --retry-delay 5 "https://tallo.nandan.fyi$path")
+            echo "$code $path"
+            test "$code" = 200
+          done
