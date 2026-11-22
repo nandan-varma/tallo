@@ -13,7 +13,7 @@ const SECTIONS = [
 
 export const smartrecruiters: Platform = {
   id: "smartrecruiters",
-  version: 2,
+  version: 3,
   hosts: ["api.smartrecruiters.com"],
   validate: (source) => requireKey(source),
 
@@ -69,6 +69,7 @@ export const smartrecruiters: Platform = {
       employmentType: str(obj(j("typeOfEmployment")).label),
       requisitionId: str(j("refNumber")),
       postedAt: str(j("releasedDate")),
+      expiresAt: str(j("unpublishOn")),
       compensation: [],
       experience: [],
       extras: {
