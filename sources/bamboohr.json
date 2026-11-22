@@ -26,5 +26,12 @@
  { "key": "marqueebrands", "company": "Marquee Brands" },
  { "key": "nomadgcs", "company": "Nomad Global Communication Solutions" },
  { "key": "alleghenycounty", "company": "Allegheny County" },
- { "key": "upike", "company": "University of Pikeville" }
+ { "key": "upike", "company": "University of Pikeville" },
+ { "key": "bitrise", "company": "Bitrise" },
+ { "key": "zendesk", "company": "Zendesk" },
+ { "key": "prezi", "company": "Prezi" },
+ { "key": "talentlms", "company": "TalentLMS" },
+ { "key": "optimalworkshop", "company": "Optimal Workshop" },
+ { "key": "moodle", "company": "Moodle" },
+ { "key": "epidemicsound", "company": "Epidemic Sound" }
 ]

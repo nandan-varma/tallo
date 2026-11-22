@@ -1,5 +1,9 @@
 [
  {
+  "key": "1komma5",
+  "company": "1KOMMA5°"
+ },
+ {
   "key": "anyfin",
   "company": "Anyfin"
  },
@@ -12,12 +16,24 @@
   "company": "Bokio"
  },
  {
+  "key": "busuu",
+  "company": "Busuu"
+ },
+ {
   "key": "career",
   "company": "Teamtailor"
  },
  {
+  "key": "cazoo",
+  "company": "Cazoo"
+ },
+ {
   "key": "clinisys",
   "company": "Clinisys"
+ },
+ {
+  "key": "deezer",
+  "company": "Deezer"
  },
  {
   "key": "doktor",
@@ -36,8 +52,16 @@
   "company": "ENSEK"
  },
  {
+  "key": "fishbrain",
+  "company": "Fishbrain"
+ },
+ {
   "key": "flokk",
   "company": "Flokk"
+ },
+ {
+  "key": "globetrotter",
+  "company": "Globetrotter"
  },
  {
   "key": "graviteetopcoltd",
@@ -54,6 +78,10 @@
  {
   "key": "huaweiresearchcentergermanyaustria",
   "company": "Huawei Research Center Germany & Austria"
+ },
+ {
+  "key": "idealista",
+  "company": "Idealista"
  },
  {
   "key": "incision",
@@ -88,6 +116,14 @@
   "company": "Luminor Bank"
  },
  {
+  "key": "lunar",
+  "company": "Lunar"
+ },
+ {
+  "key": "maersk",
+  "company": "Maersk"
+ },
+ {
   "key": "mathem",
   "company": "Mathem"
  },
@@ -104,8 +140,20 @@
   "company": "MWM"
  },
  {
+  "key": "mynewsdesk",
+  "company": "Mynewsdesk"
+ },
+ {
   "key": "oatly",
   "company": "Oatly"
+ },
+ {
+  "key": "ornikar",
+  "company": "Ornikar"
+ },
+ {
+  "key": "payfit",
+  "company": "PayFit"
  },
  {
   "key": "peakperformance",
@@ -148,6 +196,10 @@
   "company": "Svenska Spel"
  },
  {
+  "key": "templafy",
+  "company": "Templafy"
+ },
+ {
   "key": "tibber",
   "company": "Tibber"
  },
@@ -160,8 +212,20 @@
   "company": "TMG Chicago"
  },
  {
+  "key": "tobii",
+  "company": "Tobii"
+ },
+ {
+  "key": "tradera",
+  "company": "Tradera"
+ },
+ {
   "key": "usgnorthamerica",
   "company": "USG Corporation"
+ },
+ {
+  "key": "vitrolife",
+  "company": "Vitrolife"
  },
  {
   "key": "vuonogroup",
