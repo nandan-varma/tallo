@@ -61,5 +61,194 @@
       "sitePath": "CX_1",
       "defaultSite": true
     }
+  },
+  {
+    "key": "eiqg.fa.us2.oraclecloud.com",
+    "company": "ABM",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "CX_1001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-extu-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Akamai",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "egug.fa.us2.oraclecloud.com",
+    "company": "American Express",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "egud.fa.us2.oraclecloud.com",
+    "company": "AutoZone",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ibmwjb.fa.ocs.oraclecloud.com",
+    "company": "Brookdale",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "elyb.fa.us2.oraclecloud.com",
+    "company": "CentraCare",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "CX_1001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-ewgu-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Chubb",
+    "params": {
+      "siteNumber": "CX_2001",
+      "sitePath": "CX_2001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "edix.fa.us2.oraclecloud.com",
+    "company": "Corsair",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-espx-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Cummins",
+    "params": {
+      "siteNumber": "CX_3001",
+      "sitePath": "CX_3001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-eowa-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "CSX",
+    "params": {
+      "siteNumber": "CX_4001",
+      "sitePath": "CSXCareers",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ibxwjb.fa.ocs.oraclecloud.com",
+    "company": "Dollar General",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "hdjq.fa.us2.oraclecloud.com",
+    "company": "Emerson",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-etum-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Florida Blue",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-etnv-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "HealthPartners",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "healthpartners",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "eluq.fa.us2.oraclecloud.com",
+    "company": "Kroger",
+    "params": {
+      "siteNumber": "CX_2001",
+      "sitePath": "CX_2001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ejwl.fa.us2.oraclecloud.com",
+    "company": "Marriott",
+    "params": {
+      "siteNumber": "CX",
+      "sitePath": "CX",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-etbx-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Navy Federal",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "nfcu",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "parkview-ibyyjb.fa.ocs.oraclecloud.com",
+    "company": "Parkview",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-evuf-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Startek",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "iaziqy.fa.ocs.oraclecloud.com",
+    "company": "Uber",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "UberCareers",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "fa-ewmy-saasfaprod1.fa.ocs.oraclecloud.com",
+    "company": "Verisk",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
   }
 ]
