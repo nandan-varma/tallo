@@ -248,6 +248,10 @@
   "company": "Action Garage Doors"
  },
  {
+  "key": "activate",
+  "company": "Activate Global, Inc"
+ },
+ {
   "key": "acuitymd",
   "company": "AcuityMD"
  },
@@ -270,6 +274,10 @@
  {
   "key": "adamevenyc",
   "company": "adam&eveDDB New York"
+ },
+ {
+  "key": "adapter",
+  "company": "Adapter"
  },
  {
   "key": "adaptivefinancialconsulting",
@@ -472,6 +480,10 @@
   "company": "Aimé Leon Dore"
  },
  {
+  "key": "air",
+  "company": "Air"
+ },
+ {
   "key": "airbnb",
   "company": "Airbnb"
  },
@@ -544,8 +556,16 @@
   "company": "Alabama Title Loans, Inc"
  },
  {
+  "key": "alabaster",
+  "company": "Alabaster"
+ },
+ {
   "key": "alamarbiosciences",
   "company": "Alamar Biosciences"
+ },
+ {
+  "key": "alameda",
+  "company": "Alameda Veterinary Clinic"
  },
  {
   "key": "alarmcom",
@@ -610,6 +630,10 @@
  {
   "key": "allenintegratedsolutions",
   "company": "Allen Integrated Solutions"
+ },
+ {
+  "key": "alliance",
+  "company": "Alliance"
  },
  {
   "key": "alliancedefendingfreedom",
@@ -736,6 +760,10 @@
   "company": "Amca"
  },
  {
+  "key": "ame",
+  "company": "AME Engineering"
+ },
+ {
   "key": "amendconsulting",
   "company": "AMEND Consulting"
  },
@@ -754,6 +782,10 @@
  {
   "key": "americanmarketingassociation",
   "company": "American Marketing Association"
+ },
+ {
+  "key": "amity",
+  "company": "Amity"
  },
  {
   "key": "ammexcorporation",
@@ -880,6 +912,10 @@
   "company": "Aperture Labs"
  },
  {
+  "key": "apex",
+  "company": "Apex Eye"
+ },
+ {
   "key": "apexcompanies",
   "company": "Apex Companies"
  },
@@ -930,6 +966,10 @@
  {
   "key": "appinio",
   "company": "Appinio"
+ },
+ {
+  "key": "applecart",
+  "company": "Applecart"
  },
  {
   "key": "appletreeprep",
@@ -1034,6 +1074,10 @@
  {
   "key": "archera",
   "company": "Archera"
+ },
+ {
+  "key": "archway",
+  "company": "Archway Lawn Care"
  },
  {
   "key": "arcinstitute",
@@ -1154,6 +1198,10 @@
  {
   "key": "aspireinternaljobboard",
   "company": "Aspire Employment Opportunities"
+ },
+ {
+  "key": "assail",
+  "company": "Assail, Inc."
  },
  {
   "key": "assemblyai",
@@ -1624,6 +1672,10 @@
   "company": "BathWorks Michigan"
  },
  {
+  "key": "baton",
+  "company": "Baton (A Ryder Technology Lab)"
+ },
+ {
   "key": "baubap",
   "company": "Baubap"
  },
@@ -1690,6 +1742,10 @@
  {
   "key": "belmontcharternetwork",
   "company": "Belmont Charter Network"
+ },
+ {
+  "key": "belton",
+  "company": "Belton"
  },
  {
   "key": "benchmarkpt",

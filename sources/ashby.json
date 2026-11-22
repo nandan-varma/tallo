@@ -2896,6 +2896,10 @@
   "company": "Envoy"
  },
  {
+  "key": "eon",
+  "company": "E.ON"
+ },
+ {
   "key": "epianeuro",
   "company": "Epia Neuro"
  },
@@ -4486,6 +4490,10 @@
  {
   "key": "instructure",
   "company": "Instructure, Inc."
+ },
+ {
+  "key": "intelligence",
+  "company": "Intelligence"
  },
  {
   "key": "intellistack",
@@ -8014,6 +8022,10 @@
  {
   "key": "sekai",
   "company": "Sekai"
+ },
+ {
+  "key": "sela",
+  "company": "Sela"
  },
  {
   "key": "sellfire",
