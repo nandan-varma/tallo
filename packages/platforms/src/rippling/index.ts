@@ -23,6 +23,7 @@ export const rippling: Platform = {
 
   async *list(source, ctx) {
     const seen = new Set<string>();
+    let received = 0;
     let total = 0;
     for (let page = 0, pages = 1; page < pages; page++) {
       if (page >= MAX_PAGES)
@@ -38,6 +39,7 @@ export const rippling: Platform = {
       pages = totalPages;
       total = totalItems;
       for (const job of rows(body.items, "items")) {
+        received++;
         const jobId = id(job.id);
         if (!jobId) throw new SchemaError("Rippling posting without id");
         if (seen.has(jobId)) continue;
@@ -45,9 +47,11 @@ export const rippling: Platform = {
         yield { id: jobId, listing: job };
       }
     }
-    // Postings opened or closed while paging can shift rows between pages; then the listing is not whole.
+    // `totalItems` counts rows, and a posting open in several places comes back once per place with the same id, so
+    // the rows received (not the distinct ids) are what must reach the total. Postings opened or closed while paging
+    // can shift rows between pages; then the listing is not whole.
     // An unknown board answers 404 (an error), so an empty board is really empty.
-    return { complete: seen.size >= total, emptyIsAuthoritative: true };
+    return { complete: received >= total, emptyIsAuthoritative: true };
   },
 
   /** The listing has no description; the posting endpoint does (and the pay bands). */
