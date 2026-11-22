@@ -40,6 +40,10 @@
     "company": "Ada"
   },
   {
+    "key": "adityabirla",
+    "company": "Aditya Birla Group"
+  },
+  {
     "key": "agilityrobotics",
     "company": "Agility Robotics"
   },
@@ -64,6 +68,10 @@
     "company": "Anthesis Group"
   },
   {
+    "key": "anthonysylvan",
+    "company": "Anthony and Sylvan Pools"
+  },
+  {
     "key": "article",
     "company": "Article"
   },
@@ -74,6 +82,10 @@
   {
     "key": "bark",
     "company": "BARK"
+  },
+  {
+    "key": "bassett",
+    "company": "Bassett Healthcare Network"
   },
   {
     "key": "bathspa",
@@ -108,12 +120,20 @@
     "company": "Bright Network"
   },
   {
+    "key": "burohappold",
+    "company": "Buro Happold"
+  },
+  {
     "key": "carto",
     "company": "CARTO"
   },
   {
     "key": "coforma",
     "company": "Coforma"
+  },
+  {
+    "key": "communitytax",
+    "company": "Community Tax LLC"
   },
   {
     "key": "confluence",
@@ -128,6 +148,10 @@
     "company": "Digital Science"
   },
   {
+    "key": "dmchealthcare",
+    "company": "DMC Healthcare"
+  },
+  {
     "key": "envisionageinc",
     "company": "EnvisionAge"
   },
@@ -136,12 +160,20 @@
     "company": "TTEP UK&I Investments Ltd"
   },
   {
+    "key": "exp",
+    "company": "EXP"
+  },
+  {
     "key": "finfrock",
     "company": "Finfrock"
   },
   {
     "key": "franklin-electric",
     "company": "Franklin Electric"
+  },
+  {
+    "key": "gdenergyproducts",
+    "company": "GD Energy Products"
   },
   {
     "key": "gembaadvantage",
@@ -156,6 +188,10 @@
     "company": "Harnham"
   },
   {
+    "key": "headkount",
+    "company": "Headkount"
+  },
+  {
     "key": "holtgrp",
     "company": "HOLT Group"
   },
@@ -168,8 +204,16 @@
     "company": "Impulse Space"
   },
   {
+    "key": "in-telecom",
+    "company": "In-Telecom"
+  },
+  {
     "key": "kempinski",
     "company": "Kempinski Hotels"
+  },
+  {
+    "key": "krestonreeves",
+    "company": "Kreston Reeves"
   },
   {
     "key": "lmh",
@@ -180,6 +224,10 @@
     "company": "Lush"
   },
   {
+    "key": "lvcaregroup",
+    "company": "LV Care Group"
+  },
+  {
     "key": "made-tech",
     "company": "Made Tech"
   },
@@ -188,12 +236,20 @@
     "company": "Menzies LLP"
   },
   {
+    "key": "mirion",
+    "company": "Mirion Technologies Inc."
+  },
+  {
     "key": "mountainwarehouse",
     "company": "Mountain Warehouse"
   },
   {
     "key": "napier",
     "company": "Napier AI"
+  },
+  {
+    "key": "nff",
+    "company": "Nonprofit Finance Fund"
   },
   {
     "key": "oaknorth",
@@ -292,8 +348,16 @@
     "company": "Oxford PV"
   },
   {
+    "key": "peopleservices",
+    "company": "People Services Inc"
+  },
+  {
     "key": "pexcard",
     "company": "PEX"
+  },
+  {
+    "key": "pipeworks",
+    "company": "Pipeworks Studios"
   },
   {
     "key": "premierleague",
@@ -308,12 +372,28 @@
     "company": "Project Canary"
   },
   {
+    "key": "promega",
+    "company": "Promega Corporation"
+  },
+  {
     "key": "ravelin",
     "company": "Ravelin Technology"
   },
   {
+    "key": "ridge",
+    "company": "Ridge and Partners"
+  },
+  {
     "key": "safetywing",
     "company": "SafetyWing"
+  },
+  {
+    "key": "sendbird",
+    "company": "Sendbird"
+  },
+  {
+    "key": "sproutsocial",
+    "company": "Sprout Social"
   },
   {
     "key": "sunking",
@@ -332,12 +412,28 @@
     "company": "Tabby"
   },
   {
+    "key": "telefonica",
+    "company": "Telefonica"
+  },
+  {
+    "key": "thyssenkrupp",
+    "company": "tk accelis"
+  },
+  {
+    "key": "vc3",
+    "company": "VC3, Inc."
+  },
+  {
     "key": "whiteswandata",
     "company": "White Swan Data"
   },
   {
     "key": "wolve",
     "company": "Wolverine"
+  },
+  {
+    "key": "workways",
+    "company": "Workways Australia"
   },
   {
     "key": "xeneta",
