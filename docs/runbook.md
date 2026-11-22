@@ -108,6 +108,17 @@ Hourly (`:17`): reap stuck runs, purge jobs closed 30+ days and orphaned descrip
 packs (two packs per source, 30 days of other runs, at most 1,000 blob deletes an hour), regroup duplicates, repair
 boards stranded far in the future. Duplicates are one canonical row (`dup_of`); the hidden-source rule is 14 days.
 
+## Status page
+
+`https://tallo.nandan.fyi/status` shows the catalog's numbers (open jobs, employers, boards, platforms, freshness,
+coverage by platform, employer and country, work mode, share with stated pay). The web Worker reads them from the
+internal route `GET /v1/site-stats` (refused on the API's own host like the other public reads, not in `PUBLIC_PATHS`,
+`llms.txt` or OpenAPI) and caches the snapshot 12 hours. One snapshot reads about 250k D1 rows; a full scan of `jobs`
+would read 1.5M, so open jobs, employers and platform totals come from each board's last complete listing (about 5% above
+the true count, labelled approximate) and the country, work-mode, pay and date shares come from a sample. Nothing
+computes it on a timer: the first view after the cache expires does the work. Change the numbers in
+`packages/db/src/site-stats.ts` and keep each metric under about 300k rows.
+
 ## Weekly check (five minutes)
 
 1. Has a sweep run in the last two weeks? `tallo sources` lists boards by last listing; run `tallo sync` if many are old.
