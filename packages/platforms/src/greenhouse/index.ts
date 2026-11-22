@@ -54,7 +54,7 @@ export const greenhouse: Platform = {
   validate: (source) => requireKey(source),
 
   async *list(source, ctx) {
-    const res = await conditional(ctx, `${base(source)}?content=true`);
+    const res = await conditional(ctx, `${base(source)}?content=true&pay_transparency=true`);
     if (res.status === 304) return notModified(ctx);
     for (const job of rows(obj(res.data).jobs, "jobs"))
       yield { id: id(job.id) ?? "", listing: job };
@@ -65,14 +65,8 @@ export const greenhouse: Platform = {
     };
   },
 
-  /** Pay transparency and application questions only exist on the single-job endpoint. */
-  async detail(source, posting, ctx) {
-    const url = `${base(source)}/${encodeURIComponent(posting.id)}?questions=true&pay_transparency=true`;
-    return (await ctx.http.getJson(url)).data;
-  },
-
-  map({ id: postingId, listing, detail }) {
-    const j = lookup(detail, listing);
+  map({ id: postingId, listing }) {
+    const j = lookup(listing);
     const metadata = pairs(j("metadata"), "name", "value");
     const departments = arr(j("departments"))
       .map((d) => str(obj(d).name))
