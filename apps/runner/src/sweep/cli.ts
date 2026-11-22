@@ -63,7 +63,7 @@ export function registerSweep(program: Command, ctx: Context): void {
       const api = createApi(
         ctx.need("TALLO_API_URL"),
         ctx.need("TALLO_INGEST_TOKEN"),
-        guardedFetch(net.fetch, () => current as Sweep),
+        guardedFetch(net.fetch, () => current),
       );
       const state = new Map((await api.sources()).map((s) => [s.id, s]));
       const startedAt = Date.now();

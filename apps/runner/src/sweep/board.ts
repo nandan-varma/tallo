@@ -114,20 +114,23 @@ export function createBoardRunner(deps: BoardDeps): RunBoard {
   };
 }
 
-/** A fetch for the ingest API that reports each response and its latency to the sweep's D1 guard. */
-export function guardedFetch(base: typeof fetch, sweep: () => Sweep): typeof fetch {
+/**
+ * A fetch for the ingest API that reports each response and its latency to the sweep's D1 guard. Planning reads the
+ * source list before the sweep exists, so the sweep may be absent.
+ */
+export function guardedFetch(base: typeof fetch, sweep: () => Sweep | undefined): typeof fetch {
   return async (input, init) => {
     const started = Date.now();
     try {
       const response = await base(input, init);
-      sweep().observeApi(
+      sweep()?.observeApi(
         response.status,
         Date.now() - started,
         parseRetryAfter(response.headers.get("retry-after")),
       );
       return response;
     } catch (error) {
-      sweep().observeApi(0, Date.now() - started);
+      sweep()?.observeApi(0, Date.now() - started);
       throw error;
     }
   };
