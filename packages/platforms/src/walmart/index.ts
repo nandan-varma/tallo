@@ -46,7 +46,7 @@ function pay(details: (key: string) => unknown): Money[] {
 
 export const walmart: Platform = {
   id: "walmart",
-  version: 1,
+  version: 2,
   hosts: ["careers.walmart.com"],
   validate(source) {
     if (source.key !== "walmart")
@@ -117,6 +117,9 @@ export const walmart: Platform = {
     put("preferredQualification", nonEmpty(d("preferredQualification")));
     put("profileMapping", stated(d("profileMapping")));
     put("storeNumber", stated(place.storeNumber));
+    put("recruitingStartDate", stated(d("recruitingStartDate")));
+    put("createdAt", stated(d("createdAt")));
+    put("shifts", nonEmpty(d("shifts")));
     const url = `${HOST}/us/en/jobs/${postingId}`;
     const profile = obj(d("profileMapping"));
     return {

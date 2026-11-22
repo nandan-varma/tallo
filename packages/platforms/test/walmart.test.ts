@@ -52,5 +52,11 @@ describe("walmart", () => {
     expect(job.compensation[0]).toMatchObject({ min: 254000, max: 481000, interval: "year" });
     expect(job.locations[0]?.city).toBe("SAN BRUNO");
     expect(job.department).toBe("Technology");
+    expect(job.extras).toHaveProperty("recruitingStartDate");
+    expect(job.extras).toHaveProperty("createdAt");
+    expect(job.extras.shifts).toEqual([
+      { id: "WeekdayDay", value: "Weekday Day" },
+      { id: "WeekendDay", value: "Weekend Day" },
+    ]);
   });
 });
