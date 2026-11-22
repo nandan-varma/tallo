@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template: apps/runner/launchd/full-sync.sh renders the paths in and installs it.
+  Weekly full collection from this Mac (cloud collection is off), Sundays 01:00 local time. A missed run
+  (Mac asleep) fires on wake. --stale-hours 144 (6 days) skips nothing that is due weekly, yet survives a
+  start that drifts a few hours. Holds no secrets: the runner reads apps/runner/.env itself.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>fyi.nandan.tallo.full-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PNPM__</string>
+    <string>--filter</string>
+    <string>@tallo/runner</string>
+    <string>tallo</string>
+    <string>sync</string>
+    <string>--stale-hours</string>
+    <string>144</string>
+    <string>--per-host</string>
+    <string>4</string>
+    <string>--host-interval-ms</string>
+    <string>100</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__PATH__</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>0</integer>
+    <key>Hour</key>
+    <integer>1</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>__LOG__</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG__</string>
+</dict>
+</plist>
