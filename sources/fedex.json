@@ -1,0 +1,9 @@
+[
+  {
+    "key": "careers.fedex.com",
+    "company": "FedEx",
+    "params": {
+      "egress": "local"
+    }
+  }
+]

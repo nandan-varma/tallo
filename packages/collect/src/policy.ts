@@ -23,6 +23,8 @@ export const POLICY: Record<string, HostPolicy> = {
   breezy: TENANT,
   microsoft: TENANT,
   starbucks: TENANT,
+  // About 4,500 job pages of ~150 KB each, on one host.
+  fedex: { concurrency: 2, gapMs: 500 },
   ibm: TENANT,
   goldman: TENANT,
   greenhouse: FAST,
