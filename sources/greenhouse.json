@@ -4796,10 +4796,6 @@
   "company": "Exame | Saint Paul"
  },
  {
-  "key": "example",
-  "company": "Democorp"
- },
- {
   "key": "examplecorpsandbox",
   "company": "Example Corp"
  },
@@ -13734,10 +13730,6 @@
  {
   "key": "tester",
   "company": "tester"
- },
- {
-  "key": "testing",
-  "company": "testing"
  },
  {
   "key": "testlio",

@@ -46,3 +46,15 @@ describe("registration", () => {
     expect(seen).toEqual([{ sources: [config], hot: ["greenhouse:a"] }]);
   });
 });
+
+describe("source hygiene", () => {
+  /** A platform's own demo or sandbox tenant publishes test postings as if they were jobs nobody can apply to. */
+  const SANDBOX = /(^|[-_/])(example|examples|sandbox|demo|demos|testing|test)([-_/]|$)/i;
+
+  it("configures no demo or sandbox boards", () => {
+    const offenders = loadSources(SOURCES_DIR)
+      .filter((s) => SANDBOX.test(s.key))
+      .map((s) => s.id);
+    expect(offenders).toEqual([]);
+  });
+});
