@@ -34,7 +34,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HostGate"] }],
   "vars": {
     "READS_BLOCKED_HOST": "tallo-api.nandan.fyi",
-    "COLLECT_ENABLED": "1",
+    "COLLECT_ENABLED": "0",
     "COLLECT_BATCH": "40",
     "COLLECT_SLICE_SUBREQUESTS": "800",
     "COLLECT_SLICE_MS": "300000"
