@@ -30,25 +30,59 @@ describe("splitList", () => {
 
 describe("specFrom", () => {
   it("is null without a title or a company to search for", () => {
-    expect(specFrom({ title: " , ", company: " , ", location: "Seattle" })).toBeNull();
+    expect(
+      specFrom({
+        title: " , ",
+        company: " , ",
+        location: "Seattle",
+        country: "",
+        sort: "",
+        postedWithin: "",
+      }),
+    ).toBeNull();
   });
 
   it("searches a company without inventing a title", () => {
-    expect(specFrom({ title: "", company: "Stripe", location: "" })).toEqual({
+    expect(
+      specFrom({
+        title: "",
+        company: "Stripe",
+        location: "",
+        country: "",
+        sort: "",
+        postedWithin: "",
+      }),
+    ).toEqual({
       queries: [],
       companies: ["Stripe"],
     });
   });
 
   it("builds a spec from the title, and leaves out empty company and place lists", () => {
-    expect(specFrom({ title: "data engineer", company: "", location: "" })).toEqual({
+    expect(
+      specFrom({
+        title: "data engineer",
+        company: "",
+        location: "",
+        country: "",
+        sort: "",
+        postedWithin: "",
+      }),
+    ).toEqual({
       queries: ["data engineer"],
     });
   });
 
   it("adds companies and places when they were typed", () => {
     expect(
-      specFrom({ title: "data engineer", company: "Stripe, Airbnb", location: "Seattle, remote" }),
+      specFrom({
+        title: "data engineer",
+        company: "Stripe, Airbnb",
+        location: "Seattle, remote",
+        country: "",
+        sort: "",
+        postedWithin: "",
+      }),
     ).toEqual({
       queries: ["data engineer"],
       companies: ["Stripe", "Airbnb"],
@@ -58,9 +92,30 @@ describe("specFrom", () => {
 });
 
 describe("valuesFrom and offsetFrom", () => {
-  it("reads the three fields, trimmed of nothing and capped in length", () => {
+  it("reads the fields, capped in length, and joins repeated values", () => {
     const params = new URLSearchParams({ title: "x".repeat(400), company: "Stripe" });
-    expect(valuesFrom(params)).toEqual({ title: "x".repeat(300), company: "Stripe", location: "" });
+    expect(valuesFrom(params)).toEqual({
+      title: "x".repeat(300),
+      company: "Stripe",
+      location: "",
+      country: "",
+      sort: "",
+      postedWithin: "",
+    });
+    const repeated = new URLSearchParams("title=data+engineer&title=platform+engineer&country=us");
+    expect(valuesFrom(repeated)).toMatchObject({
+      title: "data engineer, platform engineer",
+      country: "us",
+    });
+  });
+
+  it("takes a known sort and a date window inside the API's range only", () => {
+    expect(valuesFrom(new URLSearchParams("sort=recent"))).toMatchObject({ sort: "recent" });
+    expect(valuesFrom(new URLSearchParams("sort=bogus"))).toMatchObject({ sort: "" });
+    expect(valuesFrom(new URLSearchParams("postedWithin=30"))).toMatchObject({
+      postedWithin: "30",
+    });
+    expect(valuesFrom(new URLSearchParams("postedWithin=400"))).toMatchObject({ postedWithin: "" });
   });
 
   it("reads the offset as a whole number clamped to the results cap", () => {
@@ -74,16 +129,35 @@ describe("valuesFrom and offsetFrom", () => {
 
 describe("searchHref", () => {
   it("leaves out empty fields and the first page", () => {
-    expect(searchHref({ title: "data engineer", company: "", location: "" })).toBe(
-      "/search?title=data+engineer",
-    );
-    expect(searchHref({ title: "", company: "", location: "" })).toBe("/search");
+    expect(
+      searchHref({
+        title: "data engineer",
+        company: "",
+        location: "",
+        country: "",
+        sort: "",
+        postedWithin: "",
+      }),
+    ).toBe("/search?title=data+engineer");
+    expect(
+      searchHref({ title: "", company: "", location: "", country: "", sort: "", postedWithin: "" }),
+    ).toBe("/search");
   });
 
   it("carries the offset of a later page", () => {
-    expect(searchHref({ title: "data engineer", company: "", location: "Seattle" }, 20)).toBe(
-      "/search?title=data+engineer&location=Seattle&offset=20",
-    );
+    expect(
+      searchHref(
+        {
+          title: "data engineer",
+          company: "",
+          location: "Seattle",
+          country: "",
+          sort: "",
+          postedWithin: "",
+        },
+        20,
+      ),
+    ).toBe("/search?title=data+engineer&location=Seattle&offset=20");
   });
 });
 

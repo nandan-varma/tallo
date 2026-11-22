@@ -28,7 +28,16 @@ const hit: JobHit = {
 describe("accessibility", () => {
   it("the search form has no violations", async () => {
     const { container } = render(
-      <SearchForm values={{ title: "data engineer", company: "", location: "" }} />,
+      <SearchForm
+        values={{
+          title: "data engineer",
+          company: "",
+          location: "",
+          country: "",
+          sort: "",
+          postedWithin: "",
+        }}
+      />,
     );
     await expectNoViolations(container);
   });
