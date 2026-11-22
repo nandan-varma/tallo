@@ -112,7 +112,8 @@ export function locations(
   const seen = new Set<string>();
   const out: JobLocation[] = [];
   for (const { text, hints } of entries) {
-    for (const part of (str(text) ?? "").split(/\s*[;|]\s*/)) {
+    for (const piece of (str(text) ?? "").split(/[;|]/)) {
+      const part = piece.trim();
       const key = part.toLowerCase();
       if (!part || seen.has(key)) continue;
       seen.add(key);

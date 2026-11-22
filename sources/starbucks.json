@@ -1,0 +1,9 @@
+[
+  {
+    "key": "starbucks.com",
+    "company": "Starbucks",
+    "params": {
+      "egress": "local"
+    }
+  }
+]

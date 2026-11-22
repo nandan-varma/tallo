@@ -1,0 +1,54 @@
+{
+  "status": 200,
+  "error": {
+    "message": "",
+    "body": ""
+  },
+  "data": {
+    "count": 2,
+    "positions": [
+      {
+        "id": 481081982284,
+        "displayJobId": "260089984",
+        "name": "shift supervisor - Store# 21598, GREAT NECK & MILL DAM - VA BEACH",
+        "locations": [
+          "1416 North Great Neck, Virginia Beach, Virginia, United States"
+        ],
+        "standardizedLocations": [
+          "Virginia Beach, VA, US"
+        ],
+        "postedTs": 1795064400,
+        "solrScore": null,
+        "stars": 0,
+        "department": "Shift Supervisor",
+        "creationTs": 1795186282,
+        "isHot": 0,
+        "workLocationOption": "onsite",
+        "locationFlexibility": null,
+        "atsJobId": "260089984",
+        "positionUrl": "/careers/job/481081982284"
+      },
+      {
+        "id": 481079328240,
+        "displayJobId": "260053498",
+        "name": "store manager, Waterbury CT",
+        "locations": [
+          "Waterbury, Connecticut, United States"
+        ],
+        "standardizedLocations": [
+          "Waterbury, CT, US"
+        ],
+        "postedTs": 1795311717,
+        "solrScore": null,
+        "stars": 0,
+        "department": "Coffeehouse Leader",
+        "creationTs": 1783455594,
+        "isHot": 0,
+        "workLocationOption": "onsite",
+        "locationFlexibility": null,
+        "atsJobId": "260053498",
+        "positionUrl": "/careers/job/481079328240"
+      }
+    ]
+  }
+}

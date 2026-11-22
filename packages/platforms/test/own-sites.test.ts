@@ -2,7 +2,7 @@ import { prepareJob } from "@tallo/catalog";
 import type { Json, RawPosting } from "@tallo/contracts";
 import { arr, jobFactsSchema, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
-import { goldman, ibm, microsoft, platformFor, SchemaError } from "../src/index.ts";
+import { goldman, ibm, microsoft, platformFor, SchemaError, starbucks } from "../src/index.ts";
 import { drain, fakeCtx, fixture, source } from "./helpers.ts";
 
 const sha = "a".repeat(64);
@@ -373,5 +373,63 @@ describe("microsoft", () => {
   it("validates the source key", () => {
     expect(() => platformFor(source("microsoft", "other.com"))).toThrow(/microsoft\.com/);
     expect(() => platformFor(src)).not.toThrow();
+  });
+});
+
+describe("starbucks", () => {
+  const src = source("starbucks", "starbucks.com");
+  const rowsOf = (): Json[] => arr(obj(obj(fixture("starbucks-list")).data).positions);
+
+  it("lists the fixture rows from the Starbucks host with its domain", async () => {
+    const { ctx, urls } = fakeCtx(() => fixture("starbucks-list"));
+    const { items, result } = await drain(starbucks.list(src, ctx));
+    expect(urls).toEqual([
+      "https://apply.starbucks.com/api/pcsx/search?domain=starbucks.com&query=&location=&start=0&sort_by=timestamp",
+    ]);
+    expect(items.map((i) => i.listing)).toEqual(rowsOf());
+    expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
+  });
+
+  it("fetches one position's detail from the Starbucks host", async () => {
+    const { ctx, urls } = fakeCtx(() => fixture("starbucks-detail"));
+    await starbucks.detail?.(src, { id: "481081982284", listing: rowsOf()[0]! }, ctx);
+    expect(urls).toEqual([
+      "https://apply.starbucks.com/api/pcsx/position_details?position_id=481081982284&domain=starbucks.com&hl=en",
+    ]);
+  });
+
+  it("maps the stated pay text, function, expiry and link without inventing facts", async () => {
+    const detail = obj(fixture("starbucks-detail")).data as Json;
+    const job = starbucks.map(
+      { id: "481081982284", listing: rowsOf()[0] as RawPosting["listing"], detail },
+      src,
+    );
+    expect(job).toMatchObject({
+      postingId: "481081982284",
+      url: "https://apply.starbucks.com/careers/job/481081982284",
+      department: "Shift Supervisor",
+      workMode: "onsite",
+      compensation: [],
+      expiresAt: new Date(1802840400 * 1000).toISOString(),
+      extras: {
+        jobFunction: "Retail Stores",
+        hiringBand: "Team Leader",
+        payRange: "19.37 to 21.99 USD",
+      },
+    });
+    expect(job.employmentType).toBeUndefined();
+    expect(job.description).toMatch(/Crafting the world/);
+    const prepared = await prepareJob(job, src, sha);
+    expect(jobFactsSchema.safeParse(prepared.facts).success).toBe(true);
+  });
+
+  it("accepts only its own domain and links only its own host", () => {
+    expect(() => platformFor(source("starbucks", "microsoft.com"))).toThrow(/starbucks\.com/);
+    const listing = rowsOf()[0] as RawPosting["listing"];
+    const job = starbucks.map(
+      { id: "9", listing, detail: { publicUrl: "https://evil.example/x" } },
+      src,
+    );
+    expect(job.url).toBe("https://apply.starbucks.com/careers/job/9");
   });
 });

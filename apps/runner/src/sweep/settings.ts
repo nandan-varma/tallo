@@ -119,6 +119,7 @@ export const LANES: LaneDef[] = [
   // limit: measured 240 requests a minute, exactly one every 250 ms, so the floor goes to 200 ms (5 a second).
   lane("walmart", ["walmart"], 1, 3, 700, undefined, 8, 200),
   lane("microsoft", ["microsoft"], 1, 2, 1000, undefined, 4),
+  lane("starbucks", ["starbucks"], 1, 2, 1000, undefined, 4),
   lane("apple", ["apple"], 2, 3, 150, undefined, 6),
   lane("meta", ["meta"], 2, 2, 500, undefined, 4, 250),
   multiHost(
