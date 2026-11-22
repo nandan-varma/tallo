@@ -65,7 +65,7 @@ const enqueued = await fetch(`${api}/v1/admin/collect`, {
   body: JSON.stringify({ sources: [source] }),
 });
 if (!enqueued.ok) throw Error(`Cloud enqueue failed: ${enqueued.status}`);
-let cloud;
+let cloud: Record<string, unknown> | undefined;
 for (let i = 0; i < 30; i++) {
   const row = (await runs()).find(
     (r) => !seen.has(r.id) && r.sourceId === source && r.runnerId === "worker",
@@ -76,7 +76,7 @@ for (let i = 0; i < 30; i++) {
   }
   await new Promise((resolve) => setTimeout(resolve, 2000));
 }
-if (!cloud || cloud.status !== "complete" || cloud.seen !== expected || cloud.closed !== 0)
+if (cloud?.status !== "complete" || cloud.seen !== expected || cloud.closed !== 0)
   throw Error(`Cloud check did not complete safely: ${JSON.stringify(cloud)}`);
 if (snapshot() !== before) throw Error("Mac/cloud catalog facts differ");
 console.log(
