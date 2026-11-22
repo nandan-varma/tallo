@@ -191,14 +191,18 @@ program
   .command("discover <file>")
   .description("Verify the boards behind a list of careers URLs (one per line, - for stdin)")
   .option("-n, --sample <n>", "postings to sample per board", numberFlag("--sample", 1), 3)
+  .option("-c, --concurrency <n>", "boards verified at once", numberFlag("--concurrency", 1), 4)
   .option("--write", "add the boards that verify cleanly to sources/<platform>.json")
   .action(async (file: string, opts) => {
     const urls = readFileSync(file === "-" ? 0 : file, "utf8").split("\n");
     const net = createPooledFetch();
+    // One limiter for all boards, so a platform's per-host limits hold however many verify at once.
+    const limiter = createPlatformLimiter();
     const found = await discover(
       urls,
       loadSources(SOURCES_DIR).map((s) => s.id),
-      (source) => verifySource(source, opts.sample, net.fetch),
+      (source) => verifySource(source, opts.sample, net.fetch, limiter),
+      opts.concurrency,
     ).finally(() => net.close());
     if (opts.write) writeAccepted(SOURCES_DIR, found.accepted);
     console.log(

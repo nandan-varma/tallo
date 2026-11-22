@@ -29,7 +29,8 @@ skips configured boards and duplicates, dry-runs each new board with the same ch
 accepts a board only if it lists postings with no issues or warnings. It prints accepted ids, rejects with the
 reason, URLs it did not recognise and the count already configured. A board whose host is not covered by a shape
 is added by hand (see below). The company name is the slug in words: fix it to the name people use before
-committing. New platforms are a separate task (`docs/adding-a-platform.md`).
+committing. Boards verify four at a time (`-c, --concurrency <n>`); one shared host limiter keeps each
+platform's per-host limits whatever the concurrency. New platforms are a separate task (`docs/adding-a-platform.md`).
 
 ## For an exploration agent (given a list of careers URLs)
 

@@ -7,7 +7,7 @@ import type {
   SourceConfig,
 } from "@tallo/contracts";
 import { isObject } from "@tallo/contracts";
-import { createHttp } from "@tallo/http";
+import { createHttp, type HostLimiter } from "@tallo/http";
 import { platformFor } from "@tallo/platforms";
 
 /** Wraps JSON so every property read is recorded; unread keys are what a mapper ignores. */
@@ -66,13 +66,14 @@ export async function verifySource(
   source: SourceConfig,
   sampleSize = 5,
   fetchImpl?: typeof fetch,
+  limiter?: HostLimiter,
 ): Promise<Verification> {
   const platform = platformFor(source);
   const issues: Issue[] = [];
   const ctx: CollectContext = {
     http: createHttp({
       allowedHosts: platform.hosts,
-      perHostConcurrency: 4,
+      ...(limiter ? { limiter } : { perHostConcurrency: 4 }),
       ...(fetchImpl ? { fetch: fetchImpl } : {}),
     }),
     maxPostings: sampleSize,
