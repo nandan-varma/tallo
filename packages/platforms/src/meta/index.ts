@@ -12,7 +12,7 @@ import type {
 } from "@tallo/contracts";
 import { arr, id, isObject, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, requireKey, rows, SchemaError } from "../kit.ts";
+import { describe, locations, requireKey, rows, SchemaError, strings } from "../kit.ts";
 
 /**
  * Meta Careers is one anonymous Relay surface. The job search page embeds a short-lived `lsd` token;
@@ -25,7 +25,6 @@ import { describe, locations, requireKey, rows, SchemaError } from "../kit.ts";
 const ORIGIN = "https://www.metacareers.com";
 const SEARCH_DOC = "40084319704492118";
 const SEARCH_NAME = "CareersJobSearchResultsDataQuery";
-/** Every field the search response may contain; the response is still read explicitly. */
 const JOB_ID = /^\d{1,20}$/;
 /**
  * The board is not paged, so there is no last page to see. A result set exactly at one of these
@@ -297,11 +296,6 @@ function joinCapped(values: string[], max = 200): string | undefined {
   return out || undefined;
 }
 
-const strings = (value: unknown): string[] =>
-  arr(value)
-    .map((entry) => str(entry))
-    .filter((entry): entry is string => entry !== undefined);
-
 export const meta: Platform = {
   id: "meta",
   version: 1,
@@ -328,33 +322,33 @@ export const meta: Platform = {
     const all = rows(root.all_jobs, "all_jobs");
     const featured = rows(root.featured_jobs, "featured_jobs");
 
-    const seen = new Set<string>();
-    const allIds = new Set<string>();
-    const featuredIds = new Set<string>();
-    for (const job of all) {
+    const inScope = (job: JsonObject) =>
+      teams.length === 0 || strings(job.teams).some((team) => teams.includes(team));
+    const idOf = (job: JsonObject, label: string, ids: Set<string>): string => {
       const postingId = id(job.id);
       if (!postingId || !JOB_ID.test(postingId))
-        throw new SchemaError("Meta all_jobs row has no numeric posting id");
-      if (allIds.has(postingId))
-        throw new SchemaError(`Meta all_jobs repeats posting ${postingId}`);
+        throw new SchemaError(`Meta ${label} row has no numeric posting id`);
+      if (ids.has(postingId)) throw new SchemaError(`Meta ${label} repeats posting ${postingId}`);
+      ids.add(postingId);
+      return postingId;
+    };
+
+    const seen = new Set<string>();
+    const allIds = new Set<string>();
+    for (const job of all) {
+      const postingId = idOf(job, "all_jobs", allIds);
       // A scoped query that answered with a job outside its team is not the query we asked for.
-      if (teams.length > 0 && !strings(job.teams).some((team) => teams.includes(team)))
+      if (!inScope(job))
         throw new SchemaError(`Meta all_jobs returned ${postingId} outside the team scope`);
-      allIds.add(postingId);
       seen.add(postingId);
       yield { id: postingId, listing: job } satisfies RawPosting;
     }
+    const featuredIds = new Set<string>();
     for (const job of featured) {
-      const postingId = id(job.id);
-      if (!postingId || !JOB_ID.test(postingId))
-        throw new SchemaError("Meta featured_jobs row has no numeric posting id");
-      if (featuredIds.has(postingId))
-        throw new SchemaError(`Meta featured_jobs repeats posting ${postingId}`);
-      featuredIds.add(postingId);
-      // The featured list ignores the team filter, so a scoped board keeps only matching jobs.
-      if (teams.length > 0 && !strings(job.teams).some((team) => teams.includes(team))) continue;
-      // Featured jobs are normally not repeated in all_jobs; an overlap is deduped, not an error.
-      if (seen.has(postingId)) continue;
+      const postingId = idOf(job, "featured_jobs", featuredIds);
+      // The featured list ignores the team filter, so a scoped board keeps only matching jobs. Featured
+      // jobs are normally not repeated in all_jobs; an overlap is deduped, not an error.
+      if (!inScope(job) || seen.has(postingId)) continue;
       seen.add(postingId);
       yield { id: postingId, listing: job } satisfies RawPosting;
     }

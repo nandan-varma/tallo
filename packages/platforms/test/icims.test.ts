@@ -314,6 +314,29 @@ describe("icims", () => {
     // salary_* are 0 with no currency or interval: unstated, so no pay line.
     expect(job.compensation).toEqual([]);
     expect(job.description).toContain("GitHub");
+    // The row states no department and no expiry, so neither is invented.
+    expect(job.expiresAt).toBeUndefined();
+    expect(job.department).toBe("Product");
+  });
+
+  it("maps the Jibe expiry date and prefers a stated department over the category", () => {
+    const row = obj(fixture("icims-jibe-list") as Json) as { jobs: Json[] };
+    const data = obj(obj(row.jobs[0]).data);
+    const job = icims.map(
+      {
+        id: "7998",
+        listing: {
+          data: {
+            ...data,
+            department: "Security",
+            posting_expiry_date: "2027-01-31T00:00:00+0000",
+          },
+        },
+      },
+      jibe,
+    );
+    expect(job.department).toBe("Security");
+    expect(job.expiresAt).toBe("2027-01-31T00:00:00+0000");
   });
 
   it("rejects a Jibe response that ends early or lacks totalCount", async () => {

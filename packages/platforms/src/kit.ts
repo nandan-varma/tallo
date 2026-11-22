@@ -116,6 +116,16 @@ export function locations(
   return out;
 }
 
+/** The entries whose value is neither undefined nor null; `extras` must stay JSON. */
+export const definedOnly = (fields: Record<string, Json | undefined>): JsonObject =>
+  Object.fromEntries(Object.entries(fields).filter((e): e is [string, Json] => e[1] != null));
+
+/** The non-empty strings of an array, in order. */
+export const strings = (value: unknown): string[] =>
+  arr(value)
+    .map((entry) => str(entry))
+    .filter((entry): entry is string => entry !== undefined);
+
 /** `{name: value}` view of an array of `{name|label, value}` entries. */
 export function pairs(list: unknown, nameKey: string, valueKey: string): JsonObject {
   const out: JsonObject = {};
