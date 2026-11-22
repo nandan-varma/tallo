@@ -24,8 +24,8 @@ export const lever: Platform = {
       `https://${host(source)}/v0/postings/${source.key}?mode=json`,
     );
     for (const job of rows(data, "postings")) yield { id: id(job.id) ?? "", listing: job };
-    // Lever answers 200 with [] for unknown boards, so empty proves nothing.
-    return { complete: true, emptyIsAuthoritative: false };
+    // An unknown board answers 404 (an error), so a 200 with [] is a board that exists and has no postings.
+    return { complete: true, emptyIsAuthoritative: true };
   },
 
   map({ id: postingId, listing }) {

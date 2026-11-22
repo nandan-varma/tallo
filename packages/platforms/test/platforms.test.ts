@@ -211,7 +211,7 @@ describe("lever", () => {
     const { ctx } = fakeCtx(() => fixture("lever-list"));
     const { items, result } = await drain(lever.list(src, ctx));
     expect(items).toHaveLength(2);
-    expect(result.emptyIsAuthoritative).toBe(false);
+    expect(result.emptyIsAuthoritative).toBe(true);
     const job = lever.map(items[0]!, src);
     expect(job.title).toBeTruthy();
     expect(job.locations[0]?.countryCode).toBe("SG");
