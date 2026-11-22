@@ -18,17 +18,21 @@ export const smartrecruiters: Platform = {
   validate: (source) => requireKey(source),
 
   async *list(source, ctx) {
-    for (let offset = 0, total = Number.POSITIVE_INFINITY; offset < total; offset += PAGE) {
+    let received = 0;
+    let total = Number.POSITIVE_INFINITY;
+    for (let offset = 0; offset < total; offset += PAGE) {
       const { data } = await ctx.http.getJson(
         `${API}/${source.key}/postings?limit=${PAGE}&offset=${offset}`,
       );
       const page = rows(obj(data).content, "content");
       total = num(obj(data).totalFound) ?? offset + page.length;
+      received += page.length;
       for (const job of page) yield { id: id(job.id) ?? "", listing: job } satisfies RawPosting;
       if (page.length === 0) break;
     }
+    // An empty or short page before `totalFound` is reached means rows were missed: never close on it.
     // Unknown companies answer 200 with totalFound 0.
-    return { complete: true, emptyIsAuthoritative: false };
+    return { complete: received >= total, emptyIsAuthoritative: false };
   },
 
   /** The listing is thin; the job ad sections only exist on the posting endpoint. */

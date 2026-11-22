@@ -361,9 +361,11 @@ describe("smartrecruiters", () => {
       const offset = Number(new URL(url).searchParams.get("offset"));
       return { offset, limit: 100, totalFound: 150, content: offset === 0 ? rowsFx : [rowsFx[0]!] };
     });
-    const { items } = await drain(smartrecruiters.list(src, ctx));
+    const { items, result } = await drain(smartrecruiters.list(src, ctx));
     expect(urls).toHaveLength(2);
     expect(items).toHaveLength(3);
+    // 3 of 150 rows arrived: the listing is partial and must not close anything.
+    expect(result.complete).toBe(false);
     const detail = fixture("smartrecruiters-detail");
     const job = smartrecruiters.map({ id: "1", listing: rowsFx[0]!, detail }, src);
     expect(job).toMatchObject({
@@ -374,6 +376,11 @@ describe("smartrecruiters", () => {
     expect(job.locations[0]).toMatchObject({ countryCode: "US", city: "Santa Clara" });
     expect(job.description).toContain("Company Description");
     expect(job.extras).toHaveProperty("customFields");
+  });
+  it("is complete when every row up to totalFound arrived", async () => {
+    const rowsFx = jobs("smartrecruiters-list", "content") as Json[];
+    const { ctx } = fakeCtx(() => ({ totalFound: rowsFx.length, content: rowsFx }));
+    expect((await drain(smartrecruiters.list(src, ctx))).result.complete).toBe(true);
   });
   it("maps the scheduled unpublish date as the expiry", () => {
     const listing = { id: "1", name: "Nurse", unpublishOn: "2026-12-01T05:00:00.000Z" };
