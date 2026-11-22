@@ -91,6 +91,8 @@ export class Sweep {
   private r2Puts = 0;
   private lastControl = "";
   private lastErrorLog = "";
+  /** Boards another run holds (409 busy): when the first 409 came and how many retries since. */
+  private held = new Map<string, { since: number; n: number }>();
   private lastStatusAt = 0;
   private lastControlAt = 0;
   private resolveDone?: (reason: "finished" | "stopped") => void;
@@ -235,6 +237,13 @@ export class Sweep {
     const now = this.now();
     lane.inFlight.delete(source.id);
     const name = boardName(source.id);
+    if (verdict.kind === "retryable" && verdict.busy) {
+      this.deferBusy(lane, source, attempts, verdict, now);
+      this.checkBudget();
+      this.pump();
+      return;
+    }
+    if (verdict.kind !== "retryable") this.held.delete(source.id);
     if (verdict.kind === "ok") {
       lane.done++;
       lane.completions.push(now);
@@ -247,6 +256,7 @@ export class Sweep {
       const tried = attempts + 1;
       lane.note(`${name}: ${verdict.reason}`);
       if (tried >= this.tuning.maxAttempts) {
+        this.held.delete(source.id);
         lane.stuck++;
         this.event(
           `${lane.name}: ${name} stuck after ${tried} attempts (${verdict.reason})`,
@@ -265,6 +275,39 @@ export class Sweep {
     }
     this.checkBudget();
     this.pump();
+  }
+
+  /**
+   * A 409 means another run holds the board, and the hold ages out after RUN_LEASE_SECONDS. It is not a
+   * failed attempt: retry on a slow backoff until the lease must have expired, then give up.
+   */
+  private deferBusy(
+    lane: Lane,
+    source: SourceConfig,
+    attempts: number,
+    verdict: Extract<Verdict, { kind: "retryable" }>,
+    now: number,
+  ): void {
+    const name = boardName(source.id);
+    const first = !this.held.has(source.id);
+    const held = this.held.get(source.id) ?? { since: now, n: 0 };
+    this.held.set(source.id, held);
+    lane.note(`${name}: ${verdict.reason}`);
+    const left = held.since + this.tuning.busyMaxMs - now;
+    if (left <= 0) {
+      this.held.delete(source.id);
+      lane.stuck++;
+      this.event(`${lane.name}: ${name} stuck (held by another run for over 2 h)`, "warn");
+      return;
+    }
+    if (first)
+      this.event(`${lane.name}: ${name} held by another run, will retry until it ages out`);
+    held.n++;
+    const wait = Math.min(
+      Math.max(lane.busyDelay(held.n, this.random), verdict.retryAfterMs ?? 0),
+      left,
+    );
+    lane.deferred.push({ source, attempts, notBefore: now + wait, reason: verdict.reason });
   }
 
   private checkBudget(): void {
@@ -405,6 +448,8 @@ export class Sweep {
             ceiling: s.ceiling,
             perHost: s.perHost,
             gapMs: s.gapMs,
+            hostsSlowed: l.hostSlowdown().slowed,
+            worstHostGapMs: l.hostSlowdown().worstGapMs,
             boardsPerMin: round(rate.boardsPerMin),
             requestsPerMin: round(rate.requestsPerMin),
             etaMin: rate.boardsPerMin > 0 && left > 0 ? Math.round(left / rate.boardsPerMin) : null,

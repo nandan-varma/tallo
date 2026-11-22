@@ -19,6 +19,17 @@ export interface Tuning {
   deferCapMs: number;
   /** A board is tried this many times, then marked stuck. */
   maxAttempts: number;
+  /** 409 busy (another run holds the board): first delay, doubled, jittered, capped. Not counted in maxAttempts. */
+  busyBaseMs: number;
+  busyCapMs: number;
+  /** How long a held board is retried, from its first 409: the run lease (2 h) plus a margin. */
+  busyMaxMs: number;
+  /** A host's gap after a 429 without Retry-After, and the clean requests that halve it. */
+  hostFirstGapMs: number;
+  hostCleanRequests: number;
+  /** 429s on this many distinct hosts inside the window reduce a multi-host lane. */
+  hostsToReduce: number;
+  hostWindowMs: number;
 }
 
 export const TUNING: Tuning = {
@@ -31,7 +42,22 @@ export const TUNING: Tuning = {
   deferBaseMs: 60_000,
   deferCapMs: 30 * 60_000,
   maxAttempts: 4,
+  busyBaseMs: 2 * 60_000,
+  busyCapMs: 15 * 60_000,
+  busyMaxMs: 130 * 60_000,
+  hostFirstGapMs: 2000,
+  hostCleanRequests: 10,
+  hostsToReduce: 2,
+  hostWindowMs: 60_000,
 };
+
+interface HostState {
+  /** This host's own minimum request gap; 0 = none beyond the lane's. */
+  gap: number;
+  clean: number;
+  last429: number;
+  lastDecrease: number;
+}
 
 export interface Deferred {
   source: SourceConfig;
@@ -69,6 +95,8 @@ export class Lane {
   private badGap = 0;
   private baseGap: number;
   private limiters = new Map<string, HostLimiter>();
+  private hosts = new Map<string, HostState>();
+  private readonly multiHost: boolean;
   private floors: LaneDef["floors"];
 
   private tuning: Tuning;
@@ -82,6 +110,7 @@ export class Lane {
     this.settings = { ...def.settings };
     this.baseGap = def.settings.gapMs;
     this.floors = def.floors;
+    this.multiHost = def.multiHost === true;
     this.pending = boards;
     this.due = boards.length;
   }
@@ -91,6 +120,7 @@ export class Lane {
     let limiter = this.limiters.get(platform);
     if (!limiter) {
       limiter = createHostLimiter(this.limitsFor(platform));
+      for (const [host, h] of this.hosts) if (h.gap > 0) limiter.setHostInterval?.(host, h.gap);
       this.limiters.set(platform, limiter);
     }
     return limiter;
@@ -127,14 +157,80 @@ export class Lane {
   }
 
   /** Every response of the lane's hosts. A 429 reduces the lane; Retry-After holds it. */
-  observe(status: number, retryAfterMs: number | undefined, now: number): void {
+  observe(status: number, retryAfterMs: number | undefined, now: number, host?: string): void {
     this.requests++;
     this.requestStamps.push(now);
-    if (status === 429) this.on429(retryAfterMs, now);
+    if (status === 429) this.on429(retryAfterMs, now, host);
+    else if (host) this.onHostClean(host);
   }
 
-  on429(retryAfterMs: number | undefined, now: number): void {
+  /** Hosts with their own gap right now, and the largest of those gaps. */
+  hostSlowdown(): { slowed: number; worstGapMs: number } {
+    let slowed = 0;
+    let worstGapMs = 0;
+    for (const h of this.hosts.values())
+      if (h.gap > 0) {
+        slowed++;
+        worstGapMs = Math.max(worstGapMs, h.gap);
+      }
+    return { slowed, worstGapMs };
+  }
+
+  private setHostGap(host: string, h: HostState, gap: number): void {
+    h.gap = gap;
+    for (const limiter of this.limiters.values()) limiter.setHostInterval?.(host, gap);
+  }
+
+  /** A clean response from a host that is slowed: after enough in a row its gap halves, then goes. */
+  private onHostClean(host: string): void {
+    const h = this.hosts.get(host);
+    if (!h || h.gap === 0 || ++h.clean < this.tuning.hostCleanRequests) return;
+    h.clean = 0;
+    const half = Math.floor(h.gap / 2);
+    this.setHostGap(host, h, half <= this.settings.gapMs || half < 250 ? 0 : half);
+  }
+
+  on429(retryAfterMs: number | undefined, now: number, host?: string): void {
+    if (this.multiHost && host) {
+      this.onHost429(retryAfterMs, now, host);
+      return;
+    }
+    this.laneWide429(retryAfterMs, now);
+  }
+
+  /** A 429 on one host of a multi-host lane: slow that host; reduce the lane only when several hosts say so. */
+  private onHost429(retryAfterMs: number | undefined, now: number, host: string): void {
+    const t = this.tuning;
+    let h = this.hosts.get(host);
+    if (!h) {
+      h = { gap: 0, clean: 0, last429: -Infinity, lastDecrease: -Infinity };
+      this.hosts.set(host, h);
+    }
     this.r429++;
+    h.clean = 0;
+    h.last429 = now;
+    if (now - h.lastDecrease >= t.decreaseWindowMs) {
+      h.lastDecrease = now;
+      const before = Math.max(h.gap, this.settings.gapMs);
+      const next =
+        retryAfterMs !== undefined
+          ? Math.max(before * 2, Math.min(retryAfterMs, t.maxRetryAfterMs))
+          : before < t.hostFirstGapMs
+            ? t.hostFirstGapMs
+            : before * 2;
+      this.setHostGap(host, h, Math.min(t.gapCapMs, next));
+      const ra =
+        retryAfterMs === undefined ? "" : `, Retry-After ${Math.round(retryAfterMs / 1000)} s`;
+      this.emit(`${this.name}: ${host} 429${ra}, host gap ${before} -> ${h.gap} ms`);
+    }
+    let recent = 0;
+    for (const other of this.hosts.values()) if (now - other.last429 <= t.hostWindowMs) recent++;
+    if (recent >= t.hostsToReduce) this.laneWide429(undefined, now, true);
+  }
+
+  /** `fromHosts`: several hosts said 429, so only concurrency drops; each host already has its own gap. */
+  private laneWide429(retryAfterMs: number | undefined, now: number, fromHosts = false): void {
+    if (!fromHosts) this.r429++;
     this.burst++;
     this.cleanStreak = 0;
     if (retryAfterMs !== undefined)
@@ -157,12 +253,14 @@ export class Lane {
           : gap * 2;
     const before = s.concurrency;
     s.concurrency = Math.max(1, Math.floor(s.concurrency / 2));
-    s.gapMs = Math.min(this.tuning.gapCapMs, next);
+    if (!fromHosts) s.gapMs = Math.min(this.tuning.gapCapMs, next);
     this.applyLimits();
     const ra =
       retryAfterMs === undefined ? "" : `, Retry-After ${Math.round(retryAfterMs / 1000)} s`;
     this.emit(
-      `${this.name}: 429 x${this.burst}${ra}, concurrency ${before} -> ${s.concurrency}, gap ${gap} -> ${s.gapMs} ms`,
+      fromHosts
+        ? `${this.name}: 429 on several hosts, concurrency ${before} -> ${s.concurrency}`
+        : `${this.name}: 429 x${this.burst}${ra}, concurrency ${before} -> ${s.concurrency}, gap ${gap} -> ${s.gapMs} ms`,
     );
     this.burst = 0;
   }
@@ -188,6 +286,12 @@ export class Lane {
   /** Backoff before attempt `attempts` + 1: exponential, jittered by up to 25% either way. */
   deferDelay(attempts: number, random: () => number): number {
     const slot = Math.min(this.tuning.deferCapMs, this.tuning.deferBaseMs * 2 ** (attempts - 1));
+    return slot * (0.75 + random() * 0.5);
+  }
+
+  /** Wait before busy retry `n` (1-based): 2 min doubling to a 15 min cap, jittered by up to 25%. */
+  busyDelay(n: number, random: () => number): number {
+    const slot = Math.min(this.tuning.busyCapMs, this.tuning.busyBaseMs * 2 ** (n - 1));
     return slot * (0.75 + random() * 0.5);
   }
 

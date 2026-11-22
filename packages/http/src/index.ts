@@ -28,12 +28,18 @@ export interface HostLimiter {
   run<T>(host: string, task: () => Promise<T>): Promise<T>;
   /** Change the limits at runtime. Queued and future requests follow them; requests in flight finish. */
   setLimits(limits: { perHostConcurrency?: number; minHostIntervalMs?: number }): void;
+  /**
+   * A minimum start gap for one host, on top of the shared one: that host waits the larger of the two.
+   * `undefined` or 0 removes it. Applies to the next request start.
+   */
+  setHostInterval?(host: string, ms: number | undefined): void;
 }
 
 export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter {
   let perHost: number | ((host: string) => number) = options.perHostConcurrency ?? 4;
   let interval = options.minHostIntervalMs ?? 0;
   const concurrencyOf = (host: string) => (typeof perHost === "function" ? perHost(host) : perHost);
+  const hostIntervals = new Map<string, number>();
   const hosts = new Map<string, { queue: PQueue; nextStart: number }>();
   return {
     run<T>(host: string, task: () => Promise<T>): Promise<T> {
@@ -45,10 +51,11 @@ export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter
       const state = h;
       // The start gap is reserved when a request gets its slot, so a change applies to the next start.
       return state.queue.add(async () => {
-        if (interval > 0) {
+        const gap = Math.max(interval, hostIntervals.get(host) ?? 0);
+        if (gap > 0) {
           const now = Date.now();
           const start = Math.max(now, state.nextStart);
-          state.nextStart = start + interval;
+          state.nextStart = start + gap;
           if (start > now) await new Promise((resolve) => setTimeout(resolve, start - now));
         }
         return task();
@@ -60,6 +67,10 @@ export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter
         for (const h of hosts.values()) h.queue.concurrency = limits.perHostConcurrency;
       }
       if (limits.minHostIntervalMs !== undefined) interval = limits.minHostIntervalMs;
+    },
+    setHostInterval(host, ms) {
+      if (ms && ms > 0) hostIntervals.set(host, ms);
+      else hostIntervals.delete(host);
     },
   };
 }

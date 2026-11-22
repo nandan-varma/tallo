@@ -135,6 +135,120 @@ describe("AIMD", () => {
   });
 });
 
+describe("per-host 429", () => {
+  const multi = (concurrency: number): LaneDef => ({
+    ...def("workday", concurrency),
+    multiHost: true,
+  });
+  const mk = (d: LaneDef) => {
+    const events: string[] = [];
+    const lane = new Lane(d, [], tuning, (m) => events.push(m));
+    return { events, lane };
+  };
+  const A = "dollartree.wd5.myworkdayjobs.com";
+  const B = "acme.wd1.myworkdayjobs.com";
+
+  it("slows only the host that said 429, and names it", () => {
+    const { lane, events } = mk(multi(6));
+    lane.on429(undefined, 1000, A);
+    expect(lane.settings.concurrency).toBe(6);
+    expect(lane.settings.gapMs).toBe(0);
+    expect(lane.hostSlowdown()).toEqual({ slowed: 1, worstGapMs: 2000 });
+    expect(events).toEqual([`workday: ${A} 429, host gap 0 -> 2000 ms`]);
+    lane.on429(undefined, 20_000, A);
+    expect(lane.hostSlowdown().worstGapMs).toBe(4000);
+  });
+
+  it("honors Retry-After for the host gap, without holding the lane", () => {
+    const { lane } = mk(multi(6));
+    lane.on429(30_000, 1000, A);
+    expect(lane.hostSlowdown().worstGapMs).toBe(30_000);
+    expect(lane.cooldownUntil).toBe(0);
+  });
+
+  it("reduces the lane only when two hosts say 429 within 60 s", () => {
+    const { lane } = mk(multi(6));
+    lane.on429(undefined, 1000, A);
+    lane.on429(undefined, 100_000, B); // A's 429 is too old
+    expect(lane.settings.concurrency).toBe(6);
+    lane.on429(undefined, 110_000, A);
+    expect(lane.settings.concurrency).toBe(3);
+    expect(lane.settings.gapMs).toBe(0);
+  });
+
+  it("decays a host gap after clean requests", () => {
+    const { lane } = mk(multi(6));
+    lane.on429(undefined, 1000, A);
+    for (let i = 0; i < 10; i++) lane.observe(200, undefined, 2000, A);
+    expect(lane.hostSlowdown().worstGapMs).toBe(1000);
+    for (let i = 0; i < 30; i++) lane.observe(200, undefined, 3000, A);
+    expect(lane.hostSlowdown()).toEqual({ slowed: 0, worstGapMs: 0 });
+  });
+
+  it("a single-host lane keeps the lane-wide behavior", () => {
+    const { lane } = mk(def("greenhouse", 4));
+    lane.observe(429, undefined, 1000, "boards-api.greenhouse.io");
+    expect(lane.settings.concurrency).toBe(2);
+    expect(lane.settings.gapMs).toBe(8000);
+    expect(lane.hostSlowdown().slowed).toBe(0);
+  });
+});
+
+describe("409 busy", () => {
+  const busy = () =>
+    Object.assign(new Error("Conflict"), { response: { status: 409, headers: new Headers() } });
+  const busyTuning: Tuning = {
+    ...tuning,
+    busyBaseMs: 10,
+    busyCapMs: 40,
+    busyMaxMs: 400,
+    maxAttempts: 2,
+  };
+
+  it("retries past maxAttempts and logs once", async () => {
+    let calls = 0;
+    const t = setup(
+      [def("a", 1)],
+      { a: ["x"] },
+      async () => {
+        if (++calls <= 5) throw busy();
+        return ok;
+      },
+      { tuning: busyTuning },
+    );
+    await t.sweep.run();
+    expect(calls).toBe(6);
+    expect(t.lane("a").done).toBe(1);
+    expect(t.lane("a").stuck).toBe(0);
+    const log = readFileSync(t.paths.events, "utf8");
+    expect(log.match(/held by another run, will retry until it ages out/g)).toHaveLength(1);
+    expect(log).not.toMatch(/deferred/);
+  });
+
+  it("marks the board stuck once it has been held past the limit", async () => {
+    const t = setup(
+      [def("a", 1)],
+      { a: ["x"] },
+      async () => {
+        throw busy();
+      },
+      { tuning: { ...busyTuning, busyMaxMs: 120 } },
+    );
+    await t.sweep.run();
+    expect(t.lane("a").stuck).toBe(1);
+    expect(readFileSync(t.paths.events, "utf8")).toMatch(/held by another run for over 2 h/);
+  });
+
+  it("backs off from 2 min to a 15 min cap, jittered", () => {
+    const l = new Lane(def("a", 1), [], TUNING, () => {});
+    const mid = () => 0.5;
+    expect([1, 2, 3, 4, 5, 9].map((n) => l.busyDelay(n, mid) / 60_000)).toEqual([
+      2, 4, 8, 15, 15, 15,
+    ]);
+    expect(l.busyDelay(1, () => 0)).toBe(90_000);
+  });
+});
+
 describe("sweep", () => {
   it("defers a retryable failure with backoff without blocking the lane", async () => {
     const order: string[] = [];

@@ -65,6 +65,15 @@ interface BoardDeps {
   state: Map<string, SourceState>;
 }
 
+/** The host a fetch goes to, or undefined when the input has no parseable URL. */
+function hostOf(input: Parameters<typeof fetch>[0]): string | undefined {
+  try {
+    return new URL(typeof input === "string" || input instanceof URL ? input : input.url).host;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The real board runner: `syncSource` through the lane's limiter, watching the lane's responses. */
 export function createBoardRunner(deps: BoardDeps): RunBoard {
   return async (source, lane) => {
@@ -75,6 +84,7 @@ export function createBoardRunner(deps: BoardDeps): RunBoard {
         response.status,
         parseRetryAfter(response.headers.get("retry-after")),
         Date.now(),
+        hostOf(input),
       );
       return response;
     };
