@@ -109,3 +109,8 @@
 
 @media (pointer: coarse) { [data-slot="button"], [data-slot="select-trigger"] { min-height: 40px; }[data-slot="button"][data-size^="icon"] { min-width: 40px; }[data-slot="select-item"] { min-height: 40px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+@media print {
+  .site-header, .skip-link { display: none; }
+  body { background: #fff; color: #000; }
+}

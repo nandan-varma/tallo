@@ -4,3 +4,4 @@ export * from "./ingest.ts";
 export * from "./queries.ts";
 export * from "./schedule.ts";
 export * as schema from "./schema.ts";
+export * from "./site-stats.ts";

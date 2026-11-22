@@ -5,8 +5,13 @@ interface Props {
   title?: string;
   /** Only the home page is indexed; results and the rest stay noindex. */
   indexable?: boolean;
+  description?: string;
 }
-const { title = "Tallo", indexable = false } = Astro.props;
+const {
+  title = "Tallo",
+  indexable = false,
+  description = "Find jobs and apply on the employer's own page.",
+} = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
@@ -15,7 +20,10 @@ const { title = "Tallo", indexable = false } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content={indexable ? "index, follow" : "noindex"} />
     <meta name="theme-color" content="#fafafa" />
-    <meta name="description" content="Find jobs and apply on the employer's own page." />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
     <title>{title}</title>
     <script is:inline>
       (() => {

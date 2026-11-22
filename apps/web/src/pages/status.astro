@@ -1,0 +1,21 @@
+---
+import { StatusPage } from "@/components/StatusPage";
+import Base from "@/layouts/Base.astro";
+import { upstreamFetch, edgeCache } from "@/lib/api";
+import { loadSiteStats } from "@/lib/site-stats";
+
+// The snapshot is cached at the edge for 12 hours (lib/site-stats.ts): a page view reaches the database only when
+// that entry has expired. A failed read shows a plain message.
+const stats = await loadSiteStats({ upstream: upstreamFetch, cache: edgeCache() }).catch(() => null);
+Astro.response.headers.set(
+  "cache-control",
+  "public, max-age=300, s-maxage=3600, stale-while-revalidate=43200",
+);
+---
+<Base
+  title="Tallo status · what the catalog holds"
+  description="Open jobs, employers, boards and how fresh the data is, counted from Tallo's live catalog. Nothing is inferred; unknowns are shown as not stated."
+  indexable
+>
+  <StatusPage stats={stats} now={Math.floor(Date.now() / 1000)} />
+</Base>

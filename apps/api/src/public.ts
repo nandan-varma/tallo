@@ -21,6 +21,7 @@ import {
   publicError,
   publicSearchSchema,
   SEARCH_CACHE_CONTROL,
+  SITE_STATS_CACHE_CONTROL,
   searchNote,
 } from "@tallo/contracts";
 import {
@@ -32,6 +33,7 @@ import {
   listCompanies,
   listTitleTokens,
   listVariants,
+  siteStats,
 } from "@tallo/db";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -446,6 +448,13 @@ export function publicRoutes({
     };
     c.header("cache-control", JOB_CACHE_CONTROL);
     return c.json(body);
+  });
+
+  // Internal: the /status page's snapshot, read by the web Worker over its service binding. Not in PUBLIC_PATHS,
+  // llms.txt or the OpenAPI document. A snapshot reads a few hundred thousand rows, so the web caches it for 12 hours.
+  routes.get("/v1/site-stats", hidden, async (c) => {
+    c.header("cache-control", SITE_STATS_CACHE_CONTROL);
+    return c.json(await siteStats(db));
   });
 
   return routes;
