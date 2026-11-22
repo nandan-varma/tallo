@@ -30,6 +30,17 @@ describe("rippling", () => {
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: true });
   });
 
+  it("is complete when a posting open in several places repeats its id (totalItems counts rows)", async () => {
+    const first = list.items[0] as object;
+    const repeated = [first, first, list.items[1] as object];
+    const { ctx } = fakeCtx(
+      () => ({ items: repeated, page: 0, totalPages: 1, totalItems: 3 }) as Json,
+    );
+    const { items, result } = await drain(rippling.list(src, ctx));
+    expect(items).toHaveLength(2);
+    expect(result).toEqual({ complete: true, emptyIsAuthoritative: true });
+  });
+
   it("is incomplete when postings shifted between pages", async () => {
     const { ctx } = fakeCtx(() => ({ ...list, totalPages: 1, totalItems: 5 }) as Json);
     const { result } = await drain(rippling.list(src, ctx));
