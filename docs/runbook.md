@@ -116,7 +116,8 @@ continue or `stop`. Unchanged postings are never written; the sweep adds no writ
 reaped as partial by the hourly job and never close postings; to release such a board at once, use `tallo abandon
 <source...>` (its runs go partial immediately, same path as the reaper; only for runs you know are dead).
 
-**Probing the gap.** `gapMs` is where a lane starts, not a permanent cost: after 5 clean boards it halves, down to the
+**Probing the gap.** `gapMs` is where a lane starts, not a permanent cost: every 150 clean requests (and every 5 clean
+boards) it halves, down to the
 lane's `floorMs` (Workday and Oracle 100 ms, Walmart 250 ms, Apple and Meta 250 ms; lanes without a floor stop at their
 configured gap). A gap that drew a 429 guards at 1.25x for half an hour, then that margin decays by half every 5 clean
 boards, so a bad minute is not paid for all evening.
