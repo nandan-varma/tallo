@@ -12,10 +12,10 @@ only regular chores are the ones in `docs/runbook.md`. History is in `git log`; 
 - **Web**: home and `/search`, plain HTML forms, results link to the employer's application.
 - **Catalog**: ~9k boards on 19 platforms (`sources/*.json`), ~700k open postings. Facts are what sources state;
   no heuristics in the database (D6).
-- **Collection**: local for now. A weekly launchd job (`full-sync.sh`) collects every board; a daily one collects the
-  `"egress": "local"` boards (Amazon, Apple, Google, Meta, Netflix, four Workday tenants). The cloud collector (queue +
-  `HostGate`) is built and switched off (`COLLECT_ENABLED` `"0"`); named boards can be tried on it.
-- **Housekeeping**: hourly reap, purge, prune, regroup. Weekly D1 export is a launchd job on the Mac.
+- **Collection**: local and manual (`tallo sync`, run when asked); no Mac jobs, nothing in the cloud. The cloud collector
+  (queue, `HostGate`, five-minute cron) is built and toggled off by `COLLECT_ENABLED` `"0"`; named boards can be tried on it once. A sweep is needed within 14 days or
+  postings hide.
+- **Housekeeping**: hourly reap, purge, prune, regroup. The weekly D1 export is `scripts/backup-d1.sh run` (an optional launchd installer exists; none is installed).
 
 ## Settled in the final pass
 

@@ -9,7 +9,7 @@
 | Database | D1 `tallo` (001b036c-2e15-45c8-9284-edb9d374b849)                                         |
 | Blobs    | R2 `tallo-blobs` (private): descriptions `jd/<sha256>`, raw packs `raw/<source>/<run>`    |
 | Queue    | `tallo-collect` (dead letters: `tallo-collect-dlq`), Durable Object `HostGate`            |
-| Mac      | launchd: boards that refuse Cloudflare's egress (`local-egress`) and the weekly D1 backup |
+| Mac      | all collection, by hand (`tallo sync`); no scheduled jobs                                 |
 
 Secrets: API `INGEST_TOKEN` (Wrangler secret). The web has none. The runner reads `apps/runner/.env`
 (`TALLO_API_URL`, `TALLO_INGEST_TOKEN`). Rotate with `openssl rand -hex 32`, `wrangler secret put`, update `.env`.
@@ -58,23 +58,26 @@ API over a service binding. Everything else under `/v1` is 404 there. `tallo-api
 Boards are listed in `sources/*.json`. `tallo register` upserts them into D1 (`sources`); removing a board from the files
 does not delete its row (see "Retire a board").
 
-**Everything runs on this Mac for now.** The weekly launchd job collects every board, and the daily one collects the
-boards tagged `"egress": "local"`. Postings from a board that has not listed completely for 14 days stop showing in
-search, so the Mac sweep must keep running: check it weekly.
+**Nothing is scheduled.** Collection runs on this Mac when asked, and nothing runs in the cloud. There are no launchd jobs
+for scraping. Postings from a board that has not listed completely for 14 days stop showing in search, so a sweep is
+needed at least every two weeks or the catalog empties.
 
 ```sh
-apps/runner/launchd/full-sync.sh print|install|uninstall        # Sundays 01:00, every board; log ~/Library/Logs/tallo/full-sync.log
-apps/runner/launchd/local-egress.sh print|install|uninstall     # daily 03:30, egress: local boards; log .../local-egress.log
-pnpm --filter @tallo/runner tallo sync -p greenhouse -n 20      # collect by hand (a platform, a limit)
+pnpm --filter @tallo/runner tallo register                      # after editing sources/*.json
+pnpm --filter @tallo/runner tallo sync                          # every board not completed in the last 20 h
+pnpm --filter @tallo/runner tallo sync -p greenhouse -n 20      # one platform, at most 20 boards
+pnpm --filter @tallo/runner tallo sync --local-egress           # only the boards the cloud cannot reach
+pnpm --filter @tallo/runner tallo sync --stale-hours 144        # skip boards done within 6 days (a weekly sweep)
 pnpm --filter @tallo/runner tallo verify greenhouse:stripe      # dry run: fields the mapper never reads
-pnpm --filter @tallo/runner tallo register                      # after editing sources/*.json or egress flags
 ```
 
-`sync` skips boards completed within `--stale-hours` (20 by default, 144 for the weekly job), so a rerun is cheap.
+`sync` skips boards completed within `--stale-hours`, so a rerun is cheap and a stopped sweep resumes where it left off.
+Boards tagged `"egress": "local"` (Amazon, Apple, Google, Meta, Netflix, four Workday tenants) are slow, single-host
+platforms; they are only ever collected from the Mac.
 
-**Cloud (off; test a few boards).** The API Worker can collect on its own: a queue consumer collects, maps and ingests a
-board, and a `HostGate` Durable Object spaces requests per host. `COLLECT_ENABLED` is `"0"`, so the five-minute tick does
-nothing. To try a few boards on the cloud, name them (this works with the switch off):
+**Cloud (built, off).** The API Worker can collect a board itself: a queue consumer collects, maps and ingests it, and a
+`HostGate` Durable Object spaces requests per host. `COLLECT_ENABLED` is `"0"`: the five-minute cron is still deployed, but while the switch is off the tick enqueues nothing.
+To try a few boards once, name them (this works with the switch off):
 
 ```sh
 curl -X POST -H "authorization: Bearer $TALLO_INGEST_TOKEN" -H 'content-type: application/json' \
@@ -82,12 +85,10 @@ curl -X POST -H "authorization: Bearer $TALLO_INGEST_TOKEN" -H 'content-type: ap
 curl -H "authorization: Bearer $TALLO_INGEST_TOKEN" https://tallo-api.nandan.fyi/v1/admin/collect/status
 ```
 
-To hand collection to the cloud later: set `COLLECT_ENABLED` to `"1"` in `cloudflare.config.ts` and `wrangler.jsonc`
-(a test keeps them equal) and `pnpm release`. The tick claims `COLLECT_BATCH` (40) due boards every five minutes (weekly
-interval, `hot.json` boards daily, back-off 1 h, 3 h, 6 h, 24 h after a failure); consumer `max_concurrency` is 8. Then
-unload the Mac weekly job so the two do not both collect (a board another run holds answers 409 and is skipped, so
-overlap is safe but wasteful). A board whose listing alone needs more than ~10,000 subrequests fails in the cloud: give
-it `"egress": "local"`.
+To hand collection to the cloud later, set `COLLECT_ENABLED` to `"1"` in `cloudflare.config.ts` and `wrangler.jsonc`
+(`config.test.ts` keeps them equal) and `pnpm release`. The tick claims `COLLECT_BATCH` (40) due boards, weekly per
+board (`hot.json` daily), backing off 1 h, 3 h, 6 h, 24 h after a failure; consumer `max_concurrency` is 8. Set it back
+to `"0"` to stop.
 
 **Change a mapper.** Bump that platform's `version`; the next sync of each board re-fetches and re-maps its postings.
 
@@ -109,18 +110,17 @@ boards stranded far in the future. Duplicates are one canonical row (`dup_of`); 
 
 ## Weekly check (five minutes)
 
-1. The Mac sweep: `tail ~/Library/Logs/tallo/full-sync.log`, and `tallo sources` for boards overdue. (`collect/status` only matters when the cloud is on.)
+1. Has a sweep run in the last two weeks? `tallo sources` lists boards by last listing; run `tallo sync` if many are old.
 2. `wrangler d1 info tallo --json`: `rows_written_24h`. The Workers Paid plan includes 50M writes a month (about 1.6M a
    day); steady-state weekly collection writes roughly 0.2M to 0.8M a day. A sustained day above 1.6M means a bulk
    re-fetch (a platform `version` bump) or a stuck retry loop: look at `runs` for repeated partials.
 3. `tallo sources --dead`: boards confirmed gone (a 404 on the board's own API) are removed from `sources/*.json` and
    retired with `tallo retire <platform:key>`.
-4. `~/Library/Logs/tallo/local-egress.log` shows the last daily run (Amazon, Apple, Google, Meta, Netflix, four Workday tenants).
 
 ## Backup and restore
 
 D1 Time Travel (30 days) is the primary backup. `scripts/backup-d1.sh run` also exports the real tables to
-`~/Backups/tallo/` (the FTS index is derived: it is not exported). Weekly job: `apps/runner/launchd/backup.sh install`.
+`~/Backups/tallo/` (the FTS index is derived: it is not exported). An optional weekly launchd installer exists (`apps/runner/launchd/backup.sh`); none is installed.
 
 Restore: record the bookmark (`wrangler d1 time-travel info tallo --json`), then
 `wrangler d1 time-travel restore tallo --bookmark <id>`. From an export: create a scratch D1, apply migrations, import the
@@ -131,6 +131,6 @@ The catalog can also be rebuilt by a full collection pass.
 
 - **Search returns 503 "Database busy".** D1 shed load. Retry after the `Retry-After` header; if it persists check
   `wrangler tail`, `GET /v1/admin/collect/status` and whether a bulk run is writing.
-- **Nothing new is showing.** `collect/status` (is `COLLECT_ENABLED` `"1"` and the `*/5` cron deployed?), then `tallo sources`.
+- **Nothing new is showing.** Run `tallo sync` (nothing is scheduled), then `tallo sources`.
 - **A board keeps failing.** `GET /v1/runs?source=<platform:key>` (ingest token) for its issues; `tallo verify` reproduces it.
 - **llms.txt is stale.** Deploy the web (`pnpm release`); it is prerendered at build time.
