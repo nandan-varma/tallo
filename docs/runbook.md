@@ -116,12 +116,18 @@ continue or `stop`. Unchanged postings are never written; the sweep adds no writ
 reaped as partial by the hourly job and never close postings; to release such a board at once, use `tallo abandon
 <source...>` (its runs go partial immediately, same path as the reaper; only for runs you know are dead).
 
+**Probing the gap.** `gapMs` is where a lane starts, not a permanent cost: after 5 clean boards it halves, down to the
+lane's `floorMs` (Workday and Oracle 100 ms, Walmart 250 ms, Apple and Meta 250 ms; lanes without a floor stop at their
+configured gap). A gap that drew a 429 guards at 1.25x for half an hour, then that margin decays by half every 5 clean
+boards, so a bad minute is not paid for all evening.
+
 **Adaptive per-host limits.** `concurrency` stays the lane's ceiling; what a lane actually runs is `perHost` requests to
 one host, one lane-wide AIMD: +1 after 150 clean requests up to the lane's `perHostCeiling`, halved on a 429 with a
 hold-down, never back into a rate that drew a 429. Detail fetches to one host follow `perHost` (max 8). Workday and
 Oracle are keyed per pod (tenant host), so one badly behaving pod does not slow the whole lane, and a board on a full or
-held pod is not started. Learned values are written to `learned.json` (every minute and on exit; ignored after 7 days) so
-a restart starts where the last run stopped. `tallo sweep status` shows `perHost n/ceiling` with the reason, per-pod rows,
+held pod is not started. A pod's own gap is capped at 30 s (a lane's at 2 min) and walks back down on the clock as well as
+on clean requests: after 2 quiet minutes it halves, so a Workday pod held at 8 s is not held there for the night. Learned values are written to `learned.json` (every minute and on exit; ignored after 7 days) so
+a restart starts where the last run stopped. `tallo sweep status` shows `perHost n/ceiling` with the reason, `gap` with the floor it is probing to, per-pod rows,
 and _where the time goes_ per lane: shares of source, limiter wait, cpu, ingest and retry waits, board wall p50/p90 and
 requests per second per board (also in `--json`). A lane whose dominant cost stays put for five minutes says so in an
 event, so a slow sweep can be read rather than guessed.

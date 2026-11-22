@@ -196,6 +196,7 @@ export class Sweep {
       this.event(`ingest recovered: in-flight cap -> ${this.capacity}`);
     }
     if (this.capacity > this.global.maxInFlight) this.capacity = this.global.maxInFlight;
+    for (const lane of this.lanes) lane.tick(now);
     this.pump();
     this.reportBottlenecks(now);
     const over =
@@ -308,7 +309,7 @@ export class Sweep {
     if (verdict.kind === "ok") {
       lane.done++;
       lane.completions.push(now);
-      if (clean) lane.onClean();
+      if (clean) lane.onClean(now);
     } else if (verdict.kind === "permanent") {
       lane.failedPermanent++;
       lane.note(`${name}: ${verdict.reason}`);
@@ -529,6 +530,7 @@ export class Sweep {
             perHostWhy: l.perHostWhy,
             learned: l.learned,
             gapMs: s.gapMs,
+            gapFloorMs: s.floorMs ?? s.gapMs,
             pods: l.pods(),
             hostsSlowed: l.hostSlowdown().slowed,
             worstHostGapMs: l.hostSlowdown().worstGapMs,

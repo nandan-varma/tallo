@@ -41,6 +41,8 @@ export function formatStatus(status: SweepStatus, events: string[], now = Date.n
     extra.push(
       `${name}: perHost ${l.perHost}/${l.perHostCeiling}: ${l.perHostWhy}${l.learned ? " (learned)" : ""}`,
     );
+    if (l.gapFloorMs < l.gapMs)
+      extra.push(`${name}: gap ${l.gapMs} ms, probing down to ${l.gapFloorMs} ms`);
     for (const [pod, x] of Object.entries(l.pods))
       extra.push(
         `${name}: pod ${pod} in-flight ${x.inFlight} perHost ${x.perHost} gap ${x.gapMs} ms 429 ${x.r429}`,

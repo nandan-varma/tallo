@@ -20,7 +20,7 @@ const board = (platform: string, key: string): SourceConfig => ({
   company: key,
   params: {},
 });
-const def = (name: string, concurrency: number, gapMs = 0): LaneDef => ({
+const def = (name: string, concurrency: number, gapMs = 0, floorMs?: number): LaneDef => ({
   name,
   platforms: [name],
   settings: {
@@ -29,6 +29,7 @@ const def = (name: string, concurrency: number, gapMs = 0): LaneDef => ({
     perHost: 2,
     perHostCeiling: 4,
     gapMs,
+    ...(floorMs === undefined ? {} : { floorMs }),
     paused: false,
     enabled: true,
   },
@@ -137,6 +138,33 @@ describe("AIMD", () => {
     for (let i = 0; i < 50; i++) l.onClean();
     expect(l.settings.concurrency).toBe(4);
     expect(l.settings.gapMs).toBe(0);
+  });
+
+  it("probes below the configured gap when the lane says how far, and stops at that floor", () => {
+    const events: string[] = [];
+    const l = new Lane(def("walmart", 1, 700, 250), [], tuning, (m) => events.push(m));
+    for (let i = 0; i < 5; i++) l.onClean();
+    expect(l.settings.gapMs).toBe(350);
+    for (let i = 0; i < 50; i++) l.onClean();
+    expect(l.settings.gapMs).toBe(250);
+    expect(events.at(-1)).toBe("walmart: 5 clean boards, concurrency 1 -> 1, gap 350 -> 250 ms");
+  });
+
+  it("keeps the configured gap as the floor when no floor is given", () => {
+    const l = new Lane(def("microsoft", 1, 1000), [], tuning, () => {});
+    for (let i = 0; i < 50; i++) l.onClean();
+    expect(l.settings.gapMs).toBe(1000);
+  });
+
+  it("forgets a bad gap after a quiet half hour, so a bad minute does not cost the sweep", () => {
+    const events: string[] = [];
+    const l = new Lane(def("workday", 1, 250, 100), [], tuning, (m) => events.push(m));
+    l.on429(undefined, 1000);
+    expect(l.settings.gapMs).toBe(8000);
+    for (let i = 0; i < 50; i++) l.onClean();
+    expect(l.settings.gapMs).toBe(313); // 1.25 x the 250 ms gap that 429ed, above the 100 ms floor
+    for (let i = 0; i < 200; i++) l.onClean(1000 + 31 * 60_000);
+    expect(l.settings.gapMs).toBeLessThanOrEqual(157); // the margin decayed with the bad gap
   });
 
   it("learns the sustainable gap: it does not shrink back into a gap that 429ed", () => {
@@ -358,12 +386,60 @@ describe("per-host 429", () => {
     expect(lane.hostSlowdown()).toEqual({ slowed: 0, worstGapMs: 0 });
   });
 
+  it("caps one host's gap at 30 s, not the lane's 2 minutes", () => {
+    const { lane } = mk(multi(6));
+    lane.on429(undefined, 1000, A);
+    lane.on429(undefined, 20_000, A);
+    lane.on429(undefined, 40_000, A);
+    lane.on429(undefined, 60_000, A);
+    lane.on429(undefined, 80_000, A);
+    expect(lane.hostSlowdown().worstGapMs).toBe(30_000);
+  });
+
+  it("walks a quiet host's gap back down on the clock, not on clean requests", () => {
+    const { lane, events } = mk(multi(6));
+    lane.on429(undefined, 1000, A);
+    expect(lane.hostSlowdown().worstGapMs).toBe(2000);
+    lane.tick(1000 + 60_000);
+    expect(lane.hostSlowdown().worstGapMs).toBe(2000);
+    lane.tick(1000 + 150_000);
+    expect(lane.hostSlowdown().worstGapMs).toBe(1000);
+    expect(events.at(-1)).toBe("workday: wd5.myworkdayjobs.com quiet, host gap 2000 -> 1000 ms");
+    lane.tick(1000 + 300_000);
+    expect(lane.hostSlowdown().worstGapMs).toBe(500);
+    lane.tick(1000 + 700_000);
+    lane.tick(1000 + 1_100_000);
+    expect(lane.hostSlowdown()).toEqual({ slowed: 0, worstGapMs: 0 });
+  });
+
   it("a single-host lane keeps the lane-wide behavior", () => {
     const { lane } = mk(def("greenhouse", 4));
     lane.observe(429, undefined, 1000, "boards-api.greenhouse.io");
     expect(lane.settings.concurrency).toBe(2);
     expect(lane.settings.gapMs).toBe(8000);
     expect(lane.hostSlowdown().slowed).toBe(0);
+  });
+});
+
+describe("learned limits", () => {
+  it("restores a faster gap than the configured start, and a slower one", () => {
+    const mk = () => {
+      const events: string[] = [];
+      const lane = new Lane(def("walmart", 1, 700, 250), [], tuning, (m) => events.push(m));
+      return { events, lane };
+    };
+    const fast = mk().lane;
+    fast.applyLearned(
+      { at: 0, perHost: 2, gapMs: 250, last429At: null, perHostBad: null, hosts: {} },
+      1000,
+    );
+    expect(fast.settings.gapMs).toBe(250);
+    const slow = mk().lane;
+    slow.applyLearned(
+      { at: 0, perHost: 2, gapMs: 4000, last429At: null, perHostBad: null, hosts: {} },
+      1000,
+    );
+    expect(slow.settings.gapMs).toBe(4000);
   });
 });
 

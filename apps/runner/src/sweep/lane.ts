@@ -27,6 +27,12 @@ export interface Tuning {
   /** A host's gap after a 429 without Retry-After, and the clean requests that halve it. */
   hostFirstGapMs: number;
   hostCleanRequests: number;
+  /** One host's gap never grows past this: at 2 minutes a request a big board never finishes. */
+  hostGapCapMs: number;
+  /** A host's gap halves after this long without a 429, so a hold-down does not cost the evening. */
+  hostRecoverMs: number;
+  /** A lane-wide gap that drew a 429 stops guarding (its 25% margin decays) after this long without one. */
+  badGapForgetMs: number;
   /** 429s on this many distinct hosts inside the window reduce a multi-host lane. */
   hostsToReduce: number;
   hostWindowMs: number;
@@ -53,6 +59,9 @@ export const TUNING: Tuning = {
   busyMaxMs: 130 * 60_000,
   hostFirstGapMs: 2000,
   hostCleanRequests: 10,
+  hostGapCapMs: 30_000,
+  hostRecoverMs: 120_000,
+  badGapForgetMs: 30 * 60_000,
   hostsToReduce: 2,
   hostWindowMs: 60_000,
   perHostCleanRequests: 150,
@@ -69,6 +78,8 @@ export interface LearnedLane {
   last429At: number | null;
   /** The perHost that drew a 429 (probing stays below it), or null. */
   perHostBad: number | null;
+  /** The gap that last drew a 429 here; its 25% margin is the lane's floor. */
+  badGap?: number;
   hosts: Record<string, { gap: number; last429At: number }>;
 }
 
@@ -95,6 +106,8 @@ interface HostState {
   clean: number;
   last429: number;
   lastDecrease: number;
+  /** When this host's gap last changed (429 up or quiet recovery down). */
+  lastGapAt: number;
 }
 
 export interface Deferred {
@@ -187,9 +200,15 @@ export class Lane {
     for (const [platform, limiter] of this.limiters) limiter.setLimits(this.limitsFor(platform));
   }
 
+  /** The gap clean boards may probe down to: the lane's `floorMs`, else the configured gap. */
+  private gapFloor(): number {
+    return this.settings.floorMs ?? this.baseGap;
+  }
+
   /** The owner sets a gap: it is also the floor AIMD shrinks back to. */
   setGap(gapMs: number): void {
     this.baseGap = gapMs;
+    this.settings.floorMs = gapMs;
     this.settings.gapMs = gapMs;
     this.applyLimits();
   }
@@ -211,7 +230,7 @@ export class Lane {
     const key = host ? podKey(host) : undefined;
     if (status === 429) this.on429(retryAfterMs, now, key);
     else {
-      if (key) this.onHostClean(key);
+      if (key) this.onHostClean(key, now);
       this.maybeRaisePerHost(now);
     }
   }
@@ -288,6 +307,7 @@ export class Lane {
       gapMs: this.settings.gapMs,
       last429At: this.last429At || null,
       perHostBad: this.perHostBad || null,
+      badGap: this.badGap,
       hosts,
     };
   }
@@ -296,7 +316,9 @@ export class Lane {
   applyLearned(l: LearnedLane, now: number): void {
     const s = this.settings;
     s.perHost = Math.max(1, Math.min(l.perHost, s.perHostCeiling));
-    if (l.gapMs > s.gapMs) s.gapMs = l.gapMs;
+    // Either direction: a slower gap is the punishment that held, a faster one is a probe that paid off.
+    s.gapMs = Math.max(this.gapFloor(), l.gapMs);
+    if (l.badGap) this.badGap = l.badGap;
     if (l.perHostBad) {
       this.perHostBad = l.perHostBad;
       this.perHostBadAt = l.last429At ?? l.at;
@@ -311,6 +333,7 @@ export class Lane {
         clean: 0,
         last429: h.last429At || -Infinity,
         lastDecrease: -Infinity,
+        lastGapAt: h.last429At || -Infinity,
       });
     this.perHostWhy = `learned ${Math.round((now - l.at) / 60_000)} min ago`;
     this.learned = true;
@@ -329,13 +352,14 @@ export class Lane {
     return { slowed, worstGapMs };
   }
 
-  private setHostGap(host: string, h: HostState, gap: number): void {
+  private setHostGap(host: string, h: HostState, gap: number, now: number): void {
     h.gap = gap;
+    h.lastGapAt = now;
     for (const limiter of this.limiters.values()) limiter.setHostInterval?.(host, gap);
   }
 
   /** A clean response from a pod: after enough in a row its gap halves, then goes, and its board limit grows. */
-  private onHostClean(host: string): void {
+  private onHostClean(host: string, now: number): void {
     const h = this.hosts.get(host);
     if (!h) return;
     if (h.limit > 0 && ++h.cleanReq >= this.tuning.perHostCleanRequests) {
@@ -345,7 +369,7 @@ export class Lane {
     if (h.gap === 0 || ++h.clean < this.tuning.hostCleanRequests) return;
     h.clean = 0;
     const half = Math.floor(h.gap / 2);
-    this.setHostGap(host, h, half <= this.settings.gapMs || half < 250 ? 0 : half);
+    this.setHostGap(host, h, half <= this.settings.gapMs || half < 250 ? 0 : half, now);
   }
 
   on429(retryAfterMs: number | undefined, now: number, rawHost?: string): void {
@@ -370,6 +394,7 @@ export class Lane {
         clean: 0,
         last429: -Infinity,
         lastDecrease: -Infinity,
+        lastGapAt: now,
       };
       this.hosts.set(host, h);
     }
@@ -389,7 +414,7 @@ export class Lane {
           : before < t.hostFirstGapMs
             ? t.hostFirstGapMs
             : before * 2;
-      this.setHostGap(host, h, Math.min(t.gapCapMs, next));
+      this.setHostGap(host, h, Math.min(t.hostGapCapMs, next), now);
       const ra =
         retryAfterMs === undefined ? "" : `, Retry-After ${Math.round(retryAfterMs / 1000)} s`;
       this.emit(`${this.name}: ${host} 429${ra}, host gap ${before} -> ${h.gap} ms`);
@@ -438,13 +463,19 @@ export class Lane {
     this.burst = 0;
   }
 
-  /** A board finished without trouble. After enough in a row, additive increase and a smaller gap. */
-  onClean(): void {
+  /**
+   * A board finished without trouble. After enough in a row, additive increase and a smaller gap.
+   * The gap may probe below the configured start (down to `floorMs`) while no 429 has come, and the 25%
+   * margin around a gap that did 429 fades after `badGapForgetMs`: a bad minute must not cost the sweep.
+   */
+  onClean(now?: number): void {
     if (++this.cleanStreak < this.tuning.cleanBoards) return;
     this.cleanStreak = 0;
     const s = this.settings;
     const concurrency = Math.min(s.ceiling, s.concurrency + 1);
-    const floor = Math.max(this.baseGap, Math.ceil(this.badGap * 1.25));
+    if (now !== undefined && this.badGap > 0 && now - this.last429At >= this.tuning.badGapForgetMs)
+      this.badGap = Math.floor(this.badGap / 2);
+    const floor = Math.max(this.gapFloor(), Math.ceil(this.badGap * 1.25));
     let gap = s.gapMs > floor ? Math.max(floor, Math.floor(s.gapMs / 2)) : s.gapMs;
     if (gap > this.baseGap && gap < 250) gap = Math.max(this.baseGap, floor);
     if (concurrency === s.concurrency && gap === s.gapMs) return;
@@ -454,6 +485,21 @@ export class Lane {
     s.concurrency = concurrency;
     s.gapMs = gap;
     this.applyLimits();
+  }
+
+  /**
+   * Slow gaps walk back down on the clock as well as on clean requests: a host held at 8 s should not stay
+   * there for the rest of the sweep because its boards are big and clean requests are few.
+   */
+  tick(now: number): void {
+    for (const [host, h] of this.hosts) {
+      if (h.gap === 0 || now - h.lastGapAt < this.tuning.hostRecoverMs) continue;
+      if (now - h.last429 < this.tuning.hostRecoverMs && h.last429 > -Infinity) continue;
+      const before = h.gap;
+      const half = Math.floor(before / 2);
+      this.setHostGap(host, h, half < 250 ? 0 : half, now);
+      this.emit(`${this.name}: ${host} quiet, host gap ${before} -> ${h.gap} ms`);
+    }
   }
 
   /** Backoff before attempt `attempts` + 1: exponential, jittered by up to 25% either way. */
