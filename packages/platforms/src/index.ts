@@ -4,6 +4,7 @@ import { apple } from "./apple/index.ts";
 import { ashby } from "./ashby/index.ts";
 import { bamboohr } from "./bamboohr/index.ts";
 import { breezy } from "./breezy/index.ts";
+import { fedex } from "./fedex/index.ts";
 import { gem } from "./gem/index.ts";
 import { goldman } from "./goldman/index.ts";
 import { google } from "./google/index.ts";
@@ -59,6 +60,7 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     walmart,
     radancy,
     starbucks,
+    fedex,
   ].map((p) => [p.id, p]),
 );
 
@@ -78,6 +80,7 @@ export {
   ashby,
   bamboohr,
   breezy,
+  fedex,
   gem,
   goldman,
   google,
