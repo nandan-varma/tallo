@@ -10,6 +10,8 @@ import type { Cost, RunBoard, Sweep } from "./controller.ts";
 import type { LaneDef } from "./settings.ts";
 
 /** Rough D1 rows per posting written: a new posting touches about 20, a changed one 3, a closed one 5. */
+/** Detail fetches one board may have in flight; the lane's host limiter decides how many actually run. */
+const DETAIL_MAX = 8;
 const ROWS_NEW = 20;
 const ROWS_CHANGED = 3;
 const ROWS_CLOSED = 5;
@@ -114,7 +116,9 @@ export function createBoardRunner(deps: BoardDeps): RunBoard {
       api,
       log: deps.log,
       limiter: lane.limiterFor(source.platform),
-      detailConcurrency: lane.detailConcurrency(source.platform),
+      // The host limiter is the authority on how many requests a host sees, and it follows a live `perHost`;
+      // a queue sized to perHost at board start would freeze a big board at the rate it began with.
+      detailConcurrency: DETAIL_MAX,
       fetch: laneFetch,
       ...(deps.cpu ? { cpu: deps.cpu } : {}),
       runnerId: deps.runnerId,
