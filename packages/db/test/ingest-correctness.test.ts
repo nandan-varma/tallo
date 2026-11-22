@@ -137,6 +137,23 @@ describe("complete but empty, non-authoritative listing", () => {
   });
 });
 
+describe("concurrent finalize of one run", () => {
+  it("counts one absence once, so the posting survives its first absent listing", async () => {
+    const first = await start(T + 1000);
+    await ingest(first, [mapped("1")], T + 1000);
+    await finalize(db, first, fin(["1"]), T + 1000);
+    const second = await start(T + 2000);
+    const results = await Promise.all([
+      finalize(db, second, fin(["2"]), T + 2000),
+      finalize(db, second, fin(["2"]), T + 2000),
+    ]);
+    expect(results.map((r) => r.status)).toEqual(["complete", "complete"]);
+    const [job] = await db.select().from(schema.jobs);
+    expect([job!.closedAt, job!.absentRuns]).toEqual([null, 1]);
+    expect((await board()).failureCount).toBe(0);
+  });
+});
+
 describe("purge versus applyJobs blob reuse", () => {
   const purgeAt = T + 31 * DAY;
   const closedJob = async () => {

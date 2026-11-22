@@ -404,6 +404,9 @@ export async function finalize(
   let closed = 0;
   let reopened = 0;
   const statements: BatchItem<"sqlite">[] = [];
+  // The counters below add 1. A second finalize of the same run that read `running` before the first committed
+  // must add nothing, or one absence would count twice and close a posting early. The run's own update comes last.
+  const stillRunning = sql`EXISTS (SELECT 1 FROM ${runs} WHERE ${runs.id} = ${runId} AND ${runs.status} = 'running')`;
 
   if (closureApplied) {
     const seen = new Set(fin.seenIds);
@@ -464,7 +467,7 @@ export async function finalize(
             // A closing canonical hands its group over: bump updated_at so the rebuild sees it.
             updatedAt: now,
           })
-          .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
+          .where(and(sql`${jobs.id} IN ${jsonIds(ids)}`, stillRunning)),
       );
     }
     for (const ids of chunks(
@@ -475,7 +478,7 @@ export async function finalize(
         db
           .update(jobs)
           .set({ absentRuns: sql`${jobs.absentRuns} + 1` })
-          .where(sql`${jobs.id} IN ${jsonIds(ids)}`),
+          .where(and(sql`${jobs.id} IN ${jsonIds(ids)}`, stillRunning)),
       );
     }
   }
@@ -505,19 +508,6 @@ export async function finalize(
       : {};
   statements.push(
     db
-      .update(runs)
-      .set({
-        status,
-        finishedAt: fin.finishedAt,
-        requests: fin.requests,
-        seen: fin.notModified ? null : fin.seenIds.length,
-        closed: closureApplied ? closed : null,
-        reopened: closureApplied ? reopened : null,
-        rawKey: current.rawKey ?? fin.rawKey,
-        issues: fin.issues,
-      })
-      .where(eq(runs.id, runId)),
-    db
       .update(sources)
       .set({
         lastStatus: status,
@@ -542,7 +532,20 @@ export async function finalize(
           neverListed: before?.lastListedAt == null,
         }),
       })
-      .where(eq(sources.id, current.sourceId)),
+      .where(and(eq(sources.id, current.sourceId), stillRunning)),
+    db
+      .update(runs)
+      .set({
+        status,
+        finishedAt: fin.finishedAt,
+        requests: fin.requests,
+        seen: fin.notModified ? null : fin.seenIds.length,
+        closed: closureApplied ? closed : null,
+        reopened: closureApplied ? reopened : null,
+        rawKey: current.rawKey ?? fin.rawKey,
+        issues: fin.issues,
+      })
+      .where(eq(runs.id, runId)),
   );
   await batch(db, statements);
   // A listing that brings a stale source back changes every group its rows belong to, not only the

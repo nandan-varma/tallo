@@ -18,8 +18,7 @@ export type Db = BaseSQLiteDatabase<"async", AnyRunResult, typeof schema> & {
 export const batch = (db: Db, statements: BatchItem<"sqlite">[]): Promise<unknown> =>
   db.batch(statements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
 
-/** The ids are numeric and server-generated, so sending them as one JSON param is safe and
- * sidesteps D1's 100-bound-parameter limit. */
+/** Ids per statement: each list travels as one JSON param (see `jsonIds`). */
 export const CHUNK = 2000;
 
 export function chunks<T>(items: readonly T[], size: number): T[][] {
@@ -29,5 +28,6 @@ export function chunks<T>(items: readonly T[], size: number): T[][] {
 }
 
 export const nowSeconds = () => Math.floor(Date.now() / 1000);
+/** An id list as one bound JSON param, which sidesteps D1's 100-bound-parameter limit. */
 export const jsonIds = (ids: readonly (string | number)[]) =>
   sql`(SELECT value FROM json_each(${JSON.stringify(ids)}))`;
