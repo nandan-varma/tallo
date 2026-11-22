@@ -14,6 +14,9 @@ interface Sums {
   boards: number;
   wallMs: number;
   source: number;
+  /** The source split by phase: paging the listing versus fetching one posting. Waits are inside both. */
+  list: number;
+  detail: number;
   limiterWait: number;
   cpu: number;
   ingest: number;
@@ -26,6 +29,8 @@ const empty = (): Sums => ({
   boards: 0,
   wallMs: 0,
   source: 0,
+  list: 0,
+  detail: 0,
   limiterWait: 0,
   cpu: 0,
   ingest: 0,
@@ -41,6 +46,8 @@ function addTo(sums: Sums, t: Timings, wallMs: number): void {
   sums.boards++;
   sums.wallMs += wallMs;
   sums.source += Math.max(0, t.listMs + t.detailMs - waits);
+  sums.list += t.listMs;
+  sums.detail += t.detailMs;
   sums.limiterWait += t.limiterWaitMs;
   sums.cpu += t.cpuMs;
   sums.ingest += t.diffMs + t.uploadMs + t.finalizeMs;
@@ -94,6 +101,7 @@ export class LaneTimings {
     const s = this.total;
     const shares = sharesOf(s);
     const wallSec = s.wallMs / 1000;
+    const sourceMs = Math.max(1, s.list + s.detail);
     return {
       boards: s.boards,
       shares: {
@@ -103,6 +111,8 @@ export class LaneTimings {
         ingest: r3(shares.ingest),
         retryWait: r3(shares.retryWait),
       },
+      /** Where the source time goes: a paged listing with no detail hook is all `list`. */
+      phases: { list: r3(s.list / sourceMs), detail: r3(s.detail / sourceMs) },
       wallP50Ms: Math.round(percentile(this.walls, 50)),
       wallP90Ms: Math.round(percentile(this.walls, 90)),
       /** Source requests per second of board wall time: how hard one board drives its host. */
@@ -115,12 +125,19 @@ export class LaneTimings {
   }
 
   /** The dominant sink of boards finished since the last call, or null when there were none. */
-  takeWindow(): { shares: Shares; boards: number; top: Bottleneck } | null {
+  takeWindow(): {
+    shares: Shares;
+    phases: { list: number; detail: number };
+    boards: number;
+    top: Bottleneck;
+  } | null {
     const w = this.window;
     this.window = empty();
     const shares = sharesOf(w);
     const top = dominant(shares);
-    return w.boards > 0 && top ? { shares, boards: w.boards, top } : null;
+    const sourceMs = Math.max(1, w.list + w.detail);
+    const phases = { list: w.list / sourceMs, detail: w.detail / sourceMs };
+    return w.boards > 0 && top ? { shares, phases, boards: w.boards, top } : null;
   }
 }
 
@@ -136,13 +153,17 @@ export function bottleneckMessage(
   top: Bottleneck,
   shares: Shares,
   perHost: number,
+  phases?: { list: number; detail: number },
 ): string {
   const p = pct(shares[top]);
   switch (top) {
     case "limiterWait":
       return `${lane}: ${p} of time waiting on the host limiter (perHost ${perHost}): room to raise perHost`;
     case "source":
-      return `${lane}: ${p} of time in source responses: the host is the limit, more boards in parallel may help`;
+      // Which half of the source time it is decides the lever: paging is one request at a time per board.
+      if (phases && phases.list > 0.6)
+        return `${lane}: ${p} of time in source responses, ${pct(phases.list)} of it paging the listing: more boards in parallel, not perHost`;
+      return `${lane}: ${p} of time in source responses, ${phases ? pct(phases.detail) : "most"} of it posting fetches: the host is the limit, raise perHost`;
     case "retryWait":
       return `${lane}: ${p} of time sleeping on retries: the host is throttling, lower the rate`;
     case "cpu":
