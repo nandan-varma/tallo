@@ -114,6 +114,7 @@ export function createBoardRunner(deps: BoardDeps): RunBoard {
       api,
       log: deps.log,
       limiter: lane.limiterFor(source.platform),
+      detailConcurrency: lane.detailConcurrency(source.platform),
       fetch: laneFetch,
       ...(deps.cpu ? { cpu: deps.cpu } : {}),
       runnerId: deps.runnerId,
