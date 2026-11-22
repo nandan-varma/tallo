@@ -43,6 +43,8 @@ export const POLICY: Record<string, HostPolicy> = {
   meta: { concurrency: 2, gapMs: 500 },
   // Eightfold answers 429 after short bursts; one detail request per second stays polite.
   netflix: { concurrency: 1, gapMs: 1000 },
+  // One sitemap, then one ~30 KB job page per new posting on a single Akamai-fronted host.
+  walmart: { concurrency: 1, gapMs: 700 },
 };
 
 /** Unknown platforms get the careful policy. */

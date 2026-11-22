@@ -1,0 +1,9 @@
+[
+  {
+    "key": "walmart",
+    "company": "Walmart",
+    "params": {
+      "egress": "local"
+    }
+  }
+]
