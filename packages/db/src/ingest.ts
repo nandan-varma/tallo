@@ -146,6 +146,28 @@ export async function diff(
   return postings.filter((p) => known.get(p.id) !== p.hash).map((p) => p.id);
 }
 
+/**
+ * `diff` and, when no posting changed, `finalize` in the same call (one round trip for an unchanged
+ * board). The finalize is the ordinary one, idempotent on runId; a changed board only gets its diff.
+ */
+export async function diffOrFinish(
+  db: Db,
+  runId: string,
+  postings: { id: string; hash: string }[],
+  finish: Omit<FinalizeInput, "seenIds" | "rawKey">,
+  now = nowSeconds(),
+): Promise<{ changed: string[]; finalized?: FinalizeResult }> {
+  const changed = await diff(db, runId, postings);
+  if (changed.length > 0) return { changed };
+  const finalized = await finalize(
+    db,
+    runId,
+    { ...finish, seenIds: postings.map((p) => p.id), rawKey: null },
+    now,
+  );
+  return { changed, finalized };
+}
+
 export interface ApplyResult {
   applied: number;
   /** JD blobs the runner must upload before these postings can be applied. */

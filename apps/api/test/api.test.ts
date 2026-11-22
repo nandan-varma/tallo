@@ -84,6 +84,31 @@ describe("api", () => {
     ).toBe(404);
   });
 
+  it("diff-or-finish: finalizes in the same call when nothing changed, and needs the token", async () => {
+    const { call } = setup();
+    const runId = "run-00000009";
+    await call("/v1/runs", INGEST, {
+      method: "POST",
+      json: { runId, source, runnerId: "mac", collectorVersion: "t", startedAt: now() },
+    });
+    const finish = {
+      listingComplete: true,
+      detailsComplete: true,
+      emptyIsAuthoritative: true,
+      requests: 1,
+      finishedAt: now(),
+      issues: [],
+    };
+    const route = `/v1/runs/${runId}/diff-or-finish`;
+    expect(
+      (await call(route, null, { method: "POST", json: { postings: [], finish } })).status,
+    ).toBe(401);
+    const body = await (
+      await call(route, INGEST, { method: "POST", json: { postings: [], finish } })
+    ).json();
+    expect(body).toMatchObject({ changed: [], finalized: { status: "complete" } });
+  });
+
   it("runs a full ingest round trip and serves the job with its description", async () => {
     const { call } = setup();
     const runId = "run-00000001";

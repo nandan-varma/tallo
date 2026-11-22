@@ -24,6 +24,7 @@ import {
   claimSources,
   deferBusy,
   diff,
+  diffOrFinish,
   finalize,
   IngestError,
   jdKey,
@@ -80,6 +81,7 @@ function directIngest(db: Db, blobs: BlobStore): Ingest {
   return {
     startRun: (run) => startRun(db, run),
     diff: (runId, postings) => diff(db, runId, postings),
+    diffOrFinish: (runId, postings, finish) => diffOrFinish(db, runId, postings, finish),
     missingBlobs: async (hashes) => {
       const absent = await Promise.all(
         hashes.map(async (h) => ((await blobs.has(jdKey(h))) ? null : h)),
@@ -148,6 +150,7 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
     ingest: {
       startRun: metered(meter, direct.startRun),
       diff: metered(meter, direct.diff),
+      diffOrFinish: metered(meter, direct.diffOrFinish!),
       missingBlobs: metered(meter, direct.missingBlobs),
       putJd: metered(meter, direct.putJd),
       applyJobs: metered(meter, direct.applyJobs),

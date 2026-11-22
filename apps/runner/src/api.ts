@@ -32,6 +32,15 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .post(`v1/runs/${runId}/diff`, { json: { postings } })
         .json<{ changed: string[] }>()
         .then((r) => r.changed),
+    /** Diff; when nothing changed the server also finalizes with `finish` and says so. */
+    diffOrFinish: (
+      runId: string,
+      postings: { id: string; hash: string }[],
+      finish: Omit<Finalize, "seenIds" | "rawKey">,
+    ) =>
+      client
+        .post(`v1/runs/${runId}/diff-or-finish`, { json: { postings, finish } })
+        .json<{ changed: string[]; finalized?: FinalizeResult }>(),
     /** The server caps a check at 1000 hashes, so ask in chunks. */
     missingBlobs: async (hashes: string[]) => {
       const missing: string[] = [];
