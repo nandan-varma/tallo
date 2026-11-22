@@ -69,7 +69,7 @@ export const LANES: LaneDef[] = [
   // waiting on the limiter 70% of the time while other tenants' pods sat idle, and one board cannot exceed ~1.7
   // requests a second (Workday pages 20 postings at a time and its details wait on the pod). A pod allows 4 a
   // second at a 250 ms gap, so ~2.5 boards per pod saturate one; 105 boards spread over ~40 pods wants a wide lane.
-  multiHost(lane("workday", ["workday"], 30, 2, 250, undefined, 6, 100)),
+  multiHost(lane("workday", ["workday"], 30, 2, 250, undefined, 6, 250)),
   multiHost(
     // Oracle answers 8.6 MB in 25 requests a board: source latency, not the limiter, so more boards in parallel is
     // the only lever (measured 0.46 requests a second per board with 2 boards in flight and no 429s).
