@@ -46,3 +46,24 @@ describe("GET /v1/site-stats", () => {
     expect(JSON.stringify(openApiDocument())).not.toContain("site-stats");
   });
 });
+
+describe("POST /v1/admin/site-stats/refresh", () => {
+  it("needs the ingest token and stores the snapshot on demand", async () => {
+    const { db, blobs } = setup();
+    await seed(db, blobs, { postingId: "1", title: "Data Engineer", countryCode: "US" });
+    const app = createApp({ db, blobs, ingestToken: INGEST });
+
+    expect((await app.request("/v1/admin/site-stats/refresh", { method: "POST" })).status).toBe(
+      401,
+    );
+    expect((await app.request("/v1/site-stats")).status).toBe(503);
+
+    const refreshed = await app.request("/v1/admin/site-stats/refresh", {
+      method: "POST",
+      headers: { authorization: `Bearer ${INGEST}` },
+    });
+    expect(refreshed.status).toBe(200);
+    expect(await refreshed.json()).toMatchObject({ openJobs: 1 });
+    expect((await app.request("/v1/site-stats")).status).toBe(200);
+  });
+});
