@@ -246,6 +246,17 @@ program
   });
 
 program
+  .command("abandon <source...>")
+  .description(
+    "Release boards whose collector process was stopped: their running runs become partial at once (closing nothing) instead of holding the board for 2 hours. Only for runs you know are dead.",
+  )
+  .action(async (ids: string[]) => {
+    const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
+    const { abandoned } = await api.abandonRuns(ids);
+    log.info({ boards: ids.length, abandoned }, "abandoned");
+  });
+
+program
   .command("retire <source...>")
   .description(
     "Remove reviewed retired boards from the catalog; preserve historical runs and R2 objects",

@@ -493,3 +493,18 @@ describe("ingest body limits", () => {
     expect(row).toMatchObject({ rawKey: null });
   });
 });
+
+describe("POST /v1/admin/runs/abandon", () => {
+  it("needs the ingest token", async () => {
+    const response = await createApp({
+      db: setup().db,
+      blobs: setup().blobs,
+      ingestToken: INGEST,
+    }).request("/v1/admin/runs/abandon", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sources: ["greenhouse:x"] }),
+    });
+    expect(response.status).toBe(401);
+  });
+});

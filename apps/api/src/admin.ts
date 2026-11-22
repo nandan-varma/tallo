@@ -3,6 +3,7 @@ import { RETIRE_MAX_SOURCES, type SourceConfig } from "@tallo/contracts";
 import {
   collectStatus,
   type Db,
+  reapStaleRuns,
   refreshSiteStats,
   registerSources,
   retireSources,
@@ -84,6 +85,16 @@ export function adminRoutes({
   routes.post("/v1/admin/sources/retire", write, zValidator("json", retireSchema), async (c) => {
     const { sources, dryRun } = c.req.valid("json");
     return c.json(await retireSources(db, sources, { dryRun }));
+  });
+
+  /**
+   * Release boards whose collector process was stopped: their `running` runs become partial now (closing nothing, and
+   * counted as a failed run like the hourly reaper does) instead of holding the board for the 2 hour lease. Only for
+   * runs the operator knows are dead: a live run that is abandoned finishes into a run that is no longer running.
+   */
+  routes.post("/v1/admin/runs/abandon", write, zValidator("json", reviveSchema), async (c) => {
+    const { sources } = c.req.valid("json");
+    return c.json({ abandoned: await reapStaleRuns(db, undefined, { sources, leaseSeconds: 0 }) });
   });
 
   /**
