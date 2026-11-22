@@ -102,6 +102,13 @@ interface HttpOptions {
   /** Override backoff (tests). Receives the 1-based retry attempt. */
   retryDelay?: (attempt: number) => number;
   onRequest?: () => void;
+  /**
+   * Time accounting, for measuring where a request's wall time goes. `limiter`: waited in the host limiter for a
+   * slot or a start gap. `retry`: slept on Retry-After or backoff after a failed HTTP response (a retry after a
+   * network error is not counted). `bytes`: body characters received.
+   */
+  onWait?: (kind: "limiter" | "retry", ms: number) => void;
+  onBytes?: (n: number) => void;
 }
 
 /**
@@ -261,9 +268,26 @@ export function createHttp(options: HttpOptions): Http {
     for (let hops = 0; hops <= 5; hops++) {
       options.signal?.throwIfAborted();
       try {
+        const queuedAt = Date.now();
+        // Set when a failed response arrives; the next retry hook measures the sleep since then.
+        let failedAt = 0;
         const response = await limiter.run(url.hostname, async () => {
+          options.onWait?.("limiter", Date.now() - queuedAt);
           options.onRequest?.();
           return client(url, {
+            hooks: {
+              afterResponse: [
+                ({ response: r }: { response: Response }) => {
+                  if (!r.ok) failedAt = Date.now();
+                },
+              ],
+              beforeRetry: [
+                () => {
+                  if (failedAt) options.onWait?.("retry", Date.now() - failedAt);
+                  failedAt = 0;
+                },
+              ],
+            },
             method: verb,
             ...(payload === undefined ? {} : { json: payload }),
             ...(init?.headers ? { headers: init.headers } : {}),
@@ -297,12 +321,9 @@ export function createHttp(options: HttpOptions): Http {
           continue;
         }
         if (response.ok || init?.okStatuses?.includes(response.status)) {
-          return {
-            status: response.status,
-            url: url.href,
-            data: await readCapped(response, maxBytes, url.href, bodyTimeoutMs),
-            ...etagOf(response),
-          };
+          const data = await readCapped(response, maxBytes, url.href, bodyTimeoutMs);
+          options.onBytes?.(data.length);
+          return { status: response.status, url: url.href, data, ...etagOf(response) };
         }
         await response.body?.cancel();
         throw new HttpError("http", `HTTP ${response.status}`, url.href, response.status);

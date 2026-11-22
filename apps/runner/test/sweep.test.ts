@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Outcome } from "@tallo/collect";
+import type { Outcome, Timings } from "@tallo/collect";
 import type { SourceConfig } from "@tallo/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { estimateCost, guardedFetch, planSweep } from "../src/sweep/board.ts";
@@ -10,6 +10,7 @@ import { type RunBoard, Sweep, sweepPaths, type Timing } from "../src/sweep/cont
 import { Lane, TUNING, type Tuning } from "../src/sweep/lane.ts";
 import { formatStatus, setControl } from "../src/sweep/report.ts";
 import { type LaneDef, readEdits } from "../src/sweep/settings.ts";
+import { bottleneckMessage, LaneTimings, sharesLine } from "../src/sweep/timing.ts";
 
 const board = (platform: string, key: string): SourceConfig => ({
   id: `${platform}:${key}`,
@@ -46,6 +47,7 @@ const fast: Timing = {
   pressurePauseMs: 20,
   recoverMs: 50,
   latencySpikeMs: 15_000,
+  bottleneckMs: 60,
 };
 const tuning: Tuning = { ...TUNING, deferBaseMs: 40, deferCapMs: 200, decreaseWindowMs: 10 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -539,5 +541,92 @@ describe("guardedFetch", () => {
     );
     await fetchIt("https://api.test/v1/runs");
     expect(seen).toEqual([503]);
+  });
+});
+
+describe("timings", () => {
+  const timings = (over: Partial<Timings> = {}): Timings => ({
+    listMs: 600,
+    diffMs: 50,
+    detailMs: 400,
+    cpuMs: 100,
+    uploadMs: 30,
+    finalizeMs: 20,
+    limiterWaitMs: 300,
+    retryWaitMs: 100,
+    sourceRequests: 20,
+    ingestCalls: 5,
+    bytesIn: 1000,
+    wallMs: 1200,
+    ...over,
+  });
+
+  it("shares are computed with the waits taken out of the source time", () => {
+    const lt = new LaneTimings();
+    lt.record(timings());
+    const s = lt.summary();
+    // source 1000 - 400 waits = 600; limiter 300; cpu 100; ingest 100; retry 100; total 1200
+    expect(s.shares).toEqual({
+      source: 0.5,
+      limiterWait: 0.25,
+      cpu: 0.083,
+      ingest: 0.083,
+      retryWait: 0.083,
+    });
+    expect(s.requestsPerSecPerBoard).toBeCloseTo(16.67, 1);
+    expect(sharesLine(s.shares)).toBe(
+      "source 50%, limiter wait 25%, cpu 8%, ingest 8%, retry waits 8%",
+    );
+  });
+
+  it("p50 and p90 of board wall time", () => {
+    const lt = new LaneTimings();
+    for (let i = 1; i <= 10; i++) lt.record(timings(), i * 1000);
+    const s = lt.summary();
+    expect(s.wallP50Ms).toBe(5000);
+    expect(s.wallP90Ms).toBe(9000);
+  });
+
+  it("names the dominant bottleneck, with the perHost hint for the limiter", () => {
+    const lt = new LaneTimings();
+    lt.record(timings({ listMs: 900, detailMs: 0, limiterWaitMs: 800, retryWaitMs: 0 }));
+    const w = lt.takeWindow()!;
+    expect(w.top).toBe("limiterWait");
+    expect(bottleneckMessage("smartrecruiters", w.top, w.shares, 3)).toMatch(
+      /smartrecruiters: \d+% of time waiting on the host limiter \(perHost 3\): room to raise perHost/,
+    );
+    expect(lt.takeWindow()).toBeNull();
+  });
+
+  it("the sweep aggregates per lane, reports it in status and the formatted table, and logs an event", async () => {
+    const run: RunBoard = async () => {
+      await sleep(10);
+      return {
+        outcome: outcome({ timings: timings({ wallMs: 10 }) }),
+        cost: { rows: 1, r2Puts: 0 },
+      };
+    };
+    const { sweep } = setup([def("workday", 2)], { workday: ["a", "b", "c"] }, run);
+    await sweep.run();
+    const t = sweep.status().lanes.workday!.timings;
+    expect(t.boards).toBe(3);
+    expect(t.sourceRequests).toBe(60);
+    expect(t.shares.source).toBe(0.5);
+    const text = formatStatus(sweep.status(), []);
+    expect(text).toContain("where the time goes");
+    expect(text).toContain("workday: source 50%, limiter wait 25%");
+    expect(JSON.parse(JSON.stringify(sweep.status())).lanes.workday.timings.shares.cpu).toBe(0.083);
+    await until(() => sweep.events.some((e) => e.includes("workday: ")), 500).catch(() => {});
+  });
+
+  it("emits a bottleneck event per lane each interval", async () => {
+    const run: RunBoard = async () => {
+      await sleep(5);
+      return { outcome: outcome({ timings: timings() }), cost: { rows: 1, r2Puts: 0 } };
+    };
+    const many = Array.from({ length: 40 }, (_, i) => `b${i}`);
+    const { sweep } = setup([def("workday", 1)], { workday: many }, run);
+    await sweep.run();
+    expect(sweep.events.some((e) => e.includes("of time in source responses"))).toBe(true);
   });
 });

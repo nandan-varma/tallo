@@ -5,6 +5,7 @@ import type { SourceConfig } from "@tallo/contracts";
 import { classifyError, classifyOutcome, type Verdict } from "./classify.ts";
 import { Lane, TUNING, type Tuning } from "./lane.ts";
 import { DEFAULT_BUDGET, DEFAULT_GLOBAL, type Edit, type LaneDef, readEdits } from "./settings.ts";
+import { bottleneckMessage, LaneTimings } from "./timing.ts";
 
 /** What one board attempt cost, estimated from the run result. */
 export interface Cost {
@@ -39,6 +40,8 @@ export interface Timing {
   recoverMs: number;
   /** Smoothed ingest latency that counts as pressure. */
   latencySpikeMs: number;
+  /** How often each lane's dominant time sink is named in an event. */
+  bottleneckMs: number;
 }
 export const TIMING: Timing = {
   tickMs: 250,
@@ -47,6 +50,7 @@ export const TIMING: Timing = {
   pressurePauseMs: 5000,
   recoverMs: 20_000,
   latencySpikeMs: 15_000,
+  bottleneckMs: 5 * 60_000,
 };
 
 export interface SweepOptions {
@@ -93,6 +97,8 @@ export class Sweep {
   private lastErrorLog = "";
   /** Boards another run holds (409 busy): when the first 409 came and how many retries since. */
   private held = new Map<string, { since: number; n: number }>();
+  private laneTimings = new Map<string, LaneTimings>();
+  private lastBottleneckAt = 0;
   private lastStatusAt = 0;
   private lastControlAt = 0;
   private resolveDone?: (reason: "finished" | "stopped") => void;
@@ -180,6 +186,7 @@ export class Sweep {
     }
     if (this.capacity > this.global.maxInFlight) this.capacity = this.global.maxInFlight;
     this.pump();
+    this.reportBottlenecks(now);
     const over =
       this.lanes.every((l) => !l.settings.enabled || l.finished) ||
       (this.stopping && this.inFlight() === 0);
@@ -221,6 +228,7 @@ export class Sweep {
       ({ outcome, cost }) => {
         this.rows += cost.rows;
         this.r2Puts += cost.r2Puts;
+        this.timingsOf(lane.name).record(outcome.timings, this.now() - startedAt);
         this.finish(lane, source, attempts, classifyOutcome(outcome), lane.r429 === r429Before);
       },
       (error) => this.finish(lane, source, attempts, classifyError(error), false),
@@ -308,6 +316,24 @@ export class Sweep {
       left,
     );
     lane.deferred.push({ source, attempts, notBefore: now + wait, reason: verdict.reason });
+  }
+
+  private timingsOf(lane: string): LaneTimings {
+    const known = this.laneTimings.get(lane);
+    if (known) return known;
+    const fresh = new LaneTimings();
+    this.laneTimings.set(lane, fresh);
+    return fresh;
+  }
+
+  /** Every bottleneckMs, name what dominated each lane's boards finished since the last report. */
+  private reportBottlenecks(now: number): void {
+    if (now - this.lastBottleneckAt < this.timing.bottleneckMs) return;
+    this.lastBottleneckAt = now;
+    for (const lane of this.lanes) {
+      const w = this.laneTimings.get(lane.name)?.takeWindow();
+      if (w) this.event(bottleneckMessage(lane.name, w.top, w.shares, lane.settings.perHost));
+    }
   }
 
   private checkBudget(): void {
@@ -454,6 +480,7 @@ export class Sweep {
             requestsPerMin: round(rate.requestsPerMin),
             etaMin: rate.boardsPerMin > 0 && left > 0 ? Math.round(left / rate.boardsPerMin) : null,
             errors: l.errors,
+            timings: this.timingsOf(l.name).summary(),
           },
         ];
       }),

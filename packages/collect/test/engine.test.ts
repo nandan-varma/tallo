@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { gunzip } from "@tallo/catalog";
 import type { Finalize, JobFacts, SourceConfig } from "@tallo/contracts";
+import { createHostLimiter } from "@tallo/http";
 import { describe, expect, it } from "vitest";
 import {
   advance,
@@ -87,6 +88,82 @@ describe("collectSource", () => {
     expect(calls.finalize).toHaveLength(1);
     expect(calls.applied).toHaveLength(2);
     expect(calls.raw).toHaveLength(1);
+  });
+});
+
+describe("timings", () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // BambooHR: a thin list and one detail request per posting, so the limiter and detail phases both have work.
+  const bamboo: SourceConfig = {
+    id: "bamboohr:small",
+    platform: "bamboohr",
+    key: "small",
+    company: "Small",
+    params: {},
+  };
+  const template = JSON.parse(fx("bamboohr-list")).result[0];
+  const result = [1, 2, 3].map((i) => ({ ...template, id: String(1000 + i) }));
+  const slowFetch: typeof fetch = async (input) => {
+    await sleep(20);
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    return url.pathname.endsWith("/careers/list")
+      ? new Response(JSON.stringify({ meta: { totalCount: 3 }, result }))
+      : new Response(fx("bamboohr-detail"));
+  };
+
+  it("splits a sequential board's wall time into phases that add up", async () => {
+    const { ingest } = fakeIngest({
+      diff: async (_r, postings) => {
+        await sleep(25);
+        return postings.map((p) => p.id);
+      },
+      applyJobs: async (_r, jobs) => {
+        await sleep(15);
+        return { applied: jobs.length, missingBlobs: [] };
+      },
+      finalize: async () => {
+        await sleep(10);
+        return { status: "complete", closureApplied: false, closed: 0, reopened: 0 };
+      },
+    });
+    const started = Date.now();
+    const done = await collectSource(bamboo, meta, { ...options(ingest), fetch: slowFetch });
+    const wall = Date.now() - started;
+    const t = done.timings!;
+    expect(t.sourceRequests).toBe(4);
+    expect(t.listMs).toBeGreaterThanOrEqual(18);
+    expect(t.detailMs).toBeGreaterThanOrEqual(58);
+    expect(t.diffMs).toBeGreaterThanOrEqual(24);
+    expect(t.finalizeMs).toBeGreaterThanOrEqual(9);
+    expect(t.uploadMs).toBeGreaterThanOrEqual(14);
+    expect(t.ingestCalls).toBeGreaterThanOrEqual(6);
+    expect(t.bytesIn).toBeGreaterThan(0);
+    const parts = t.listMs + t.diffMs + t.detailMs + t.cpuMs + t.uploadMs + t.finalizeMs;
+    expect(parts).toBeLessThanOrEqual(wall + 5);
+    expect(parts).toBeGreaterThanOrEqual(wall * 0.8);
+    expect(t.wallMs).toBeGreaterThanOrEqual(parts - 5);
+  });
+
+  it("counts time spent waiting in the host limiter", async () => {
+    const { ingest } = fakeIngest();
+    const limiter = createHostLimiter({ perHostConcurrency: 1, minHostIntervalMs: 30 });
+    const done = await collectSource(bamboo, meta, {
+      ...options(ingest),
+      fetch: slowFetch,
+      limiter,
+    });
+    // Four requests, each start 30 ms after the last: the waiting is the gap beyond the previous request.
+    expect(done.timings!.limiterWaitMs).toBeGreaterThanOrEqual(1);
+    expect(done.timings!.limiterWaitMs).toBeLessThanOrEqual(done.timings!.wallMs);
+  });
+
+  it("is absent when the sliced path runs without a meter", async () => {
+    const { ingest } = fakeIngest();
+    const begun = await begin(options(ingest), { ...meta, source, startedAt: 0 });
+    if ("finished" in begun) throw new Error("listing failed");
+    const progress = await advance(options(ingest), begun.plan, begun.progress);
+    const done = await complete(options(ingest), begun.plan, progress, { planStored: false });
+    expect(done.timings).toBeUndefined();
   });
 });
 

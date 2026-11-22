@@ -4,6 +4,7 @@ export * from "./engine.ts";
 export * from "./gate.ts";
 export * from "./messages.ts";
 export * from "./policy.ts";
+export * from "./timings.ts";
 
 /** An in-memory scratch store. The runner collects in one process and needs no persistence. */
 export function memoryScratch(): import("./engine.ts").Scratch {
