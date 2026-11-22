@@ -11,9 +11,11 @@ updates:
       # astro check does not support TypeScript 7 yet.
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
-      # Decodes every description; take a major deliberately.
-      - dependency-name: entities
-        update-types: ["version-update:semver-major"]
+      # Peer ranges admit 2.0.0 alphas/betas, which broke astro check; wait for the stable 2.x.
+      - dependency-name: "@emnapi/*"
+        versions: [">=2.0.0-0 <2.0.0"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+        # Keep the prerelease-prone packages out of the group; they get their own PRs.
+        exclude-patterns: ["@emnapi/*"]
