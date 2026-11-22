@@ -22,6 +22,7 @@ export const POLICY: Record<string, HostPolicy> = {
   pinpoint: TENANT,
   breezy: TENANT,
   microsoft: TENANT,
+  starbucks: TENANT,
   ibm: TENANT,
   goldman: TENANT,
   greenhouse: FAST,
