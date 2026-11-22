@@ -83,5 +83,24 @@ const {
     <main id="main" class="min-w-0 flex-1">
       <slot />
     </main>
+    <footer class="border-t print:hidden">
+      <p class="mx-auto max-w-3xl px-4 py-6 text-xs text-muted-foreground sm:px-6">
+        Postings are collected from public employer career boards and link to
+        the employer's own application page.
+        <a
+          class="underline underline-offset-2 hover:text-foreground"
+          href="https://github.com/nandan-varma/tallo"
+        >
+          Source (AGPL-3.0)
+        </a>
+        ·
+        <a
+          class="underline underline-offset-2 hover:text-foreground"
+          href="mailto:contact@nandan.fyi"
+        >
+          Report a problem or request removal
+        </a>
+      </p>
+    </footer>
   </body>
 </html>

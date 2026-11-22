@@ -29,3 +29,10 @@ cd ../web && printf 'API_URL=http://localhost:8787\n' > .dev.vars && pnpm dev   
 
 Docs: `docs/runbook.md` (operate), `docs/architecture.md` (design), `docs/adding-a-platform.md`,
 `docs/adding-sources.md`, `docs/decisions.md` (why). Agents: start with `CLAUDE.md`.
+
+## License and contact
+
+[AGPL-3.0-only](LICENSE). Postings belong to their employers; Tallo links to them and stores nothing about people.
+Bugs: [open an issue](https://github.com/nandan-varma/tallo/issues/new). Data problems and removal requests:
+contact@nandan.fyi.
+Security reports: see [SECURITY.md](SECURITY.md).
