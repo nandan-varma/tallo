@@ -571,19 +571,52 @@ export class Lane {
     return !!h && h.gap > 0 && n >= 1;
   }
 
-  /** The next board to start: a ready deferral, else the next never-tried board, skipping boards whose pod is busy. */
+  /**
+   * The next board to start: a ready deferral, else the next never-tried board, skipping boards whose pod is busy.
+   * A board whose pod has nothing running wins over one whose pod already has work, so a lane with forty tenants
+   * spreads over forty pods instead of stacking six boards on `wd1` and leaving the rest idle.
+   */
   take(now: number): { source: SourceConfig; attempts: number } | undefined {
-    const i = this.deferred.findIndex((d) => d.notBefore <= now && !this.blocked(d.source));
+    const i = this.pick(
+      this.deferred,
+      (d) => d.notBefore <= now && !this.blocked(d.source),
+      (d) => d.source,
+    );
     if (i >= 0) {
       const [d] = this.deferred.splice(i, 1);
       this.remember(d!.source);
       return { source: d!.source, attempts: d!.attempts };
     }
-    const j = this.pending.findIndex((s) => !this.blocked(s));
+    const j = this.pick(
+      this.pending,
+      (s) => !this.blocked(s),
+      (s) => s,
+    );
     if (j < 0) return undefined;
     const [source] = this.pending.splice(j, 1);
     this.remember(source!);
     return { source: source!, attempts: 0 };
+  }
+
+  /** The first candidate that may start, preferring one whose pod has no board running. */
+  private pick<T>(
+    list: T[],
+    allowed: (item: T) => boolean,
+    source: (item: T) => SourceConfig,
+  ): number {
+    const busy = new Set<string>();
+    for (const id of this.inFlight.keys()) {
+      const g = this.groups.get(id);
+      if (g) busy.add(g);
+    }
+    let fallback = -1;
+    for (const [index, item] of list.entries()) {
+      if (!allowed(item)) continue;
+      const g = boardGroup(source(item));
+      if (!g || !busy.has(g)) return index;
+      if (fallback < 0) fallback = index;
+    }
+    return fallback;
   }
 
   private remember(source: SourceConfig): void {

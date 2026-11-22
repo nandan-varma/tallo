@@ -132,7 +132,8 @@ boards, so a bad minute is not paid for all evening.
 one host, one lane-wide AIMD: +1 after 150 clean requests up to the lane's `perHostCeiling`, halved on a 429 with a
 hold-down, never back into a rate that drew a 429. Detail fetches to one host follow `perHost` (max 8). Workday and
 Oracle are keyed per pod (tenant host), so one badly behaving pod does not slow the whole lane, and a board on a full or
-held pod is not started. A pod's own gap is capped at 30 s (a lane's at 2 min) and walks back down on the clock as well as
+held pod is not started, and a board whose pod is idle starts before one whose pod already has work, so a lane spreads
+over its tenants instead of stacking boards on `wd1`. A pod's own gap is capped at 30 s (a lane's at 2 min) and walks back down on the clock as well as
 on clean requests: after 2 quiet minutes it halves, so a Workday pod held at 8 s is not held there for the night. Learned values are written to `learned.json` (every minute and on exit; ignored after 7 days) so
 a restart starts where the last run stopped. `tallo sweep status` shows `perHost n/ceiling` with the reason, `gap` with the floor it is probing to, per-pod rows,
 and _where the time goes_ per lane: shares of source, limiter wait, cpu, ingest and retry waits, board wall p50/p90 and

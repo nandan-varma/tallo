@@ -338,6 +338,19 @@ describe("pods", () => {
     expect(l.take(0)!.source.key).toBe("b/x");
   });
 
+  it("spreads boards over pods: a board whose pod is idle starts before another on a busy pod", () => {
+    const l = podLane([], 6);
+    const at = (wd: string, key: string): SourceConfig => ({
+      ...board("workday", key),
+      params: { wd },
+    });
+    l.pending.push(at("wd1", "a/1"), at("wd1", "a/2"), at("wd2", "b/1"));
+    const first = l.take(0)!;
+    l.inFlight.set(first.source.id, 0); // `take` already recorded its pod
+    const second = l.take(0)!;
+    expect(second.source.id).toBe("workday:b/1");
+  });
+
   it("a 429 on one pod halves that pod only, and the status lists it", () => {
     const l = podLane([], 4);
     l.observe(429, undefined, 1000, "jll.wd1.myworkdayjobs.com");
