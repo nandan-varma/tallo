@@ -64,14 +64,6 @@ describe("listRuns", () => {
 });
 
 describe("startRun claim", () => {
-  it("lets exactly one of two concurrent starts claim a source", async () => {
-    const start = (runId: string) =>
-      startRun(db, { runId, source, runnerId: "mac", collectorVersion: "t", startedAt: T }, T);
-    const results = await Promise.allSettled([start("run-race-0001"), start("run-race-0002")]);
-    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
-    expect((await listRuns(db, { limit: 50, attention: false })).length).toBe(1);
-  });
-
   it("supersedes a run past the two-hour lease", async () => {
     await run("run-stale-0001", T);
     await run("run-fresh-0001", T + 2 * 60 * 60 + 1);

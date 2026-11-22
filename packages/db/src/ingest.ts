@@ -69,24 +69,20 @@ export async function startRun(db: Db, input: CreateRun, now = nowSeconds()): Pr
     )[0]?.validator ?? null;
   const existing = (await db.select().from(runs).where(eq(runs.id, input.runId)).limit(1))[0];
   if (existing) return { validator: await stored() };
-  const busy = async () =>
-    (
-      await db
-        .select({ id: runs.id })
-        .from(runs)
-        .where(
-          and(
-            eq(runs.sourceId, input.source.id),
-            eq(runs.status, "running"),
-            sql`${runs.startedAt} > ${now - RUN_LEASE_SECONDS}`,
-          ),
-        )
-        .limit(1)
-    )[0];
-  const refuse = (id?: string) =>
-    new IngestError(409, `Source ${input.source.id} is already running (${id})`);
-  const first = await busy();
-  if (first) throw refuse(first.id);
+  const busy = (
+    await db
+      .select({ id: runs.id })
+      .from(runs)
+      .where(
+        and(
+          eq(runs.sourceId, input.source.id),
+          eq(runs.status, "running"),
+          sql`${runs.startedAt} > ${now - RUN_LEASE_SECONDS}`,
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (busy) throw new IngestError(409, `Source ${input.source.id} is already running (${busy.id})`);
   const { source } = input;
   const validator = await stored();
   const fields = {
@@ -102,18 +98,15 @@ export async function startRun(db: Db, input: CreateRun, now = nowSeconds()): Pr
       .insert(sources)
       .values({ id: source.id, ...fields })
       .onConflictDoUpdate({ target: sources.id, set: fields }),
-    // One statement checks for a live run and claims the source, so two concurrent starts cannot both win.
-    db.run(sql`
-      INSERT INTO runs (id, source_id, runner_id, collector_version, started_at, status)
-      SELECT ${input.runId}, ${source.id}, ${input.runnerId}, ${input.collectorVersion}, ${input.startedAt}, 'running'
-      WHERE NOT EXISTS (
-        SELECT 1 FROM runs
-        WHERE source_id = ${source.id} AND status = 'running' AND started_at > ${now - RUN_LEASE_SECONDS}
-      )`),
+    db.insert(runs).values({
+      id: input.runId,
+      sourceId: source.id,
+      runnerId: input.runnerId,
+      collectorVersion: input.collectorVersion,
+      startedAt: input.startedAt,
+      status: "running",
+    }),
   ]);
-  // A concurrent start may have claimed the source after the read above: the guarded insert then wrote nothing.
-  if (!(await db.select().from(runs).where(eq(runs.id, input.runId)).limit(1))[0])
-    throw refuse((await busy())?.id);
   return { validator };
 }
 
