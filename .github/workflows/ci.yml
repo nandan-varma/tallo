@@ -25,10 +25,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: pnpm test
+      - run: pnpm test --shard=${{ matrix.shard }}/4
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
