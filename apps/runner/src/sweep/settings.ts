@@ -11,6 +11,11 @@ export interface LaneSettings {
   perHostCeiling: number;
   /** Minimum gap between request starts per host. AIMD raises it after a 429 and an edit sets it. */
   gapMs: number;
+  /**
+   * The smallest gap the controller may probe down to with clean boards, when it is below `gapMs`.
+   * Absent: `gapMs`, so the lane never probes faster than configured. A platform `floors` gap still wins.
+   */
+  floorMs?: number;
   paused: boolean;
   enabled: boolean;
 }
@@ -33,6 +38,7 @@ const lane = (
   gapMs = 0,
   floors?: LaneDef["floors"],
   perHostCeiling = perHost,
+  floorMs?: number,
 ): LaneDef => ({
   name,
   platforms,
@@ -42,6 +48,7 @@ const lane = (
     perHost,
     perHostCeiling: Math.max(perHost, perHostCeiling),
     gapMs,
+    ...(floorMs === undefined ? {} : { floorMs }),
     paused: false,
     enabled: true,
   },
@@ -56,9 +63,11 @@ export const LANES: LaneDef[] = [
   lane("lever", ["lever"], 3, 3, 0, undefined, 4),
   lane("ashby", ["ashby"], 3, 3, 0, undefined, 4),
   lane("smartrecruiters", ["smartrecruiters"], 3, 3, 0, undefined, 10),
-  multiHost(lane("workday", ["workday"], 6, 2, 250, undefined, 3)),
+  // 250 ms between request starts is what the fixed driver used; Workday boards are request-bound, so the
+  // controller probes down to 100 ms (10 a second per pod) and backs off from there when a pod says 429.
+  multiHost(lane("workday", ["workday"], 6, 2, 250, undefined, 5, 100)),
   multiHost(
-    lane("oracle-icims", ["oraclecloud", "icims"], 2, 2, 250, { icims: { perHost: 3 } }, 4),
+    lane("oracle-icims", ["oraclecloud", "icims"], 2, 3, 250, { icims: { perHost: 3 } }, 5, 100),
   ),
   multiHost(
     lane(
@@ -88,10 +97,12 @@ export const LANES: LaneDef[] = [
       3,
     ),
   ),
-  lane("walmart", ["walmart"], 1, 1, 700, undefined, 3),
-  lane("microsoft", ["microsoft"], 1, 1, 1000, undefined, 1),
-  lane("apple", ["apple"], 1, 3, 150, undefined, 4),
-  lane("meta", ["meta"], 1, 2, 500, undefined, 3),
+  // Walmart is latency-bound, not gap-bound: a job page takes about 0.7 s, so the old ceiling of 3 requests in
+  // parallel capped it near 2 a second. 8 in parallel is ~5 a second, still one request every 200 ms at most.
+  lane("walmart", ["walmart"], 1, 3, 700, undefined, 8, 250),
+  lane("microsoft", ["microsoft"], 1, 2, 1000, undefined, 4),
+  lane("apple", ["apple"], 1, 3, 150, undefined, 6),
+  lane("meta", ["meta"], 1, 2, 500, undefined, 4, 250),
   multiHost(
     lane("big-sites", ["google", "amazon", "netflix", "ibm", "goldman"], 1, 2, 0, {
       google: { gapMs: 250 },
