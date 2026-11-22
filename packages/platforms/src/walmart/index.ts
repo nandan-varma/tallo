@@ -1,6 +1,6 @@
 import type { Json, JsonObject, Money, Platform, RawPosting } from "@tallo/contracts";
 import { arr, isObject, num, obj, str } from "@tallo/contracts";
-import { describe, locations, lookup, SchemaError } from "../kit.ts";
+import { describe, locations, lookup, PostingGone, SchemaError } from "../kit.ts";
 
 /**
  * Walmart careers (careers.walmart.com, covering Walmart, Sam's Club and Walmart Global Tech). The
@@ -73,8 +73,14 @@ export const walmart: Platform = {
 
   async detail(_source, posting, ctx) {
     const html = (await ctx.http.getText(`${HOST}/us/en/jobs/${posting.id}`)).data;
+    // An expired id answers 307 to /us/en/job-not-found, which renders a page without jobDetails. The sitemap keeps
+    // listing those ids for a while, so this is the common case for a closed requisition, not a broken page.
+    const gone = () => new PostingGone(`Walmart job ${posting.id} is gone (job-not-found)`);
     const raw = NEXT_DATA.exec(html)?.[1];
-    if (!raw) throw new SchemaError(`Walmart job ${posting.id} page without __NEXT_DATA__`);
+    if (!raw) {
+      if (html.includes("job-not-found")) throw gone();
+      throw new SchemaError(`Walmart job ${posting.id} page without __NEXT_DATA__`);
+    }
     let data: unknown;
     try {
       data = JSON.parse(raw);
@@ -82,8 +88,10 @@ export const walmart: Platform = {
       throw new SchemaError(`Walmart job ${posting.id} __NEXT_DATA__ is not JSON`);
     }
     const page = obj(obj(obj(data).props).pageProps);
-    if (!isObject(page.jobDetails))
+    if (!isObject(page.jobDetails)) {
+      if (html.includes("job-not-found")) throw gone();
       throw new SchemaError(`Walmart job ${posting.id} page without jobDetails`);
+    }
     return { jobDetails: page.jobDetails } as JsonObject;
   },
 

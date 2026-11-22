@@ -89,6 +89,32 @@ describe("collectSource", () => {
     expect(calls.applied).toHaveLength(2);
     expect(calls.raw).toHaveLength(1);
   });
+
+  it("drops a posting the source no longer has instead of failing the board", async () => {
+    const { ingest, calls } = fakeIngest();
+    const walmart: SourceConfig = {
+      id: "walmart:walmart",
+      platform: "walmart",
+      key: "walmart",
+      company: "Walmart",
+      params: {},
+    };
+    const sitemap = `<urlset><url><loc>https://careers.walmart.com/us/en/jobs/R-1</loc></url>
+<url><loc>https://careers.walmart.com/us/en/jobs/R-2</loc></url></urlset>`;
+    const detail = `<script id=__NEXT_DATA__ type="application/json">${JSON.stringify({ props: { pageProps: JSON.parse(fx("walmart-detail")) } })}</script>`;
+    const notFound = `<html><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"path":"/us/en/job-not-found"}}}</script></html>`;
+    const walmartFetch: typeof fetch = async (input) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.pathname.endsWith("sitemap.xml")) return new Response(sitemap);
+      if (url.pathname.endsWith("R-1")) return new Response(detail);
+      return new Response(notFound);
+    };
+    const result = await collectSource(walmart, meta, { ...options(ingest), fetch: walmartFetch });
+    // R-2 is gone: it is not "seen", so the normal absence rule may close it; the run still completes.
+    expect(result).toMatchObject({ listingComplete: true, detailsComplete: true });
+    expect(calls.finalize[0]!.seenIds).toEqual(["R-1"]);
+    expect(calls.finalize[0]!.issues?.some((i) => i.code === "gone")).toBe(true);
+  });
 });
 
 describe("timings", () => {

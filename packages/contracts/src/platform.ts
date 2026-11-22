@@ -33,7 +33,7 @@ export interface RawPosting {
 }
 
 /** `blocked`: the request was refused by the egress guard (a redirect off the allowlist), not by the source. */
-type IssueCode = "http" | "schema" | "pagination" | "budget" | "detail" | "blocked";
+type IssueCode = "http" | "schema" | "pagination" | "budget" | "detail" | "blocked" | "gone";
 
 export interface Issue {
   code: IssueCode;

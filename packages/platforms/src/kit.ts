@@ -25,6 +25,13 @@ export const htmlText = (value: string): string =>
 /** The source answered, but not in the shape we know. Aborts the run; never implies closure. */
 export class SchemaError extends Error {}
 
+/**
+ * A posting the source no longer has (a job page that redirects to "not found", an expired id still listed by a
+ * sitemap). The engine drops it from the listing instead of failing the details phase, so a board that carries a
+ * stale id still finishes; the posting closes by the usual absence rule.
+ */
+export class PostingGone extends Error {}
+
 export function rows(value: unknown, label: string): JsonObject[] {
   if (!Array.isArray(value) || !value.every(isObject))
     throw new SchemaError(`Expected array of objects at ${label}`);

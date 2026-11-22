@@ -17,7 +17,10 @@ Nothing else changes: not contracts, not the db, not the runner.
      unexpected, `throw new SchemaError(...)` (never return an empty list).
      `emptyIsAuthoritative` is true only if an empty answer proves the board has no jobs (an unknown
      board that also answers 200 `[]` means false).
-   - `detail` (optional): per-posting extra payload. Only called for changed postings.
+   - `detail` (optional): per-posting extra payload. Only called for changed postings. A posting the source no
+     longer has (a job page that says "not found", an expired id still listed by a sitemap) throws
+     `PostingGone`: the engine drops it from the listing and the posting closes by the absence rule, instead of
+     failing the board's details for every run.
    - `fingerprint` (optional): drop volatile fields (relative dates, counters).
    - `map`: pure. Read fields explicitly through `lookup(detail, listing)` (no spreads). Put typed facts in the
      typed fields; put source-specific leftovers worth searching later in `extras`; everything else
