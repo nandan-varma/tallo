@@ -29,7 +29,8 @@ describe("API Worker config", () => {
     expect(wrangler.routes.map((r) => r.pattern)).toContain(host);
   });
 
-  // `scheduled` tells the two jobs apart by the cron string (`COLLECT_CRON` in src/index.ts).
+  // `scheduled` tells the two jobs apart by the cron string (`COLLECT_CRON` in src/index.ts). The collect tick stays
+  // deployed; `COLLECT_ENABLED` is the toggle, and while it is "0" the tick enqueues nothing.
   it("runs the collect tick and the hourly housekeeping in both files", () => {
     expect(wrangler.triggers.crons).toEqual(["*/5 * * * *", "17 * * * *"]);
     const crons = [...cf.matchAll(/schedule: "([^"]+)"/g)].map((m) => m[1]);
