@@ -1,4 +1,5 @@
 import type { SiteStats } from "@tallo/contracts";
+import { Card as UICard } from "@/components/ui/card";
 
 const nf = new Intl.NumberFormat("en-US");
 const num = (n: number) => nf.format(Math.round(n));
@@ -34,13 +35,11 @@ function ago(from: number, to: number): string {
 
 function Card({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="grid content-start gap-1 rounded-xl border bg-card p-4">
+    <UICard className="grid content-start gap-1 px-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl break-words">
-        {value}
-      </dd>
+      <dd className="text-2xl font-semibold tracking-tight tabular-nums break-words">{value}</dd>
       {note ? <dd className="text-xs text-muted-foreground">{note}</dd> : null}
-    </div>
+    </UICard>
   );
 }
 
@@ -193,14 +192,11 @@ const RECENT_WITHIN = 24 * 3600;
 
 export function StatusPage({ stats, now }: { stats: SiteStats | null; now: number }) {
   return (
-    <div className="page-shell status-page">
-      <header className="page-heading">
-        <p className="eyebrow">An open look at the catalog</p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tallo status</h1>
+    <div className="mx-auto grid max-w-3xl gap-8 px-4 py-8 sm:px-6 sm:py-12">
+      <header className="grid gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight">Tallo status</h1>
         <p className="max-w-prose text-muted-foreground">
-          What the catalog holds and how fresh it is: exact counts of the open postings, recounted
-          daily, with collection health refreshed hourly. Collection runs by hand, so freshness
-          moves when a sweep runs. Nothing here is inferred.
+          Catalog counts and collection freshness.
         </p>
         {stats ? (
           <p className="text-sm text-muted-foreground">
@@ -216,18 +212,6 @@ export function StatusPage({ stats, now }: { stats: SiteStats | null; now: numbe
       </header>
 
       {stats ? <Body stats={stats} now={now} /> : <Unavailable />}
-
-      <nav aria-label="Links" className="flex flex-wrap gap-x-6 gap-y-2 text-sm print:hidden">
-        <a href="/" className="underline underline-offset-4">
-          Search jobs
-        </a>
-        <a href="/llms.txt" className="underline underline-offset-4">
-          llms.txt
-        </a>
-        <a href="/v1/openapi.json" className="underline underline-offset-4">
-          OpenAPI (JSON)
-        </a>
-      </nav>
     </div>
   );
 }

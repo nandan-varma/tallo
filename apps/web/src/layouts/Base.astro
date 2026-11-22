@@ -21,7 +21,7 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="alternate" type="text/plain" href="/llms.txt" title="Tallo for AI assistants (llms.txt)" />
     <meta name="robots" content={indexable ? "index, follow" : "noindex"} />
-    <meta name="theme-color" content="#f8f9f6" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content={description} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -33,30 +33,22 @@ const {
         const dark = matchMedia("(prefers-color-scheme: dark)").matches;
         document.documentElement.classList.toggle("dark", dark);
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute("content", dark ? "#09090b" : "#f8f9f6");
+        if (meta) meta.setAttribute("content", dark ? "#0a0a0a" : "#ffffff");
       })();
     </script>
   </head>
-  <body>
-    <a href="#main" class="skip-link">Skip to content</a>
-    <header class="site-header">
-      <div class="header-inner">
-        <a href="/" class="wordmark" aria-label="Tallo home">tallo<span aria-hidden="true">.</span></a>
-        <nav aria-label="Main navigation" class="main-nav">
-          <a href="/" aria-current={pathname === "/" ? "page" : undefined}>Find jobs</a>
-          <a href="/status" aria-current={pathname === "/status" ? "page" : undefined}>Catalog status</a>
+  <body class="flex min-h-svh flex-col antialiased">
+    <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">Skip to content</a>
+    <header class="border-b print:hidden">
+      <div class="mx-auto flex min-h-14 max-w-3xl items-center justify-between gap-4 px-4 sm:px-6">
+        <a href="/" class="text-lg font-semibold tracking-tight" aria-label="Tallo home">tallo</a>
+        <nav aria-label="Main navigation" class="flex items-center gap-4 text-sm">
+          <a href="/" class="py-3 text-muted-foreground hover:text-foreground aria-[current=page]:text-foreground" aria-current={pathname === "/" ? "page" : undefined}>Search</a>
+          <a href="/status" class="py-3 text-muted-foreground hover:text-foreground aria-[current=page]:text-foreground" aria-current={pathname === "/status" ? "page" : undefined}>Status</a>
         </nav>
       </div>
     </header>
-    <main id="main"><slot /></main>
-    <footer class="site-footer print:hidden">
-      <div><a href="/" class="font-semibold">tallo.</a><p>Direct from company job boards. Always yours to explore.</p></div>
-      <nav aria-label="Footer navigation">
-        <a href="/">Search</a>
-        <a href="/status">Status</a>
-        <a href="/llms.txt">llms.txt</a>
-        <a href="/v1/openapi.json">OpenAPI</a>
-      </nav>
-    </footer>
+    <main id="main" class="min-w-0 flex-1"><slot /></main>
+
   </body>
 </html>
