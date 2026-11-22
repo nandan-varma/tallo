@@ -7,7 +7,7 @@
     "tallo": "./src/cli.ts"
   },
   "scripts": {
-    "tallo": "node src/cli.ts",
+    "tallo": "node --max-http-header-size=65536 src/cli.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

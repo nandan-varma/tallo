@@ -52,6 +52,8 @@ export const POLICY: Record<string, HostPolicy> = {
   netflix: { concurrency: 1, gapMs: 1000 },
   // One sitemap, then one ~30 KB job page per new posting on a single Akamai-fronted host.
   walmart: { concurrency: 1, gapMs: 700 },
+  // One sitemap, then one job page (~0.5 MB) per new posting on each employer's own host.
+  radancy: { concurrency: 1, gapMs: 700 },
 };
 
 /** A registered platform must explicitly choose its baseline. */

@@ -18,6 +18,7 @@ import { netflix } from "./netflix/index.ts";
 import { oraclecloud } from "./oraclecloud/index.ts";
 import { personio } from "./personio/index.ts";
 import { pinpoint } from "./pinpoint/index.ts";
+import { radancy } from "./radancy/index.ts";
 import { recruitee } from "./recruitee/index.ts";
 import { rippling } from "./rippling/index.ts";
 import { smartrecruiters } from "./smartrecruiters/index.ts";
@@ -55,6 +56,7 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     pinpoint,
     breezy,
     walmart,
+    radancy,
   ].map((p) => [p.id, p]),
 );
 
@@ -88,6 +90,7 @@ export {
   oraclecloud,
   personio,
   pinpoint,
+  radancy,
   recruitee,
   rippling,
   smartrecruiters,
