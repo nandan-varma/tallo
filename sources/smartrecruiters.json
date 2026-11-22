@@ -4,6 +4,10 @@
   "company": "10times"
  },
  {
+  "key": "24hourfitness",
+  "company": "24 Hour Fitness"
+ },
+ {
   "key": "9to9SoftwareSolutionsLLC",
   "company": "9to9 Software Solutions"
  },
@@ -68,6 +72,10 @@
   "company": "Alegrium1"
  },
  {
+  "key": "alorica",
+  "company": "Alorica"
+ },
+ {
   "key": "alphamedia",
   "company": "Alphamedia"
  },
@@ -92,6 +100,10 @@
   "company": "Applicantz"
  },
  {
+  "key": "aramark",
+  "company": "Aramark"
+ },
+ {
   "key": "ARHS",
   "company": "ARHS"
  },
@@ -110,6 +122,10 @@
  {
   "key": "arthrex",
   "company": "Arthrex"
+ },
+ {
+  "key": "asos",
+  "company": "ASOS"
  },
  {
   "key": "assistsoftware",
@@ -198,6 +214,10 @@
  {
   "key": "BRAINHUNTER",
   "company": "BRAINHUNTER"
+ },
+ {
+  "key": "brownbrown",
+  "company": "Brown & Brown"
  },
  {
   "key": "buckeyebroadband",
@@ -344,6 +364,10 @@
   "company": "Epochgames"
  },
  {
+  "key": "equinox",
+  "company": "Equinox"
+ },
+ {
   "key": "espressifsystems",
   "company": "Espressifsystems"
  },
@@ -398,6 +422,10 @@
  {
   "key": "FireHoseGames",
   "company": "Fire Hose Games"
+ },
+ {
+  "key": "fiverr",
+  "company": "Fiverr"
  },
  {
   "key": "flaanaa",
@@ -608,6 +636,10 @@
   "company": "Keylentinc"
  },
  {
+  "key": "KimberlyClark",
+  "company": "Kimberly-Clark"
+ },
+ {
   "key": "Kioxia",
   "company": "Kioxia"
  },
@@ -776,6 +808,10 @@
   "company": "Northwestern Mutual"
  },
  {
+  "key": "norwegiancruiseline",
+  "company": "Norwegian Cruise Line"
+ },
+ {
   "key": "novomatictechnologiespoland",
   "company": "Novomatictechnologiespoland"
  },
@@ -884,6 +920,10 @@
   "company": "Revalsystechnologies"
  },
  {
+  "key": "rolandberger",
+  "company": "Roland Berger"
+ },
+ {
   "key": "ryseupstudios",
   "company": "Ryseupstudios"
  },
@@ -894,6 +934,10 @@
  {
   "key": "secondtalent",
   "company": "Secondtalent"
+ },
+ {
+  "key": "securitas",
+  "company": "Securitas"
  },
  {
   "key": "SegulaTechnologies",
@@ -920,6 +964,10 @@
   "company": "Sika AG"
  },
  {
+  "key": "sixt",
+  "company": "Sixt"
+ },
+ {
   "key": "skeletonkey",
   "company": "Skeletonkey"
  },
@@ -938,6 +986,10 @@
  {
   "key": "SOCOTECUKIreland",
   "company": "SOCOTEC UK & Ireland"
+ },
+ {
+  "key": "sodexo",
+  "company": "Sodexo"
  },
  {
   "key": "softsuavetechnologies",
@@ -986,6 +1038,14 @@
  {
   "key": "Stratacent",
   "company": "Stratacent"
+ },
+ {
+  "key": "sutterhealth",
+  "company": "Sutter Health"
+ },
+ {
+  "key": "swiggy",
+  "company": "Swiggy"
  },
  {
   "key": "symphonyai",
@@ -1056,6 +1116,10 @@
   "company": "Ten4"
  },
  {
+  "key": "thales",
+  "company": "Thales"
+ },
+ {
   "key": "themill2",
   "company": "Themill2"
  },
@@ -1068,8 +1132,16 @@
   "company": "Merative"
  },
  {
+  "key": "ttec",
+  "company": "TTEC"
+ },
+ {
   "key": "TTP1",
   "company": "TTP"
+ },
+ {
+  "key": "uber",
+  "company": "Uber"
  },
  {
   "key": "Ubisoft2",
@@ -1098,6 +1170,10 @@
  {
   "key": "valuelabs",
   "company": "Valuelabs"
+ },
+ {
+  "key": "vattenfall",
+  "company": "Vattenfall"
  },
  {
   "key": "veremark",
@@ -1158,6 +1234,10 @@
  {
   "key": "WildBrain",
   "company": "Wild Brain"
+ },
+ {
+  "key": "wise",
+  "company": "Wise"
  },
  {
   "key": "xiaomiindia",
