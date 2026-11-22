@@ -59,7 +59,8 @@ A slice that reports the cap is split by facet right after its first page; its o
 what the children list. The parent is paged in full only when the children cover fewer than 2,000 rows. Measured
 on Citi (wd5): 791 requests before, 692 after, the same 4,207 postings (identical id sets), complete. The facet is
 still the one with the most coverage; a cheaper facet was not adopted because nothing proves it covers the board.
-`remoteType` ("Remote", "Hybrid", "On-Site", "In Office") is read as work mode; version 5.
+Tenants that state `remoteType` ("Remote", "Hybrid", "On-Site", "In Office") could have it read as work mode, but that
+bumps the version and re-fetches every Workday detail, so it is left as an optional follow-up.
 
 Live behaviour (checked with curl and `tallo verify`, November 2026):
 - `limit` is capped at 20: 21, 50, 100, 200 and 2000 all return HTTP 400. `offset` is honoured only up to 2000 on
