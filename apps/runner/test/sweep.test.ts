@@ -425,6 +425,27 @@ describe("per-host 429", () => {
     expect(lane.hostSlowdown()).toEqual({ slowed: 0, worstGapMs: 0 });
   });
 
+  it("keeps the lane's concurrency and perHost when most pods are healthy", () => {
+    const { lane, events } = mk(multi(20));
+    // Six pods busy; only two of them complain. `take` is what records a board's pod (Workday: params.wd).
+    for (let i = 0; i < 6; i++)
+      lane.pending.push({
+        ...board("workday", `tenant${i}/Site`),
+        params: { wd: `wd${i}` },
+      });
+    for (let i = 0; i < 6; i++) {
+      const taken = lane.take(0)!;
+      lane.inFlight.set(taken.source.id, 1000);
+    }
+    lane.on429(undefined, 1000, "tenant0.wd0.myworkdayjobs.com");
+    lane.on429(undefined, 2000, "tenant1.wd1.myworkdayjobs.com");
+    expect(lane.settings.concurrency).toBe(20);
+    expect(lane.settings.perHost).toBe(2);
+    expect(events.some((e) => e.includes("429 on several hosts"))).toBe(false);
+    // The complaining pods themselves are still slowed, and by their own numbers.
+    expect(lane.pods()["wd0.myworkdayjobs.com"]!.gapMs).toBe(2000);
+  });
+
   it("a single-host lane keeps the lane-wide behavior", () => {
     const { lane } = mk(def("greenhouse", 4));
     lane.observe(429, undefined, 1000, "boards-api.greenhouse.io");
