@@ -61,5 +61,86 @@
       "sitePath": "CX_1",
       "defaultSite": true
     }
+  },
+  {
+    "key": "eofd.fa.us6.oraclecloud.com",
+    "company": "Albertsons",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "CX_1001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ebcs.fa.em2.oraclecloud.com",
+    "company": "Arcadis",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ejcu.fa.us6.oraclecloud.com",
+    "company": "ConEd",
+    "params": {
+      "siteNumber": "CX_1035",
+      "sitePath": "CX_1035",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "efds.fa.em5.oraclecloud.com",
+    "company": "Ford",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ecqf.fa.em2.oraclecloud.com",
+    "company": "Ipsos",
+    "params": {
+      "siteNumber": "CX_2001",
+      "sitePath": "IpsosCareers",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "hccz.fa.em3.oraclecloud.com",
+    "company": "Pearson",
+    "params": {
+      "siteNumber": "CX_2",
+      "sitePath": "CX_2",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "hdox.fa.us6.oraclecloud.com",
+    "company": "Quest Diagnostics",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "eswt.fa.us6.oraclecloud.com",
+    "company": "UCHealth",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "CX_1001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "ehac.fa.us6.oraclecloud.com",
+    "company": "Williams-Sonoma",
+    "params": {
+      "siteNumber": "CX_1",
+      "sitePath": "CX_1",
+      "defaultSite": true
+    }
   }
 ]

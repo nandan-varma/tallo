@@ -1115,11 +1115,29 @@ describe("oraclecloud", () => {
     ).toThrow(/siteNumber/);
   });
 
+  const allowed = (host: string) =>
+    oraclecloud.hosts.some((p) => host.endsWith(p.slice(1)) && host.length >= p.length);
+  it("allows the extra pod hosts through the platform allowlist and refuses unrelated hosts", () => {
+    expect(allowed("eofd.fa.us6.oraclecloud.com")).toBe(true);
+    expect(allowed("ebcs.fa.em2.oraclecloud.com")).toBe(true);
+    expect(allowed("eofd.fa.us9.oraclecloud.com")).toBe(false);
+    expect(allowed("eofd.fa.us6.oraclecloud.com.evil.example")).toBe(false);
+    expect(() =>
+      oraclecloud.validate(
+        source("oraclecloud", "eofd.fa.us9.oraclecloud.com", { siteNumber: "CX_1" }),
+      ),
+    ).toThrow(/oraclecloud/);
+  });
+
   it("accepts the three seeded pod shapes and rejects a non-boolean defaultSite", () => {
     for (const key of [
       "jpmc.fa.oraclecloud.com",
       "eeho.fa.us2.oraclecloud.com",
       "fa-evmr-saasfaprod1.fa.ocs.oraclecloud.com",
+      "eofd.fa.us6.oraclecloud.com",
+      "ebcs.fa.em2.oraclecloud.com",
+      "hccz.fa.em3.oraclecloud.com",
+      "efds.fa.em5.oraclecloud.com",
     ])
       expect(() =>
         oraclecloud.validate(source("oraclecloud", key, { siteNumber: "CX_1" })),
