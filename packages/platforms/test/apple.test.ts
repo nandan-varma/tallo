@@ -121,6 +121,16 @@ describe("apple", () => {
     expect(job.department).toBe("Apple Retail");
   });
 
+  it("fingerprints a search row without its request-time post date", () => {
+    const first = row(0);
+    const later = { ...first, postDateInGMT: "2030-01-01T00:00:00.000000000Z" };
+    expect(first.postDateInGMT).not.toBe(later.postDateInGMT);
+    expect(apple.fingerprint?.(later)).toEqual(apple.fingerprint?.(first));
+    expect(apple.fingerprint?.({ ...first, postingTitle: "Renamed" })).not.toEqual(
+      apple.fingerprint?.(first),
+    );
+  });
+
   it("prepares a valid job fact row", async () => {
     const detail = obj(fixture("apple-detail")).res;
     const job = apple.map({ id: "200696388-0836", listing: {}, detail }, src);
