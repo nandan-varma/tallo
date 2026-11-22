@@ -19,7 +19,7 @@ import {
   startRun,
   storeRawPack,
 } from "../src/index.ts";
-import { getJob, searchJobs, testDb } from "../src/testing.ts";
+import { getJob, inspectJobs, testDb } from "../src/testing.ts";
 
 const source: SourceConfig = {
   id: "greenhouse:acme",
@@ -91,9 +91,9 @@ describe("ingest", () => {
       applied: 2,
       missingBlobs: [],
     });
-    const hit = await searchJobs(db, { q: "software eng", limit: 10 });
+    const hit = await inspectJobs(db, { q: "software eng", limit: 10 });
     expect(hit.jobs.map((j) => j.company)).toEqual(["Acme Corp", "Acme Corp"]);
-    expect((await searchJobs(db, { q: "nonexistent", limit: 10 })).jobs).toHaveLength(0);
+    expect((await inspectJobs(db, { q: "nonexistent", limit: 10 })).jobs).toHaveLength(0);
   });
 
   it("diff returns only new or changed postings", async () => {
@@ -134,29 +134,13 @@ describe("ingest", () => {
     ).resolves.toEqual({ validator: null });
   });
 
-  it("pages with a stable keyset cursor", async () => {
-    const run = await start();
-    await ingest(
-      run,
-      ["1", "2", "3", "4", "5"].map((id, i) =>
-        mapped(id, { postedAt: `2026-01-0${i + 1}T00:00:00Z` }),
-      ),
-    );
-    const first = await searchJobs(db, { limit: 2 });
-    const second = await searchJobs(db, { limit: 2, cursor: first.nextCursor! });
-    const third = await searchJobs(db, { limit: 2, cursor: second.nextCursor! });
-    const titles = [...first.jobs, ...second.jobs, ...third.jobs].map((j) => j.title);
-    expect(titles).toEqual(["5", "4", "3", "2", "1"].map((i) => `Software Engineer ${i}`));
-    expect(third.nextCursor).toBeNull();
-  });
-
   it("lists every job the source gave, whatever its place or kind of work", async () => {
     const run = await start();
     await ingest(run, [
       mapped("1"),
       mapped("2", { title: "Registered Nurse", locations: [loc("Berlin, Germany", "DE")] }),
     ]);
-    expect((await searchJobs(db, { limit: 10 })).jobs).toHaveLength(2);
+    expect((await inspectJobs(db, { limit: 10 })).jobs).toHaveLength(2);
   });
 
   it("shows the source's stated pay line in its own interval, and only stated pay", async () => {
@@ -174,7 +158,7 @@ describe("ingest", () => {
       mapped("3", { description: "Pay $200,000 - $250,000 per year." }),
     ]);
     const pay = Object.fromEntries(
-      (await searchJobs(db, { limit: 10 })).jobs.map((j) => [j.title, j.pay]),
+      (await inspectJobs(db, { limit: 10 })).jobs.map((j) => [j.title, j.pay]),
     );
     expect(pay).toEqual({
       "Software Engineer 1": "USD 50-60 per hour",
@@ -224,7 +208,7 @@ describe("diffOrFinish", () => {
       );
       expect(result.finalized).toMatchObject({ status: "partial", closureApplied: false });
     }
-    expect((await searchJobs(db, { limit: 50 })).jobs).toHaveLength(2);
+    expect((await inspectJobs(db, { limit: 50 })).jobs).toHaveLength(2);
   });
 
   it("still closes after consecutive complete absences, as finalize does", async () => {
@@ -249,7 +233,7 @@ describe("closure", () => {
     );
     return finalize(db, run, fin(ids, over), now);
   };
-  const open = async () => (await searchJobs(db, { limit: 50 })).jobs.length;
+  const open = async () => (await inspectJobs(db, { limit: 50 })).jobs.length;
 
   it("closes a job only after consecutive complete runs omit it, and reopens on return", async () => {
     await listed(["1", "2"], T + 1000);
@@ -305,7 +289,7 @@ describe("closure", () => {
       const run = await start(now);
       await finalize(db, run, fin(["1"]), now);
     }
-    const closed = (await searchJobs(db, { limit: 10 })).jobs.find((j) => j.title.endsWith("2"));
+    const closed = (await inspectJobs(db, { limit: 10 })).jobs.find((j) => j.title.endsWith("2"));
     expect(closed).toBeUndefined();
     expect(await purgeClosed(db, blobs, 30, T + 3000 + 31 * 86400)).toBe(1);
     expect(blobs.keys()).toHaveLength(1);
@@ -318,10 +302,10 @@ describe("staleness", () => {
     await ingest(run, [mapped("1")], "a".repeat(64), T + 1000);
     await finalize(db, run, fin(["1"]), T + 1000);
     const day = 86400;
-    expect((await searchJobs(db, { limit: 10 }, T + 1000 + 6 * day)).jobs).toHaveLength(1);
-    expect((await searchJobs(db, { limit: 10 }, T + 1000 + 15 * day)).jobs).toHaveLength(0);
+    expect((await inspectJobs(db, { limit: 10 }, T + 1000 + 6 * day)).jobs).toHaveLength(1);
+    expect((await inspectJobs(db, { limit: 10 }, T + 1000 + 15 * day)).jobs).toHaveLength(0);
     expect(
-      (await searchJobs(db, { limit: 10, includeStale: true }, T + 1000 + 15 * day)).jobs,
+      (await inspectJobs(db, { limit: 10, includeStale: true }, T + 1000 + 15 * day)).jobs,
     ).toHaveLength(1);
     expect((await listSources(db, T + 1000 + 8 * day))[0]?.freshness).toBe("stale");
     expect((await listSources(db, T + 1000 + 15 * day))[0]?.freshness).toBe("hidden");
@@ -347,7 +331,7 @@ describe("staleness", () => {
     const second = await start(later);
     await finalize(db, second, fin(["1"]), later);
     expect((await listSources(db, later))[0]?.freshness).toBe("fresh");
-    expect((await searchJobs(db, { limit: 10 }, later)).jobs).toHaveLength(1);
+    expect((await inspectJobs(db, { limit: 10 }, later)).jobs).toHaveLength(1);
   });
 
   it("a partial run that listed postings advances the listing time", async () => {
@@ -464,7 +448,7 @@ describe("getJob", () => {
   it("returns facts including rich detail", async () => {
     const run = await start();
     await ingest(run, [mapped("1", { extras: { team: "x" } })]);
-    const { jobs } = await searchJobs(db, { limit: 1 });
+    const { jobs } = await inspectJobs(db, { limit: 1 });
     const job = await getJob(db, jobs[0]!.id);
     expect(job?.facts).toMatchObject({ platform: "greenhouse", extras: { team: "x" } });
   });

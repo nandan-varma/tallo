@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import type { JobFacts, SourceConfig } from "@tallo/contracts";
+import { createHostLimiter } from "@tallo/http";
 import { describe, expect, it } from "vitest";
 import {
   type Cpu,
@@ -47,13 +48,26 @@ function ingestFor(events: string[], over: Partial<Ingest> = {}) {
   const finalized: { listingComplete: boolean; seenIds: string[] }[] = [];
   const ingest: Ingest = {
     startRun: async () => ({ validator: null }),
+    async diffOrFinish(runId, postings, finish) {
+      const changed = await this.diff(runId, postings);
+      return changed.length
+        ? { changed }
+        : {
+            changed,
+            finalized: await this.finalize(runId, {
+              ...finish,
+              seenIds: postings.map((p) => p.id),
+              rawKey: null,
+            }),
+          };
+    },
     diff: async (_r, postings) => postings.map((p) => p.id),
     missingBlobs: async (hashes) => hashes,
     putJd: async () => undefined,
     applyJobs: async (_r, jobs: JobFacts[]) => {
       events.push("apply");
       applied.push(jobs.length);
-      return { applied: jobs.length, missingBlobs: [] };
+      return { applied: jobs.length, ...{ invalid: [], bounded: [] }, missingBlobs: [] };
     },
     putRaw: async () => "raw/key",
     finalize: async (_r, body) => {
@@ -70,6 +84,7 @@ const engine = (ingest: Ingest, fetchFake: typeof fetch, cpu?: Cpu): EngineOptio
   scratch: memoryScratch(),
   log,
   fetch: fetchFake,
+  limiter: createHostLimiter({ perHostConcurrency: 4 }),
   detailConcurrency: 4,
   ...(cpu ? { cpu } : {}),
 });
@@ -96,7 +111,7 @@ describe("streamed upload", () => {
     const { ingest, finalized } = ingestFor(events, {
       applyJobs: async (_r, jobs) => {
         if (++calls === 2) throw new Error("D1 unavailable");
-        return { applied: jobs.length, missingBlobs: [] };
+        return { applied: jobs.length, ...{ invalid: [], bounded: [] }, missingBlobs: [] };
       },
     });
     const result = await collectSource(source, meta, engine(ingest, fetchFake));

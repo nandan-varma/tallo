@@ -30,8 +30,8 @@ generated SQL (FTS is a custom migration). Migrations are forward-only and appli
 them additive (new column or index) and make the old code tolerate them. `wrangler d1 migrations list tallo --remote` shows what is pending.
 
 The API deploys with `cf deploy` from `apps/api/cloudflare.config.ts`. The Worker was created that way and `wrangler deploy`
-refuses it ("last deployed using the declarative `exports` flow"). `apps/api/wrangler.jsonc` mirrors the config for local
-development and `wrangler d1`; `apps/api/test/config.test.ts` fails if the two disagree. A leftover `apps/api/.cloudflare/`
+refuses it ("last deployed using the declarative `exports` flow"). `apps/api/wrangler.json` is the single configuration source for local
+development and `wrangler d1`; `cloudflare.config.ts` maps it into the cf deployment format. A leftover `apps/api/.cloudflare/`
 makes `wrangler deploy` refuse, which is one more reason not to use it.
 
 ## Public API
@@ -160,8 +160,8 @@ curl -X POST -H "authorization: Bearer $TALLO_INGEST_TOKEN" -H 'content-type: ap
 curl -H "authorization: Bearer $TALLO_INGEST_TOKEN" https://tallo-api.nandan.fyi/v1/admin/collect/status
 ```
 
-To hand collection to the cloud later, set `COLLECT_ENABLED` to `"1"` in `cloudflare.config.ts` and `wrangler.jsonc`
-(`config.test.ts` keeps them equal) and `pnpm release`. The tick claims `COLLECT_BATCH` (40) due boards, weekly per
+To hand collection to the cloud later, set `COLLECT_ENABLED` to `"1"` in `apps/api/wrangler.json`
+and run `pnpm release`. Update the config test that intentionally asserts the current off state. The tick claims `COLLECT_BATCH` (40) due boards, weekly per
 board (`hot.json` daily), backing off 1 h, 3 h, 6 h, 24 h after a failure; consumer `max_concurrency` is 8. Set it back
 to `"0"` to stop.
 
@@ -222,3 +222,11 @@ The catalog can also be rebuilt by a full collection pass.
 - **Nothing new is showing.** Run `tallo sync` (nothing is scheduled), then `tallo sources`.
 - **A board keeps failing.** `GET /v1/runs?source=<platform:key>` (ingest token) for its issues; `tallo verify` reproduces it.
 - **llms.txt is stale.** Deploy the web (`pnpm release`); it is prerendered at build time.
+
+## Collection cleanup and bounded verification
+
+The Mac and cloud use the same engine and current ingest contract. Cloud scheduling stays off; a named admin collection still works. `tallo sync` uses platform host policy unless explicitly overridden. Sweep lanes retain measured adaptive overrides; cloud HostGate coordinates request gaps across invocations. HTTP retries are short request retries; sweep deferral and cloud queue delivery handle board attempts; durable due times choose when to revisit boards.
+
+For a bounded check, choose one reviewed small board, run `tallo sync --source <id> --threads 0 --concurrency 1`, then enqueue only that source using the named cloud command above. Compare `GET /v1/runs?source=<id>` and the board's stored postings after both complete. Keep automated collection off. Never use partial runs to test closure against a real board; replay those cases with fixtures.
+
+Verified on 2026-11-22 before cleanup: `lever:15five`, four postings, complete on both Mac and cloud, zero changes or closures. Dedupe backfill found zero missing keys and was retired; new writes require a key. Existing schema nullability is retained to avoid rebuilding the catalog table. There were 15,634 rows containing `inferred:true`; keep the inferred-value filter until those records have been deliberately reprocessed. Prepare version 3 corrects UTF-8 byte bounds: the next normal sync re-prepares each board when it is due, without a forced full sweep.

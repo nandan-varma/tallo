@@ -12,7 +12,7 @@ import {
   schema,
   startRun,
 } from "../src/index.ts";
-import { searchJobs, testDb, writeCost } from "../src/testing.ts";
+import { inspectJobs, testDb, writeCost } from "../src/testing.ts";
 
 // Guards the write-cost fixes (docs/architecture.md, "Write cost"). Each test fails on the code it guards.
 
@@ -159,8 +159,8 @@ describe("full-text index", () => {
   it("a changed title is searchable under its new words only", async () => {
     await sync([mapped("1")], ["p1"], T);
     await sync([mapped("1", { title: "Quantum Analyst" })], ["p1"], T + DAY);
-    expect((await searchJobs(db, { q: "quantum", limit: 10 }, T + DAY)).jobs).toHaveLength(1);
-    expect((await searchJobs(db, { q: "engineer", limit: 10 }, T + DAY)).jobs).toHaveLength(0);
+    expect((await inspectJobs(db, { q: "quantum", limit: 10 }, T + DAY)).jobs).toHaveLength(1);
+    expect((await inspectJobs(db, { q: "engineer", limit: 10 }, T + DAY)).jobs).toHaveLength(0);
   });
 
   it("a changed location is searchable, and a location change alone keeps the group's updated_at", async () => {
@@ -170,7 +170,7 @@ describe("full-text index", () => {
       ["p1"],
       T + DAY,
     );
-    expect((await searchJobs(db, { q: "reykjavik", limit: 10 }, T + DAY)).jobs).toHaveLength(1);
+    expect((await inspectJobs(db, { q: "reykjavik", limit: 10 }, T + DAY)).jobs).toHaveLength(1);
     expect((await row("p1")).updatedAt).toBe(T);
   });
 });

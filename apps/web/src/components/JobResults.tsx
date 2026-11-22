@@ -84,7 +84,7 @@ function JobItem({ hit }: { hit: JobHit }) {
     hit.location,
     hit.locations > 1 ? `${hit.locations} locations` : null,
     hit.workMode,
-    formatPay(hit.pay),
+    formatPay(hit.compensation),
     age,
   ].filter((part): part is string => Boolean(part));
   return (

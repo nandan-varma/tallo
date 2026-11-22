@@ -1,45 +1,50 @@
-import { readFileSync } from "node:fs";
+import { bindings, triggers } from "cf/config";
 import { describe, expect, it } from "vitest";
+import deployment from "../cloudflare.config.ts";
+import config from "../wrangler.json" with { type: "json" };
 
-// Two files describe the API Worker: cloudflare.config.ts is what `cf deploy` ships (the Worker was created through
-// that flow and cannot go back to `wrangler deploy`), wrangler.jsonc serves local development and `wrangler d1`.
-// They must agree on everything that changes behavior, so a switch flipped in one cannot hide in the other.
-const wrangler = JSON.parse(
-  readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"),
-) as {
-  routes: { pattern: string }[];
-  triggers: { crons: string[] };
-  queues: { consumers: { max_concurrency: number; max_retries: number }[] };
-  vars: Record<string, string>;
-};
-const cf = readFileSync(new URL("../cloudflare.config.ts", import.meta.url), "utf8");
-
-const cfVars = Object.fromEntries(
-  [...cf.matchAll(/(\w+): bindings\.text\("([^"]*)"\)/g)].map((m) => [m[1], m[2]]),
-);
-
-describe("API Worker config", () => {
-  it("sets the same variables in both files", () => {
-    expect(cfVars).toEqual(wrangler.vars);
+describe("API Worker configuration", () => {
+  it("derives deployment from the same configuration used locally", () => {
+    expect(deployment.worker?.name).toBe(config.name);
+    expect(deployment.worker?.domains).toEqual(config.routes.map((route) => route.pattern));
+    for (const [key, value] of Object.entries(config.vars)) {
+      expect(deployment.worker?.env?.[key]).toEqual(bindings.text(value));
+    }
+    for (const schedule of config.triggers.crons) {
+      expect(deployment.worker?.triggers).toContainEqual(triggers.scheduled({ schedule }));
+    }
   });
 
-  it("refuses public reads on the API's own custom domain", () => {
-    const host = wrangler.vars.READS_BLOCKED_HOST;
-    expect(host).toBe("tallo-api.nandan.fyi");
-    expect(wrangler.routes.map((r) => r.pattern)).toContain(host);
+  it("keeps automated collection off and the API host isolated", () => {
+    expect(config.vars.COLLECT_ENABLED).toBe("0");
+    expect(config.vars.READS_BLOCKED_HOST).toBe("tallo-api.nandan.fyi");
+    expect(config.routes.map((route) => route.pattern)).toContain(config.vars.READS_BLOCKED_HOST);
   });
+});
 
-  // `scheduled` tells the two jobs apart by the cron string (`COLLECT_CRON` in src/index.ts). The collect tick stays
-  // deployed; `COLLECT_ENABLED` is the toggle, and while it is "0" the tick enqueues nothing.
-  it("runs the collect tick and the hourly housekeeping in both files", () => {
-    expect(wrangler.triggers.crons).toEqual(["*/5 * * * *", "17 * * * *"]);
-    const crons = [...cf.matchAll(/schedule: "([^"]+)"/g)].map((m) => m[1]);
-    expect(crons).toEqual(wrangler.triggers.crons);
-  });
-
-  it("gives the queue consumer the same limits in both files", () => {
-    const [consumer] = wrangler.queues.consumers;
-    expect(cf).toContain(`maxConcurrency: ${consumer?.max_concurrency}`);
-    expect(cf).toContain(`maxRetries: ${consumer?.max_retries}`);
-  });
+it("derives database, bucket, queue and durable-object bindings from the canonical config", () => {
+  const worker = deployment.worker!;
+  const db = config.d1_databases[0]!;
+  const bucket = config.r2_buckets[0]!;
+  const producer = config.queues.producers[0]!;
+  const consumer = config.queues.consumers[0]!;
+  const gate = config.durable_objects.bindings[0]!;
+  expect(worker.env?.[db.binding]).toEqual(
+    bindings.d1({ name: db.database_name, id: db.database_id }),
+  );
+  expect(worker.env?.[bucket.binding]).toEqual(bindings.r2({ name: bucket.bucket_name }));
+  expect(worker.env?.[producer.binding]).toEqual(bindings.queue({ name: producer.queue }));
+  expect(worker.env?.[gate.name]).toEqual(
+    bindings.durableObject({ worker: config.name, exportName: gate.class_name }),
+  );
+  expect(worker.triggers).toContainEqual(
+    triggers.queue({
+      name: consumer.queue,
+      deadLetterQueue: consumer.dead_letter_queue,
+      maxBatchSize: consumer.max_batch_size,
+      maxBatchTimeout: consumer.max_batch_timeout,
+      maxConcurrency: consumer.max_concurrency,
+      maxRetries: consumer.max_retries,
+    }),
+  );
 });

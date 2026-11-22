@@ -790,6 +790,9 @@ describe("settings and classification", () => {
     expect(classifyError(http(422)).kind).toBe("permanent");
     expect(classifyError(new TypeError("fetch failed")).kind).toBe("retryable");
     expect(classifyError(new Error("invalid shape")).kind).toBe("permanent");
+    expect(classifyError(new TypeError("Cannot read properties of undefined")).kind).toBe(
+      "permanent",
+    );
     expect(classifyOutcome(outcome()).kind).toBe("ok");
     expect(classifyOutcome(outcome({ listingComplete: false, boardNotFound: true })).kind).toBe(
       "permanent",
@@ -937,4 +940,41 @@ describe("timings", () => {
     await sweep.run();
     expect(sweep.events.some((e) => e.includes("of time in source responses"))).toBe(true);
   });
+});
+
+it("refuses to overwrite corrupt or invalid control files", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "ctl-corrupt-")), "control.json");
+  for (const original of ["{broken", "[]", "null", '{"global":{"maxInFlight":0}}']) {
+    writeFileSync(path, original);
+    expect(() => setControl(path, ["ashby"], "global", ["paused=false"])).toThrow();
+    expect(readFileSync(path, "utf8")).toBe(original);
+  }
+});
+
+it("classifies structured failures independently of numbers in their text", () => {
+  const partial = { listingComplete: false, detailsComplete: false };
+  expect(
+    classifyOutcome(
+      outcome({
+        ...partial,
+        issues: [
+          {
+            code: "http",
+            message: "404 is part of this URL",
+            retryable: true,
+            status: 429,
+            retryAfterMs: 1000,
+          },
+        ],
+      }),
+    ),
+  ).toMatchObject({ kind: "retryable", retryAfterMs: 1000 });
+  expect(
+    classifyOutcome(
+      outcome({
+        ...partial,
+        issues: [{ code: "schema", message: "row 503 is invalid", retryable: false }],
+      }),
+    ),
+  ).toMatchObject({ kind: "permanent" });
 });

@@ -1,18 +1,26 @@
 import type { Http, HttpInit, HttpResponse, Json } from "@tallo/contracts";
-import ky, { HTTPError } from "ky";
+import ky, { HTTPError, isNetworkError, isTimeoutError } from "ky";
 import PQueue from "p-queue";
 
 export class HttpError extends Error {
   readonly status: number;
   readonly url: string;
+  readonly retryAfterMs: number | undefined;
   /** `redirect`: a redirect pointed off the host allowlist (the board moved or was retired). */
   readonly kind: "http" | "schema" | "network" | "blocked" | "redirect";
-  constructor(kind: HttpError["kind"], message: string, url: string, status = 0) {
+  constructor(
+    kind: HttpError["kind"],
+    message: string,
+    url: string,
+    status = 0,
+    retryAfterMs?: number,
+  ) {
     super(message);
     this.name = "HttpError";
     this.kind = kind;
     this.url = url;
     this.status = status;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -35,7 +43,7 @@ interface HostLimiterOptions {
   /** Concurrent in-flight requests per host: one number, or a function of the host. */
   perHostConcurrency?: number | ((host: string) => number);
   /** Minimum gap between request starts per host. */
-  minHostIntervalMs?: number;
+  minHostIntervalMs?: number | ((host: string) => number);
 }
 
 /** Per-host queues. Share one instance across clients to bound a host process-wide. */
@@ -52,7 +60,7 @@ export interface HostLimiter {
 
 export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter {
   let perHost: number | ((host: string) => number) = options.perHostConcurrency ?? 4;
-  let interval = options.minHostIntervalMs ?? 0;
+  let interval: number | ((host: string) => number) = options.minHostIntervalMs ?? 0;
   const concurrencyOf = (host: string) => (typeof perHost === "function" ? perHost(host) : perHost);
   const hostIntervals = new Map<string, number>();
   const hosts = new Map<string, { queue: PQueue; nextStart: number }>();
@@ -68,7 +76,10 @@ export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter
       const state = h;
       // The start gap is reserved when a request gets its slot, so a change applies to the next start.
       return state.queue.add(async () => {
-        const gap = Math.max(interval, hostIntervals.get(host) ?? 0);
+        const gap = Math.max(
+          typeof interval === "function" ? interval(host) : interval,
+          hostIntervals.get(host) ?? 0,
+        );
         if (gap > 0) {
           const now = Date.now();
           const start = Math.max(now, state.nextStart);
@@ -344,11 +355,23 @@ export function createHttp(options: HttpOptions): Http {
           return { status: response.status, url: url.href, data, ...etagOf(response) };
         }
         await response.body?.cancel();
-        throw new HttpError("http", `HTTP ${response.status}`, url.href, response.status);
+        throw new HttpError(
+          "http",
+          `HTTP ${response.status}`,
+          url.href,
+          response.status,
+          parseRetryAfter(response.headers.get("retry-after")),
+        );
       } catch (error) {
         if (error instanceof HttpError) throw error;
         if (error instanceof HTTPError)
-          throw new HttpError("http", error.message, url.href, error.response.status);
+          throw new HttpError(
+            "http",
+            error.message,
+            url.href,
+            error.response.status,
+            parseRetryAfter(error.response.headers.get("retry-after")),
+          );
         throw new HttpError(
           "network",
           error instanceof Error ? error.message : String(error),
@@ -373,4 +396,52 @@ export function createHttp(options: HttpOptions): Http {
     postJson: async (url, body, init) => parse(await request("POST", url, body, init)),
     getText: (url, init) => request("GET", url, undefined, init),
   };
+}
+
+/** HTTP Retry-After accepts either seconds or an HTTP date. */
+export function parseRetryAfter(
+  value: string | null | undefined,
+  now = Date.now(),
+): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+/** One retry decision shared by board orchestration and persisted collection issues. */
+export function failureOf(error: unknown): {
+  retryable: boolean;
+  status?: number;
+  retryAfterMs?: number;
+} {
+  const status = error instanceof HttpError ? error.status : isHTTPErrorStatus(error);
+  const headers = (error as { response?: { headers?: Headers } } | null)?.response?.headers;
+  const retryAfterMs =
+    error instanceof HttpError
+      ? error.retryAfterMs
+      : parseRetryAfter(headers?.get?.("retry-after"));
+  const network =
+    error instanceof HttpError
+      ? error.kind === "network"
+      : isNetworkError(error) ||
+        isTimeoutError(error) ||
+        (error instanceof TypeError && error.message === "fetch failed");
+  return {
+    retryable:
+      network ||
+      status === 408 ||
+      status === 409 ||
+      status === 429 ||
+      (status !== undefined && status >= 500),
+    ...(status ? { status } : {}),
+    ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+  };
+}
+
+function isHTTPErrorStatus(error: unknown): number | undefined {
+  // Also accepts error-shaped test adapters; production ky errors carry response.status.
+  const response = (error as { response?: { status?: unknown } } | null)?.response;
+  return typeof response?.status === "number" ? response.status : undefined;
 }

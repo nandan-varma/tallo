@@ -8,7 +8,7 @@ import { cleanTitle, excerpt } from "./text.ts";
  * Version of the prepare rules (titles, derived columns). The runner mixes it into each posting's
  * source hash, so bumping it makes the next sync re-prepare every posting, not just changed ones.
  */
-export const PREPARE_VERSION = 2;
+export const PREPARE_VERSION = 3;
 
 interface PreparedJob {
   facts: JobFacts;
@@ -40,7 +40,9 @@ export async function prepareJob(
 ): Promise<PreparedJob> {
   const primary = job.locations.find((l) => l.primary) ?? job.locations[0];
   const title = cleanTitle(job.title);
-  const extras = stableStringify(job.extras).length <= MAX_EXTRAS_BYTES ? job.extras : {};
+  const extrasFit =
+    new TextEncoder().encode(stableStringify(job.extras)).byteLength <= MAX_EXTRAS_BYTES;
+  const extras = extrasFit ? job.extras : {};
   const text = new TextEncoder().encode(job.description);
 
   const columns = {
@@ -78,5 +80,6 @@ export async function prepareJob(
     sourceHash,
     facts,
   });
+  if (!extrasFit) bounded.notes.push(`extras exceed ${MAX_EXTRAS_BYTES} bytes; dropped`);
   return { ...bounded, jd: await gzip(text) };
 }

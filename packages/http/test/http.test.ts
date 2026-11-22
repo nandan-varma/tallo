@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { backoffMs, createHttp, HttpError, hostAllowed } from "../src/index.ts";
+import { backoffMs, createHttp, failureOf, HttpError, hostAllowed } from "../src/index.ts";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), { status, headers });
@@ -245,4 +245,11 @@ describe("createHttp", () => {
     ).rejects.toMatchObject({ kind: "network" });
     expect(f).toHaveBeenCalledTimes(3);
   });
+});
+
+it("preserves a final 429 Retry-After for board-level retry decisions", async () => {
+  const http = make(async () => json({}, 429, { "retry-after": "7" }), { maxRetries: 0 });
+  const error = await http.getJson("https://api.example.com/x").catch((error: unknown) => error);
+  expect(error).toBeInstanceOf(HttpError);
+  expect(failureOf(error)).toEqual({ retryable: true, status: 429, retryAfterMs: 7000 });
 });

@@ -1,5 +1,6 @@
 import { boundFacts, slug } from "@tallo/catalog";
 import type {
+  ApplyResult,
   CreateRun,
   Finalize,
   FinalizeInput,
@@ -168,15 +169,7 @@ export async function diffOrFinish(
   return { changed, finalized };
 }
 
-export interface ApplyResult {
-  applied: number;
-  /** JD blobs the runner must upload before these postings can be applied. */
-  missingBlobs: string[];
-  /** Postings not written because they cannot be bounded (an id outside 1..512 characters), with why. */
-  invalid: { postingId: string; reason: string }[];
-  /** Postings written with a field nulled or cut to fit the contract (see `boundFacts`). */
-  bounded: { postingId: string; notes: string[] }[];
-}
+export type { ApplyResult } from "@tallo/contracts";
 
 /** Equal as stored. JSON columns compare by value, since they come back parsed. */
 const same = (stored: unknown, next: unknown) =>
@@ -889,36 +882,6 @@ export async function obsoleteRuns(db: Db, now: number) {
   return [...byId.values()].slice(0, 1000);
 }
 
-/**
- * Fills `dedupe_key` for rows stored before the key existed, from their stored company, title and
- * jd_hash (no refetching). Pages by id (`after` = the last id of the previous page), so each call
- * reads only the rows it fills. Does not regroup: run `rebuildDuplicates({ full: true })` afterwards.
- */
-export async function backfillDedupeKeys(
-  db: Db,
-  keyOf: (row: { company: string; title: string; jdHash: string }) => Promise<string>,
-  { after = 0, limit = 300 }: { after?: number; limit?: number } = {},
-): Promise<{ updated: number; more: boolean; next: number }> {
-  const pending = await db
-    .select({ id: jobs.id, company: jobs.company, title: jobs.title, jdHash: jobs.jdHash })
-    .from(jobs)
-    .where(and(gt(jobs.id, after), isNull(jobs.dedupeKey)))
-    .orderBy(jobs.id)
-    .limit(limit + 1);
-  const page = pending.slice(0, limit);
-  const statements = [];
-  for (const row of page) {
-    const dedupeKey = await keyOf(row);
-    statements.push(db.update(jobs).set({ dedupeKey }).where(eq(jobs.id, row.id)));
-  }
-  for (const part of chunks(statements, BATCH_STATEMENTS)) await batch(db, part);
-  return {
-    updated: page.length,
-    more: pending.length > limit,
-    next: page.at(-1)?.id ?? after,
-  };
-}
-
 /** A rebuild regroups every key touched within this window (also the look-back before the first cursor). */
 const DEDUPE_WINDOW = 3 * 60 * 60;
 /**
@@ -1387,6 +1350,7 @@ async function storedRegroupCursor(db: Db, now: number): Promise<IncrementalCurs
   try {
     return resumeRegroup(row.cursor, now);
   } catch {
+    console.warn("Invalid stored regroup cursor; restarting incremental pass");
     return undefined;
   }
 }

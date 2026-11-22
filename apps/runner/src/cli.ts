@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
-import { createHostLimiter } from "@tallo/http";
+import { createPlatformLimiter } from "@tallo/collect";
 import { Command, InvalidArgumentError } from "commander";
 import PQueue from "p-queue";
 import pino from "pino";
@@ -102,21 +102,23 @@ program
   )
   .option(
     "--per-host <n>",
-    "max concurrent requests per host, shared by all sources (env TALLO_PER_HOST, default 8)",
+    "max concurrent requests per host, shared by all sources (env TALLO_PER_HOST, default platform policy)",
     numberFlag("--per-host", 1),
   )
   .option(
     "--host-interval-ms <ms>",
-    "min gap between request starts per host (env TALLO_HOST_INTERVAL_MS, default 0)",
+    "min gap between request starts per host (env TALLO_HOST_INTERVAL_MS, default platform policy)",
     numberFlag("--host-interval-ms", 0),
   )
   .option("--include-dead", "also sync boards marked dead after repeated 404s")
   .action(async (opts) => {
     // Validate all knobs before any network call (api.sources, startRun).
     const concurrency = opts.concurrency as number;
-    const perHost = (opts.perHost as number | undefined) ?? envNumber("TALLO_PER_HOST", 1, 8);
+    const perHost =
+      opts.perHost ?? (process.env.TALLO_PER_HOST ? envNumber("TALLO_PER_HOST", 1, 1) : undefined);
     const hostIntervalMs =
-      (opts.hostIntervalMs as number | undefined) ?? envNumber("TALLO_HOST_INTERVAL_MS", 0, 0);
+      opts.hostIntervalMs ??
+      (process.env.TALLO_HOST_INTERVAL_MS ? envNumber("TALLO_HOST_INTERVAL_MS", 0, 0) : undefined);
     const threads =
       (opts.threads as number | undefined) ?? envNumber("TALLO_THREADS", 0, defaultThreads());
     const net = createPooledFetch();
@@ -138,9 +140,9 @@ program
       { due: due.length, localEgress: Boolean(opts.localEgress), concurrency, threads },
       "starting sync",
     );
-    const limiter = createHostLimiter({
-      perHostConcurrency: perHost,
-      minHostIntervalMs: hostIntervalMs,
+    const limiter = createPlatformLimiter({
+      concurrency: perHost,
+      gapMs: hostIntervalMs,
     });
     const cpu = threads > 0 ? createCpuPool(threads) : undefined;
     const queue = new PQueue({ concurrency });
@@ -158,7 +160,7 @@ program
               runnerId: process.env.TALLO_RUNNER_ID ?? hostname(),
               version: process.env.npm_package_version ?? "dev",
             });
-            if (!result.listingComplete) failed++;
+            if (!result.listingComplete || !result.detailsComplete) failed++;
           } catch (error) {
             failed++;
             log.error({ source: source.id, error: String(error) }, "sync failed");
@@ -169,6 +171,7 @@ program
     await cpu?.close();
     await net.close();
     log.info({ sources: due.length, incomplete: failed, threads }, "sync finished");
+    if (failed > 0) process.exitCode = 1;
   });
 
 program
@@ -184,20 +187,9 @@ program
 
 program
   .command("dedupe")
-  .description(
-    "Backfill duplicate keys for stored jobs, then regroup every posting (no refetching)",
-  )
+  .description("Regroup every posting (no refetching)")
   .action(async () => {
     const api = createApi(need("TALLO_API_URL"), need("TALLO_INGEST_TOKEN"));
-    let total = 0;
-    let cursor = 0;
-    for (;;) {
-      const { updated, more, next } = await api.dedupeBackfill(cursor);
-      total += updated;
-      cursor = next;
-      log.info({ updated, total }, "keyed");
-      if (!more) break;
-    }
     let after: string | undefined;
     for (;;) {
       const { keys, changed, next } = await api.dedupeRebuild(true, after);

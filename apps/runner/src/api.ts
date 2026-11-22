@@ -7,14 +7,9 @@ import type {
   SourceConfig,
   StartedRun,
 } from "@tallo/contracts";
+import { applyResultSchema } from "@tallo/contracts";
 import ky from "ky";
 import type { SourceState } from "./due.ts";
-
-export interface ApplyResult {
-  applied: number;
-  missingBlobs: string[];
-  invalid?: { postingId: string; reason: string }[];
-}
 
 /** Typed client for the Tallo ingest API. Retries are handled by ky. */
 export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fetch) {
@@ -57,7 +52,10 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .put(`v1/blobs/jd/${hash}`, { body: gz as Uint8Array<ArrayBuffer> })
         .then(() => undefined),
     applyJobs: (runId: string, jobs: JobFacts[]) =>
-      client.post(`v1/runs/${runId}/jobs`, { json: { jobs } }).json<ApplyResult>(),
+      client
+        .post(`v1/runs/${runId}/jobs`, { json: { jobs } })
+        .json()
+        .then((body) => applyResultSchema.parse(body)),
     putRaw: (runId: string, gz: Uint8Array) =>
       client
         .put(`v1/runs/${runId}/raw`, { body: gz as Uint8Array<ArrayBuffer> })
@@ -65,10 +63,6 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .then((r) => r.key),
     finalize: (runId: string, body: Finalize) =>
       client.post(`v1/runs/${runId}/finalize`, { json: body }).json<FinalizeResult>(),
-    dedupeBackfill: (after: number) =>
-      client
-        .post("v1/admin/dedupe/backfill", { searchParams: { after } })
-        .json<{ updated: number; more: boolean; next: number }>(),
     dedupeRebuild: (full: boolean, after?: string) =>
       client
         .post("v1/admin/dedupe", { searchParams: { full, ...(after ? { after } : {}) } })
@@ -77,8 +71,6 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
     /** Register reviewed board configs and the hot list (the Worker stores them in D1). */
     registerSources: (sources: SourceConfig[], hot: string[]) =>
       client.post("v1/admin/sources", { json: { sources, hot } }).json<{ registered: number }>(),
-    collectNow: (sources: string[]) =>
-      client.post("v1/admin/collect", { json: { sources } }).json<{ enqueued: string[] }>(),
     /** Clear dead status and the 404 streak of these boards, and make them due now. */
     reviveSources: (sources: string[]) =>
       client.post("v1/admin/sources/revive", { json: { sources } }).json<{ revived: string[] }>(),
@@ -87,7 +79,6 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
       client.post("v1/admin/runs/abandon", { json: { sources } }).json<{ abandoned: number }>(),
     retireSources: (sources: string[], dryRun: boolean) =>
       client.post("v1/admin/sources/retire", { json: { sources, dryRun } }).json<RetireResult>(),
-    collectStatus: () => client.get("v1/admin/collect/status").json<unknown>(),
   };
 }
 export type Api = ReturnType<typeof createApi>;

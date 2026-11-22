@@ -46,12 +46,25 @@ function fakeIngest(over: Partial<Ingest> = {}) {
   const blobs = new Set<string>();
   const ingest: Ingest = {
     startRun: async () => ({ validator: null }),
+    async diffOrFinish(runId, postings, finish) {
+      const changed = await this.diff(runId, postings);
+      return changed.length
+        ? { changed }
+        : {
+            changed,
+            finalized: await this.finalize(runId, {
+              ...finish,
+              seenIds: postings.map((p) => p.id),
+              rawKey: null,
+            }),
+          };
+    },
     diff: async (_runId, postings) => postings.map((p) => p.id),
     missingBlobs: async (hashes) => hashes.filter((h) => !blobs.has(h)),
     putJd: async (hash) => void blobs.add(hash),
     applyJobs: async (_runId, jobs) => {
       calls.applied.push(...jobs);
-      return { applied: jobs.length, missingBlobs: [] };
+      return { applied: jobs.length, ...{ invalid: [], bounded: [] }, missingBlobs: [] };
     },
     putRaw: async (_runId, gz) => {
       calls.raw.push(gz);
@@ -145,7 +158,7 @@ describe("timings", () => {
       },
       applyJobs: async (_r, jobs) => {
         await sleep(15);
-        return { applied: jobs.length, missingBlobs: [] };
+        return { applied: jobs.length, ...{ invalid: [], bounded: [] }, missingBlobs: [] };
       },
       finalize: async () => {
         await sleep(10);
@@ -214,6 +227,7 @@ describe("bounded fields and rejected postings", () => {
     const { ingest, calls } = fakeIngest({
       applyJobs: async (_runId, jobs) => ({
         applied: jobs.length - 1,
+        ...{ invalid: [], bounded: [] },
         missingBlobs: [],
         invalid: [{ postingId: "x", reason: "postingId length 600 is outside 1..512" }],
       }),
@@ -280,7 +294,7 @@ describe("slices", () => {
       applyJobs: async (_runId, jobs) => {
         if (fail) throw new Error("D1 unavailable");
         calls.applied.push(...jobs);
-        return { applied: jobs.length, missingBlobs: [] };
+        return { applied: jobs.length, ...{ invalid: [], bounded: [] }, missingBlobs: [] };
       },
     });
     const opts = options(ingest);
@@ -439,3 +453,29 @@ describe("conditional listing", () => {
     expect(result.validator ?? null).toBeNull();
   });
 });
+
+it.each(["listing", "detail"])(
+  "persists structured HTTP retry metadata from a failed %s",
+  async (phase) => {
+    const { ingest, calls } = fakeIngest();
+    const board =
+      phase === "listing"
+        ? source
+        : { id: "bamboohr:big", platform: "bamboohr", key: "big", company: "Big", params: {} };
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (phase === "detail" && url.pathname.endsWith("/careers/list"))
+        return new Response(fx("bamboohr-list"));
+      return new Response("busy", { status: 429, headers: { "retry-after": "0" } });
+    };
+    await collectSource(board, meta, {
+      ...options(ingest),
+      fetch: fetchImpl,
+      limiter: createHostLimiter(),
+    });
+    expect(calls.finalize[0]?.issues).toContainEqual(
+      expect.objectContaining({ retryable: true, status: 429, retryAfterMs: 0 }),
+    );
+    expect(calls.finalize[0]?.detailsComplete).toBe(false);
+  },
+);

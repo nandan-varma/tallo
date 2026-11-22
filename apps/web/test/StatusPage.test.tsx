@@ -128,3 +128,17 @@ describe("loadSiteStats", () => {
     expect(await loadSiteStats({ upstream: throws, cache: memoryCache(), now: later })).toBeNull();
   });
 });
+
+it("does not render malformed cached or upstream snapshots as catalog facts", async () => {
+  const cache = memoryCache();
+  await cache.put(
+    new Request("https://tallo.nandan.fyi/__site-stats"),
+    Response.json({ asOf: 1, openJobs: "wrong" }),
+  );
+  expect(
+    await loadSiteStats({
+      cache,
+      upstream: async () => Response.json({ asOf: 1, openJobs: "wrong" }),
+    }),
+  ).toBeNull();
+});

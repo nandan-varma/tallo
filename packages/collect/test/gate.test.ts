@@ -191,8 +191,8 @@ describe("policy", () => {
     expect(policyFor("oraclecloud")).toEqual({ concurrency: 2, gapMs: 250 });
   });
 
-  it("an unknown platform gets the careful policy", () => {
-    expect(policyFor("somewhere-new")).toEqual({ concurrency: 2, gapMs: 250 });
+  it("an unknown platform needs an explicit policy", () => {
+    expect(() => policyFor("somewhere-new")).toThrow("No host policy");
   });
 
   it("finds the policy for a host by the platform allowlist", () => {
@@ -200,4 +200,13 @@ describe("policy", () => {
     expect(policyForHost("acme.wd1.myworkdayjobs.com").gapMs).toBe(250);
     expect(policyForHost("nowhere.example").gapMs).toBe(250);
   });
+});
+
+it("every registered platform has a baseline policy", async () => {
+  const { platforms } = await import("@tallo/platforms");
+  for (const id of Object.keys(platforms))
+    expect(policyFor(id)).toMatchObject({
+      concurrency: expect.any(Number),
+      gapMs: expect.any(Number),
+    });
 });

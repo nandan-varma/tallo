@@ -32,7 +32,7 @@ const board =
  * A small stateful server: it remembers listing hashes, blobs and the validator between runs, and logs every
  * call the engine makes (each one is an HTTP round trip on the runner).
  */
-function server(opts: { combined: boolean; conditional: boolean }) {
+function server(opts: { conditional: boolean }) {
   const calls: string[] = [];
   const hashes = new Map<string, string>();
   const blobs = new Set<string>();
@@ -58,20 +58,22 @@ function server(opts: { combined: boolean; conditional: boolean }) {
       const missingBlobs = [...new Set(jobs.map((j) => j.jdHash).filter((h) => !blobs.has(h)))];
       const ready = jobs.filter((j) => blobs.has(j.jdHash));
       for (const j of ready) hashes.set(j.postingId, j.sourceHash);
-      return { applied: ready.length, missingBlobs };
+      return { applied: ready.length, missingBlobs, invalid: [], bounded: [] };
     }),
     putRaw: note("raw", async () => "raw/key"),
     finalize: note("finalize", finalize),
-    ...(opts.combined
-      ? {
-          diffOrFinish: note("diff+finalize", async (id, postings, finish) => {
-            const changed = diffNow(postings);
-            if (changed.length) return { changed };
-            const seenIds = postings.map((p) => p.id);
-            return { changed, finalized: await finalize(id, { ...finish, seenIds, rawKey: null }) };
-          }),
-        }
-      : {}),
+    diffOrFinish: note("diff+finalize", async (id, postings, finish) => {
+      const changed = diffNow(postings);
+      if (changed.length) return { changed };
+      return {
+        changed,
+        finalized: await finalize(id, {
+          ...finish,
+          seenIds: postings.map((p) => p.id),
+          rawKey: null,
+        }),
+      };
+    }),
   };
   const options: EngineOptions = {
     ingest,
@@ -90,7 +92,7 @@ function server(opts: { combined: boolean; conditional: boolean }) {
 
 describe("ingest round trips per board", () => {
   it("first run of a new board: no blob check; jobs, one putJd per blob, jobs again", async () => {
-    const s = server({ combined: true, conditional: true });
+    const s = server({ conditional: true });
     const { calls, outcome } = await s.run("run-trips-0001");
     const n = s.blobs.size;
     expect(n).toBeGreaterThan(0);
@@ -107,15 +109,15 @@ describe("ingest round trips per board", () => {
   });
 
   it("changed postings whose descriptions are stored: start, diff, jobs, raw, finalize", async () => {
-    const s = server({ combined: true, conditional: false });
+    const s = server({ conditional: false });
     await s.run("run-trips-0001");
     s.hashes.clear(); // every fingerprint differs, every description is already stored
     const { calls } = await s.run("run-trips-0002");
     expect(calls).toEqual(["start", "diff+finalize", "jobs", "raw", "finalize"]);
   });
 
-  it("an unchanged listing (no 304): start, diff+finalize; the fallback keeps start, diff, finalize", async () => {
-    const combined = server({ combined: true, conditional: false });
+  it("an unchanged listing (no 304): start, diff+finalize", async () => {
+    const combined = server({ conditional: false });
     await combined.run("run-trips-0001");
     const after = await combined.run("run-trips-0002");
     expect(after.calls).toEqual(["start", "diff+finalize"]);
@@ -127,14 +129,10 @@ describe("ingest round trips per board", () => {
       rawKey: null,
     });
     expect(after.outcome.seenIds.length).toBeGreaterThan(0);
-
-    const plain = server({ combined: false, conditional: false });
-    await plain.run("run-trips-0001");
-    expect((await plain.run("run-trips-0002")).calls).toEqual(["start", "diff", "finalize"]);
   });
 
   it("a 304 board: start, finalize", async () => {
-    const s = server({ combined: true, conditional: true });
+    const s = server({ conditional: true });
     await s.run("run-trips-0001");
     const { calls, outcome } = await s.run("run-trips-0002");
     expect(calls).toEqual(["start", "finalize"]);

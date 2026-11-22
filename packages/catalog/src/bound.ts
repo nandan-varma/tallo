@@ -37,8 +37,8 @@ export interface Bounded {
 /**
  * Fit one posting to the wire contract instead of letting one long field fail a whole batch. A stated value
  * that does not fit is set to null (a shortened URL or name would be a different fact); the title, which a
- * posting cannot be without, is cut; the facts arrays are capped. Throws only when the posting id itself does
- * not fit, because it is the posting's identity. Used by `prepareJob` (runner and Worker) and `applyJobs`.
+ * posting cannot be without, is cut; the facts arrays are capped. Throws when the posting identity does not fit, or unknown rich fields cannot fit
+ * even after bounded arrays and extras are removed. Used by `prepareJob` (runner and Worker) and `applyJobs`.
  */
 export function boundFacts(input: JobFacts): Bounded {
   if (input.postingId.length === 0 || input.postingId.length > MAX_POSTING_ID)
@@ -77,11 +77,18 @@ export function boundFacts(input: JobFacts): Bounded {
   cap("locations", MAX_LOCATIONS);
   cap("compensation", MAX_COMPENSATION);
   cap("experience", MAX_EXPERIENCE);
-  if (JSON.stringify(rich).length > MAX_FACTS_BYTES) {
+  if (new TextEncoder().encode(JSON.stringify(rich)).byteLength > MAX_FACTS_BYTES) {
     notes.push(`facts exceed ${MAX_FACTS_BYTES} bytes; arrays cut to 10 entries, extras dropped`);
     for (const key of ["locations", "compensation", "experience"])
       if (Array.isArray(rich[key])) rich[key] = (rich[key] as unknown[]).slice(0, 10);
     rich.extras = {};
+    while (new TextEncoder().encode(JSON.stringify(rich)).byteLength > MAX_FACTS_BYTES) {
+      const largest = ["locations", "compensation", "experience"]
+        .filter((key) => Array.isArray(rich[key]) && rich[key].length > 0)
+        .sort((a, b) => JSON.stringify(rich[b]).length - JSON.stringify(rich[a]).length)[0];
+      if (!largest) throw new Error("facts exceed size limit after bounding");
+      (rich[largest] as unknown[]).pop();
+    }
   }
   facts.facts = rich;
   return { facts, notes };

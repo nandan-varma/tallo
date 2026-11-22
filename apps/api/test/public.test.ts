@@ -293,11 +293,11 @@ describe("the public reads on the API's own custom domain", () => {
   it("keeps the ingest and admin routes reachable on the blocked host", async () => {
     const { db, blobs } = setup();
     const server = blocked(db, blobs);
-    const status = await server.request(`https://${BLOCKED}/v1/sources/status`, {
+    const status = await server.request(`https://${BLOCKED}/v1/sources`, {
       headers: { authorization: `Bearer ${INGEST}` },
     });
     expect(status.status).toBe(200);
-    expect((await server.request(`https://${BLOCKED}/v1/sources/status`)).status).toBe(401);
+    expect((await server.request(`https://${BLOCKED}/v1/sources`)).status).toBe(401);
     const health = await server.request(`https://${BLOCKED}/health`);
     expect(health.status).toBe(200);
   });

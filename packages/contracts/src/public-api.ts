@@ -357,7 +357,6 @@ export const publicDiscoverySchema = z.object({
       `Optional. Return at most ${DISCOVERY_MAX_RESULTS} names. Default ${DISCOVERY_MAX_RESULTS}.`,
     ),
 });
-export type PublicDiscoveryQuery = z.infer<typeof publicDiscoverySchema>;
 
 /** The title, company, location, country, date window and sort values a cursor is bound to. */
 export interface CursorQuery {

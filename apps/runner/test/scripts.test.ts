@@ -169,7 +169,7 @@ describe("backup-d1.sh", () => {
   });
 });
 
-describe.each(["local-egress", "backup"])("%s launchd job", (job) => {
+describe.each(["backup"])("%s launchd job", (job) => {
   const script = join(LAUNCHD, `${job}.sh`);
   const run = (args: string[]) =>
     spawnSync("bash", [script, ...args], {

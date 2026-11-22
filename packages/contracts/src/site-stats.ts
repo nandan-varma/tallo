@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * The numbers behind the /status page. One snapshot, computed by the API's hourly cron (the catalog part once a day)
  * and stored as a single row, so a page view never reads the catalog: the web Worker fetches that one row and keeps it
@@ -9,50 +11,38 @@ export const SITE_STATS_CACHE_CONTROL = `public, max-age=${SITE_STATS_TTL_SECOND
 /** How many daily points of history a snapshot carries. */
 export const SITE_STATS_HISTORY_DAYS = 60;
 
-export interface SiteStats {
-  /** Epoch seconds the live part (boards, freshness, health) was computed. */
-  asOf: number;
-  /** Epoch seconds the catalog part (open jobs, employers, countries, mix) was counted. */
-  catalogAsOf: number;
-  /** Open postings of boards that listed recently, duplicates folded into one. */
-  openJobs: number;
-  /** Postings ever collected, closed ones included. */
-  collectedTotal: number;
-  /** Distinct companies among the boards that listed recently. */
-  employers: number;
-  /** Configured boards that are not retired. */
-  boards: number;
-  platforms: number;
-  freshness: {
-    /** Boards that listed any postings in the last 7 / 14 days, of `boards`. */
-    listed7d: number;
-    listed14d: number;
-    /** Epoch seconds of the newest collection run, or null. */
-    newestRunAt: number | null;
-    added24h: number;
-    added7d: number;
-    closed7d: number;
-  };
-  /** Collection health, from the boards' own state. */
-  health: {
-    /** Active boards whose last runs did not list completely. */
-    failing: number;
-    /** Boards retired after listing 404s. */
-    dead: number;
-  };
-  byPlatform: { platform: string; boards: number; open: number }[];
-  topEmployers: { name: string; open: number }[];
-  countries: { distinct: number; top: { code: string; share: number }[] };
-  /** Shares (0 to 1) of the open postings. A posting the source left blank is "unstated", never guessed. */
-  mix: {
-    remote: number;
-    hybrid: number;
-    onsite: number;
-    unstated: number;
-    payStated: number;
-    postedStated: number;
-    countryStated: number;
-  };
-  /** One point per day the catalog part was counted, oldest first. `day` is the UTC midnight, epoch seconds. */
-  history: { day: number; openJobs: number; added: number }[];
-}
+const count = z.number().int().nonnegative();
+const share = z.number().min(0).max(1);
+
+export const siteStatsSchema = z.object({
+  asOf: count,
+  catalogAsOf: count,
+  openJobs: count,
+  collectedTotal: count,
+  employers: count,
+  boards: count,
+  platforms: count,
+  freshness: z.object({
+    listed7d: count,
+    listed14d: count,
+    newestRunAt: count.nullable(),
+    added24h: count,
+    added7d: count,
+    closed7d: count,
+  }),
+  health: z.object({ failing: count, dead: count }),
+  byPlatform: z.array(z.object({ platform: z.string(), boards: count, open: count })),
+  topEmployers: z.array(z.object({ name: z.string(), open: count })),
+  countries: z.object({ distinct: count, top: z.array(z.object({ code: z.string(), share })) }),
+  mix: z.object({
+    remote: share,
+    hybrid: share,
+    onsite: share,
+    unstated: share,
+    payStated: share,
+    postedStated: share,
+    countryStated: share,
+  }),
+  history: z.array(z.object({ day: count, openJobs: count, added: count })),
+});
+export type SiteStats = z.infer<typeof siteStatsSchema>;

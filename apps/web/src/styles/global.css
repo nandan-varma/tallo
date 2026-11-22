@@ -129,11 +129,25 @@
 }
 
 @layer base {
-  html { @apply font-sans; color-scheme: light; }
-  html.dark { color-scheme: dark; }
-  a:focus-visible, summary:focus-visible { @apply outline-2 outline-offset-4 outline-ring; }
+  html {
+    @apply font-sans;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  a:focus-visible,
+  summary:focus-visible {
+    @apply outline-2 outline-offset-4 outline-ring;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

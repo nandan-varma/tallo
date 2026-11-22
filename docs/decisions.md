@@ -2,6 +2,8 @@
 
 Short ADR-style log. Newest first. Add an entry when a choice would otherwise be re-litigated.
 
+**D20. Keep two thin collection adapters and one current contract (2026-11-22).** Cloud collection remains a first-class migration target. Mac and cloud share the engine, source policies and structured failure decisions. Current writers must supply dedupe keys and implement diff-or-finish; its large-listing diff path remains necessary. The backfill endpoint is retired after checking the live catalog has no missing keys. Retain inferred-value filtering because historical stored facts still contain such values. `apps/api/wrangler.json` is the canonical deployment/local configuration, mapped by the cf adapter. Manual Mac collection stays active; named cloud collections work with scheduled collection disabled. Normal/rare tiers remain weekly labels on persisted sources; merging them would add schema churn without simplifying the active algorithm.
+
 **D19. Structured search filters and field availability (2026-11-23).** `GET /v1/search` takes `country` (up to 8
 ISO 3166-1 alpha-2 codes, normalized to uppercase) and `postedWithin` (1 to 365 days on `sort_at`, the stated posted
 date else first seen). Both apply to every sort mode and are bound into the cursor checksum, so a cursor cannot change
@@ -99,7 +101,7 @@ or a VPS. Schema source of truth is TypeScript; FTS5 is a custom migration.
 **D4. Hono API, Astro web, one Worker each.** Web reaches the API through a service binding. The API uses bearer
 tokens; the web pages are public (the access-key cookie was removed in D15).
 
-**D3. (Superseded: collection runs in the cloud; the Mac keeps only `egress: local` boards.) Mac is the only runner in v1.** Coordination is a `runs` table, an idempotent `runId` and one running run per
+**D3. (Superseded: both adapters exist; manual Mac collection is active and automated cloud collection is off.) Mac is the only runner in v1.** Coordination is a `runs` table, an idempotent `runId` and one running run per
 source; no leases or queues until a second runner exists.
 
 **D2. Link out, never repost.** Every job carries the employer's apply URL; full description text is stored for
@@ -109,6 +111,6 @@ search, enrichment and (later) resume tailoring.
 
 ## Open / deferred
 
-- Public API redesign: a separate PR. Closed-job history: not planned.
+- Closed-job history: not planned. The public API redesign shipped in D17.
 - Accounts and any per-person data: not planned. The product holds no personal data (CLAUDE.md rule 5).
-- Cloud runners: when needed, same ingest protocol, plus per-host rate limits that span runners.
+- Cloud migration: retain the tested queue runner and distributed HostGate; enable scheduling when requested.

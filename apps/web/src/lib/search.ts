@@ -1,4 +1,4 @@
-import { SEARCH_RESULT_CAP, type SearchSort, type SearchSpec } from "@tallo/contracts";
+import { type Money, SEARCH_RESULT_CAP, type SearchSort, type SearchSpec } from "@tallo/contracts";
 
 /** The form's fields, as typed. Several titles, companies or places are separated by commas. */
 export interface SearchValues {
@@ -12,15 +12,6 @@ export interface SearchValues {
   /** A whole number of days, as typed. */
   postedWithin: string;
 }
-
-export const EMPTY_VALUES: SearchValues = {
-  title: "",
-  company: "",
-  location: "",
-  country: "",
-  sort: "",
-  postedWithin: "",
-};
 
 /** Splits a comma list into the entries the search accepts: trimmed, too-short entries dropped, capped. */
 export function splitList(value: string, max: number, maxChars: number, minChars = 2): string[] {
@@ -120,21 +111,36 @@ export function postedAgo(iso: string, now = Date.now()): string | null {
   return `posted ${years} ${years === 1 ? "year" : "years"} ago`;
 }
 
-/** "USD 280,000–425,000 a year" from the API's pay line, which reads "USD 280000-425000 per year". */
-export function formatPay(pay: string | null): string | null {
-  if (!pay) return null;
-  const match = /^([A-Z]{3}) (\d+)(?:-(\d+))? per (hour|day|week|month|year)(.*)$/.exec(pay.trim());
-  if (!match) return pay;
-  const [, currency, min, max, unit, note] = match;
-  const amount = (raw: string) => Number(raw).toLocaleString("en-US");
-  const range = max ? `${amount(min!)}\u2013${amount(max)}` : amount(min!);
+/** Format the first stated base-pay band in its own currency and interval. */
+export function formatPay(compensation: Money[]): string | null {
+  const band = compensation.find(
+    (b) =>
+      !b.inferred &&
+      b.component === "base" &&
+      b.interval !== "once" &&
+      b.interval !== "unknown" &&
+      (b.min !== undefined || b.max !== undefined),
+  );
+  if (!band) return null;
+  const amount = (n: number) => n.toLocaleString("en-US");
+  const range =
+    band.min !== undefined && band.max !== undefined
+      ? band.min === band.max
+        ? amount(band.min)
+        : `${amount(band.min)}–${amount(band.max)}`
+      : band.min !== undefined
+        ? `${amount(band.min)}+`
+        : `up to ${amount(band.max!)}`;
   const period = {
     hour: "an hour",
     day: "a day",
     week: "a week",
     month: "a month",
     year: "a year",
-  }[unit as "hour" | "day" | "week" | "month" | "year"];
-  const suffix = note?.trim() ? ` (${note.trim().replace(/^\(|\)$/g, "")})` : "";
-  return `${currency} ${range} ${period}${suffix}`;
+    once: "",
+    unknown: "",
+  }[band.interval];
+  return [band.currency, range, period, band.region ? `(${band.region})` : null]
+    .filter(Boolean)
+    .join(" ");
 }

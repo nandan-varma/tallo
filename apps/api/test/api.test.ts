@@ -68,8 +68,8 @@ describe("api", () => {
     const { call } = setup();
     expect((await call("/health", null)).status).toBe(200);
     expect((await call("/v1/search?title=software+engineer", null)).status).toBe(200);
-    expect((await call("/v1/sources/status", null)).status).toBe(401);
-    expect((await call("/v1/sources/status", "wrong")).status).toBe(401);
+    expect((await call("/v1/sources/status", null)).status).toBe(404);
+    expect((await call("/v1/sources/status", "wrong")).status).toBe(404);
     expect((await call("/v1/sources", "read-token")).status).toBe(401);
     expect((await call("/v1/runs", null, { method: "POST", json: {} })).status).toBe(401);
   });
@@ -223,7 +223,7 @@ describe("api", () => {
     expect(await missing.json()).toMatchObject({ error: { code: "unknown" } });
   });
 
-  it("serves the slim status view of sources and filters run history", async () => {
+  it("serves runner sources and filters run history", async () => {
     const { call } = setup();
     const started = now();
     const board = (id: string) => ({ ...source, id, key: id.split(":")[1], company: id });
@@ -265,22 +265,7 @@ describe("api", () => {
       issues: [{ code: "detail", message: "one posting failed" }],
     });
 
-    expect((await call("/v1/sources/status", null)).status).toBe(401);
-    const status = (await (await call("/v1/sources/status", INGEST)).json()) as Record<
-      string,
-      unknown
-    >[];
-    expect(status.map((s) => s.id)).toEqual([
-      "greenhouse:acme",
-      "greenhouse:beta",
-      "greenhouse:gamma",
-    ]);
-    for (const row of status) {
-      expect(row).toHaveProperty("freshness");
-      expect(row).toHaveProperty("lastStatus");
-      expect(row).not.toHaveProperty("params");
-      expect(row).not.toHaveProperty("consecutiveFailures");
-    }
+    expect((await call("/v1/sources/status", null)).status).toBe(404);
     // The full record is unchanged: the runner's `sources --dead` reads status and failures.
     const full = (await (await call("/v1/sources", INGEST)).json()) as Record<string, unknown>[];
     expect(full[0]).toMatchObject({ id: "greenhouse:acme", status: "active", params: {} });
@@ -385,9 +370,7 @@ describe("api", () => {
       variants: Variant[];
     };
     expect(second.variants).toHaveLength(2);
-    expect(
-      await (await call("/v1/admin/dedupe/backfill?after=0", INGEST, { method: "POST" })).json(),
-    ).toEqual({ updated: 0, more: false, next: 0 });
+    expect((await call("/v1/admin/dedupe/backfill", INGEST, { method: "POST" })).status).toBe(404);
   });
 
   it("resumes the admin regroup from the opaque cursor it returned", async () => {

@@ -1,58 +1,42 @@
 import { bindings, defineConfig, exports, triggers } from "cf/config";
+import config from "./wrangler.json" with { type: "json" };
 
-// What `cf deploy` ships. wrangler.jsonc mirrors it for local development and `wrangler d1`; config.test.ts fails when they differ.
+// Wrangler is the single configuration source; cf owns this Worker's deployment.
+const db = config.d1_databases[0]!;
+const blobs = config.r2_buckets[0]!;
+const producer = config.queues.producers[0]!;
+const consumer = config.queues.consumers[0]!;
+const gate = config.durable_objects.bindings[0]!;
+
 export default defineConfig({
   worker: {
-    name: "tallo-api",
-    compatibilityDate: "2026-10-01",
-    compatibilityFlags: ["nodejs_compat"],
-    entrypoint: "src/index.ts",
-    observability: {
-      enabled: true,
-    },
-    limits: {
-      cpuMs: 120000,
-    },
-    domains: ["tallo-api.nandan.fyi"],
+    name: config.name,
+    compatibilityDate: config.compatibility_date,
+    compatibilityFlags: config.compatibility_flags,
+    entrypoint: config.main,
+    observability: config.observability,
+    limits: { cpuMs: config.limits.cpu_ms },
+    domains: config.routes.map((route) => route.pattern),
     triggers: [
-      triggers.scheduled({
-        schedule: "*/5 * * * *",
-      }),
-      triggers.scheduled({
-        schedule: "17 * * * *",
-      }),
+      ...config.triggers.crons.map((schedule) => triggers.scheduled({ schedule })),
       triggers.queue({
-        name: "tallo-collect",
-        deadLetterQueue: "tallo-collect-dlq",
-        maxBatchSize: 1,
-        maxBatchTimeout: 0,
-        maxConcurrency: 8,
-        maxRetries: 2,
+        name: consumer.queue,
+        deadLetterQueue: consumer.dead_letter_queue,
+        maxBatchSize: consumer.max_batch_size,
+        maxBatchTimeout: consumer.max_batch_timeout,
+        maxConcurrency: consumer.max_concurrency,
+        maxRetries: consumer.max_retries,
       }),
-    ],
-    exports: {
-      HostGate: exports.durableObject({ storage: "sqlite" }),
-    },
+    ] as const,
+    exports: { [gate.class_name]: exports.durableObject({ storage: "sqlite" }) },
     env: {
-      DB: bindings.d1({
-        name: "tallo",
-        id: "001b036c-2e15-45c8-9284-edb9d374b849",
-      }),
-      BLOBS: bindings.r2({
-        name: "tallo-blobs",
-      }),
-      COLLECT: bindings.queue({
-        name: "tallo-collect",
-      }),
-      HOST_GATE: bindings.durableObject({
-        worker: "tallo-api",
-        exportName: "HostGate",
-      }),
-      READS_BLOCKED_HOST: bindings.text("tallo-api.nandan.fyi"),
-      COLLECT_ENABLED: bindings.text("0"),
-      COLLECT_BATCH: bindings.text("40"),
-      COLLECT_SLICE_SUBREQUESTS: bindings.text("800"),
-      COLLECT_SLICE_MS: bindings.text("300000"),
+      ...Object.fromEntries(
+        Object.entries(config.vars).map(([key, value]) => [key, bindings.text(value)]),
+      ),
+      [db.binding]: bindings.d1({ name: db.database_name, id: db.database_id }),
+      [blobs.binding]: bindings.r2({ name: blobs.bucket_name }),
+      [producer.binding]: bindings.queue({ name: producer.queue }),
+      [gate.name]: bindings.durableObject({ worker: config.name, exportName: gate.class_name }),
     },
   },
 });
