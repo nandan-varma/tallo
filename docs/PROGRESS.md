@@ -20,7 +20,12 @@ only regular chores are the ones in `docs/runbook.md`. History is in `git log`; 
 
 - Search cost: the ranked candidate cut runs on the FTS index first (`FTS_WINDOW`), so a broad word costs ~150 ms
   instead of ~5 s, and date sorts page ids before reading rows. This was the cause of the "Database busy" 503s.
-- One Worker config (`apps/api/wrangler.jsonc`), one release command (`pnpm release`), one smoke test.
+- Cost and UX balance: date sorts read the newest 50,000 matches (exact below that); the edge cache key ignores case and
+  spacing and holds searches 15 minutes; fresh wide searches (4+ titles, 3+ companies) have a 10 a minute budget that
+  cached repeats do not spend. Cloudflare's rate-limit counters are approximate, so it throttles after about 20, not
+  exactly 10. A date-sorted query matching over 50,000 postings ranks only its newest 50,000.
+- One release command (`pnpm release`) and one smoke test. The API Worker has two config files (`cf deploy` and
+  `wrangler`), kept equal by a test.
 - Removed: cloud/Mac duplicate launchd jobs, benches, the multi-agent workflow files, unused dependencies, test-only
   helpers in the query module, and the stale issue backlog.
 
