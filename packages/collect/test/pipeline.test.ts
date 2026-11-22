@@ -13,8 +13,8 @@ import {
 const fx = (name: string) =>
   readFileSync(new URL(`../../platforms/test/fixtures/${name}.json`, import.meta.url), "utf8");
 const source: SourceConfig = {
-  id: "greenhouse:big",
-  platform: "greenhouse",
+  id: "bamboohr:big",
+  platform: "bamboohr",
   key: "big",
   company: "Big",
   params: {},
@@ -23,17 +23,21 @@ const log = { info() {}, warn() {}, error() {} };
 const POSTINGS = 250;
 const meta = { runId: "run-pipeline-001", runnerId: "test", version: "t" };
 
-/** A board of POSTINGS postings; every detail request is recorded and answered after a tick. */
+/** A BambooHR board of POSTINGS postings (a thin list, a detail each); detail requests are recorded and answered after a tick. */
 function board() {
-  const template = JSON.parse(fx("greenhouse-list")).jobs[0];
-  const jobs = Array.from({ length: POSTINGS }, (_, i) => ({ ...template, id: 1000 + i }));
+  const template = JSON.parse(fx("bamboohr-list")).result[0];
+  const result = Array.from({ length: POSTINGS }, (_, i) => ({
+    ...template,
+    id: String(1000 + i),
+  }));
   const events: string[] = [];
   const fetchFake: typeof fetch = async (input) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
-    if (url.pathname.endsWith("/jobs")) return new Response(JSON.stringify({ jobs }));
+    if (url.pathname.endsWith("/careers/list"))
+      return new Response(JSON.stringify({ meta: { totalCount: POSTINGS }, result }));
     events.push("detail");
     await new Promise((r) => setTimeout(r, 1));
-    return new Response(fx("greenhouse-detail"));
+    return new Response(fx("bamboohr-detail"));
   };
   return { events, fetchFake };
 }
