@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@tallo/contracts": "workspace:*",
-    "entities": "^8.1.0",
+    "entities": "^9.0.0",
     "html-to-text": "^10.0.1",
     "i18n-iso-countries": "^7.14.0",
     "safe-stable-stringify": "^3.0.0"
