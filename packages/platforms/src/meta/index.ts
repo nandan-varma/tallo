@@ -322,33 +322,33 @@ export const meta: Platform = {
     const all = rows(root.all_jobs, "all_jobs");
     const featured = rows(root.featured_jobs, "featured_jobs");
 
-    const seen = new Set<string>();
-    const allIds = new Set<string>();
-    const featuredIds = new Set<string>();
-    for (const job of all) {
+    const inScope = (job: JsonObject) =>
+      teams.length === 0 || strings(job.teams).some((team) => teams.includes(team));
+    const idOf = (job: JsonObject, label: string, ids: Set<string>): string => {
       const postingId = id(job.id);
       if (!postingId || !JOB_ID.test(postingId))
-        throw new SchemaError("Meta all_jobs row has no numeric posting id");
-      if (allIds.has(postingId))
-        throw new SchemaError(`Meta all_jobs repeats posting ${postingId}`);
+        throw new SchemaError(`Meta ${label} row has no numeric posting id`);
+      if (ids.has(postingId)) throw new SchemaError(`Meta ${label} repeats posting ${postingId}`);
+      ids.add(postingId);
+      return postingId;
+    };
+
+    const seen = new Set<string>();
+    const allIds = new Set<string>();
+    for (const job of all) {
+      const postingId = idOf(job, "all_jobs", allIds);
       // A scoped query that answered with a job outside its team is not the query we asked for.
-      if (teams.length > 0 && !strings(job.teams).some((team) => teams.includes(team)))
+      if (!inScope(job))
         throw new SchemaError(`Meta all_jobs returned ${postingId} outside the team scope`);
-      allIds.add(postingId);
       seen.add(postingId);
       yield { id: postingId, listing: job } satisfies RawPosting;
     }
+    const featuredIds = new Set<string>();
     for (const job of featured) {
-      const postingId = id(job.id);
-      if (!postingId || !JOB_ID.test(postingId))
-        throw new SchemaError("Meta featured_jobs row has no numeric posting id");
-      if (featuredIds.has(postingId))
-        throw new SchemaError(`Meta featured_jobs repeats posting ${postingId}`);
-      featuredIds.add(postingId);
-      // The featured list ignores the team filter, so a scoped board keeps only matching jobs.
-      if (teams.length > 0 && !strings(job.teams).some((team) => teams.includes(team))) continue;
-      // Featured jobs are normally not repeated in all_jobs; an overlap is deduped, not an error.
-      if (seen.has(postingId)) continue;
+      const postingId = idOf(job, "featured_jobs", featuredIds);
+      // The featured list ignores the team filter, so a scoped board keeps only matching jobs. Featured
+      // jobs are normally not repeated in all_jobs; an overlap is deduped, not an error.
+      if (!inScope(job) || seen.has(postingId)) continue;
       seen.add(postingId);
       yield { id: postingId, listing: job } satisfies RawPosting;
     }
