@@ -89,4 +89,13 @@ describe("JobResults", () => {
     render(<JobResults hits={[]} start={1} prevHref={null} nextHref={null} />);
     expect(screen.getByText("No postings match that search.")).toBeTruthy();
   });
+
+  it("offers the first page when a stale link points past the last result", () => {
+    render(
+      <JobResults hits={[]} start={51} prevHref={null} nextHref={null} firstHref="/?title=data" />,
+    );
+    expect(screen.getByRole("link", { name: "Back to the first page" }).getAttribute("href")).toBe(
+      "/?title=data",
+    );
+  });
 });

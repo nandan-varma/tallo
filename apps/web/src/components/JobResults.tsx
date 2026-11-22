@@ -10,6 +10,7 @@ export function JobResults({
   start,
   prevHref,
   nextHref,
+  firstHref = null,
   capped = false,
   expanded,
 }: {
@@ -18,6 +19,8 @@ export function JobResults({
   start: number;
   prevHref: string | null;
   nextHref: string | null;
+  /** The first page of the same search, offered when a stale link points past the last result. */
+  firstHref?: string | null;
   /** The API stopped the list at its cap: say so, so the reader narrows instead of paging forever. */
   capped?: boolean;
   expanded?: SearchPage["expanded"];
@@ -29,6 +32,11 @@ export function JobResults({
         <p className="mt-2 text-sm text-muted-foreground">
           Try a broader title, another location, or fewer filters.
         </p>
+        {firstHref && (
+          <Button asChild variant="outline" className="mt-4">
+            <a href={firstHref}>Back to the first page</a>
+          </Button>
+        )}
       </div>
     );
   }
