@@ -27,8 +27,12 @@ API host answers public reads. A short run of 503 "Database busy" right after a 
 
 Schema changes: edit `packages/db/src/schema.ts`, run `pnpm --filter @tallo/db exec drizzle-kit generate`, never edit
 generated SQL (FTS is a custom migration). Migrations are forward-only and applied before the API is deployed, so write
-them additive (new column or index) and make the old code tolerate them. The API's config is `apps/api/wrangler.jsonc`
-only; `wrangler d1 migrations list tallo --remote` shows what is pending.
+them additive (new column or index) and make the old code tolerate them. `wrangler d1 migrations list tallo --remote` shows what is pending.
+
+The API deploys with `cf deploy` from `apps/api/cloudflare.config.ts`. The Worker was created that way and `wrangler deploy`
+refuses it ("last deployed using the declarative `exports` flow"). `apps/api/wrangler.jsonc` mirrors the config for local
+development and `wrangler d1`; `apps/api/test/config.test.ts` fails if the two disagree. A leftover `apps/api/.cloudflare/`
+makes `wrangler deploy` refuse, which is one more reason not to use it.
 
 ## Public API
 
@@ -61,7 +65,7 @@ curl -H "authorization: Bearer $TALLO_INGEST_TOKEN" https://tallo-api.nandan.fyi
 ```
 
 It reports `dueNow`, `inFlight` and the last 24 hours. Healthy: `dueNow` near zero and falling after the first pass.
-- Settings (`apps/api/wrangler.jsonc`): `COLLECT_ENABLED` (kill switch: `"0"` and deploy), `COLLECT_BATCH` (boards claimed per
+- Settings (`cloudflare.config.ts` and `wrangler.jsonc`, kept equal by a test): `COLLECT_ENABLED` (kill switch: `"0"` and deploy), `COLLECT_BATCH` (boards claimed per
   tick, 40), `COLLECT_SLICE_SUBREQUESTS`, `COLLECT_SLICE_MS`, consumer `max_concurrency` (8). A weekly pass of ~9k boards needs
   only about 4 boards a tick, so raise concurrency only for a catch-up and put it back.
 - Dead letters: after 2 retries a message goes to `tallo-collect-dlq`. Nothing consumes it. The hourly cron reaps runs left

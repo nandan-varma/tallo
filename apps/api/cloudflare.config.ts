@@ -1,0 +1,58 @@
+import { bindings, defineConfig, exports, triggers } from "cf/config";
+
+// What `cf deploy` ships. wrangler.jsonc mirrors it for local development and `wrangler d1`; config.test.ts fails when they differ.
+export default defineConfig({
+  worker: {
+    name: "tallo-api",
+    compatibilityDate: "2026-10-01",
+    compatibilityFlags: ["nodejs_compat"],
+    entrypoint: "src/index.ts",
+    observability: {
+      enabled: true,
+    },
+    limits: {
+      cpuMs: 120000,
+    },
+    domains: ["tallo-api.nandan.fyi"],
+    triggers: [
+      triggers.scheduled({
+        schedule: "*/5 * * * *",
+      }),
+      triggers.scheduled({
+        schedule: "17 * * * *",
+      }),
+      triggers.queue({
+        name: "tallo-collect",
+        deadLetterQueue: "tallo-collect-dlq",
+        maxBatchSize: 1,
+        maxBatchTimeout: 0,
+        maxConcurrency: 8,
+        maxRetries: 2,
+      }),
+    ],
+    exports: {
+      HostGate: exports.durableObject({ storage: "sqlite" }),
+    },
+    env: {
+      DB: bindings.d1({
+        name: "tallo",
+        id: "001b036c-2e15-45c8-9284-edb9d374b849",
+      }),
+      BLOBS: bindings.r2({
+        name: "tallo-blobs",
+      }),
+      COLLECT: bindings.queue({
+        name: "tallo-collect",
+      }),
+      HOST_GATE: bindings.durableObject({
+        worker: "tallo-api",
+        exportName: "HostGate",
+      }),
+      READS_BLOCKED_HOST: bindings.text("tallo-api.nandan.fyi"),
+      COLLECT_ENABLED: bindings.text("1"),
+      COLLECT_BATCH: bindings.text("40"),
+      COLLECT_SLICE_SUBREQUESTS: bindings.text("800"),
+      COLLECT_SLICE_MS: bindings.text("300000"),
+    },
+  },
+});
