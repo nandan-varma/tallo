@@ -4,16 +4,16 @@ Sources are trusted configuration: `sources/<platform>.json`, an array of
 `{ "key": "...", "company": "...", "params": { ... } }`. The platform comes from the file name; the source id
 is `<platform>:<key>`.
 
-| Platform        | key                                        | params                                                                   |
-| --------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
-| greenhouse      | board token (`boards.greenhouse.io/<key>`) | `region: "eu"` for the EU host                                           |
-| lever           | company slug (`jobs.lever.co/<key>`)       | `region: "eu"`                                                           |
-| ashby           | board name (`jobs.ashbyhq.com/<key>`)      | none                                                                     |
-| smartrecruiters | company identifier                         | none                                                                     |
-| workday         | `tenant/site`                              | `wd` (e.g. `wd5`), from `https://<tenant>.<wd>.myworkdayjobs.com/<site>` |
-| radancy         | site host (`www.att.jobs`, `jobs.walgreens.com`) | `sitemapPath` when not `/sitemap.xml`                         |
-| google          | `careers` (one board per company site)     | none                                                                     |
-| apple           | `careers` (one board per company site)     | none                                                                     |
+| Platform        | key                                              | params                                                                   |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| greenhouse      | board token (`boards.greenhouse.io/<key>`)       | `region: "eu"` for the EU host                                           |
+| lever           | company slug (`jobs.lever.co/<key>`)             | `region: "eu"`                                                           |
+| ashby           | board name (`jobs.ashbyhq.com/<key>`)            | none                                                                     |
+| smartrecruiters | company identifier                               | none                                                                     |
+| workday         | `tenant/site`                                    | `wd` (e.g. `wd5`), from `https://<tenant>.<wd>.myworkdayjobs.com/<site>` |
+| radancy         | site host (`www.att.jobs`, `jobs.walgreens.com`) | `sitemapPath` when not `/sitemap.xml`                                    |
+| google          | `careers` (one board per company site)           | none                                                                     |
+| apple           | `careers` (one board per company site)           | none                                                                     |
 
 ## For an exploration agent (given a list of careers URLs)
 
