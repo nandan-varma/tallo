@@ -3,6 +3,7 @@ import { dedupeKey, GunzipLimitError, gunzip, sha256 } from "@tallo/catalog";
 import {
   blobCheckSchema,
   createRunSchema,
+  diffOrFinishSchema,
   diffSchema,
   finalizeSchema,
   jobsBatchSchema,
@@ -13,6 +14,7 @@ import {
   backfillDedupeKeys,
   type Db,
   diff,
+  diffOrFinish,
   finalize,
   jdKey,
   listRuns,
@@ -87,6 +89,17 @@ export function ingestRoutes({
 
   routes.post("/v1/runs/:id/diff", write, zValidator("json", diffSchema), async (c) =>
     c.json({ changed: await diff(db, c.req.param("id"), c.req.valid("json").postings) }),
+  );
+
+  /** `diff`, plus the finalize when nothing changed: one call for an unchanged board. */
+  routes.post(
+    "/v1/runs/:id/diff-or-finish",
+    write,
+    zValidator("json", diffOrFinishSchema),
+    async (c) => {
+      const { postings, finish } = c.req.valid("json");
+      return c.json(await diffOrFinish(db, c.req.param("id"), postings, finish));
+    },
   );
 
   routes.post("/v1/blobs/check", write, zValidator("json", blobCheckSchema), async (c) => {

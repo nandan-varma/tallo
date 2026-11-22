@@ -3,11 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Outcome, Timings } from "@tallo/collect";
 import type { SourceConfig } from "@tallo/contracts";
+import { createHostLimiter, podKey } from "@tallo/http";
 import { afterEach, describe, expect, it } from "vitest";
 import { estimateCost, guardedFetch, planSweep } from "../src/sweep/board.ts";
 import { classifyError, classifyOutcome } from "../src/sweep/classify.ts";
 import { type RunBoard, Sweep, sweepPaths, type Timing } from "../src/sweep/controller.ts";
-import { Lane, TUNING, type Tuning } from "../src/sweep/lane.ts";
+import { boardGroup, Lane, TUNING, type Tuning } from "../src/sweep/lane.ts";
 import { formatStatus, setControl } from "../src/sweep/report.ts";
 import { type LaneDef, readEdits } from "../src/sweep/settings.ts";
 import { bottleneckMessage, LaneTimings, sharesLine } from "../src/sweep/timing.ts";
@@ -22,7 +23,15 @@ const board = (platform: string, key: string): SourceConfig => ({
 const def = (name: string, concurrency: number, gapMs = 0): LaneDef => ({
   name,
   platforms: [name],
-  settings: { concurrency, ceiling: concurrency, perHost: 2, gapMs, paused: false, enabled: true },
+  settings: {
+    concurrency,
+    ceiling: concurrency,
+    perHost: 2,
+    perHostCeiling: 4,
+    gapMs,
+    paused: false,
+    enabled: true,
+  },
 });
 const outcome = (over: Partial<Outcome> = {}): Outcome =>
   ({
@@ -48,6 +57,8 @@ const fast: Timing = {
   recoverMs: 50,
   latencySpikeMs: 15_000,
   bottleneckMs: 60,
+  learnedSaveMs: 30,
+  learnedMaxAgeMs: 7 * 24 * 3_600_000,
 };
 const tuning: Tuning = { ...TUNING, deferBaseMs: 40, deferCapMs: 200, decreaseWindowMs: 10 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -137,6 +148,166 @@ describe("AIMD", () => {
   });
 });
 
+describe("adaptive perHost", () => {
+  const tune: Tuning = { ...tuning, perHostCleanRequests: 3, perHostHoldMs: 1000 };
+  const mk = (perHost = 2, ceiling = 4) => {
+    const d = def("ashby", 2);
+    d.settings.perHost = perHost;
+    d.settings.perHostCeiling = ceiling;
+    d.floors = { slow: { perHost: 1 } };
+    const events: string[] = [];
+    return { events, lane: new Lane(d, [], tune, (m) => events.push(m)) };
+  };
+  const clean = (l: Lane, n: number, at: number) => {
+    for (let i = 0; i < n; i++) l.observe(200, undefined, at);
+  };
+
+  it("climbs while clean and stops at the ceiling", () => {
+    const { lane: l } = mk();
+    clean(l, 3, 1000);
+    expect(l.settings.perHost).toBe(3);
+    clean(l, 3, 1001);
+    expect(l.settings.perHost).toBe(4);
+    clean(l, 30, 1002);
+    expect(l.settings.perHost).toBe(4);
+    expect(l.perHostWhy).toContain("clean requests");
+  });
+
+  it("halves on a 429, holds down, then probes below the value that failed", () => {
+    const { lane: l } = mk(4, 6);
+    l.observe(429, undefined, 5000);
+    expect(l.settings.perHost).toBe(2);
+    expect(l.perHostWhy).toContain("429");
+    clean(l, 10, 5500);
+    expect(l.settings.perHost).toBe(2);
+    clean(l, 3, 6100);
+    expect(l.settings.perHost).toBe(3);
+    clean(l, 30, 6200);
+    expect(l.settings.perHost).toBe(3);
+  });
+
+  it("never drops below 1 and detailConcurrency follows perHost, capped at 8 and by the platform floor", () => {
+    const { lane: l } = mk(1, 12);
+    l.observe(429, undefined, 100);
+    expect(l.settings.perHost).toBe(1);
+    expect(l.detailConcurrency("ashby")).toBe(1);
+    l.setPerHost(12);
+    expect(l.detailConcurrency("ashby")).toBe(8);
+    expect(l.detailConcurrency("slow")).toBe(1);
+  });
+
+  it("an edit to perHostCeiling is validated and clamps perHost", () => {
+    expect(readEdits({ lanes: { ashby: { perHostCeiling: 0 } } }, ["ashby"]).errors).toHaveLength(
+      1,
+    );
+    const { lane: l } = mk(4, 6);
+    l.setPerHostCeiling(2);
+    expect(l.settings.perHost).toBe(2);
+  });
+
+  it("round-trips learned.json, and ignores it when stale", async () => {
+    const run = async (now: number, seed?: object) => {
+      const lanes = [def("ashby", 1)];
+      lanes[0]!.settings.perHostCeiling = 6;
+      const s = new Sweep({
+        lanes,
+        work: new Map([["ashby", [board("ashby", "a")]]]),
+        runBoard: async (_src, lane) => {
+          lane.observe(429, undefined, now);
+          return ok;
+        },
+        paths: sweepPaths(dir),
+        tuning: tune,
+        timing: fast,
+        now: () => now,
+        random: () => 0.5,
+      });
+      void seed;
+      await s.run();
+      return s;
+    };
+    dir = mkdtempSync(join(tmpdir(), "sweep-"));
+    const t = Date.now();
+    const first = await run(t);
+    expect(first.lanes[0]!.learned).toBe(false);
+    const saved = JSON.parse(readFileSync(sweepPaths(dir).learned, "utf8"));
+    expect(saved.lanes.ashby.perHost).toBe(1);
+    expect(saved.lanes.ashby.perHostBad).toBe(2);
+    const second = await run(t + 60_000);
+    expect(second.lanes[0]!.learned).toBe(true);
+    expect(second.status().lanes.ashby!.learned).toBe(true);
+    const stale = await run(t + 8 * 24 * 3_600_000);
+    expect(stale.lanes[0]!.learned).toBe(false);
+  });
+});
+
+describe("pods", () => {
+  const wd = (key: string, pod: string): SourceConfig => ({
+    id: `workday:${key}`,
+    platform: "workday",
+    key,
+    company: key,
+    params: { wd: pod },
+  });
+  const podLane = (boards: SourceConfig[], perHost = 1) => {
+    const d = def("workday", 4);
+    d.platforms = ["workday"];
+    d.multiHost = true;
+    d.settings.perHost = perHost;
+    return new Lane(d, boards, { ...tuning, perHostCleanRequests: 3 }, () => {});
+  };
+
+  it("keys tenants of one pod together and leaves other hosts alone", () => {
+    expect(podKey("lennar.wd1.myworkdayjobs.com")).toBe("wd1.myworkdayjobs.com");
+    expect(podKey("jll.wd1.myworkdayjobs.com")).toBe("wd1.myworkdayjobs.com");
+    expect(podKey("x.wd501.myworkdayjobs.com")).toBe("wd501.myworkdayjobs.com");
+    expect(podKey("eeho.fa.us2.oraclecloud.com")).toBe("fa.us2.oraclecloud.com");
+    expect(podKey("jpmc.fa.oraclecloud.com")).toBe("fa.oraclecloud.com");
+    expect(podKey("boards.greenhouse.io")).toBe("boards.greenhouse.io");
+    expect(boardGroup(wd("jll/x", "wd1"))).toBe("wd1.myworkdayjobs.com");
+  });
+
+  it("the limiter shares one queue per pod", async () => {
+    const limiter = createHostLimiter({ perHostConcurrency: 1, hostKey: podKey });
+    let running = 0;
+    let peak = 0;
+    const task = async () => {
+      peak = Math.max(peak, ++running);
+      await sleep(5);
+      running--;
+    };
+    await Promise.all(
+      ["a.wd1.myworkdayjobs.com", "b.wd1.myworkdayjobs.com", "c.wd1.myworkdayjobs.com"].map((h) =>
+        limiter.run(h, task),
+      ),
+    );
+    expect(peak).toBe(1);
+  });
+
+  it("skips boards of a full pod and takes one from another pod", () => {
+    const l = podLane([wd("a/x", "wd1"), wd("b/x", "wd1"), wd("c/x", "wd5")]);
+    const first = l.take(0)!;
+    l.inFlight.set(first.source.id, 0);
+    const second = l.take(0)!;
+    expect(first.source.key).toBe("a/x");
+    expect(second.source.key).toBe("c/x");
+    l.inFlight.set(second.source.id, 0);
+    expect(l.take(0)).toBeUndefined();
+    l.inFlight.delete(first.source.id);
+    expect(l.take(0)!.source.key).toBe("b/x");
+  });
+
+  it("a 429 on one pod halves that pod only, and the status lists it", () => {
+    const l = podLane([], 4);
+    l.observe(429, undefined, 1000, "jll.wd1.myworkdayjobs.com");
+    const pods = l.pods();
+    expect(pods["wd1.myworkdayjobs.com"]).toMatchObject({ perHost: 2, r429: 1 });
+    expect(l.settings.perHost).toBe(4);
+    for (let i = 0; i < 3; i++) l.observe(200, undefined, 2000, "x.wd1.myworkdayjobs.com");
+    expect(l.pods()["wd1.myworkdayjobs.com"]!.perHost).toBe(3);
+  });
+});
+
 describe("per-host 429", () => {
   const multi = (concurrency: number): LaneDef => ({
     ...def("workday", concurrency),
@@ -156,7 +327,7 @@ describe("per-host 429", () => {
     expect(lane.settings.concurrency).toBe(6);
     expect(lane.settings.gapMs).toBe(0);
     expect(lane.hostSlowdown()).toEqual({ slowed: 1, worstGapMs: 2000 });
-    expect(events).toEqual([`workday: ${A} 429, host gap 0 -> 2000 ms`]);
+    expect(events).toEqual([`workday: wd5.myworkdayjobs.com 429, host gap 0 -> 2000 ms`]);
     lane.on429(undefined, 20_000, A);
     expect(lane.hostSlowdown().worstGapMs).toBe(4000);
   });

@@ -84,6 +84,31 @@ describe("api", () => {
     ).toBe(404);
   });
 
+  it("diff-or-finish: finalizes in the same call when nothing changed, and needs the token", async () => {
+    const { call } = setup();
+    const runId = "run-00000009";
+    await call("/v1/runs", INGEST, {
+      method: "POST",
+      json: { runId, source, runnerId: "mac", collectorVersion: "t", startedAt: now() },
+    });
+    const finish = {
+      listingComplete: true,
+      detailsComplete: true,
+      emptyIsAuthoritative: true,
+      requests: 1,
+      finishedAt: now(),
+      issues: [],
+    };
+    const route = `/v1/runs/${runId}/diff-or-finish`;
+    expect(
+      (await call(route, null, { method: "POST", json: { postings: [], finish } })).status,
+    ).toBe(401);
+    const body = await (
+      await call(route, INGEST, { method: "POST", json: { postings: [], finish } })
+    ).json();
+    expect(body).toMatchObject({ changed: [], finalized: { status: "complete" } });
+  });
+
   it("runs a full ingest round trip and serves the job with its description", async () => {
     const { call } = setup();
     const runId = "run-00000001";
@@ -491,5 +516,16 @@ describe("ingest body limits", () => {
     expect(res.status).toBe(413);
     const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, runId));
     expect(row).toMatchObject({ rawKey: null });
+  });
+});
+
+describe("POST /v1/admin/runs/abandon", () => {
+  it("needs the ingest token and answers with how many runs it released", async () => {
+    const { call } = setup();
+    const body = { json: { sources: ["greenhouse:x"] }, method: "POST" };
+    expect((await call("/v1/admin/runs/abandon", null, body)).status).toBe(401);
+    const released = await call("/v1/admin/runs/abandon", INGEST, body);
+    expect(released.status).toBe(200);
+    expect(await released.json()).toEqual({ abandoned: 0 });
   });
 });

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   applyJobs,
   diff,
+  diffOrFinish,
   finalize,
   jdKey,
   listSources,
@@ -180,6 +181,60 @@ describe("ingest", () => {
       "Software Engineer 2": null,
       "Software Engineer 3": null,
     });
+  });
+});
+
+describe("diffOrFinish", () => {
+  const { seenIds: _s, rawKey: _r, ...finish } = fin([]);
+  const row = async (id: string) =>
+    (await db.select().from(schema.runs).where(eq(schema.runs.id, id)))[0]!;
+
+  it("returns the diff alone while postings changed: the run stays open", async () => {
+    const run = await start();
+    const result = await diffOrFinish(db, run, [{ id: "1", hash: "a".repeat(64) }], finish);
+    expect(result).toEqual({ changed: ["1"] });
+    expect((await row(run)).status).toBe("running");
+  });
+
+  it("finalizes exactly like finalize when nothing changed, and a replay is idempotent", async () => {
+    const first = await start();
+    await ingest(first, [mapped("1")], "a".repeat(64));
+    await finalize(db, first, fin(["1"]));
+    const run = await start(T + 2000);
+    const posting = [{ id: "1", hash: "a".repeat(64) }];
+    const result = await diffOrFinish(db, run, posting, finish, T + 2000);
+    expect(result.changed).toEqual([]);
+    expect(result.finalized).toMatchObject({ status: "complete", closed: 0 });
+    expect((await row(run)).status).toBe("complete");
+    expect(await diffOrFinish(db, run, posting, finish, T + 2000)).toEqual(result);
+  });
+
+  it("a partial listing never closes through it", async () => {
+    const first = await start();
+    await ingest(first, [mapped("1"), mapped("2")], "a".repeat(64));
+    await finalize(db, first, fin(["1", "2"]));
+    for (const now of [T + 2000, T + 3000, T + 4000]) {
+      const run = await start(now);
+      const result = await diffOrFinish(
+        db,
+        run,
+        [{ id: "1", hash: "a".repeat(64) }],
+        { ...finish, listingComplete: false },
+        now,
+      );
+      expect(result.finalized).toMatchObject({ status: "partial", closureApplied: false });
+    }
+    expect((await searchJobs(db, { limit: 50 })).jobs).toHaveLength(2);
+  });
+
+  it("still closes after consecutive complete absences, as finalize does", async () => {
+    const first = await start();
+    await ingest(first, [mapped("1"), mapped("2")], "a".repeat(64));
+    await finalize(db, first, fin(["1", "2"]));
+    const posting = [{ id: "1", hash: "a".repeat(64) }];
+    const a = await diffOrFinish(db, await start(T + 2000), posting, finish, T + 2000);
+    const b = await diffOrFinish(db, await start(T + 3000), posting, finish, T + 3000);
+    expect([a.finalized?.closed, b.finalized?.closed]).toEqual([0, 1]);
   });
 });
 
@@ -416,6 +471,29 @@ describe("getJob", () => {
 });
 
 describe("stuck runs", () => {
+  it("abandons a named board's running run at once, and leaves other boards' runs alone", async () => {
+    const mine = await start(T + 1000);
+    const other = "other-run";
+    await startRun(
+      db,
+      {
+        runId: other,
+        runnerId: "r",
+        collectorVersion: "t",
+        startedAt: T + 1000,
+        source: { ...source, id: "greenhouse:other", key: "other", company: "Other" },
+      },
+      T + 1000,
+    );
+    // Not past the lease, so the hourly reaper would not touch either run; the operator names one board.
+    expect(await reapStaleRuns(db, T + 1100)).toBe(0);
+    expect(await reapStaleRuns(db, T + 1100, { sources: [source.id], leaseSeconds: 0 })).toBe(1);
+    const [row] = await db.select().from(schema.runs).where(eq(schema.runs.id, mine));
+    expect(row).toMatchObject({ status: "partial", closed: null });
+    const [still] = await db.select().from(schema.runs).where(eq(schema.runs.id, other));
+    expect(still?.status).toBe("running");
+  });
+
   it("marks a run left running past the lease as partial, and closes nothing", async () => {
     const first = await start(T + 1000);
     await ingest(first, [mapped("1"), mapped("2")]);

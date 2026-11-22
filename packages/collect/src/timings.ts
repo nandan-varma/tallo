@@ -85,7 +85,7 @@ export function meterIngest(ingest: Ingest, m: TimingMeter): Ingest {
       m.ingestCalls++;
       return timed(m, key, () => fn(...args));
     };
-  return {
+  const metered: Ingest = {
     startRun: wrap("diffMs", (run) => ingest.startRun(run)),
     diff: wrap("diffMs", (r, p) => ingest.diff(r, p)),
     missingBlobs: wrap("uploadMs", (h) => ingest.missingBlobs(h)),
@@ -94,6 +94,10 @@ export function meterIngest(ingest: Ingest, m: TimingMeter): Ingest {
     putRaw: wrap("uploadMs", (r, gz) => ingest.putRaw(r, gz)),
     finalize: wrap("finalizeMs", (r, b) => ingest.finalize(r, b)),
   };
+  // Optional on Ingest: keep it only when the caller has it, so the engine's combined-diff path stays reachable.
+  if (ingest.diffOrFinish)
+    metered.diffOrFinish = wrap("diffMs", (r, p, f) => ingest.diffOrFinish!(r, p, f));
+  return metered;
 }
 
 export function meterCpu(cpu: Cpu, m: TimingMeter): Cpu {

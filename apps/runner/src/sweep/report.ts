@@ -23,11 +23,11 @@ export function formatStatus(status: SweepStatus, events: string[], now = Date.n
     `sweep ${status.state}  elapsed ${clock(status.elapsedSec)}  in-flight ${g.inFlight}/${g.capacity} (max ${g.maxInFlight})${g.paused ? "  PAUSED" : ""}${g.stop ? "  STOPPING" : ""}${stale}`,
     `cost  ~${short(c.rowsWritten)} D1 rows of ${short(c.budget)} (${c.budgetUsedPct}%)${c.budgetHeld ? " HELD" : ""}  ${short(c.rowsPerMin)} rows/min  ${short(c.r2Puts)} R2 puts  ingest ${g.ingestLatencyMs} ms`,
     "",
-    `${pad("lane", 16)}${pad("state", 11)}${pad("due", 6, true)}${pad("done", 6, true)}${pad("perm", 5, true)}${pad("stuck", 6, true)}${pad("defer", 6, true)}${pad("run", 4, true)}${pad("conc", 6, true)}${pad("gap", 7, true)}${pad("429", 5, true)}${pad("b/min", 7, true)}${pad("req/min", 8, true)}${pad("eta", 7, true)}`,
+    `${pad("lane", 16)}${pad("state", 11)}${pad("due", 6, true)}${pad("done", 6, true)}${pad("perm", 5, true)}${pad("stuck", 6, true)}${pad("defer", 6, true)}${pad("run", 4, true)}${pad("conc", 6, true)}${pad("perHost", 8, true)}${pad("gap", 7, true)}${pad("429", 5, true)}${pad("b/min", 7, true)}${pad("req/min", 8, true)}${pad("eta", 7, true)}`,
   ];
   for (const [name, l] of Object.entries(status.lanes)) {
     lines.push(
-      `${pad(name, 16)}${pad(l.state, 11)}${pad(l.due, 6, true)}${pad(l.done, 6, true)}${pad(l.failedPermanent, 5, true)}${pad(l.stuck, 6, true)}${pad(l.deferred, 6, true)}${pad(l.inFlight.length, 4, true)}${pad(`${l.concurrency}/${l.ceiling}`, 6, true)}${pad(l.gapMs, 7, true)}${pad(l.r429, 5, true)}${pad(l.boardsPerMin, 7, true)}${pad(Math.round(l.requestsPerMin), 8, true)}${pad(l.etaMin === null ? "-" : `${l.etaMin}m`, 7, true)}`,
+      `${pad(name, 16)}${pad(l.state, 11)}${pad(l.due, 6, true)}${pad(l.done, 6, true)}${pad(l.failedPermanent, 5, true)}${pad(l.stuck, 6, true)}${pad(l.deferred, 6, true)}${pad(l.inFlight.length, 4, true)}${pad(`${l.concurrency}/${l.ceiling}`, 6, true)}${pad(`${l.perHost}/${l.perHostCeiling}`, 8, true)}${pad(l.gapMs, 7, true)}${pad(l.r429, 5, true)}${pad(l.boardsPerMin, 7, true)}${pad(Math.round(l.requestsPerMin), 8, true)}${pad(l.etaMin === null ? "-" : `${l.etaMin}m`, 7, true)}`,
     );
   }
   const extra: string[] = [];
@@ -38,6 +38,13 @@ export function formatStatus(status: SweepStatus, events: string[], now = Date.n
       extra.push(`${name}: ${b.id} running ${b.runningSec}s`);
     if (l.hostsSlowed > 0)
       extra.push(`${name}: ${l.hostsSlowed} hosts slowed, worst host gap ${l.worstHostGapMs} ms`);
+    extra.push(
+      `${name}: perHost ${l.perHost}/${l.perHostCeiling}: ${l.perHostWhy}${l.learned ? " (learned)" : ""}`,
+    );
+    for (const [pod, x] of Object.entries(l.pods))
+      extra.push(
+        `${name}: pod ${pod} in-flight ${x.inFlight} perHost ${x.perHost} gap ${x.gapMs} ms 429 ${x.r429}`,
+      );
     if (l.errors[0]) extra.push(`${name}: last error ${l.errors[0]}`);
   }
   const where = Object.entries(status.lanes)

@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import type { Outcome } from "@tallo/collect";
 import type { SourceConfig } from "@tallo/contracts";
 import { classifyError, classifyOutcome, type Verdict } from "./classify.ts";
-import { Lane, TUNING, type Tuning } from "./lane.ts";
+import { Lane, type LearnedLane, TUNING, type Tuning } from "./lane.ts";
 import { DEFAULT_BUDGET, DEFAULT_GLOBAL, type Edit, type LaneDef, readEdits } from "./settings.ts";
 import { bottleneckMessage, LaneTimings } from "./timing.ts";
 
@@ -23,11 +23,13 @@ export interface SweepPaths {
   control: string;
   status: string;
   events: string;
+  learned: string;
 }
 export const sweepPaths = (dir: string, control?: string): SweepPaths => ({
   control: control ?? join(dir, "control.json"),
   status: join(dir, "status.json"),
   events: join(dir, "events.jsonl"),
+  learned: join(dir, "learned.json"),
 });
 
 export interface Timing {
@@ -42,6 +44,10 @@ export interface Timing {
   latencySpikeMs: number;
   /** How often each lane's dominant time sink is named in an event. */
   bottleneckMs: number;
+  /** How often learned limits are written. */
+  learnedSaveMs: number;
+  /** Learned limits older than this are ignored. */
+  learnedMaxAgeMs: number;
 }
 export const TIMING: Timing = {
   tickMs: 250,
@@ -51,6 +57,8 @@ export const TIMING: Timing = {
   recoverMs: 20_000,
   latencySpikeMs: 15_000,
   bottleneckMs: 5 * 60_000,
+  learnedSaveMs: 60_000,
+  learnedMaxAgeMs: 7 * 24 * 3_600_000,
 };
 
 export interface SweepOptions {
@@ -101,6 +109,8 @@ export class Sweep {
   private lastBottleneckAt = 0;
   private lastStatusAt = 0;
   private lastControlAt = 0;
+  private lastLearnedAt = 0;
+  private learnedFile: Record<string, LearnedLane> = {};
   private resolveDone?: (reason: "finished" | "stopped") => void;
   private timer?: ReturnType<typeof setInterval>;
   private state: "running" | "draining" | "finished" | "stopped" = "running";
@@ -151,6 +161,7 @@ export class Sweep {
   /** Runs until every lane is done, or a stop drains it. */
   run(): Promise<"finished" | "stopped"> {
     this.event(`sweep started: ${this.lanes.map((l) => `${l.name} ${l.due}`).join(", ")}`);
+    this.loadLearned();
     this.readControl(true);
     return new Promise((resolve) => {
       this.resolveDone = resolve;
@@ -191,6 +202,7 @@ export class Sweep {
       this.lanes.every((l) => !l.settings.enabled || l.finished) ||
       (this.stopping && this.inFlight() === 0);
     if (now - this.lastStatusAt >= this.timing.statusMs || over) this.writeStatus();
+    if (now - this.lastLearnedAt >= this.timing.learnedSaveMs || over) this.saveLearned();
     if (over) {
       if (this.timer) clearInterval(this.timer);
       this.state = this.stopping ? "stopped" : "finished";
@@ -217,6 +229,47 @@ export class Sweep {
         this.start(lane, next.source, next.attempts);
         started = true;
       }
+    }
+  }
+
+  /** Start each lane from what earlier sweeps learned, unless that is older than the cap. */
+  private loadLearned(): void {
+    const now = this.now();
+    let raw: unknown;
+    try {
+      raw = JSON.parse(readFileSync(this.opts.paths.learned, "utf8"));
+    } catch {
+      return;
+    }
+    const lanes = (raw as { lanes?: Record<string, LearnedLane> } | null)?.lanes;
+    if (!lanes || typeof lanes !== "object") return;
+    for (const lane of this.lanes) {
+      const l = lanes[lane.name];
+      if (!l || typeof l.at !== "number" || typeof l.perHost !== "number") continue;
+      if (now - l.at > this.timing.learnedMaxAgeMs) continue;
+      this.learnedFile[lane.name] = l;
+      lane.applyLearned({ ...l, hosts: l.hosts ?? {}, gapMs: l.gapMs ?? 0 }, now);
+      this.event(
+        `${lane.name}: starting from learned perHost ${lane.settings.perHost}, gap ${lane.settings.gapMs} ms`,
+      );
+    }
+  }
+
+  /** Write what the lanes learned; a lane that did not run keeps its earlier entry. */
+  private saveLearned(): void {
+    const now = this.now();
+    this.lastLearnedAt = now;
+    for (const lane of this.lanes) {
+      const snap = lane.snapshot(now);
+      if (snap) this.learnedFile[lane.name] = snap;
+    }
+    try {
+      mkdirSync(dirname(this.opts.paths.learned), { recursive: true });
+      const tmp = `${this.opts.paths.learned}.tmp`;
+      writeFileSync(tmp, JSON.stringify({ savedAt: now, lanes: this.learnedFile }, null, 2));
+      renameSync(tmp, this.opts.paths.learned);
+    } catch {
+      // Reporting must never stop a sweep.
     }
   }
 
@@ -420,10 +473,9 @@ export class Sweep {
       if (key === "concurrency") lane.setConcurrency(edit.value as number);
       else if (key === "ceiling") lane.setCeiling(edit.value as number);
       else if (key === "gapMs") lane.setGap(edit.value as number);
-      else {
-        Object.assign(lane.settings, { [key]: edit.value });
-        if (key === "perHost") lane.applyLimits();
-      }
+      else if (key === "perHost") lane.setPerHost(edit.value as number);
+      else if (key === "perHostCeiling") lane.setPerHostCeiling(edit.value as number);
+      else Object.assign(lane.settings, { [key]: edit.value });
       this.event(`control: ${where}.${key} ${old} -> ${lane.settings[key]}`);
     }
   }
@@ -473,7 +525,11 @@ export class Sweep {
             concurrency: s.concurrency,
             ceiling: s.ceiling,
             perHost: s.perHost,
+            perHostCeiling: s.perHostCeiling,
+            perHostWhy: l.perHostWhy,
+            learned: l.learned,
             gapMs: s.gapMs,
+            pods: l.pods(),
             hostsSlowed: l.hostSlowdown().slowed,
             worstHostGapMs: l.hostSlowdown().worstGapMs,
             boardsPerMin: round(rate.boardsPerMin),

@@ -32,6 +32,15 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
         .post(`v1/runs/${runId}/diff`, { json: { postings } })
         .json<{ changed: string[] }>()
         .then((r) => r.changed),
+    /** Diff; when nothing changed the server also finalizes with `finish` and says so. */
+    diffOrFinish: (
+      runId: string,
+      postings: { id: string; hash: string }[],
+      finish: Omit<Finalize, "seenIds" | "rawKey">,
+    ) =>
+      client
+        .post(`v1/runs/${runId}/diff-or-finish`, { json: { postings, finish } })
+        .json<{ changed: string[]; finalized?: FinalizeResult }>(),
     /** The server caps a check at 1000 hashes, so ask in chunks. */
     missingBlobs: async (hashes: string[]) => {
       const missing: string[] = [];
@@ -74,6 +83,8 @@ export function createApi(baseUrl: string, token: string, fetchImpl?: typeof fet
     reviveSources: (sources: string[]) =>
       client.post("v1/admin/sources/revive", { json: { sources } }).json<{ revived: string[] }>(),
     /** Retire reviewed boards; `dryRun` is explicit so a preview can never delete. */
+    abandonRuns: (sources: string[]) =>
+      client.post("v1/admin/runs/abandon", { json: { sources } }).json<{ abandoned: number }>(),
     retireSources: (sources: string[], dryRun: boolean) =>
       client.post("v1/admin/sources/retire", { json: { sources, dryRun } }).json<RetireResult>(),
     collectStatus: () => client.get("v1/admin/collect/status").json<unknown>(),

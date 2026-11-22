@@ -136,7 +136,8 @@ describe("timings", () => {
     expect(t.diffMs).toBeGreaterThanOrEqual(24);
     expect(t.finalizeMs).toBeGreaterThanOrEqual(9);
     expect(t.uploadMs).toBeGreaterThanOrEqual(14);
-    expect(t.ingestCalls).toBeGreaterThanOrEqual(6);
+    // start, diff, jobs, raw, finalize: no blob check (204 applies first and only checks missing descriptions).
+    expect(t.ingestCalls).toBeGreaterThanOrEqual(5);
     expect(t.bytesIn).toBeGreaterThan(0);
     const parts = t.listMs + t.diffMs + t.detailMs + t.cpuMs + t.uploadMs + t.finalizeMs;
     expect(parts).toBeLessThanOrEqual(wall + 5);

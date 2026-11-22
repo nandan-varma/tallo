@@ -33,6 +33,15 @@ import {
 export interface Ingest {
   startRun(run: CreateRun): Promise<StartedRun>;
   diff(runId: string, postings: { id: string; hash: string }[]): Promise<string[]>;
+  /**
+   * Diff, and when no posting changed also finalize with `finish` (as `finalize` would, plus the diffed ids
+   * as `seenIds`, no raw pack). Optional: without it the engine diffs and finalizes in two calls.
+   */
+  diffOrFinish?(
+    runId: string,
+    postings: { id: string; hash: string }[],
+    finish: Omit<Finalize, "seenIds" | "rawKey">,
+  ): Promise<{ changed: string[]; finalized?: FinalizeResult }>;
   missingBlobs(hashes: string[]): Promise<string[]>;
   putJd(hash: string, gz: Uint8Array): Promise<unknown>;
   applyJobs(
@@ -141,6 +150,9 @@ export const emptyProgress = (): Progress => ({
  * platform `map` or catalog rule must re-fetch everything (CLAUDE.md rule 7), so the versions are
  * part of it. A validator from other versions is simply not sent.
  */
+/** The most postings the diff routes take (the wire schema caps a diff body). */
+const DIFF_MAX = 50_000;
+
 const validatorTag = (platform: { version: number }) => `${platform.version}.${PREPARE_VERSION}|`;
 const rawValidator = (stored: string | null, platform: { version: number }) =>
   stored?.startsWith(validatorTag(platform))
@@ -327,12 +339,33 @@ export async function begin(
   );
   for (const [c, chunk] of chunks.entries())
     for (const [i, posting] of chunk.entries()) hashes.set(posting.id, hashed[c]![i]!);
-  const changedIds = new Set(
-    await ingest.diff(
-      runId,
-      listed.map((p) => ({ id: p.id, hash: hashes.get(p.id)! })),
-    ),
-  );
+  const postings = listed.map((p) => ({ id: p.id, hash: hashes.get(p.id)! }));
+  const finish = {
+    listingComplete: listing.complete,
+    // No posting is fetched when nothing changed, so there is no detail to have failed.
+    detailsComplete: true,
+    emptyIsAuthoritative: listing.emptyIsAuthoritative,
+    requests: counter.requests,
+    finishedAt: clock(options),
+    issues: issues.slice(0, ISSUE_CAP),
+    boardNotFound: false,
+    notModified: false,
+    validator: listing.validator ? `${validatorTag(platform)}${listing.validator}` : null,
+  };
+  let changedIds: Set<string>;
+  if (ingest.diffOrFinish && postings.length <= DIFF_MAX) {
+    const result = await ingest.diffOrFinish(runId, postings, finish);
+    changedIds = new Set(result.changed);
+    if (result.finalized) {
+      log.info(
+        { source: source.id, listed: listed.length, changed: 0, requests: counter.requests },
+        "synced",
+      );
+      return {
+        finished: { ...finish, seenIds: postings.map((p) => p.id), rawKey: null, changed: 0 },
+      };
+    }
+  } else changedIds = new Set(await ingest.diff(runId, postings));
   const changed = listed
     .filter((p) => changedIds.has(p.id))
     .map((posting) => ({ posting, hash: hashes.get(posting.id)! }));
@@ -395,18 +428,29 @@ export async function advance(
   let failure: { error: unknown } | undefined;
   const MAX_QUEUED = 2;
   const send = async (batch: { facts: JobFacts; jd: Uint8Array }[]) => {
-    const missing = new Set(
-      await ingest.missingBlobs([...new Set(batch.map((p) => p.facts.jdHash))]),
-    );
-    const byHash = new Map(batch.map((p) => [p.facts.jdHash, p.jd]));
-    await Promise.all(
-      [...missing].map((hash) => uploads.add(() => ingest.putJd(hash, byHash.get(hash)!))),
-    );
-    const result = await ingest.applyJobs(
+    // Apply first: the server skips and reports the postings whose description it does not hold, so a
+    // description it already has costs no existence check. Only the missing ones are uploaded and re-sent.
+    let result = await ingest.applyJobs(
       plan.runId,
       batch.map((p) => p.facts),
     );
-    for (const bad of result.invalid ?? []) {
+    const invalid = [...(result.invalid ?? [])];
+    if (result.missingBlobs.length) {
+      const missing = new Set(result.missingBlobs);
+      const byHash = new Map(batch.map((p) => [p.facts.jdHash, p.jd]));
+      await Promise.all(
+        [...missing].map((hash) => uploads.add(() => ingest.putJd(hash, byHash.get(hash)!))),
+      );
+      result = await ingest.applyJobs(
+        plan.runId,
+        batch.filter((p) => missing.has(p.facts.jdHash)).map((p) => p.facts),
+      );
+      // Rows invalid in the first pass were already reported; only new ones count here.
+      invalid.push(
+        ...(result.invalid ?? []).filter((b) => !invalid.some((i) => i.postingId === b.postingId)),
+      );
+    }
+    for (const bad of invalid) {
       detailsComplete = false;
       issues.push({ code: "schema", message: bad.reason.slice(0, 500), postingId: bad.postingId });
     }

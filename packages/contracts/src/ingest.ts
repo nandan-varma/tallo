@@ -94,6 +94,15 @@ export type Finalize = z.infer<typeof finalizeSchema>;
 /** What a caller may pass: the fields with a default can be left out. */
 export type FinalizeInput = z.input<typeof finalizeSchema>;
 
+/**
+ * Diff and, when nothing changed, finalize, in one call. `finish` is the finalize body the run would send
+ * if the diff comes back empty; the ids it would carry as `seenIds` are the diffed postings, and there is
+ * no raw pack (nothing was mapped).
+ */
+export const diffOrFinishSchema = diffSchema.extend({
+  finish: finalizeSchema.omit({ seenIds: true, rawKey: true }),
+});
+
 export interface FinalizeResult {
   status: "complete" | "partial";
   closureApplied: boolean;
