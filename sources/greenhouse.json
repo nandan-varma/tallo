@@ -816,6 +816,10 @@
   "company": "Ansa"
  },
  {
+  "key": "ansabiotechnologies",
+  "company": "Ansa Biotechnologies"
+ },
+ {
   "key": "antenna",
   "company": "Antenna"
  },
@@ -846,6 +850,10 @@
  {
   "key": "anydesk",
   "company": "AnyDesk"
+ },
+ {
+  "key": "aon3d",
+  "company": "AON3D"
  },
  {
   "key": "aoti",
@@ -1464,6 +1472,10 @@
   "company": "Axi"
  },
  {
+  "key": "axiom",
+  "company": "Axiom"
+ },
+ {
   "key": "axiomtalentplatform",
   "company": "Axiom Talent Platform"
  },
@@ -1610,6 +1622,10 @@
  {
   "key": "bathworksmichigan",
   "company": "BathWorks Michigan"
+ },
+ {
+  "key": "baubap",
+  "company": "Baubap"
  },
  {
   "key": "bauerhockeycascademaveriklacrosse",
@@ -2528,6 +2544,10 @@
   "company": "CarGurus"
  },
  {
+  "key": "caribou",
+  "company": "Caribou Financial"
+ },
+ {
   "key": "caronsale",
   "company": "CarOnSale"
  },
@@ -2826,6 +2846,10 @@
  {
   "key": "ciazumano",
   "company": "CI Azumano"
+ },
+ {
+  "key": "cie",
+  "company": "Cie"
  },
  {
   "key": "circleci",
@@ -3502,6 +3526,10 @@
  {
   "key": "cultureamp",
   "company": "Culture Amp"
+ },
+ {
+  "key": "culturebiosciences",
+  "company": "Culture Biosciences"
  },
  {
   "key": "curaleaf",
@@ -4752,6 +4780,10 @@
   "company": "Correlation One Expert Network"
  },
  {
+  "key": "extend",
+  "company": "Extend"
+ },
+ {
   "key": "extenteam",
   "company": "Extenteam Client Roles"
  },
@@ -4890,6 +4922,10 @@
  {
   "key": "fccincinnati",
   "company": "Fussball Club Cincinnati LLC (“FC Cincinnati”)"
+ },
+ {
+  "key": "feanixbiotechnologies",
+  "company": "Feanix Biotechnologies"
  },
  {
   "key": "feastables",
@@ -5086,6 +5122,10 @@
  {
   "key": "flexe",
   "company": "Flexe"
+ },
+ {
+  "key": "flexport",
+  "company": "Flexport"
  },
  {
   "key": "flickr",
@@ -5572,6 +5612,10 @@
   "company": "General Matter"
  },
  {
+  "key": "generalproximity",
+  "company": "General Proximity"
+ },
+ {
   "key": "genetixbiotherapeutics",
   "company": "Genetix Biotherapeutics"
  },
@@ -5706,6 +5750,10 @@
  {
   "key": "gleanwork",
   "company": "Glean"
+ },
+ {
+  "key": "glide",
+  "company": "Glide"
  },
  {
   "key": "globalaccelerator",
@@ -5984,6 +6032,10 @@
   "company": "Greencube Corp"
  },
  {
+  "key": "greenfields",
+  "company": "Greenfields "
+ },
+ {
   "key": "greenhouse",
   "company": "Greenhouse"
  },
@@ -6014,6 +6066,10 @@
  {
   "key": "gremlin",
   "company": "Gremlin"
+ },
+ {
+  "key": "grey",
+  "company": "GREY "
  },
  {
   "key": "greylondon",
@@ -6236,6 +6292,14 @@
   "company": "Hatch"
  },
  {
+  "key": "haven",
+  "company": "Haven Interactive Studios"
+ },
+ {
+  "key": "hazel",
+  "company": "Hazel Health"
+ },
+ {
   "key": "hbkcapitalmanagement",
   "company": "HBK Capital Management"
  },
@@ -6286,6 +6350,10 @@
  {
   "key": "hearcomin",
   "company": "Hear.com IN"
+ },
+ {
+  "key": "heartaerospace",
+  "company": "Heart Aerospace"
  },
  {
   "key": "heartflowinc",
@@ -6528,6 +6596,10 @@
   "company": "Headspace"
  },
  {
+  "key": "hubblenetwork",
+  "company": "Hubble Network"
+ },
+ {
   "key": "hubspotjobs",
   "company": "HubSpot"
  },
@@ -6618,6 +6690,10 @@
  {
   "key": "icapitalnetwork",
   "company": "iCapital"
+ },
+ {
+  "key": "icarus",
+  "company": "Icarus"
  },
  {
   "key": "icemiller",
@@ -6850,6 +6926,10 @@
  {
   "key": "insider",
   "company": "Business Insider"
+ },
+ {
+  "key": "insight",
+  "company": "Insight"
  },
  {
   "key": "insomniac",
@@ -7284,6 +7364,10 @@
   "company": "jumptrading"
  },
  {
+  "key": "jungheinrich",
+  "company": "Jungheinrich UK"
+ },
+ {
   "key": "juniorachievementlocal",
   "company": "juniorachievementlocal"
  },
@@ -7346,6 +7430,10 @@
  {
   "key": "kalepa",
   "company": "Kalepa"
+ },
+ {
+  "key": "kalshi",
+  "company": "Kalshi"
  },
  {
   "key": "kambi",
@@ -7438,6 +7526,10 @@
  {
   "key": "keplergroup",
   "company": "Kepler Group"
+ },
+ {
+  "key": "kernalbio",
+  "company": "Kernal Biologics, Inc."
  },
  {
   "key": "kestramedicaltechnologiesinc",
@@ -7942,6 +8034,10 @@
  {
   "key": "lilasciences",
   "company": "Lila Sciences"
+ },
+ {
+  "key": "limrun",
+  "company": "Limrun"
  },
  {
   "key": "link",
@@ -8580,6 +8676,10 @@
   "company": "MerQube Inc"
  },
  {
+  "key": "meruhealth",
+  "company": "Meru Health"
+ },
+ {
   "key": "mesh",
   "company": "Mesh"
  },
@@ -8594,6 +8694,10 @@
  {
   "key": "metalab",
   "company": "Metalab"
+ },
+ {
+  "key": "method",
+  "company": "Method, a GlobalLogic company"
  },
  {
   "key": "methodco",
@@ -8820,8 +8924,16 @@
   "company": "moltonbrown"
  },
  {
+  "key": "momence",
+  "company": "Momence"
+ },
+ {
   "key": "momentenergy",
   "company": "momentenergy"
+ },
+ {
+  "key": "momentic",
+  "company": "Momentic Studios"
  },
  {
   "key": "momentous",
@@ -8834,6 +8946,10 @@
  {
   "key": "momentumfinancialservicesgroup",
   "company": "Momentum Financial Services Group"
+ },
+ {
+  "key": "momentus",
+  "company": "Momentus Space LLC"
  },
  {
   "key": "momsmeals",
@@ -8922,6 +9038,10 @@
  {
   "key": "morgansideveterinaryclinic",
   "company": "morgansideveterinaryclinic"
+ },
+ {
+  "key": "morph",
+  "company": "Morph"
  },
  {
   "key": "morrisonmaierle",
@@ -10024,6 +10144,10 @@
   "company": "orangetwist"
  },
  {
+  "key": "orbitaloperations",
+  "company": "Orbital Operations"
+ },
+ {
   "key": "orcasecurity",
   "company": "orcasecurity"
  },
@@ -10080,6 +10204,10 @@
   "company": "Oshi Health"
  },
  {
+  "key": "osmosis",
+  "company": "Osmosis"
+ },
+ {
   "key": "ospn",
   "company": "ospn"
  },
@@ -10134,6 +10262,10 @@
  {
   "key": "outsiders",
   "company": "outsiders"
+ },
+ {
+  "key": "overwatch",
+  "company": "Overwatch"
  },
  {
   "key": "ovoenergy",
@@ -10472,6 +10604,10 @@
   "company": "pia"
  },
  {
+  "key": "picnicai",
+  "company": "PicnicAI"
+ },
+ {
   "key": "picoquantitativetrading",
   "company": "Pico"
  },
@@ -10682,6 +10818,10 @@
  {
   "key": "poppulo",
   "company": "Poppulo"
+ },
+ {
+  "key": "porter",
+  "company": "Porter Works"
  },
  {
   "key": "portoro",
@@ -10952,6 +11092,10 @@
   "company": "pulmovant"
  },
  {
+  "key": "pulse",
+  "company": "Pulse Healthcare"
+ },
+ {
   "key": "pulsebiosciences",
   "company": "pulsebiosciences"
  },
@@ -10970,6 +11114,10 @@
  {
   "key": "purposemed",
   "company": "purposemed"
+ },
+ {
+  "key": "pursuit",
+  "company": "Pursuit"
  },
  {
   "key": "pushpay",
@@ -11086,6 +11234,10 @@
  {
   "key": "raconteur",
   "company": "raconteur"
+ },
+ {
+  "key": "radar",
+  "company": "RADAR"
  },
  {
   "key": "radaranalytics",
@@ -11256,6 +11408,10 @@
   "company": "Reformation"
  },
  {
+  "key": "regent",
+  "company": "Regent"
+ },
+ {
   "key": "regie",
   "company": "regie"
  },
@@ -11294,6 +11450,10 @@
  {
   "key": "reltio",
   "company": "Reltio"
+ },
+ {
+  "key": "remedy",
+  "company": "Remedy"
  },
  {
   "key": "remedyedgespain",
@@ -11378,6 +11538,10 @@
  {
   "key": "retailinsights",
   "company": "Retail Insights"
+ },
+ {
+  "key": "retrofit",
+  "company": "Retrofit Technology"
  },
  {
   "key": "reunionmarketing",
@@ -11818,6 +11982,10 @@
  {
   "key": "santex",
   "company": "Santex"
+ },
+ {
+  "key": "sany",
+  "company": "Sany, An Equipmentshare Company"
  },
  {
   "key": "sao",
@@ -12600,6 +12768,10 @@
   "company": "space"
  },
  {
+  "key": "spaceium",
+  "company": "Spaceium"
+ },
+ {
   "key": "spacekinetic",
   "company": "Space Kinetic"
  },
@@ -12754,6 +12926,10 @@
  {
   "key": "spyretherapeutics",
   "company": "spyretherapeutics"
+ },
+ {
+  "key": "squad",
+  "company": "SQUAD"
  },
  {
   "key": "squarepointcapital",
@@ -13056,12 +13232,24 @@
   "company": "sunriseunitedstatesinc"
  },
  {
+  "key": "sunset",
+  "company": "Sunset Magazine"
+ },
+ {
   "key": "suntimes",
   "company": "suntimes"
  },
  {
+  "key": "super",
+  "company": "Super Technologies"
+ },
+ {
   "key": "superai",
   "company": "superai"
+ },
+ {
+  "key": "superapp",
+  "company": "SuperApp"
  },
  {
   "key": "superchat",
@@ -13118,6 +13306,10 @@
  {
   "key": "svetness",
   "company": "Svetness Personal Training"
+ },
+ {
+  "key": "swayable",
+  "company": "Swayable"
  },
  {
   "key": "sweetgreen",
@@ -13402,6 +13594,10 @@
  {
   "key": "telnyx54",
   "company": "Telnyx"
+ },
+ {
+  "key": "tempo",
+  "company": "Tempo"
  },
  {
   "key": "temus",
@@ -13958,6 +14154,10 @@
  {
   "key": "travix",
   "company": "travix"
+ },
+ {
+  "key": "treasuryprime",
+  "company": "Treasury Prime"
  },
  {
   "key": "trellahealth",
@@ -14864,6 +15064,10 @@
   "company": "Wargaming"
  },
  {
+  "key": "warp",
+  "company": "Warp"
+ },
+ {
   "key": "warsaw",
   "company": "warsaw"
  },
@@ -14894,6 +15098,10 @@
  {
   "key": "wayvia",
   "company": "Wayvia"
+ },
+ {
+  "key": "weave",
+  "company": "Weave"
  },
  {
   "key": "webchartnow",
@@ -15224,6 +15432,10 @@
   "company": "xem"
  },
  {
+  "key": "xendit",
+  "company": "Xendit"
+ },
+ {
   "key": "xla",
   "company": "XLA"
  },
@@ -15242,6 +15454,10 @@
  {
   "key": "xpengmotors",
   "company": "XPENG"
+ },
+ {
+  "key": "xpinc",
+  "company": "XP Inc."
  },
  {
   "key": "xtxmarketstechnologies",
@@ -15346,6 +15562,10 @@
  {
   "key": "zenbusiness",
   "company": "ZenBusiness Inc."
+ },
+ {
+  "key": "zencoder",
+  "company": "Zencoder"
  },
  {
   "key": "zennify",
