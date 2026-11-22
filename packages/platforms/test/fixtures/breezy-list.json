@@ -56,7 +56,8 @@
           "label": "Fully remote, no location restrictions"
         }
       }
-    ]
+    ],
+    "description": "<p>Join a healthcare technology company as a hands-on, AI-native builder focused on making internal teams faster.</p>\n<ul><li>Build automations</li></ul>"
   },
   {
     "id": "52a8d92b1010",
@@ -106,6 +107,7 @@
         "name": "Manila, PH",
         "id": "522e4d248ea4"
       }
-    ]
+    ],
+    "description": "<p>Support US clients as a virtual assistant.</p>"
   }
 ]

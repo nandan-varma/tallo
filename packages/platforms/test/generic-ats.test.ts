@@ -204,15 +204,15 @@ describe("breezy", () => {
     };
   }
 
-  it("lists the feed in one request", async () => {
+  it("lists the feed, descriptions included, in one request", async () => {
     const ctx = ctxFor("");
     const { items, result } = await drain(breezy.list(src, ctx));
-    expect(ctx.urls).toEqual(["https://urrly.breezy.hr/json"]);
+    expect(ctx.urls).toEqual(["https://urrly.breezy.hr/json?verbose=true"]);
     expect(items.map((i) => i.id)).toEqual(["36028fb8ea4f", "52a8d92b1010"]);
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: true });
   });
 
-  it("reads the description from the job page's JobPosting JSON-LD", async () => {
+  it("takes the description from the feed and pay from the job page's JSON-LD", async () => {
     const ctx = ctxFor(text("breezy-detail.html"));
     const listing = feed[0] as Json;
     const detail = await breezy.detail?.(src, { id: "36028fb8ea4f", listing }, ctx);
@@ -238,24 +238,26 @@ describe("breezy", () => {
     });
   });
 
-  it("falls back to the page's description block when the portal publishes no JSON-LD", async () => {
-    const listing = feed[1] as Json;
-    const detail = await breezy.detail?.(
-      src,
-      { id: "52a8d92b1010", listing },
-      ctxFor(text("breezy-detail-no-jsonld.html")),
-    );
+  it("fetches no job page for a posting whose feed row states no salary", async () => {
+    const ctx = ctxFor(text("breezy-detail.html"));
+    const listing = { ...(feed[1] as object), salary: "" } as Json;
+    const detail = await breezy.detail?.(src, { id: "52a8d92b1010", listing }, ctx);
+    expect(ctx.urls).toEqual([]);
     const job = breezy.map({ id: "52a8d92b1010", listing, detail }, src);
-    expect(job.description).toContain("Agente de Seguros de Vida");
+    expect(job.description).toContain("virtual assistant");
     expect(job.compensation).toEqual([]);
   });
 
-  it("maps a listing without detail and rejects a page without a description", async () => {
-    const job = breezy.map({ id: "52a8d92b1010", listing: feed[1] as Json }, src);
-    expect(job.description).toBe("");
-    expect(job.compensation).toEqual([]);
-    await expect(
-      breezy.detail?.(src, { id: "a", listing: feed[0] as Json }, ctxFor("<html></html>")),
-    ).rejects.toThrow(SchemaError);
+  it("maps a listing without detail, and a job page without JSON-LD adds nothing", async () => {
+    const listing = feed[0] as Json;
+    const bare = breezy.map({ id: "36028fb8ea4f", listing }, src);
+    expect(bare.description).toContain("AI-native builder");
+    expect(bare.compensation).toEqual([]);
+    const detail = await breezy.detail?.(
+      src,
+      { id: "36028fb8ea4f", listing },
+      ctxFor("<html></html>"),
+    );
+    expect(breezy.map({ id: "36028fb8ea4f", listing, detail }, src).compensation).toEqual([]);
   });
 });
