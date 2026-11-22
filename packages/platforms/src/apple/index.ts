@@ -121,6 +121,15 @@ export const apple: Platform = {
     return detail;
   },
 
+  /**
+   * A new-pipeline (`PIPE-`) search row states `postDateInGMT` as the moment of the request, so it differs on
+   * every listing. Left in, every run sees every such posting as changed and refetches its detail.
+   */
+  fingerprint: (listing) => {
+    const { postDateInGMT, ...stable } = obj(listing);
+    return stable;
+  },
+
   map({ id, listing, detail }) {
     const row = lookup(listing);
     const j = lookup(detail);
