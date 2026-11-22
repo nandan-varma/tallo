@@ -7,6 +7,8 @@ export interface LaneSettings {
   ceiling: number;
   /** Parallel requests to one host. */
   perHost: number;
+  /** The most the controller may raise `perHost` to. */
+  perHostCeiling: number;
   /** Minimum gap between request starts per host. AIMD raises it after a 429 and an edit sets it. */
   gapMs: number;
   paused: boolean;
@@ -30,10 +32,19 @@ const lane = (
   perHost: number,
   gapMs = 0,
   floors?: LaneDef["floors"],
+  perHostCeiling = perHost,
 ): LaneDef => ({
   name,
   platforms,
-  settings: { concurrency, ceiling: concurrency, perHost, gapMs, paused: false, enabled: true },
+  settings: {
+    concurrency,
+    ceiling: concurrency,
+    perHost,
+    perHostCeiling: Math.max(perHost, perHostCeiling),
+    gapMs,
+    paused: false,
+    enabled: true,
+  },
   ...(floors ? { floors } : {}),
 });
 
@@ -41,12 +52,14 @@ const multiHost = (def: LaneDef): LaneDef => ({ ...def, multiHost: true });
 
 /** Defaults from the old scripts/sweep.ts: about 30 boards in flight in total. */
 export const LANES: LaneDef[] = [
-  lane("greenhouse", ["greenhouse"], 5, 5),
-  lane("lever", ["lever"], 3, 3),
-  lane("ashby", ["ashby"], 3, 3),
-  lane("smartrecruiters", ["smartrecruiters"], 3, 3),
-  multiHost(lane("workday", ["workday"], 6, 2, 250)),
-  multiHost(lane("oracle-icims", ["oraclecloud", "icims"], 2, 2, 250)),
+  lane("greenhouse", ["greenhouse"], 5, 5, 0, undefined, 6),
+  lane("lever", ["lever"], 3, 3, 0, undefined, 4),
+  lane("ashby", ["ashby"], 3, 3, 0, undefined, 4),
+  lane("smartrecruiters", ["smartrecruiters"], 3, 3, 0, undefined, 10),
+  multiHost(lane("workday", ["workday"], 6, 2, 250, undefined, 3)),
+  multiHost(
+    lane("oracle-icims", ["oraclecloud", "icims"], 2, 2, 250, { icims: { perHost: 3 } }, 4),
+  ),
   multiHost(
     lane(
       "small-ats",
@@ -72,12 +85,13 @@ export const LANES: LaneDef[] = [
         workable: { perHost: 2, gapMs: 250 },
         breezy: { perHost: 2 },
       },
+      3,
     ),
   ),
-  lane("walmart", ["walmart"], 1, 1, 700),
-  lane("microsoft", ["microsoft"], 1, 1, 1000),
-  lane("apple", ["apple"], 1, 3, 150),
-  lane("meta", ["meta"], 1, 2, 500),
+  lane("walmart", ["walmart"], 1, 1, 700, undefined, 3),
+  lane("microsoft", ["microsoft"], 1, 1, 1000, undefined, 1),
+  lane("apple", ["apple"], 1, 3, 150, undefined, 4),
+  lane("meta", ["meta"], 1, 2, 500, undefined, 3),
   multiHost(
     lane("big-sites", ["google", "amazon", "netflix", "ibm", "goldman"], 1, 2, 0, {
       google: { gapMs: 250 },
@@ -116,6 +130,7 @@ const FIELDS: Record<"global" | "budget" | "lane", Record<string, Check>> = {
     concurrency: int(1, 64),
     ceiling: int(1, 64),
     perHost: int(1, 64),
+    perHostCeiling: int(1, 64),
     gapMs: int(0, 600_000),
     paused: bool,
     enabled: bool,

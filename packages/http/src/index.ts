@@ -16,7 +16,22 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * The key a host is limited under. Workday and Oracle Cloud limit per pod, not per tenant, so every
+ * `<tenant>.wdN.myworkdayjobs.com` shares `wdN.myworkdayjobs.com` and every `<tenant>.fa[.<pod>].oraclecloud.com`
+ * shares `fa[.<pod>].oraclecloud.com`. Any other host is its own key.
+ */
+export function podKey(host: string): string {
+  const h = host.toLowerCase().replace(/:\d+$/, "");
+  const m =
+    /^[^.]+\.(wd\d+\.myworkdayjobs\.com)$/.exec(h) ??
+    /^[^.]+\.(fa\.(?:[a-z0-9-]+\.)?oraclecloud\.com)$/.exec(h);
+  return m ? m[1]! : h;
+}
+
 interface HostLimiterOptions {
+  /** Maps a host to its limiting key (see `podKey`). Default: the host itself. */
+  hostKey?: (host: string) => string;
   /** Concurrent in-flight requests per host: one number, or a function of the host. */
   perHostConcurrency?: number | ((host: string) => number);
   /** Minimum gap between request starts per host. */
@@ -41,8 +56,10 @@ export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter
   const concurrencyOf = (host: string) => (typeof perHost === "function" ? perHost(host) : perHost);
   const hostIntervals = new Map<string, number>();
   const hosts = new Map<string, { queue: PQueue; nextStart: number }>();
+  const keyOf = options.hostKey ?? ((host: string) => host);
   return {
-    run<T>(host: string, task: () => Promise<T>): Promise<T> {
+    run<T>(rawHost: string, task: () => Promise<T>): Promise<T> {
+      const host = keyOf(rawHost);
       let h = hosts.get(host);
       if (!h) {
         h = { queue: new PQueue({ concurrency: concurrencyOf(host) }), nextStart: 0 };
@@ -68,7 +85,8 @@ export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter
       }
       if (limits.minHostIntervalMs !== undefined) interval = limits.minHostIntervalMs;
     },
-    setHostInterval(host, ms) {
+    setHostInterval(rawHost, ms) {
+      const host = keyOf(rawHost);
       if (ms && ms > 0) hostIntervals.set(host, ms);
       else hostIntervals.delete(host);
     },
