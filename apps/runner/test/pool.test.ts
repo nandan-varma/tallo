@@ -52,11 +52,9 @@ describe("cpu pool", () => {
     await expect(pool.prepare(source, untitled, "h")).rejects.toThrow("Posting has no title");
   });
 
-  it("keeps working in this thread once its workers are gone", async () => {
+  it("rejects work after the pool has closed", async () => {
     const small = createCpuPool(1);
     await small.close();
-    expect(await small.hashes(source, [listing])).toEqual(
-      await inThreadCpu.hashes(source, [listing]),
-    );
+    await expect(small.hashes(source, [listing])).rejects.toThrow("CPU pool is closed");
   });
 });

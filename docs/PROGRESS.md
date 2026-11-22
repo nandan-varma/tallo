@@ -5,6 +5,10 @@ running it: scraping is manual, nothing is scheduled, and the cloud collector is
 `git log`; design reasons are in `docs/decisions.md`; how to operate is `docs/runbook.md`; the audit that produced this
 session's app fixes is in `docs/plan-polish.md`.
 
+## Cleanup validation (2026-11-22)
+
+Issues #225–#231 track the cleanup. Cloud support is retained. Mac and cloud baseline on `lever:15five`: four postings, complete, no changes or closures. Production checks found zero null dedupe keys and 15,634 rows containing inferred values: retire dedupe backfill, retain inferred filtering. The API now derives cf deployment settings from canonical `apps/api/wrangler.json`; scheduled collection remains off. Historical measurements and session notes below are retained as history.
+
 ## What exists
 
 - **Public API** (`GET` only, no key): `/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, `/v1/companies`,
@@ -55,8 +59,8 @@ that class of board). The web app got the API's other parameters (sort, country,
 - Search cost: the candidate cut runs on the FTS index first (`FTS_WINDOW`), date sorts read the newest 50,000 matches,
   the edge cache key ignores case and spacing and holds searches 15 minutes, and fresh wide searches (4+ titles or 3+
   companies) have a 10 a minute budget. Cloudflare's rate-limit counters are approximate, so it throttles after about 20.
-- One release command (`pnpm release`) and a smoke test. The API Worker has two config files (`cf deploy` and
-  `wrangler`), kept equal by a test.
+- One release command (`pnpm release`) and a smoke test. The API Worker derives `cf deploy` settings from the canonical
+  Wrangler configuration.
 - Scraper audits: Greenhouse needs one request per board; Oracle list requests roughly halved; Workday slicing cheaper on
   large tenants (Citi 791 to 692 requests, identical postings); Rippling pages of 500.
 

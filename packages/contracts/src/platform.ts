@@ -38,6 +38,9 @@ type IssueCode = "http" | "schema" | "pagination" | "budget" | "detail" | "block
 export interface Issue {
   code: IssueCode;
   message: string;
+  retryable?: boolean;
+  status?: number;
+  retryAfterMs?: number;
   url?: string;
   postingId?: string;
 }

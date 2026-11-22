@@ -32,10 +32,10 @@ import {
   startRun,
   storeRawPack,
 } from "@tallo/db";
-import { createHostLimiter, type HostLimiter } from "@tallo/http";
+import { createHostLimiter, type HostLimiter, podKey } from "@tallo/http";
 
 /**
- * Defaults for the knobs wrangler.jsonc sets as variables. A posting costs about four subrequests
+ * Defaults for the knobs wrangler.json sets as variables. A posting costs about four subrequests
  * (its detail, two R2 existence checks, one description upload), so a slice of 100 postings stays
  * well under the budget even before the budget check runs.
  */
@@ -129,7 +129,10 @@ const outcomeOf = (o: Outcome) =>
 export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promise<void> {
   const started = nowMs(env);
   const meter: Meter = { subrequests: 0 };
-  const base = createHostLimiter({ perHostConcurrency: (h) => policyForHost(h).concurrency });
+  const base = createHostLimiter({
+    hostKey: podKey,
+    perHostConcurrency: (h) => policyForHost(h).concurrency,
+  });
   const counted: HostLimiter = {
     run: (host, task) => {
       meter.subrequests++;
@@ -150,7 +153,7 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
     ingest: {
       startRun: metered(meter, direct.startRun),
       diff: metered(meter, direct.diff),
-      diffOrFinish: metered(meter, direct.diffOrFinish!),
+      diffOrFinish: metered(meter, direct.diffOrFinish),
       missingBlobs: metered(meter, direct.missingBlobs),
       putJd: metered(meter, direct.putJd),
       applyJobs: metered(meter, direct.applyJobs),
@@ -167,7 +170,7 @@ export async function handleCollect(msg: CollectMessage, env: CollectEnv): Promi
       (host) => policyForHost(host).gapMs,
       batchedGate((host, gapMs, count) => {
         meter.subrequests++;
-        return env.reserve(host, gapMs, count);
+        return env.reserve(podKey(host), gapMs, count);
       }),
     ),
   };

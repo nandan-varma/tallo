@@ -82,15 +82,21 @@ export function tailEvents(path: string, n: number): string[] {
   }
 }
 
-function readControlFile(path: string): Record<string, unknown> {
+function readControlFile(path: string, laneNames: readonly string[]): Record<string, unknown> {
+  let text: string;
   try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw error;
   }
+  const parsed: unknown = JSON.parse(text);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new Error(`Invalid control file: ${path}`);
+  const file = parsed as Record<string, unknown>;
+  const { errors } = readEdits(file, laneNames);
+  if (errors.length) throw new Error(`Invalid control file: ${errors.join("; ")}`);
+  return file;
 }
 
 /** Atomic write, so the running sweep never reads half a file. */
@@ -126,7 +132,7 @@ export function setControl(
     throw new Error(`Unknown lane "${target}". Lanes: ${laneNames.join(", ")}, or global, budget`);
   const { edits, errors } = readEdits(patch, laneNames);
   if (errors.length) throw new Error(errors.join("\n"));
-  const file = readControlFile(path);
+  const file = readControlFile(path, laneNames);
   const stamps = { ...((file._stamps as Record<string, number> | undefined) ?? {}) };
   for (const edit of edits) {
     const section = edit.scope === "lane" ? "lanes" : edit.scope;

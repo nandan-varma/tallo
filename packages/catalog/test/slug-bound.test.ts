@@ -66,7 +66,7 @@ const facts = () => ({
   expiresAt: null,
   excerpt: "x",
   jdHash: "a".repeat(64),
-  dedupeKey: null,
+  dedupeKey: "b".repeat(64),
   jdBytes: 1,
   sourceHash: "b".repeat(64),
   facts: { platform: "greenhouse", locations: [], compensation: [], experience: [], extras: {} },
@@ -161,4 +161,20 @@ describe("prepareJob bounds", () => {
     expect(jobFactsSchema.safeParse(out.facts).success).toBe(true);
     expect(out.notes.length).toBeGreaterThanOrEqual(3);
   });
+});
+
+it("enforces facts limits in UTF-8 bytes", () => {
+  const out = boundFacts({
+    ...facts(),
+    facts: {
+      locations: [{ text: "😀".repeat(20_000) }],
+      compensation: [],
+      experience: [],
+      extras: {},
+    },
+  });
+  expect(new TextEncoder().encode(JSON.stringify(out.facts.facts)).byteLength).toBeLessThanOrEqual(
+    32 * 1024,
+  );
+  expect(out.notes.length).toBeGreaterThan(0);
 });

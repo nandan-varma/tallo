@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import type { Outcome } from "@tallo/collect";
 import type { SourceConfig } from "@tallo/contracts";
 import { classifyError, classifyOutcome, type Verdict } from "./classify.ts";
-import { Lane, type LearnedLane, TUNING, type Tuning } from "./lane.ts";
+import { Lane, type LearnedLane, learnedLaneSchema, TUNING, type Tuning } from "./lane.ts";
 import { DEFAULT_BUDGET, DEFAULT_GLOBAL, type Edit, type LaneDef, readEdits } from "./settings.ts";
 import { bottleneckMessage, LaneTimings } from "./timing.ts";
 
@@ -110,6 +110,7 @@ export class Sweep {
   private lastStatusAt = 0;
   private lastControlAt = 0;
   private lastLearnedAt = 0;
+  private reportingFailed = false;
   private learnedFile: Record<string, LearnedLane> = {};
   private resolveDone?: (reason: "finished" | "stopped") => void;
   private timer?: ReturnType<typeof setInterval>;
@@ -135,8 +136,8 @@ export class Sweep {
     try {
       mkdirSync(dirname(this.opts.paths.events), { recursive: true });
       appendFileSync(this.opts.paths.events, `${line}\n`);
-    } catch {
-      // Reporting must never stop a sweep.
+    } catch (error) {
+      this.reportingError(error);
     }
   }
 
@@ -239,17 +240,27 @@ export class Sweep {
     let raw: unknown;
     try {
       raw = JSON.parse(readFileSync(this.opts.paths.learned, "utf8"));
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+        this.event(`Cannot read learned state: ${String(error)}`, "warn");
       return;
     }
     const lanes = (raw as { lanes?: Record<string, LearnedLane> } | null)?.lanes;
-    if (!lanes || typeof lanes !== "object") return;
+    if (!lanes || typeof lanes !== "object" || Array.isArray(lanes)) {
+      this.event("Invalid learned state ignored", "warn");
+      return;
+    }
     for (const lane of this.lanes) {
-      const l = lanes[lane.name];
-      if (!l || typeof l.at !== "number" || typeof l.perHost !== "number") continue;
+      if (lanes[lane.name] === undefined) continue;
+      const parsed = learnedLaneSchema.safeParse(lanes[lane.name]);
+      if (!parsed.success || parsed.data.at > now) {
+        this.event(`${lane.name}: invalid learned state ignored`, "warn");
+        continue;
+      }
+      const l = parsed.data;
       if (now - l.at > this.timing.learnedMaxAgeMs) continue;
       this.learnedFile[lane.name] = l;
-      lane.applyLearned({ ...l, hosts: l.hosts ?? {}, gapMs: l.gapMs ?? 0 }, now);
+      lane.applyLearned(l, now);
       this.event(
         `${lane.name}: starting from learned perHost ${lane.settings.perHost}, gap ${lane.settings.gapMs} ms`,
       );
@@ -269,8 +280,8 @@ export class Sweep {
       const tmp = `${this.opts.paths.learned}.tmp`;
       writeFileSync(tmp, JSON.stringify({ savedAt: now, lanes: this.learnedFile }, null, 2));
       renameSync(tmp, this.opts.paths.learned);
-    } catch {
-      // Reporting must never stop a sweep.
+    } catch (error) {
+      this.reportingError(error);
     }
   }
 
@@ -573,6 +584,12 @@ export class Sweep {
     };
   }
 
+  private reportingError(error: unknown): void {
+    if (this.reportingFailed) return;
+    this.reportingFailed = true;
+    console.error(`Sweep persistence failed; inspect disk access: ${String(error)}`);
+  }
+
   private writeStatus(): void {
     this.lastStatusAt = this.now();
     try {
@@ -580,8 +597,8 @@ export class Sweep {
       const tmp = `${this.opts.paths.status}.tmp`;
       writeFileSync(tmp, JSON.stringify(this.status(), null, 2));
       renameSync(tmp, this.opts.paths.status);
-    } catch {
-      // Reporting must never stop a sweep.
+    } catch (error) {
+      this.reportingError(error);
     }
   }
 }

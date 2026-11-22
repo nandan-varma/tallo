@@ -1,4 +1,4 @@
-import { hostAllowed } from "@tallo/http";
+import { createHostLimiter, hostAllowed, podKey } from "@tallo/http";
 import { platforms } from "@tallo/platforms";
 
 /**
@@ -17,6 +17,13 @@ const FAST: HostPolicy = { concurrency: 4, gapMs: 0 };
 const TENANT: HostPolicy = { concurrency: 2, gapMs: 250 };
 
 export const POLICY: Record<string, HostPolicy> = {
+  rippling: TENANT,
+  gem: TENANT,
+  pinpoint: TENANT,
+  breezy: TENANT,
+  microsoft: TENANT,
+  ibm: TENANT,
+  goldman: TENANT,
   greenhouse: FAST,
   lever: FAST,
   ashby: FAST,
@@ -47,8 +54,12 @@ export const POLICY: Record<string, HostPolicy> = {
   walmart: { concurrency: 1, gapMs: 700 },
 };
 
-/** Unknown platforms get the careful policy. */
-export const policyFor = (platform: string): HostPolicy => POLICY[platform] ?? TENANT;
+/** A registered platform must explicitly choose its baseline. */
+export function policyFor(platform: string): HostPolicy {
+  const policy = POLICY[platform];
+  if (!policy) throw new Error(`No host policy for ${platform}`);
+  return policy;
+}
 
 /** The policy of the platform that owns `host` (by its allowlist), or the careful default. */
 export function policyForHost(host: string): HostPolicy {
@@ -56,4 +67,13 @@ export function policyForHost(host: string): HostPolicy {
     if (hostAllowed(host, platform.hosts)) return policyFor(platform.id);
   }
   return TENANT;
+}
+
+/** Shared Mac/default limits; sweep and cloud add their adaptive/distributed coordination. */
+export function createPlatformLimiter(overrides: { concurrency?: number; gapMs?: number } = {}) {
+  return createHostLimiter({
+    hostKey: podKey,
+    perHostConcurrency: (host) => overrides.concurrency ?? policyForHost(host).concurrency,
+    minHostIntervalMs: (host) => overrides.gapMs ?? policyForHost(host).gapMs,
+  });
 }

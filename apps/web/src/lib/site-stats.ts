@@ -1,4 +1,9 @@
-import { PUBLIC_ORIGIN, SITE_STATS_TTL_SECONDS, type SiteStats } from "@tallo/contracts";
+import {
+  PUBLIC_ORIGIN,
+  SITE_STATS_TTL_SECONDS,
+  type SiteStats,
+  siteStatsSchema,
+} from "@tallo/contracts";
 import type { EdgeCache } from "@/lib/public";
 
 /**
@@ -19,7 +24,7 @@ const FETCHED_AT = "x-fetched-at";
 const read = async (response: Response | undefined): Promise<SiteStats | null> => {
   if (!response?.ok) return null;
   try {
-    return (await response.json()) as SiteStats;
+    return siteStatsSchema.parse(await response.json());
   } catch {
     return null;
   }

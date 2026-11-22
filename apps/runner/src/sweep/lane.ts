@@ -1,5 +1,6 @@
 import type { SourceConfig } from "@tallo/contracts";
 import { createHostLimiter, type HostLimiter, podKey } from "@tallo/http";
+import { z } from "zod";
 import type { LaneDef, LaneSettings } from "./settings.ts";
 
 export interface Tuning {
@@ -73,18 +74,22 @@ export const TUNING: Tuning = {
 };
 
 /** What a lane learned about its hosts, kept between sweeps in learned.json. */
-export interface LearnedLane {
-  /** Epoch ms of the last time the lane ran and wrote this. */
-  at: number;
-  perHost: number;
-  gapMs: number;
-  last429At: number | null;
-  /** The perHost that drew a 429 (probing stays below it), or null. */
-  perHostBad: number | null;
-  /** The gap that last drew a 429 here; its 25% margin is the lane's floor. */
-  badGap?: number;
-  hosts: Record<string, { gap: number; last429At: number }>;
-}
+export const learnedLaneSchema = z.object({
+  at: z.number().finite().nonnegative(),
+  perHost: z.number().int().min(1).max(64),
+  gapMs: z.number().finite().min(0).max(600_000),
+  last429At: z.number().finite().nonnegative().nullable(),
+  perHostBad: z.number().int().min(1).max(64).nullable(),
+  badGap: z.number().finite().min(0).max(600_000).optional(),
+  hosts: z.record(
+    z.string(),
+    z.object({
+      gap: z.number().finite().min(0).max(600_000),
+      last429At: z.number().finite().nonnegative(),
+    }),
+  ),
+});
+export type LearnedLane = z.infer<typeof learnedLaneSchema>;
 
 /** The pod a board's requests go to, when its platform limits per pod (Workday, Oracle Cloud). */
 export function boardGroup(source: SourceConfig): string | undefined {

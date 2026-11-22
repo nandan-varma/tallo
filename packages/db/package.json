@@ -14,10 +14,10 @@
   "dependencies": {
     "@tallo/contracts": "workspace:*",
     "drizzle-orm": "^0.45.4",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@tallo/catalog": "workspace:*"
   },
   "devDependencies": {
-    "@tallo/catalog": "workspace:*",
     "drizzle-kit": "^0.31.11"
   }
 }

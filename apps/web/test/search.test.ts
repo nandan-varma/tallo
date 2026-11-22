@@ -9,10 +9,18 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
-import { encodeCursor } from "@tallo/contracts";
+import { encodeCursor, LLMS_EXAMPLES } from "@tallo/contracts";
 import { runSearch } from "@/lib/api";
 import { handlePublic } from "@/lib/public";
-import { offsetFrom, safeHref, searchHref, specFrom, splitList, valuesFrom } from "@/lib/search";
+import {
+  formatPay,
+  offsetFrom,
+  safeHref,
+  searchHref,
+  specFrom,
+  splitList,
+  valuesFrom,
+} from "@/lib/search";
 
 describe("splitList", () => {
   it("splits on commas, trims, drops entries shorter than two characters, and caps the count", () => {
@@ -202,7 +210,7 @@ describe("runSearch", () => {
   });
 
   it("puts a cursor for the page on the URL, built for this query, and reads the next offset", async () => {
-    const hit = { id: "1", title: "Data Engineer" };
+    const hit = LLMS_EXAMPLES.search.results[0]!;
     const fetchMock = vi.fn(async () =>
       apiPage(
         Array.from({ length: 20 }, () => hit),
@@ -224,7 +232,7 @@ describe("runSearch", () => {
   });
 
   it("binds the cursor to uppercased country codes, as the API checks it", async () => {
-    const fetchMock = vi.fn(async () => apiPage([{ id: "1", title: "Data Engineer" }], null));
+    const fetchMock = vi.fn(async () => apiPage([LLMS_EXAMPLES.search.results[0]!], null));
     vi.stubGlobal("fetch", fetchMock);
 
     await runSearch({ queries: ["data engineer"], countries: ["us"] }, 20);
@@ -284,4 +292,20 @@ describe("runSearch", () => {
       "API 503 for /v1/search",
     );
   });
+});
+
+it("rejects malformed upstream search responses", async () => {
+  await expect(
+    runSearch({ queries: ["engineer"] }, 0, {
+      upstream: async () => Response.json({ results: [] }),
+    }),
+  ).rejects.toThrow();
+});
+
+it("formats ranges and one-sided structured compensation without parsing prose", () => {
+  const band = { currency: "USD", interval: "year" as const, component: "base" as const };
+  expect(formatPay([{ ...band, min: 150000, max: 180000 }])).toBe("USD 150,000–180,000 a year");
+  expect(formatPay([{ ...band, min: 150000 }])).toBe("USD 150,000+ a year");
+  expect(formatPay([{ ...band, max: 180000 }])).toBe("USD up to 180,000 a year");
+  expect(formatPay([{ ...band, min: 1, inferred: true }])).toBeNull();
 });

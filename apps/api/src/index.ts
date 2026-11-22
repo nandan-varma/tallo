@@ -57,10 +57,12 @@ const r2 = (bucket: R2Bucket): BlobStore => ({
   delete: (key) => bucket.delete(key),
 });
 
-/** A whole non-negative integer from a variable, or the default when unset or malformed. */
+/** Defaults apply only when absent; malformed production settings must be visible. */
 const intVar = (raw: string | undefined, fallback: number): number => {
+  if (raw === undefined) return fallback;
   const n = Number(raw);
-  return raw && Number.isInteger(n) && n >= 1 ? n : fallback;
+  if (!Number.isInteger(n) || n < 1) throw new Error(`Invalid integer setting: ${raw}`);
+  return n;
 };
 
 const collectEnv = (env: Env): CollectEnv => ({

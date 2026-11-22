@@ -1,5 +1,6 @@
 import { gunzip, gzip, PREPARE_VERSION } from "@tallo/catalog";
 import type {
+  ApplyResult,
   CollectContext,
   CreateRun,
   Finalize,
@@ -11,11 +12,11 @@ import type {
   SourceConfig,
   StartedRun,
 } from "@tallo/contracts";
-import { createHostLimiter, createHttp, type HostLimiter, HttpError } from "@tallo/http";
-import { PostingGone, platformFor } from "@tallo/platforms";
+import { createHttp, failureOf, type HostLimiter, HttpError } from "@tallo/http";
+import { PostingGone, platformFor, SchemaError } from "@tallo/platforms";
 import PQueue from "p-queue";
 import { type Cpu, inThreadCpu } from "./cpu.ts";
-import { policyFor } from "./policy.ts";
+import { createPlatformLimiter, policyFor } from "./policy.ts";
 import {
   meterCpu,
   meterIngest,
@@ -35,24 +36,16 @@ export interface Ingest {
   diff(runId: string, postings: { id: string; hash: string }[]): Promise<string[]>;
   /**
    * Diff, and when no posting changed also finalize with `finish` (as `finalize` would, plus the diffed ids
-   * as `seenIds`, no raw pack). Optional: without it the engine diffs and finalizes in two calls.
+   * as `seenIds`, no raw pack). Required on both adapters; large listings use the separate diff endpoint.
    */
-  diffOrFinish?(
+  diffOrFinish(
     runId: string,
     postings: { id: string; hash: string }[],
     finish: Omit<Finalize, "seenIds" | "rawKey">,
   ): Promise<{ changed: string[]; finalized?: FinalizeResult }>;
   missingBlobs(hashes: string[]): Promise<string[]>;
   putJd(hash: string, gz: Uint8Array): Promise<unknown>;
-  applyJobs(
-    runId: string,
-    jobs: JobFacts[],
-  ): Promise<{
-    applied: number;
-    missingBlobs: string[];
-    /** Postings the server could not store (optional: an older server does not say). */
-    invalid?: { postingId: string; reason: string }[];
-  }>;
+  applyJobs(runId: string, jobs: JobFacts[]): Promise<ApplyResult>;
   putRaw(runId: string, gz: Uint8Array): Promise<string>;
   finalize(runId: string, body: Finalize): Promise<FinalizeResult>;
 }
@@ -183,9 +176,7 @@ function httpFor(source: SourceConfig, options: EngineOptions, counter: { reques
       ? { maxResponseBytes: options.maxResponseBytes }
       : {}),
     allowedHosts: platform.hosts,
-    limiter:
-      options.limiter ??
-      createHostLimiter({ perHostConcurrency: () => policyFor(platform.id).concurrency }),
+    limiter: options.limiter ?? createPlatformLimiter(),
     onRequest: () => {
       counter.requests++;
       if (options.meter) options.meter.sourceRequests++;
@@ -272,7 +263,11 @@ export async function begin(
     // the same board answers the Mac, so a redirect says nothing about whether the board exists.
     const blocked =
       error instanceof HttpError && (error.kind === "redirect" || error.kind === "blocked");
-    issues.push({ code: blocked ? "blocked" : "http", message: message(error) });
+    issues.push({
+      code: blocked ? "blocked" : error instanceof SchemaError ? "schema" : "http",
+      message: message(error),
+      ...failureOf(error),
+    });
     log.warn({ source: source.id, error: String(error) }, "listing failed");
     // A 404 on the first request means the board does not exist; repeated ones mark it dead.
     // A 404 later in pagination is a failed run on a board that exists, so it must not count.
@@ -356,7 +351,7 @@ export async function begin(
     validator: listing.validator ? `${validatorTag(platform)}${listing.validator}` : null,
   };
   let changedIds: Set<string>;
-  if (ingest.diffOrFinish && postings.length <= DIFF_MAX) {
+  if (postings.length <= DIFF_MAX) {
     const result = await ingest.diffOrFinish(runId, postings, finish);
     changedIds = new Set(result.changed);
     if (result.finalized) {
@@ -438,7 +433,7 @@ export async function advance(
       plan.runId,
       batch.map((p) => p.facts),
     );
-    const invalid = [...(result.invalid ?? [])];
+    const invalid = [...result.invalid];
     if (result.missingBlobs.length) {
       const missing = new Set(result.missingBlobs);
       const byHash = new Map(batch.map((p) => [p.facts.jdHash, p.jd]));
@@ -451,7 +446,7 @@ export async function advance(
       );
       // Rows invalid in the first pass were already reported; only new ones count here.
       invalid.push(
-        ...(result.invalid ?? []).filter((b) => !invalid.some((i) => i.postingId === b.postingId)),
+        ...result.invalid.filter((b) => !invalid.some((i) => i.postingId === b.postingId)),
       );
     }
     for (const bad of invalid) {
@@ -512,7 +507,12 @@ export async function advance(
             issues.push({ code: "gone", message: message(error), postingId: posting.id });
           } else {
             detailsComplete = false;
-            issues.push({ code: "detail", message: message(error), postingId: posting.id });
+            issues.push({
+              code: "detail",
+              message: message(error),
+              postingId: posting.id,
+              ...failureOf(error),
+            });
           }
         }
         if (ready.length >= BATCH) await enqueue(ready.splice(0, BATCH));
@@ -654,7 +654,7 @@ async function collectMetered(
       rawKey: null,
       issues: [
         ...begun.progress.issues,
-        { code: "http" as const, message: `Upload failed: ${message(error)}` },
+        { code: "http" as const, message: `Upload failed: ${message(error)}`, ...failureOf(error) },
       ].slice(0, ISSUE_CAP),
       boardNotFound: false,
       notModified: false,

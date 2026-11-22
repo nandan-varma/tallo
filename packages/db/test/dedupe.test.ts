@@ -1,16 +1,9 @@
 import { STALE_HIDE_DAYS } from "@tallo/contracts";
-import { eq, isNull, type SQL, sql } from "drizzle-orm";
+import { eq, type SQL, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  backfillDedupeKeys,
-  finalize,
-  listVariants,
-  rebuildDuplicates,
-  schema,
-  startRun,
-} from "../src/index.ts";
+import { finalize, listVariants, rebuildDuplicates, schema, startRun } from "../src/index.ts";
 import { crossedKeys } from "../src/ingest.ts";
-import { getJob, searchJobs, searchSchema, testDb } from "../src/testing.ts";
+import { getJob, inspectJobs, testDb } from "../src/testing.ts";
 
 const DAY = 86400;
 const NOW = 2_000_000_000;
@@ -75,9 +68,7 @@ async function row(over: Partial<typeof schema.jobs.$inferInsert> = {}): Promise
 
 const dupOf = async (id: number) => (await getJob(db, id))?.dupOf ?? undefined;
 const visibleIds = async (opts: { includeStale?: boolean } = {}) =>
-  (await searchJobs(db, searchSchema.parse({ ...opts, limit: 100 }), NOW)).jobs
-    .map((j) => j.id)
-    .sort((a, b) => a - b);
+  (await inspectJobs(db, { ...opts, limit: 100 }, NOW)).jobs.map((j) => j.id).sort((a, b) => a - b);
 const rebuild = (opts: Parameters<typeof rebuildDuplicates>[2] = {}) =>
   rebuildDuplicates(db, NOW, opts);
 
@@ -103,7 +94,7 @@ describe("duplicate groups", () => {
     const b = await row({ locationText: "Denver, CO", applyUrl: "https://x/b" });
     await rebuild();
 
-    const [hit] = (await searchJobs(db, searchSchema.parse({}), NOW)).jobs;
+    const [hit] = (await inspectJobs(db, { limit: 25 }, NOW)).jobs;
     expect(hit?.id).toBe(a);
     expect(hit?.variants).toBe(2);
 
@@ -266,50 +257,6 @@ describe("duplicate groups", () => {
   });
 });
 
-describe("backfill", () => {
-  beforeEach(sources);
-
-  it("fills missing keys page by page; grouping waits for a full rebuild", async () => {
-    const a = await row({ dedupeKey: null });
-    const b = await row({ dedupeKey: null });
-    const c = await row({ dedupeKey: null });
-    const keyOf = async (r: { title: string }) => `${r.title}`.padEnd(64, "x");
-
-    const first = await backfillDedupeKeys(db, keyOf, { limit: 2 });
-    expect(first).toEqual({ updated: 2, more: true, next: b });
-    const second = await backfillDedupeKeys(db, keyOf, { after: first.next, limit: 2 });
-    expect(second).toEqual({ updated: 1, more: false, next: c });
-    expect((await getJob(db, c))?.dedupeKey).toBe("Software Engineer".padEnd(64, "x"));
-
-    await rebuild({ full: true });
-    expect(await dupOf(b)).toBe(a);
-    expect(await dupOf(c)).toBe(a);
-  });
-
-  it("does not rescan keyed rows: pages by id, so each call reads only what it fills", async () => {
-    const keyed = await row({ dedupeKey: "k".repeat(64) });
-    const unkeyed = await row({ dedupeKey: null });
-    const keyOf = async () => "z".repeat(64);
-    // The keyed row sits below the cursor, so the next page starts at the unkeyed one.
-    expect(await backfillDedupeKeys(db, keyOf, { after: keyed, limit: 1 })).toEqual({
-      updated: 1,
-      more: false,
-      next: unkeyed,
-    });
-  });
-
-  it("fills a page larger than one batch (120 rows span three batches of 50 statements)", async () => {
-    for (let i = 0; i < 120; i++) await row({ dedupeKey: null });
-    const page = await backfillDedupeKeys(db, async () => "q".repeat(64), { limit: 120 });
-    expect(page).toMatchObject({ updated: 120, more: false });
-    const left = await db
-      .select({ id: schema.jobs.id })
-      .from(schema.jobs)
-      .where(isNull(schema.jobs.dedupeKey));
-    expect(left).toEqual([]);
-  });
-});
-
 /** The planner's detail lines for a query. The proxy returns rows as arrays; detail is the last column. */
 async function queryPlan(query: SQL): Promise<string> {
   const rows = await db.all<unknown[]>(sql`EXPLAIN QUERY PLAN ${query}`);
@@ -460,12 +407,5 @@ describe("incremental pass", () => {
     expect(details).toContain("jobs_updated_idx");
     expect(details).toContain("jobs_dup_of_idx");
     expect(details).not.toMatch(/SCAN/);
-  });
-
-  it("backfill reads by primary key, not a scan", async () => {
-    const details = await queryPlan(
-      sql`SELECT id FROM jobs WHERE id > ${0} AND dedupe_key IS NULL ORDER BY id LIMIT 301`,
-    );
-    expect(details).not.toMatch(/SCAN jobs(?! USING)/);
   });
 });

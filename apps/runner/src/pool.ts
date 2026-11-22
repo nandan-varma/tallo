@@ -30,6 +30,8 @@ interface Reply {
  */
 export function createCpuPool(size: number): CpuPool {
   let nextId = 0;
+  let closed = false;
+  let warned = false;
   const pending = new Map<
     number,
     { slot: Slot; resolve: (v: never) => void; reject: (e: Error) => void }
@@ -63,9 +65,14 @@ export function createCpuPool(size: number): CpuPool {
   });
 
   function call<T>(method: "hashes" | "prepare", args: unknown[]): Promise<T> {
+    if (closed) return Promise.reject(new Error("CPU pool is closed"));
     let slot: Slot | undefined;
     for (const s of slots) if (s.alive && (!slot || s.busy < slot.busy)) slot = s;
-    if (!slot) return (inThreadCpu[method] as (...a: unknown[]) => Promise<T>)(...args);
+    if (!slot) {
+      if (!warned) console.warn("CPU workers unavailable; continuing on the main thread");
+      warned = true;
+      return (inThreadCpu[method] as (...a: unknown[]) => Promise<T>)(...args);
+    }
     const target = slot;
     const id = nextId++;
     target.busy++;
@@ -80,6 +87,7 @@ export function createCpuPool(size: number): CpuPool {
     hashes: (source, listings) => call("hashes", [source, listings]),
     prepare: (source, posting, hash) => call("prepare", [source, posting, hash]),
     async close() {
+      closed = true;
       await Promise.all(slots.map((s) => s.worker.terminate()));
     },
   };

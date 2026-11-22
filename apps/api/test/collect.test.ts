@@ -540,3 +540,25 @@ describe("admin routes", () => {
     });
   });
 });
+
+it("coordinates cloud Workday tenants through their shared pod gate", async () => {
+  const reservations: string[] = [];
+  const h = harness({
+    reserve: async (host) => {
+      reservations.push(host);
+      return 0;
+    },
+    fetch: async () => Response.json({ total: 0, jobPostings: [], facets: [] }),
+  });
+  const source: SourceConfig = {
+    id: "workday:acme/careers",
+    platform: "workday",
+    key: "acme/careers",
+    company: "Acme",
+    params: { wd: "wd1" },
+  };
+  await registerSources(h.db, [source], new Set());
+  await handleCollect({ kind: "start", sourceId: source.id, runId: "run-cloud-pod-01" }, h.env);
+  expect(reservations.length).toBeGreaterThan(0);
+  expect(new Set(reservations)).toEqual(new Set(["wd1.myworkdayjobs.com"]));
+});

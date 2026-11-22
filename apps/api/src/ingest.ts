@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { dedupeKey, GunzipLimitError, gunzip, sha256 } from "@tallo/catalog";
+import { GunzipLimitError, gunzip, sha256 } from "@tallo/catalog";
 import {
   blobCheckSchema,
   createRunSchema,
@@ -11,14 +11,12 @@ import {
 import {
   applyJobs,
   type BlobStore,
-  backfillDedupeKeys,
   type Db,
   diff,
   diffOrFinish,
   finalize,
   jdKey,
   listRuns,
-  listSourceStatus,
   listSources,
   rebuildDuplicates,
   runsSearchSchema,
@@ -73,9 +71,6 @@ export function ingestRoutes({
   const routes = new Hono();
 
   routes.get("/v1/sources", write, async (c) => c.json(await listSources(db)));
-
-  /** Slim per-source view for the status page; `/v1/sources` stays the full record for the runner. */
-  routes.get("/v1/sources/status", write, async (c) => c.json(await listSourceStatus(db)));
 
   routes.get("/v1/runs", write, zValidator("query", runsSearchSchema), async (c) => {
     c.header("cache-control", "private, max-age=30");
@@ -157,19 +152,6 @@ export function ingestRoutes({
 
   routes.post("/v1/runs/:id/finalize", write, zValidator("json", finalizeSchema), async (c) =>
     c.json(await finalize(db, c.req.param("id"), c.req.valid("json"))),
-  );
-
-  /** Fills dedupe keys for rows stored before the key existed. Call with `after=<next>` until `more` is false. */
-  routes.post(
-    "/v1/admin/dedupe/backfill",
-    write,
-    zValidator("query", z.object({ after: z.coerce.number().int().min(0).optional() })),
-    async (c) =>
-      c.json(
-        await backfillDedupeKeys(db, (row) => dedupeKey(row), {
-          after: c.req.valid("query").after ?? 0,
-        }),
-      ),
   );
 
   /**

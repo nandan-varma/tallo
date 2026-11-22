@@ -23,8 +23,8 @@ export const jobFactsSchema = z.object({
   expiresAt: epoch.nullable(),
   excerpt: z.string().max(400),
   jdHash: hex64,
-  /** Groups listings of one posting (see catalog `dedupeKey`). Optional until every runner sends it. */
-  dedupeKey: hex64.nullish(),
+  /** Groups listings of one posting (see catalog `dedupeKey`). Required from every current collector. */
+  dedupeKey: hex64,
   jdBytes: z.number().int().nonnegative(),
   /** Fingerprint of the source listing + platform version; equal means no write is needed. */
   sourceHash: hex64,
@@ -59,6 +59,9 @@ export const blobCheckSchema = z.object({ hashes: z.array(hex64).max(1000) });
 const issueSchema = z.object({
   code: z.enum(["http", "schema", "pagination", "budget", "detail", "blocked", "gone"]),
   message: z.string().max(500),
+  retryable: z.boolean().optional(),
+  status: z.number().int().min(100).max(599).optional(),
+  retryAfterMs: z.number().nonnegative().optional(),
   url: z.string().max(500).optional(),
   postingId: z.string().max(512).optional(),
 });
@@ -158,3 +161,12 @@ export interface RetireResult {
   orphanJdHashes: string[];
   dryRun: boolean;
 }
+
+/** Shared response from the HTTP and direct-binding ingest adapters. */
+export const applyResultSchema = z.object({
+  applied: z.number().int().nonnegative(),
+  missingBlobs: z.array(hex64),
+  invalid: z.array(z.object({ postingId: z.string(), reason: z.string() })),
+  bounded: z.array(z.object({ postingId: z.string(), notes: z.array(z.string()) })),
+});
+export type ApplyResult = z.infer<typeof applyResultSchema>;

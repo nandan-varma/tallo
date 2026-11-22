@@ -3,7 +3,7 @@
 ## Goals and non-goals (v1)
 
 Public, read-only job search over ~9k company boards (the database stores what they state; the reader judges fit),
-refreshed weekly by a cloud collector (hot boards daily; boards that refuse Cloudflare's egress from a Mac), hosted cheaply on Cloudflare (about $5/month). The web offers search on the home page;
+collected manually on the Mac today, with a shared cloud queue runner ready for migration (automated cloud collection is off). The web offers search on the home page;
 each result links to the employer's application. Not planned: accounts, any per-person data, AI in the product, SEO
 work, vector search, closed-job history. See `decisions.md` D15.
 
@@ -49,7 +49,7 @@ with the same code (`packages/collect`), and it writes through the same HTTP ing
   (`sources.failure_count`; a complete run resets it), so a transient failure does not cost a week and a board that
   always fails costs one request a day. A board that has never listed anything waits 30 days after ten failures, and
   stays active. The policy is one pure function (`packages/contracts/src/schedule.ts`).
-- **Claim (cron, every 5 minutes; currently not scheduled, cloud collection is off since 2026-11-21)**: one statement moves up to `COLLECT_BATCH` (default 40) due boards' `next_due_at`
+- **Claim (cron, every 5 minutes; trigger deployed but gated off by COLLECT_ENABLED)**: one statement moves up to `COLLECT_BATCH` (default 40) due boards' `next_due_at`
   forward by a 30-minute lease and returns them. Each becomes one `start` message on the queue `tallo-collect`. Two
   claimers never get the same board. A crashed collector frees its boards when the lease ends. The cron does nothing
   unless `COLLECT_ENABLED` is `"1"` (the kill switch). Boards with `params.egress: "local"` are never claimed, by the cron

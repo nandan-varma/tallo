@@ -69,11 +69,6 @@ export function requireKey(source: SourceConfig, pattern = /^[A-Za-z0-9][\w.-]*$
 export const isoFromMs = (ms: unknown): string | undefined =>
   typeof ms === "number" && Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
 
-/**
- * The work mode a source states in its own words. Any word that names a mode counts, with precedence
- * hybrid > remote > onsite, so "Hybrid Remote" and "Hybrid (Travel-Required)" read as hybrid. A value
- * that names no mode ("Flexible", "Office") stays undefined.
- */
 const MODE_WORDS: [WorkMode, RegExp][] = [
   ["hybrid", /\bhybrid\b/],
   ["remote", /\bremote\b/],

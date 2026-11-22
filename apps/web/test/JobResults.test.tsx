@@ -12,7 +12,9 @@ const hit = (overrides: Partial<JobHit> & { id: string }): JobHit => ({
   location: "Seattle, WA",
   workMode: "hybrid",
   pay: "USD 150000-180000 per year",
-  compensation: [],
+  compensation: [
+    { min: 150000, max: 180000, currency: "USD", interval: "year", component: "base" },
+  ],
   postedAt: "2026-10-20",
   department: null,
   employmentType: null,

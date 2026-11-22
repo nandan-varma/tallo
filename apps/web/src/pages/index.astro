@@ -30,18 +30,36 @@ if (spec) {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 ---
-<Base title={spec ? "Search results · Tallo" : "Tallo · Find jobs"} indexable={!spec}>
+
+<Base
+  title={spec ? "Search results · Tallo" : "Tallo · Find jobs"}
+  indexable={!spec}
+>
   <div class="mx-auto grid w-full max-w-3xl gap-8 px-4 py-8 sm:px-6 sm:py-12">
     <h1 class="text-2xl font-semibold tracking-tight">Find jobs</h1>
     <SearchForm values={values} />
-    {limited && <p role="alert" class="text-sm text-destructive">Too many searches. Wait a minute and try again.</p>}
-    {failed && <p role="alert" class="text-sm text-destructive">Search is unavailable. Try again in a moment.</p>}
+    {limited && (
+      <p role="alert" class="text-sm text-destructive">
+        Too many searches. Wait a minute and try again.
+      </p>
+    )}
+    {failed && (
+      <p role="alert" class="text-sm text-destructive">
+        Search is unavailable. Try again in a moment.
+      </p>
+    )}
     {page && (
       <JobResults
         hits={page.hits}
         start={offset + 1}
-        prevHref={offset > 0 ? searchHref(values, Math.max(0, offset - PAGE_SIZE)) : null}
-        nextHref={page.nextOffset !== null ? searchHref(values, page.nextOffset) : null}
+        prevHref={
+          offset > 0
+            ? searchHref(values, Math.max(0, offset - PAGE_SIZE))
+            : null
+        }
+        nextHref={
+          page.nextOffset !== null ? searchHref(values, page.nextOffset) : null
+        }
         capped={page.capped}
         expanded={page.expanded}
       />
@@ -49,13 +67,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
     <section aria-label="AI assistant prompt" class="min-w-0">
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-          <CardTitle><a href="/llms.txt" class="underline underline-offset-4">llms.txt</a></CardTitle>
-          <Button variant="outline" type="button" id="copy-prompt" className="[&[hidden]]:hidden" hidden>Copy prompt</Button>
+          <CardTitle>
+            <a href="/llms.txt" class="underline underline-offset-4">
+              llms.txt
+            </a>
+          </CardTitle>
+          <Button
+            variant="outline"
+            type="button"
+            id="copy-prompt"
+            className="[&[hidden]]:hidden"
+            hidden
+          >
+            Copy prompt
+          </Button>
         </CardHeader>
         <CardContent className="grid gap-3">
           <pre class="rounded-md bg-muted p-4 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]"><code id="assistant-prompt">Read https://tallo.nandan.fyi/llms.txt and help me find jobs that fit my experience.</code></pre>
-          <p id="copy-feedback" role="status" aria-live="polite" class="empty:hidden text-sm text-muted-foreground"></p>
-          <a href="/v1/openapi.json" class="text-xs text-muted-foreground underline underline-offset-4">OpenAPI</a>
+          <p
+            id="copy-feedback"
+            role="status"
+            aria-live="polite"
+            class="empty:hidden text-sm text-muted-foreground"
+          ></p>
+          <a
+            href="/v1/openapi.json"
+            class="text-xs text-muted-foreground underline underline-offset-4"
+          >
+            OpenAPI
+          </a>
         </CardContent>
       </Card>
     </section>

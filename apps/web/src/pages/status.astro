@@ -6,12 +6,16 @@ import { loadSiteStats } from "@/lib/site-stats";
 
 // The API stores the snapshot hourly; the edge keeps it five minutes (lib/site-stats.ts), so a page view costs at
 // most a one-row read. A failed read shows a plain message.
-const stats = await loadSiteStats({ upstream: upstreamFetch, cache: edgeCache() }).catch(() => null);
+const stats = await loadSiteStats({
+  upstream: upstreamFetch,
+  cache: edgeCache(),
+}).catch(() => null);
 Astro.response.headers.set(
   "cache-control",
   "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
 );
 ---
+
 <Base
   title="Tallo status · what the catalog holds"
   description="Open jobs, employers, boards and how fresh the data is, counted from Tallo's live catalog. Nothing is inferred; unknowns are shown as not stated."

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import {
   encodeCursor,
-  type PublicSearchPage,
+  publicSearchPageSchema,
   type SearchPage,
   type SearchSpec,
 } from "@tallo/contracts";
@@ -64,7 +64,7 @@ export async function runSearch(
 
   const response = await answer(`/v1/search?${params}`, deps);
   if (!response.ok) throw new Error(`API ${response.status} for /v1/search`);
-  const page = (await response.json()) as PublicSearchPage;
+  const page = publicSearchPageSchema.parse(await response.json());
   return {
     hits: page.results,
     nextOffset: page.next === null ? null : offset + page.results.length,
