@@ -1,8 +1,8 @@
 import { STALE_HIDE_DAYS } from "@tallo/contracts";
 import { eq, type SQL, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
+import { crossedKeys } from "../src/dedupe.ts";
 import { finalize, listVariants, rebuildDuplicates, schema, startRun } from "../src/index.ts";
-import { crossedKeys } from "../src/ingest.ts";
 import { getJob, inspectJobs, testDb } from "../src/testing.ts";
 
 const DAY = 86400;

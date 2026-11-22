@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import type * as schema from "./schema.ts";
@@ -26,3 +27,7 @@ export function chunks<T>(items: readonly T[], size: number): T[][] {
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;
 }
+
+export const nowSeconds = () => Math.floor(Date.now() / 1000);
+export const jsonIds = (ids: readonly (string | number)[]) =>
+  sql`(SELECT value FROM json_each(${JSON.stringify(ids)}))`;
