@@ -140,6 +140,7 @@ export const google: Platform = {
     const field = (index: number) => at(listing, index);
     const company = str(field(7));
     const targetLevel = num(field(20));
+    // Slot 14: the time Google's own `sort_by=date` orders by (slot 12 is an earlier, unexplained time).
     const postedAt = isoFromSeconds(at(field(14), 0));
     // The row's own application link (a Google sign-in that carries the job); anything else is not linked.
     const applyUrl = str(field(2));
