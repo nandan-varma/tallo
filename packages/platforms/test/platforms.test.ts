@@ -800,6 +800,27 @@ describe("workday", () => {
     });
     expect(job.locations[0]?.countryCode).toBe("US");
     expect(job.description).toContain("pay range");
+    expect(job.workMode).toBeUndefined();
+  });
+
+  it.each([
+    ["Remote", "remote"],
+    ["Hybrid", "hybrid"],
+    ["On-Site", "onsite"],
+    ["In Office", "onsite"],
+    ["Flex", undefined],
+  ])("reads the stated remoteType %s as work mode %s", (remoteType, workMode) => {
+    const detail = obj(fixture("workday-detail"));
+    const job = workday.map(
+      {
+        id: "/job/x/1",
+        listing: list.jobPostings[0]!,
+        detail: { ...detail, jobPostingInfo: { ...obj(detail.jobPostingInfo), remoteType } },
+      },
+      src,
+    );
+    expect(job.workMode).toBe(workMode);
+    expect(job.extras).toMatchObject({ remoteType });
   });
 
   it("takes the country code from the requisition location's alpha-2, else from the country name", () => {
