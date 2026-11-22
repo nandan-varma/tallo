@@ -92,10 +92,21 @@ is reaped as partial (nothing closes). Such a board is collected by the Mac runn
 2. List, then `POST /v1/runs/:id/diff` with `{id, sourceHash}` for every listed posting. `sourceHash` =
    sha256(fingerprint + platform version). Server answers which are new/changed.
 3. Detail + map + `prepareJob` for changed postings only (Worker CPU).
-4. `POST /v1/blobs/check`, `PUT /v1/blobs/jd/:hash` for missing descriptions (hash verified server-side).
-5. `POST /v1/runs/:id/jobs` in batches of ≤100 (upsert; refuses jobs whose blob is missing).
+4. `POST /v1/runs/:id/jobs` in batches of ≤100 (upsert; skips and reports jobs whose blob is missing). The
+   runner sends it first, then `PUT /v1/blobs/jd/:hash` for the reported hashes (hash verified server-side) and
+   re-sends only those jobs. A description the server already holds costs no check. `POST /v1/blobs/check`
+   stays for other callers; the engine no longer uses it.
+5. (Detail, map and prepare of the changed postings run before step 4; see 3.)
 6. `PUT /v1/runs/:id/raw` the run's raw pack of changed postings.
 7. `POST /v1/runs/:id/finalize` with every listed id and completeness flags. Server applies closure.
+
+**One call for an unchanged board.** `POST /v1/runs/:id/diff-or-finish` takes `{postings, finish}`: `finish` is the
+finalize body (without `seenIds` and `rawKey`) the run would send if nothing changed. The server diffs; if the
+diff is empty it runs the ordinary `finalize` with `seenIds` = the diffed ids and no raw pack, and answers
+`{changed: [], finalized}`; otherwise it answers `{changed}` and the run stays open. Same closure rules, same
+idempotence on `runId` (a replay finds the run finished and returns its result). `diff` and `finalize` remain.
+A 304 board costs two calls (start, finalize): start must come first because it returns the validator the listing
+request needs. An unchanged board writes no raw pack (a pack exists only when postings were mapped).
 
 Runs are recorded (`runs` table: runner id, collector version, counts, issues) so it is always clear
 what ran where and when. Failures finalize the run as `partial`; nothing is inferred from them.
