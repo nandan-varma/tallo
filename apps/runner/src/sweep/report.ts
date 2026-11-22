@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import type { SweepStatus } from "./controller.ts";
 import { editPath } from "./controller.ts";
 import { type Edit, parseWord, readEdits } from "./settings.ts";
+import { sharesLine } from "./timing.ts";
 
 const pad = (v: string | number, n: number, right = false) =>
   right ? String(v).padStart(n) : String(v).padEnd(n);
@@ -46,6 +47,13 @@ export function formatStatus(status: SweepStatus, events: string[], now = Date.n
       );
     if (l.errors[0]) extra.push(`${name}: last error ${l.errors[0]}`);
   }
+  const where = Object.entries(status.lanes)
+    .filter(([, l]) => l.timings.boards > 0)
+    .map(([name, l]) => {
+      const t = l.timings;
+      return `${name}: ${sharesLine(t.shares)}  (board wall p50 ${(t.wallP50Ms / 1000).toFixed(1)}s p90 ${(t.wallP90Ms / 1000).toFixed(1)}s, ${t.requestsPerSecPerBoard} req/s per board)`;
+    });
+  if (where.length) lines.push("", "where the time goes", ...where.map((w) => `  ${w}`));
   if (extra.length) lines.push("", ...extra);
   lines.push("", `last ${events.length} events`);
   for (const line of events) {

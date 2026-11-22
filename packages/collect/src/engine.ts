@@ -16,6 +16,15 @@ import { platformFor } from "@tallo/platforms";
 import PQueue from "p-queue";
 import { type Cpu, inThreadCpu } from "./cpu.ts";
 import { policyFor } from "./policy.ts";
+import {
+  meterCpu,
+  meterIngest,
+  newMeter,
+  snapshot,
+  type TimingMeter,
+  type Timings,
+  timed,
+} from "./timings.ts";
 
 /**
  * The write side of ingest. The runner implements it over HTTP; the Worker implements it over the
@@ -78,6 +87,8 @@ export interface EngineOptions {
   cpu?: Cpu;
   /** Largest response body a request may return. Default: the HTTP client's (64 MB). The Worker lowers it. */
   maxResponseBytes?: number;
+  /** Where to add timings. Set by `collectSource`; the Worker's sliced path leaves it unset and pays nothing. */
+  meter?: TimingMeter;
 }
 
 /** What `begin` decided: the listing, the diff and the work that remains. Immutable once written. */
@@ -112,7 +123,11 @@ export interface Progress {
  */
 export type Advanced = Progress & { rawTail?: Uint8Array };
 
-export type Outcome = Finalize & { changed: number };
+export type Outcome = Finalize & {
+  changed: number;
+  /** Where the time went; set by `collectSource` (the runner), absent on the Worker's sliced path. */
+  timings?: Timings;
+};
 
 /** Issues kept on the run row. */
 export const ISSUE_CAP = 50;
@@ -168,7 +183,20 @@ function httpFor(source: SourceConfig, options: EngineOptions, counter: { reques
     limiter:
       options.limiter ??
       createHostLimiter({ perHostConcurrency: () => policyFor(platform.id).concurrency }),
-    onRequest: () => void counter.requests++,
+    onRequest: () => {
+      counter.requests++;
+      if (options.meter) options.meter.sourceRequests++;
+    },
+    ...(options.meter
+      ? {
+          onWait: (kind: "limiter" | "retry", ms: number) => {
+            options.meter![kind === "limiter" ? "limiterWaitMs" : "retryWaitMs"] += ms;
+          },
+          onBytes: (n: number) => {
+            options.meter!.bytesIn += n;
+          },
+        }
+      : {}),
   });
 }
 
@@ -224,7 +252,7 @@ export async function begin(
   try {
     const gen = platform.list(source, ctx);
     for (;;) {
-      const next = await gen.next();
+      const next = await timed(options.meter, "listMs", () => gen.next());
       if (next.done) {
         listing = next.value;
         break;
@@ -455,7 +483,12 @@ export async function advance(
         started++;
         try {
           const full = platform.detail
-            ? { ...posting, detail: await platform.detail(plan.source, posting, ctx) }
+            ? {
+                ...posting,
+                detail: await timed(options.meter, "detailMs", () =>
+                  platform.detail!(plan.source, posting, ctx),
+                ),
+              }
             : posting;
           const done = await cpu.prepare(plan.source, full, hash);
           lines.push(done.line);
@@ -484,7 +517,9 @@ export async function advance(
   let rawTail: Uint8Array | undefined;
   if (lines.length) {
     // One newline-terminated line per posting, so parts join into valid ndjson.
-    const part = await gzip(new TextEncoder().encode(lines.join("")));
+    const part = await timed(options.meter, "cpuMs", () =>
+      gzip(new TextEncoder().encode(lines.join(""))),
+    );
     if (offset >= plan.changed.length) {
       // The run ends here: `complete` runs in this invocation, so the bytes need no round trip.
       rawTail = part;
@@ -527,7 +562,8 @@ export async function complete(
       parts.push(bytes);
     }
     if (progress.rawTail) parts.push(progress.rawTail);
-    rawKey = await options.ingest.putRaw(plan.runId, await regzip(parts));
+    const packed = await timed(options.meter, "cpuMs", () => regzip(parts));
+    rawKey = await options.ingest.putRaw(plan.runId, packed);
   }
   const body: Finalize = {
     seenIds: plan.seenIds,
@@ -555,6 +591,7 @@ export async function complete(
       changed: plan.changed.length,
       detailsComplete: progress.detailsComplete,
       requests: progress.requests,
+      ...(options.meter ? { timings: snapshot(options.meter) } : {}),
     },
     "synced",
   );
@@ -566,6 +603,22 @@ export async function complete(
  * begin, advance and complete across invocations instead.
  */
 export async function collectSource(
+  source: SourceConfig,
+  meta: { runId: string; runnerId: string; version: string },
+  base: EngineOptions,
+): Promise<Outcome> {
+  const meter = base.meter ?? newMeter();
+  const options: EngineOptions = {
+    ...base,
+    meter,
+    ingest: meterIngest(base.ingest, meter),
+    cpu: meterCpu(base.cpu ?? inThreadCpu, meter),
+  };
+  const outcome = await collectMetered(source, meta, options);
+  return { ...outcome, timings: snapshot(meter) };
+}
+
+async function collectMetered(
   source: SourceConfig,
   meta: { runId: string; runnerId: string; version: string },
   options: EngineOptions,

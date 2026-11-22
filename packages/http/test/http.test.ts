@@ -13,6 +13,29 @@ function make(fetchImpl: typeof fetch, extra = {}) {
   });
 }
 
+describe("time accounting", () => {
+  it("reports limiter waits, retry sleeps and bytes", async () => {
+    const waits = { limiter: 0, retry: 0 };
+    let bytes = 0;
+    let calls = 0;
+    const f: typeof fetch = async () => (++calls === 1 ? json({}, 429) : json({ ok: true }));
+    const http = make(f, {
+      retryDelay: () => 40,
+      onWait: (kind: "limiter" | "retry", ms: number) => {
+        waits[kind] += ms;
+      },
+      onBytes: (n: number) => {
+        bytes += n;
+      },
+    });
+    await http.getJson("https://api.example.com/x");
+    expect(waits.retry).toBeGreaterThanOrEqual(35);
+    expect(waits.retry).toBeLessThan(200);
+    expect(waits.limiter).toBeLessThan(30);
+    expect(bytes).toBe('{"ok":true}'.length);
+  });
+});
+
 describe("hostAllowed", () => {
   it("matches exact and wildcard hosts", () => {
     expect(hostAllowed("api.example.com", ["api.example.com"])).toBe(true);
