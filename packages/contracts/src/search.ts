@@ -5,6 +5,13 @@ import { moneySchema } from "./job.ts";
 export const SEARCH_RESULT_CAP = 300;
 
 /**
+ * The most index entries a date-sorted search reads: the newest this many matches (by catalog id). A query that
+ * matches fewer is exact; a broader one orders only its newest matches, which on a 700k catalog still holds about 95%
+ * of the postings from the last three days. Reading all of a broad word's matches cost 2.7M rows and several seconds.
+ */
+export const DATE_SORT_WINDOW = 50_000;
+
+/**
  * How a search orders its results. `relevance` is the ranked search; `recent` and `posted` order by `sort_at`
  * (the source's posted date, else first seen) and `added` by catalog insertion order.
  */

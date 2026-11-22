@@ -1,7 +1,9 @@
 import {
   cursorOffset,
+  isHeavySearch,
   POSTING_ID_SOURCE,
   PUBLIC_COST_HEADER,
+  PUBLIC_HEAVY_RATE_PER_MINUTE,
   PUBLIC_MAX_URL_CHARS,
   PUBLIC_ORIGIN,
   PUBLIC_PATHS,
@@ -56,6 +58,8 @@ export interface PublicDeps {
   upstream: (pathAndQuery: string) => Promise<Response>;
   cache?: EdgeCache;
   limiter?: Limiter;
+  /** A smaller per-address budget for wide searches that must reach the database (see `isHeavySearch`). */
+  heavyLimiter?: Limiter;
   /** Receives one line per public request. Unset: nothing is logged. */
   log?: (line: PublicLogLine) => void;
 }
@@ -76,14 +80,37 @@ const PATTERNS = PUBLIC_PATHS.map(
 export const isPublicPath = (pathname: string): boolean =>
   PATTERNS.some((pattern) => pattern.test(pathname));
 
-/** The URL the cache and the API see: the public origin, and the query parameters in sorted order. */
+/** The query parameters whose values are words: spelling the same word in another case or spacing is the same question. */
+const WORD_PARAMS = new Set(["title", "company", "location"]);
+
+/**
+ * The URL the cache and the API see: the public origin, and the query parameters in sorted order, with the words of a
+ * question spelled one way (lowercase, single spaces, no repeats). Matching ignores case, so `Manager` and `manager`
+ * are one question and one cache entry. Cursors and every other value pass through untouched.
+ */
 export function normalizedPathAndQuery(url: URL): string {
-  const entries = [...url.searchParams].sort(([a, av], [b, bv]) =>
-    a === b ? (av < bv ? -1 : av > bv ? 1 : 0) : a < b ? -1 : 1,
-  );
+  const seen = new Set<string>();
+  const entries: [string, string][] = [];
+  for (const [name, raw] of url.searchParams) {
+    const value = WORD_PARAMS.has(name)
+      ? raw.trim().replace(/\s+/g, " ").toLowerCase()
+      : name === "country"
+        ? raw.trim().toUpperCase()
+        : raw;
+    const key = `${name}\u0000${value}`;
+    if (REPEATED_PARAMS.has(name)) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    entries.push([name, value]);
+  }
+  entries.sort(([a, av], [b, bv]) => (a === b ? (av < bv ? -1 : av > bv ? 1 : 0) : a < b ? -1 : 1));
   const query = new URLSearchParams(entries).toString();
   return query ? `${url.pathname}?${query}` : url.pathname;
 }
+
+/** Parameters that repeat in the URL (a repeated value is one alternative, not two). */
+const REPEATED_PARAMS = new Set(["title", "company", "location", "country"]);
 
 const cacheKeyOf = (pathAndQuery: string) => new Request(`${PUBLIC_ORIGIN}${pathAndQuery}`);
 
@@ -315,6 +342,26 @@ async function respond(request: Request, url: URL, deps: PublicDeps): Promise<Ou
       ),
     );
   }
-  const answered = await outcomeOf(normalizedPathAndQuery(url), deps);
+  const canonical = normalizedPathAndQuery(url);
+  // A wide search that the cache cannot answer costs the database its full scan: it has its own, smaller budget.
+  if (
+    deps.heavyLimiter &&
+    isHeavySearch(url.pathname, new URL(canonical, PUBLIC_ORIGIN).searchParams) &&
+    !(await deps.cache?.match(cacheKeyOf(canonical))) &&
+    !(await admit(request, deps.heavyLimiter))
+  ) {
+    return refused(
+      reply(
+        429,
+        publicError(
+          "rate_limited",
+          `Too many wide searches from this address: about ${PUBLIC_HEAVY_RATE_PER_MINUTE} new ones a minute.`,
+          "Use fewer, more specific title values (up to 3), or add a company or location. Repeats of a search you already made are free.",
+        ),
+        { "retry-after": "60" },
+      ),
+    );
+  }
+  const answered = await outcomeOf(canonical, deps);
   return { ...answered, response: withCors(answered.response) };
 }
