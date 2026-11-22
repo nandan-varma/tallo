@@ -105,5 +105,6 @@ export function gatedLimiter(
         return task();
       });
     },
+    setLimits: (limits) => base.setLimits(limits),
   };
 }

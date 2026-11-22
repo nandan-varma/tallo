@@ -26,26 +26,40 @@ interface HostLimiterOptions {
 /** Per-host queues. Share one instance across clients to bound a host process-wide. */
 export interface HostLimiter {
   run<T>(host: string, task: () => Promise<T>): Promise<T>;
+  /** Change the limits at runtime. Queued and future requests follow them; requests in flight finish. */
+  setLimits(limits: { perHostConcurrency?: number; minHostIntervalMs?: number }): void;
 }
 
 export function createHostLimiter(options: HostLimiterOptions = {}): HostLimiter {
-  const concurrencyOf = (host: string) => {
-    const c = options.perHostConcurrency ?? 4;
-    return typeof c === "function" ? c(host) : c;
-  };
-  const interval = options.minHostIntervalMs ?? 0;
-  const queues = new Map<string, PQueue>();
+  let perHost: number | ((host: string) => number) = options.perHostConcurrency ?? 4;
+  let interval = options.minHostIntervalMs ?? 0;
+  const concurrencyOf = (host: string) => (typeof perHost === "function" ? perHost(host) : perHost);
+  const hosts = new Map<string, { queue: PQueue; nextStart: number }>();
   return {
     run<T>(host: string, task: () => Promise<T>): Promise<T> {
-      let q = queues.get(host);
-      if (!q) {
-        q = new PQueue({
-          concurrency: concurrencyOf(host),
-          ...(interval > 0 ? { interval, intervalCap: 1 } : {}),
-        });
-        queues.set(host, q);
+      let h = hosts.get(host);
+      if (!h) {
+        h = { queue: new PQueue({ concurrency: concurrencyOf(host) }), nextStart: 0 };
+        hosts.set(host, h);
       }
-      return q.add(task);
+      const state = h;
+      // The start gap is reserved when a request gets its slot, so a change applies to the next start.
+      return state.queue.add(async () => {
+        if (interval > 0) {
+          const now = Date.now();
+          const start = Math.max(now, state.nextStart);
+          state.nextStart = start + interval;
+          if (start > now) await new Promise((resolve) => setTimeout(resolve, start - now));
+        }
+        return task();
+      });
+    },
+    setLimits(limits) {
+      if (limits.perHostConcurrency !== undefined) {
+        perHost = limits.perHostConcurrency;
+        for (const h of hosts.values()) h.queue.concurrency = limits.perHostConcurrency;
+      }
+      if (limits.minHostIntervalMs !== undefined) interval = limits.minHostIntervalMs;
     },
   };
 }

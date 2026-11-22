@@ -17,6 +17,7 @@ import {
 import { createPooledFetch } from "./net.ts";
 import { createCpuPool, defaultThreads } from "./pool.ts";
 import { loadHot, loadSources, retirableSourceIds } from "./sources.ts";
+import { registerSweep } from "./sweep/cli.ts";
 import { syncSource } from "./sync.ts";
 import { verifySource } from "./verify.ts";
 
@@ -277,5 +278,12 @@ program
     }
     log.info({ sources: sources.length, hot: hot.length, registered }, "registered");
   });
+
+registerSweep(program, {
+  log,
+  need,
+  loadSources: () => loadSources(SOURCES_DIR),
+  numberFlag: (flag, min) => numberFlag(flag, min),
+});
 
 await program.parseAsync();
