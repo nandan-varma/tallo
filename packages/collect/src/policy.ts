@@ -26,6 +26,8 @@ export const POLICY: Record<string, HostPolicy> = {
   // About 4,500 job pages of ~150 KB each, on one host.
   fedex: { concurrency: 2, gapMs: 500 },
   // One 100-row search page per request, then one ~85 KB job page per changed posting, on one host.
+  // One sitemap, then one ~290 KB portal page JSON per changed posting on one host.
+  bestbuy: { concurrency: 2, gapMs: 500 },
   phenom: { concurrency: 2, gapMs: 500 },
   ibm: TENANT,
   goldman: TENANT,
