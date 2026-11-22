@@ -9,10 +9,20 @@ Added: Disney (Workday `disney/disneycareer`, wd5).
 - `jobs.walgreens.com`: `/sitemap.xml` redirects to `/en/sitemap.xml`, which holds exactly 500 `/en/job/` URLs (capped), so the listing is `complete: false` there.
 - Kroger is not on TalentBrew: `jobs.kroger.com` redirects to `krogerfamilycareers.com`, an Oracle Cloud HCM site (`eluq.fa.us2.oraclecloud.com`, `CX_2001`), already seeded in `sources/oraclecloud.json`.
 
-## Not readable within limits
+## Listing surfaces for the issue #186 list (checked 2026-11-22; robots.txt respected, no 403 or bot wall bypassed)
 
+Done:
+- Kroger: `jobs.kroger.com` redirects to `krogerfamilycareers.com`, an Oracle Cloud HCM site (`eluq.fa.us2.oraclecloud.com`, `CX_2001`); already seeded in `sources/oraclecloud.json`.
+- Dell: `jobs.dell.com` is an Oracle Cloud HCM front end whose candidate site lives on `enterpriseplatform.dell.com` (`CX_1001`, site path `careers`, 589 requisitions). Seeded as `oraclecloud:enterpriseplatform.dell.com`; that host is the one custom host `oraclecloud` accepts. The HCM API answers; the earlier 403 was from `jobs.dell.com` itself, which now answers 200 for browsers.
+
+Feasible, not built (each needs its own platform or a generalised one):
+- Starbucks: `apply.starbucks.com` is an Eightfold PCSX site; robots.txt allows `/api/pcsx` and `/careers`, and `GET /api/pcsx/search?domain=starbucks.com&query=&start=0` answers JSON (id, name, locations, department, postedTs, positionUrl). This is the same API `microsoft` reads, so the clean route is to turn `microsoft` into an `eightfold` platform keyed by domain (bump version, re-fetch) with Starbucks as the second user. Not done here: it rewrites a shipped platform.
+- FedEx: `careers.fedex.com` robots allows everything; `sitemap.xml` is an index of per-locale sitemaps (`sitemap-<hash>-<locale>.xml`, about 3,000 `/<slug>/job/<id>` URLs in the first English one) and each job page carries `JobPosting` JSON-LD (identifier, datePosted, employmentType, jobLocation) and an apply link on `fedex.paradox.ai`. A sitemap-plus-JSON-LD platform like `radancy`, but one posting appears in several locale sitemaps and the hash prefixes (two seen) are tenant ids, so the sitemap set needs a reviewed list.
+- Publix: `jobs.publix.com` is WordPress; `job_opening-sitemap.xml` lists about 430 `/job-opening/<role>/` pages, but they are role-level pages (grocery clerk, produce clerk) with no `JobPosting` JSON-LD, and the actual requisitions live in BrassRing (robots-restricted search). Role pages are not postings; skipped.
+- Best Buy: `careers.bestbuy.com/bby` is a ServiceNow portal; the sitemap (`bestbuy.service-now.com/api/93622/seo/sitemap`) lists about 1,450 `jobs.bestbuy.com/bby?id=...` URLs, but the portal renders client-side and no static JSON-LD or public list API was found by curl. Needs a browser inspection of the widget requests.
+- UPS: `www.jobs-ups.com` is a Phenom site. robots.txt lists per-region sitemaps (`/<region>/<lang>/sitemap.xml`); `/us/en/sitemap.xml` answers 303. Phenom exposes a `/widgets` search API, not verified here. Needs a Phenom platform.
+
+Blocked or unresolved:
+- Lockheed Martin: `www.lockheedmartinjobs.com` serves a 404 for robots.txt, sitemap and search (it redirects through `/cgi-bin/ext_redir.pl` to a generic 404); no listing host found.
+- Albertsons: `careers.albertsonscompanies.com` does not connect and `www.albertsonscompanies.com/careers/` answers 403 (bot wall); skipped, not bypassed.
 - Tesla, McDonald's careers site: 403 on robots.txt and pages (bot wall); skipped.
-- Dell `jobs.dell.com`: 403; Dell Workday tenant guess did not resolve.
-- Kroger, Starbucks, UPS, Lockheed Martin, Albertsons: hosts timed out from curl; Workday tenant guesses (`External`, brand names, wd1/3/5) returned nothing. Needs a browser to find the real site names.
-- Best Buy (`careers.bestbuy.com/bby`), FedEx (`careers.fedex.com`), Publix (`jobs.publix.com`, BrassRing): pages reachable, listing surface not investigated.
-- Workday root-URL redirect trick now answers 406; use browser-found site names instead.
