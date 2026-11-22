@@ -16,7 +16,7 @@ const SECTIONS = ["description", "key_responsibilities", "skills_knowledge_exper
 
 export const pinpoint: Platform = {
   id: "pinpoint",
-  version: 1,
+  version: 2,
   hosts: ["*.pinpointhq.com"],
   validate: (source) => requireKey(source, /^[a-z0-9][a-z0-9-]*$/),
 
@@ -41,13 +41,14 @@ export const pinpoint: Platform = {
     const min = num(j.compensation_minimum);
     const max = num(j.compensation_maximum);
     const compensation: Money[] =
-      j.compensation_visible !== false && (min !== undefined || max !== undefined)
+      j.compensation_visible !== false &&
+      (min !== undefined || max !== undefined || str(j.compensation))
         ? [
             {
               min,
               max,
               currency: str(j.compensation_currency),
-              interval: INTERVALS[str(j.compensation_frequency) ?? ""] ?? "unknown",
+              interval: INTERVALS[str(j.compensation_frequency)?.toLowerCase() ?? ""] ?? "unknown",
               component: "base",
               text: str(j.compensation),
             },

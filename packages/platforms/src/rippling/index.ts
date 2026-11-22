@@ -3,7 +3,7 @@ import { arr, id, num, obj, str } from "@tallo/contracts";
 import { describe, locations, lookup, requireKey, rows, SchemaError, workModeOf } from "../kit.ts";
 
 const API = "https://ats.rippling.com/api";
-const PAGE = 100;
+const PAGE = 500;
 /** A board is far below this; the cap only stops a runaway pagination loop. */
 const MAX_PAGES = 200;
 

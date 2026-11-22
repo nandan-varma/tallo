@@ -23,8 +23,8 @@ describe("rippling", () => {
     const { ctx, urls } = fakeCtx((url) => pages[Number(/page=(\d+)/.exec(url)?.[1])] as Json);
     const { items, result } = await drain(rippling.list(src, ctx));
     expect(urls).toEqual([
-      "https://ats.rippling.com/api/v2/board/boom-supersonic/jobs?page=0&pageSize=100",
-      "https://ats.rippling.com/api/v2/board/boom-supersonic/jobs?page=1&pageSize=100",
+      "https://ats.rippling.com/api/v2/board/boom-supersonic/jobs?page=0&pageSize=500",
+      "https://ats.rippling.com/api/v2/board/boom-supersonic/jobs?page=1&pageSize=500",
     ]);
     expect(items.map((i) => i.id)).toHaveLength(3);
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: true });

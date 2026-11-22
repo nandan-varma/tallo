@@ -1,7 +1,50 @@
 [
- { "key": "freeeup", "company": "FreeeUp" },
- { "key": "salesdraft-recruiting", "company": "SalesDraft Recruiting" },
- { "key": "seeknow", "company": "Seek Now" },
- { "key": "sourcefit", "company": "Sourcefit" },
- { "key": "urrly", "company": "Urrly" }
+  {
+    "key": "alliance",
+    "company": "Alliance"
+  },
+  {
+    "key": "amity",
+    "company": "Amity"
+  },
+  {
+    "key": "ardent",
+    "company": "Ardent"
+  },
+  {
+    "key": "attentive",
+    "company": "Attentive"
+  },
+  {
+    "key": "beam",
+    "company": "Bridge to Enter Advanced Mathematics (BEAM)"
+  },
+  {
+    "key": "bluesky-telepsych",
+    "company": "BlueSky Telepsych"
+  },
+  {
+    "key": "caribou",
+    "company": "Caribou Financial"
+  },
+  {
+    "key": "freeeup",
+    "company": "FreeeUp"
+  },
+  {
+    "key": "salesdraft-recruiting",
+    "company": "SalesDraft Recruiting"
+  },
+  {
+    "key": "seeknow",
+    "company": "Seek Now"
+  },
+  {
+    "key": "sourcefit",
+    "company": "Sourcefit"
+  },
+  {
+    "key": "urrly",
+    "company": "Urrly"
+  }
 ]
