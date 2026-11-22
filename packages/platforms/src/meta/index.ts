@@ -12,7 +12,7 @@ import type {
 } from "@tallo/contracts";
 import { arr, id, isObject, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, requireKey, rows, SchemaError } from "../kit.ts";
+import { describe, locations, requireKey, rows, SchemaError, strings } from "../kit.ts";
 
 /**
  * Meta Careers is one anonymous Relay surface. The job search page embeds a short-lived `lsd` token;
@@ -25,7 +25,6 @@ import { describe, locations, requireKey, rows, SchemaError } from "../kit.ts";
 const ORIGIN = "https://www.metacareers.com";
 const SEARCH_DOC = "40084319704492118";
 const SEARCH_NAME = "CareersJobSearchResultsDataQuery";
-/** Every field the search response may contain; the response is still read explicitly. */
 const JOB_ID = /^\d{1,20}$/;
 /**
  * The board is not paged, so there is no last page to see. A result set exactly at one of these
@@ -296,11 +295,6 @@ function joinCapped(values: string[], max = 200): string | undefined {
   }
   return out || undefined;
 }
-
-const strings = (value: unknown): string[] =>
-  arr(value)
-    .map((entry) => str(entry))
-    .filter((entry): entry is string => entry !== undefined);
 
 export const meta: Platform = {
   id: "meta",

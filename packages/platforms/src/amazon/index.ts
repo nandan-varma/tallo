@@ -7,7 +7,7 @@ import type {
   WorkMode,
 } from "@tallo/contracts";
 import { isObject, num, obj, str } from "@tallo/contracts";
-import { describe, locations, lookup, rows, SchemaError, workModeOf } from "../kit.ts";
+import { definedOnly, describe, locations, lookup, rows, SchemaError, workModeOf } from "../kit.ts";
 
 /**
  * Amazon's public jobs search JSON. One request returns up to 100 complete posting rows, including the
@@ -147,14 +147,6 @@ function postingIdOf(job: JsonObject): string {
 
 const bool = (value: Json | undefined): boolean | undefined =>
   typeof value === "boolean" ? value : undefined;
-
-const definedOnly = (fields: Record<string, Json | undefined>): JsonObject =>
-  Object.fromEntries(
-    Object.entries(fields).filter((entry): entry is [string, Json] => {
-      const value = entry[1];
-      return value !== undefined && value !== null;
-    }),
-  );
 
 export const amazon: Platform = {
   id: "amazon",

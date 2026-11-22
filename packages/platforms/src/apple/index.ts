@@ -7,7 +7,7 @@ import type {
   SourceConfig,
 } from "@tallo/contracts";
 import { arr, isObject, num, obj, str } from "@tallo/contracts";
-import { describe, locations, lookup, rows, SchemaError } from "../kit.ts";
+import { describe, locations, lookup, rows, SchemaError, strings } from "../kit.ts";
 
 /**
  * Apple's public jobs API. `POST /api/v1/search` lists twenty postings a page (no auth); the
@@ -124,9 +124,7 @@ export const apple: Platform = {
   map({ id, listing, detail }) {
     const row = lookup(listing);
     const j = lookup(detail);
-    const teamNames = arr(j("teamNames"))
-      .map((t) => str(t))
-      .filter((t): t is string => Boolean(t));
+    const teamNames = strings(j("teamNames"));
     const number =
       str(j("jobNumber")) ?? str(j("positionId")) ?? str(row("positionId")) ?? str(row("id")) ?? id;
     const slug = str(j("transformedPostingTitle")) ?? str(row("transformedPostingTitle"));

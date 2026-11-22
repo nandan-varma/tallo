@@ -6,7 +6,7 @@ import type {
   SourceConfig,
 } from "@tallo/contracts";
 import { arr, id, num, obj, str } from "@tallo/contracts";
-import { describe, locations, lookup, rows, SchemaError, workModeOf } from "../kit.ts";
+import { definedOnly, describe, locations, lookup, rows, SchemaError, workModeOf } from "../kit.ts";
 
 /** The finder clamps any larger `limit` to 200 rows (checked live with 500), so a short page is always a real gap. */
 const PAGE = 200;
@@ -57,12 +57,6 @@ async function assertNotHostDefault(
         "if it is the host default, set params.defaultSite: true",
     );
 }
-
-/** Keeps only the defined entries; `extras` must stay JSON. */
-const definedOnly = (fields: Record<string, string | undefined>): JsonObject =>
-  Object.fromEntries(
-    Object.entries(fields).filter((e): e is [string, string] => e[1] !== undefined),
-  );
 
 export const oraclecloud: Platform = {
   id: "oraclecloud",
