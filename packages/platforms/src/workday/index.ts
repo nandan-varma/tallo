@@ -7,7 +7,7 @@ import type {
   SourceConfig,
 } from "@tallo/contracts";
 import { arr, isObject, num, obj, str } from "@tallo/contracts";
-import { describe, locations, rows, SchemaError, workModeOf } from "../kit.ts";
+import { describe, locations, rows, SchemaError } from "../kit.ts";
 
 /** Workday rejects any larger `limit` with HTTP 400 (checked live: 21, 50, 100, 200, 2000). */
 const PAGE = 20;
@@ -191,7 +191,7 @@ async function* slice(
 
 export const workday: Platform = {
   id: "workday",
-  version: 5,
+  version: 4,
   hosts: ["*.myworkdayjobs.com"],
   validate: (source) => void parts(source),
 
@@ -242,8 +242,6 @@ export const workday: Platform = {
         { text: info.location ?? l.locationsText, hints: { country, countryCode: alpha2 } },
         ...extra,
       ]),
-      // Tenants that state it use "Remote", "Hybrid", "On-Site" or "In Office"; any other wording stays unknown.
-      workMode: workModeOf(info.remoteType),
       employmentType: str(info.timeType),
       requisitionId: str(info.jobReqId) ?? str(arr(l.bulletFields)[0]),
       postedAt: str(info.startDate),
