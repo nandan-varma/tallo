@@ -57,12 +57,20 @@ const lane = (
 
 const multiHost = (def: LaneDef): LaneDef => ({ ...def, multiHost: true });
 
-/** Defaults from the old scripts/sweep.ts: about 30 boards in flight in total. */
+/**
+ * Defaults from the old scripts/sweep.ts: about 40 boards in flight in total.
+ *
+ * For a single-host lane `concurrency` is not a politeness setting - `perHost` is, and it is shared by every board of
+ * the lane, so the requests one host sees do not grow with more boards. Concurrency is how much *ingest* work the
+ * lane may overlap. Measured on 25 Greenhouse boards: ~1 source request and ~7 ingest calls a board, wall 1.8 s of
+ * which the source was 0.05-0.15 s and the rest API round trips. So a catalog lane is limited by round trips, not by
+ * the source, and a handful of boards in flight leaves the API idle.
+ */
 export const LANES: LaneDef[] = [
-  lane("greenhouse", ["greenhouse"], 5, 5, 0, undefined, 6),
-  lane("lever", ["lever"], 3, 3, 0, undefined, 4),
-  lane("ashby", ["ashby"], 3, 3, 0, undefined, 4),
-  lane("smartrecruiters", ["smartrecruiters"], 3, 3, 0, undefined, 10),
+  lane("greenhouse", ["greenhouse"], 10, 5, 0, undefined, 6),
+  lane("lever", ["lever"], 8, 3, 0, undefined, 4),
+  lane("ashby", ["ashby"], 8, 3, 0, undefined, 4),
+  lane("smartrecruiters", ["smartrecruiters"], 8, 3, 0, undefined, 10),
   // 250 ms between request starts is what the fixed driver used; Workday boards are request-bound, so the
   // controller probes down to 100 ms (10 a second per pod) and backs off from there when a pod says 429.
   // Boards only wait on their own pod, so the lane keeps many pods busy at once. Measured: 6 boards left the lane
@@ -93,7 +101,7 @@ export const LANES: LaneDef[] = [
         "pinpoint",
         "breezy",
       ],
-      6,
+      10,
       3,
       0,
       {
@@ -111,10 +119,10 @@ export const LANES: LaneDef[] = [
   // limit: measured 240 requests a minute, exactly one every 250 ms, so the floor goes to 200 ms (5 a second).
   lane("walmart", ["walmart"], 1, 3, 700, undefined, 8, 200),
   lane("microsoft", ["microsoft"], 1, 2, 1000, undefined, 4),
-  lane("apple", ["apple"], 1, 3, 150, undefined, 6),
-  lane("meta", ["meta"], 1, 2, 500, undefined, 4, 250),
+  lane("apple", ["apple"], 2, 3, 150, undefined, 6),
+  lane("meta", ["meta"], 2, 2, 500, undefined, 4, 250),
   multiHost(
-    lane("big-sites", ["google", "amazon", "netflix", "ibm", "goldman"], 1, 2, 0, {
+    lane("big-sites", ["google", "amazon", "netflix", "ibm", "goldman"], 4, 2, 0, {
       google: { gapMs: 250 },
       amazon: { perHost: 1, gapMs: 500 },
       netflix: { perHost: 1, gapMs: 1000 },

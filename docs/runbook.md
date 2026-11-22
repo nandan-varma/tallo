@@ -78,7 +78,9 @@ platforms; they are only ever collected from the Mac.
 
 **Full sweep: `tallo sweep`.** One process, one lane per platform group (greenhouse, lever, ashby, smartrecruiters,
 workday, oracle-icims, small-ats, walmart, microsoft, apple, meta, big-sites), about 40 boards in flight in total, the Mac
-kept awake (`caffeinate`). A multi-host lane keeps as many boards running as it has distinct pods to talk to (Workday 30,
+kept awake (`caffeinate`). For a single-host lane, `concurrency` is not what a source sees — `perHost` is, shared by the
+whole lane — it is how much ingest the lane may overlap: a board costs ~7 API round trips, so a catalog lane is limited
+by round trips, not by the source. A multi-host lane keeps as many boards running as it has distinct pods to talk to (Workday 30,
 Oracle and small ATS 6-8), because a board cannot exceed ~2 requests a second on its own: Workday pages 20 postings at a
 time and its detail fetches wait on the pod, so more boards in parallel - not a higher perHost - is what fills a pod. Each lane has its own queue, host limiter and settings (concurrency, ceiling, perHost, gapMs,
 paused, enabled), so a rate-limited host slows only its lane. The work list is computed once at start with the staleness
