@@ -40,7 +40,7 @@ makes `wrangler deploy` refuse, which is one more reason not to use it.
 API over a service binding. Everything else under `/v1` is 404 there. `tallo-api.nandan.fyi` refuses the public reads
 (`READS_BLOCKED_HOST`, checked by `apps/api/test/config.test.ts`), so the proxy's rate limit and cache cannot be bypassed.
 - Rate limits (`apps/web/wrangler.jsonc`, per `cf-connecting-ip`, counters per Cloudflare location, no address is refused):
-  `PUBLIC_LIMIT` 60 requests a minute for everything, and `PUBLIC_HEAVY_LIMIT` 10 a minute for *fresh wide searches*
+  `PUBLIC_LIMIT` 60 requests a minute for everything, and `PUBLIC_HEAVY_LIMIT` 10 a minute for _fresh wide searches_
   (4+ titles or 3+ companies, `isHeavySearch` in `packages/contracts`). A wide search already in the edge cache does not
   spend the heavy budget, so repeating a question is free; only new wide ones are limited. A caller never has to give up
   a good answer: 429 says to use fewer, more specific titles.
