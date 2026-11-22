@@ -90,6 +90,7 @@ const options = (ingest: Ingest, scratch = memoryScratch()): EngineOptions => ({
   scratch,
   log,
   fetch: fetchFake,
+  retryDelay: () => 0,
   detailConcurrency: 1,
 });
 
