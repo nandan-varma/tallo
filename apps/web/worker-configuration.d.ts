@@ -3,6 +3,7 @@
 // Runtime types generated with workerd@1.20261019.1 2026-10-01 nodejs_compat
 interface __BaseEnv_Env {
 	PUBLIC_LIMIT: RateLimit;
+	PUBLIC_HEAVY_LIMIT: RateLimit;
 	API_URL: string;
 	API: Fetcher /* tallo-api */;
 }

@@ -223,3 +223,57 @@ describe("forwarding and the edge cache", () => {
     expect(limiter.limit).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("one question, one cache entry", () => {
+  it("spells the words of a question one way: case, spacing and repeats", () => {
+    const a = new URL(
+      `${ORIGIN}/v1/search?title=Backend++Engineer&title=backend engineer&location=NYC&country=us`,
+    );
+    const b = new URL(`${ORIGIN}/v1/search?country=US&location=nyc&title=backend%20engineer`);
+    expect(normalizedPathAndQuery(a)).toBe(normalizedPathAndQuery(b));
+  });
+
+  it("leaves a cursor and numbers untouched", () => {
+    const url = new URL(`${ORIGIN}/v1/search?title=SRE&cursor=AbC_9-x&limit=10`);
+    expect(normalizedPathAndQuery(url)).toBe("/v1/search?cursor=AbC_9-x&limit=10&title=sre");
+  });
+
+  it("answers a differently spelled repeat from the cache", async () => {
+    const cache = memoryCache();
+    const { upstream, deps: d } = deps({ cache });
+    await handlePublic(get("/v1/search?title=Manager"), d);
+    await handlePublic(get("/v1/search?title=manager"), d);
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("wide searches", () => {
+  const wide = "/v1/search?title=a1&title=b2&title=c3&title=d4";
+  const address = { headers: { "cf-connecting-ip": "198.51.100.9" } };
+
+  it("are refused with 429 when the wide budget is spent, without calling the API", async () => {
+    const { upstream, deps: d } = deps({ cache: memoryCache(), heavyLimiter: denyLimiter });
+    const response = await handlePublic(get(wide, address), d);
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("do not spend the wide budget when the cache already holds the answer", async () => {
+    const heavy: Limiter = { limit: vi.fn(async () => ({ success: true })) };
+    const cache = memoryCache();
+    const { deps: d } = deps({ cache, heavyLimiter: heavy });
+    await handlePublic(get(wide, address), d);
+    await handlePublic(get(wide, address), d);
+    expect(heavy.limit).toHaveBeenCalledTimes(1);
+  });
+
+  it("leave a specific search on the ordinary budget only", async () => {
+    const heavy: Limiter = { limit: vi.fn(async () => ({ success: false })) };
+    const { upstream, deps: d } = deps({ cache: memoryCache(), heavyLimiter: heavy });
+    const response = await handlePublic(get("/v1/search?title=a1&title=b2&title=c3", address), d);
+    expect(response.status).toBe(200);
+    expect(heavy.limit).not.toHaveBeenCalled();
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
+});

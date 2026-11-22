@@ -27,6 +27,7 @@ export function publicDeps(): PublicDeps {
     upstream,
     cache: edgeCache(),
     limiter: env.PUBLIC_LIMIT,
+    heavyLimiter: env.PUBLIC_HEAVY_LIMIT,
     log: (line) => console.log(JSON.stringify(line)),
   };
 }

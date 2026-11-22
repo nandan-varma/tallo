@@ -39,14 +39,18 @@ makes `wrangler deploy` refuse, which is one more reason not to use it.
 `https://tallo.nandan.fyi/v1/*` is served by the web Worker, which forwards only `PUBLIC_PATHS` (`packages/contracts`) to the
 API over a service binding. Everything else under `/v1` is 404 there. `tallo-api.nandan.fyi` refuses the public reads
 (`READS_BLOCKED_HOST`, checked by `apps/api/test/config.test.ts`), so the proxy's rate limit and cache cannot be bypassed.
-- Rate limit: `PUBLIC_LIMIT` in `apps/web/wrangler.jsonc`, 60 requests a minute per `cf-connecting-ip`. Counters are per
-  Cloudflare location. A request with no address is refused.
-- Edge cache: 200 answers for the lifetimes the API sets (search 5 min, postings and discovery 1 h); closed and hidden
+- Rate limits (`apps/web/wrangler.jsonc`, per `cf-connecting-ip`, counters per Cloudflare location, no address is refused):
+  `PUBLIC_LIMIT` 60 requests a minute for everything, and `PUBLIC_HEAVY_LIMIT` 10 a minute for *fresh wide searches*
+  (4+ titles or 3+ companies, `isHeavySearch` in `packages/contracts`). A wide search already in the edge cache does not
+  spend the heavy budget, so repeating a question is free; only new wide ones are limited. A caller never has to give up
+  a good answer: 429 says to use fewer, more specific titles.
+- Edge cache: 200 answers for the lifetimes the API sets (search 15 min, postings and discovery 1 h). The cache key spells
+  a question one way (lowercase words, single spaces, no repeated values, sorted), so `Manager` and `manager` share an entry; closed and hidden
   postings 60 s, unknown ids 1 h. Parameter errors are never cached.
 - Log: one JSON line per public request (`event: "public_request"`): route, status, ms, cache, offset bucket and the origin's cost.
 - Search cost: the ranked search cuts the best 10,000 index entries by bm25 before it joins rows (`FTS_WINDOW`), then keeps
-  the best 2,000 that are visible. Date sorts page ids first, then read that page. A broad word ("manager", 160k matches)
-  costs about 150 ms. If 503s return, look at `wrangler tail tallo-api` and the `rows_read` in the request log first.
+  the best 2,000 that are visible. Date sorts read the newest 50,000 matches of the query (`DATE_SORT_WINDOW`; exact below that), then page ids, then read the page. A broad word ("manager", 160k matches)
+  costs about 150 ms; eight broad titles with a date sort went from 5.4 s and 2.7M rows to about 0.1 s and 0.23M. If 503s return, look at `wrangler tail tallo-api` and the `rows_read` in the request log first.
 - Confirm in the dashboard that the `*.workers.dev` URL is off for `tallo-api` (it has routes, so it should be).
 
 ## Collection

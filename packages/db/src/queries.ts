@@ -1,4 +1,5 @@
 import {
+  DATE_SORT_WINDOW,
   type Money,
   payText,
   SEARCH_DEFAULT_SORT,
@@ -211,7 +212,8 @@ function listedJobs(now: number): SQL[] {
 
 /**
  * The results of a date-sorted search: `recent` and `posted` by `sort_at` (then id), `added` by id. The same FTS
- * match, source freshness and place/remote filters as the ranked search, but no bm25 candidate cut and no grouping:
+ * match, source freshness and place/remote filters as the ranked search, but no bm25 cut and no grouping. The match is
+ * read newest-id first and stops at `DATE_SORT_WINDOW` entries, so a broad word costs a bounded read (exact below it):
  * each open location is its own row, with `locations` still counting its open `dup_of` siblings.
  */
 async function dateJobs(
@@ -235,7 +237,10 @@ async function dateJobs(
     .from(jobs)
     .innerJoin(sources, eq(sources.id, jobs.sourceId))
     .where(
-      and(sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match})`, ...filter),
+      and(
+        sql`${jobs.id} IN (SELECT rowid FROM jobs_fts WHERE jobs_fts MATCH ${match} ORDER BY rowid DESC LIMIT ${DATE_SORT_WINDOW})`,
+        ...filter,
+      ),
     )
     .orderBy(...order)
     .limit(page.limit)

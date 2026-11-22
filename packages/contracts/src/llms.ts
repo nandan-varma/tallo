@@ -1,6 +1,7 @@
 import {
   DISCOVERY_MAX_RESULTS,
   PUBLIC_API_VERSION,
+  PUBLIC_HEAVY_RATE_PER_MINUTE,
   PUBLIC_MAX_URL_CHARS,
   PUBLIC_ORIGIN,
   PUBLIC_PATHS,
@@ -17,7 +18,7 @@ import {
   SEARCH_DEFAULT_LIMIT,
   SEARCH_MAX_LIMIT,
 } from "./public-api.ts";
-import { SEARCH_RESULT_CAP } from "./search.ts";
+import { DATE_SORT_WINDOW, SEARCH_RESULT_CAP } from "./search.ts";
 
 /** One line per parameter: its name, then what it takes. The text is the schema's own description. */
 function parameterLines(shape: Record<string, { description?: string }>): string {
@@ -268,7 +269,7 @@ The message says what was wrong and the hint shows the fix.
 - **posted**: the same newest-first order, but only postings where the source stated a posted date. Undated postings are not listed, and Tallo never substitutes the first-seen date here. Every open location is its own hit.
 - **added**: most recently added to the catalog first (roughly the order Tallo first saw the posting). Every open location is its own hit.
 
-All modes page with next and stop at the same ${SEARCH_RESULT_CAP}-result cap, and every mode applies country and postedWithin. A cursor is bound to its whole query: keep title, company, location, country, postedWithin and sort unchanged while paging, or start again without cursor. Posted dates are always what the source stated; null or an absent date is never guessed.
+recent, posted and added read the newest ${DATE_SORT_WINDOW} matches of a query, so a very broad query ranks only those; a specific query is exact. All modes page with next and stop at the same ${SEARCH_RESULT_CAP}-result cap, and every mode applies country and postedWithin. A cursor is bound to its whole query: keep title, company, location, country, postedWithin and sort unchanged while paging, or start again without cursor. Posted dates are always what the source stated; null or an absent date is never guessed.
 
 ## Field availability
 
@@ -282,8 +283,8 @@ Not every source states every field. countryCode, postedAt, pay and compensation
 
 - Search limit: 1 to ${SEARCH_MAX_LIMIT}, default ${SEARCH_DEFAULT_LIMIT}. Discovery limit: 1 to ${DISCOVERY_MAX_RESULTS}.
 - A search lists at most ${SEARCH_RESULT_CAP} results in total. There is no exact count. count is the number on this page.
-- About ${PUBLIC_RATE_PER_MINUTE} requests a minute per address. Over that answers 429 with Retry-After.
-- Answers are cached: at the edge, searches for up to 5 minutes, postings and discovery for up to an hour. Browsers may keep a posting or discovery answer for up to 4 hours (the zone's browser TTL); send Cache-Control: no-cache when a fresh answer matters. Keep your own copy rather than asking again.
+- About ${PUBLIC_RATE_PER_MINUTE} requests a minute per address. Over that answers 429 with Retry-After. A search with 4 or more titles (or 3 or more companies) is wide: only ${PUBLIC_HEAVY_RATE_PER_MINUTE} new ones a minute per address, and repeats answered from the cache do not count. Use fewer, more specific titles.
+- Answers are cached: at the edge, searches for up to 15 minutes, postings and discovery for up to an hour. Browsers may keep a posting or discovery answer for up to 4 hours (the zone's browser TTL); send Cache-Control: no-cache when a fresh answer matters. Keep your own copy rather than asking again.
 
 ## Reading the fields
 

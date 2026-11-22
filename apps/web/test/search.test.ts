@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("cloudflare:workers", () => ({
-  env: { API_URL: "http://api.test", API: undefined, PUBLIC_LIMIT: undefined },
+  env: {
+    API_URL: "http://api.test",
+    API: undefined,
+    PUBLIC_LIMIT: undefined,
+    PUBLIC_HEAVY_LIMIT: undefined,
+  },
 }));
 
 import { encodeCursor } from "@tallo/contracts";

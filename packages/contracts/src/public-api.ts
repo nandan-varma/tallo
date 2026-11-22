@@ -42,6 +42,23 @@ export const PUBLIC_MAX_URL_CHARS = 2048;
 /** Requests per minute from one address. The web Worker's rate limiting binding is configured to match (wrangler.jsonc). */
 export const PUBLIC_RATE_PER_MINUTE = 60;
 
+/**
+ * Requests per minute from one address that reach the database with a wide search (see `isHeavySearch`). Answers
+ * from the edge cache never count: a caller repeating a question is free, only new wide questions are limited.
+ */
+export const PUBLIC_HEAVY_RATE_PER_MINUTE = 10;
+
+/**
+ * A wide search: four or more titles, or three or more companies, ORed together. Each added alternative widens the match
+ * set the database must score, so these get a smaller budget of fresh (uncached) questions than a specific search.
+ */
+export function isHeavySearch(pathname: string, params: URLSearchParams): boolean {
+  return (
+    pathname === "/v1/search" &&
+    (params.getAll("title").length >= 4 || params.getAll("company").length >= 3)
+  );
+}
+
 export const SEARCH_DEFAULT_LIMIT = 10;
 export const SEARCH_MAX_LIMIT = 25;
 /** Discovery endpoints: at most this many names per answer, and a prefix at least this long. */
@@ -49,8 +66,8 @@ export const DISCOVERY_MAX_RESULTS = 50;
 export const DISCOVERY_MIN_PREFIX = 1;
 export const DISCOVERY_MAX_PREFIX = 40;
 
-/** Search answers depend only on the query and the catalog's last refresh: cache them for minutes. */
-export const SEARCH_CACHE_CONTROL = "public, max-age=60, s-maxage=300";
+/** Search answers depend only on the query and the catalog's last refresh: cache them for fifteen minutes: boards are re-collected weekly, so a longer edge cache costs no freshness a reader can see. */
+export const SEARCH_CACHE_CONTROL = "public, max-age=60, s-maxage=900";
 /** A posting changes rarely: cache its facts and description for an hour at the edge. */
 export const JOB_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
 
