@@ -692,6 +692,84 @@ describe("workday", () => {
     expect(result.complete).toBe(true);
   });
 
+  it("splits a capped slice after its first page when the facet covers it, and pages it fully when not", async () => {
+    const run = async (leafCount: number) => {
+      const rootOffsets: number[] = [];
+      const { ctx } = fakeCtx((_u, body) => {
+        const { appliedFacets, offset } = obj(body) as {
+          appliedFacets: Record<string, string[]>;
+          offset: number;
+        };
+        const id = appliedFacets.state?.[0];
+        if (!id) {
+          rootOffsets.push(offset);
+          return {
+            total: 2000,
+            jobPostings: Array.from({ length: 20 }, (_, i) => row(offset + i)),
+            facets: [
+              {
+                facetParameter: "state",
+                values: [
+                  { id: "a", count: leafCount },
+                  { id: "b", count: leafCount },
+                ],
+              },
+            ],
+          };
+        }
+        // The children list every row 0..1999 between them: a covers the first half, b the rest.
+        const base = id === "a" ? 0 : 1000;
+        return {
+          total: 1000,
+          jobPostings: Array.from({ length: 20 }, (_, i) => row(base + offset + i)),
+          facets: [],
+        };
+      });
+      const { items, result } = await drain(workday.list(src, ctx));
+      return { rootOffsets, items, result };
+    };
+    const covered = await run(1000);
+    expect(covered.rootOffsets).toEqual([0]);
+    expect(covered.items).toHaveLength(2000);
+    expect(covered.result.complete).toBe(true);
+  });
+
+  it("falls back to paging the capped slice when its children cover fewer than 2,000 rows", async () => {
+    const rootOffsets: number[] = [];
+    const { ctx } = fakeCtx((_u, body) => {
+      const { appliedFacets, offset } = obj(body) as {
+        appliedFacets: Record<string, string[]>;
+        offset: number;
+      };
+      const id = appliedFacets.state?.[0];
+      if (!id) {
+        rootOffsets.push(offset);
+        return {
+          total: 2000,
+          jobPostings: Array.from({ length: 20 }, (_, i) => row(offset + i)),
+          facets: [
+            {
+              facetParameter: "state",
+              values: [
+                { id: "a", count: 20 },
+                { id: "b", count: 20 },
+              ],
+            },
+          ],
+        };
+      }
+      return {
+        total: 20,
+        jobPostings: Array.from({ length: 20 }, (_, i) => row(5000 + (id === "a" ? 0 : 20) + i)),
+        facets: [],
+      };
+    });
+    const { items, result } = await drain(workday.list(src, ctx));
+    expect(rootOffsets).toHaveLength(100);
+    expect(items).toHaveLength(2040);
+    expect(result.complete).toBe(true);
+  });
+
   it("reports an unsplittable capped slice as incomplete and never reads past the 2,000 window", async () => {
     const offsets: number[] = [];
     const { ctx, issues } = fakeCtx((_u, body) => {

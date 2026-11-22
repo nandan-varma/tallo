@@ -91,17 +91,35 @@ async function postPage(
   }
 }
 
+/**
+ * One query slice, paged to its end. `covered` collects every posting this slice (or the slices it split
+ * into) listed, whether or not another slice already yielded it.
+ *
+ * A slice that reports the cap is split by facet right after its first page: the children overlap the
+ * remaining 99 pages of the parent, so those are skipped. The parent's own pages are fetched only when
+ * the children did not cover at least the first CAP rows, which proves they left something out.
+ */
 async function* slice(
   source: SourceConfig,
   ctx: CollectContext,
   applied: Applied,
   seen: Set<string>,
   state: State,
+  covered: Set<string>,
 ): AsyncGenerator<RawPosting, number> {
   const { api, tenant, site, wd } = parts(source);
   const root = Object.keys(applied).length === 0;
   let facets: Json = [];
   let total = Number.POSITIVE_INFINITY;
+  let split = false;
+  const splitBy = async function* (leaves: Leaf[]) {
+    split = true;
+    for (const leaf of leaves) {
+      const child = new Set<string>();
+      yield* slice(source, ctx, { ...applied, [leaf.param]: [leaf.id] }, seen, state, child);
+      for (const path of child) covered.add(path);
+    }
+  };
   for (let offset = 0; offset < Math.min(total, CAP); offset += PAGE) {
     const data = await postPage(
       ctx,
@@ -133,9 +151,17 @@ async function* slice(
         }
         continue;
       }
+      covered.add(path);
       if (seen.has(path)) continue;
       seen.add(path);
       yield { id: path, listing: job };
+    }
+    if (offset === 0 && total >= CAP) {
+      const leaves = bestSplit(facets, applied);
+      if (leaves) {
+        yield* splitBy(leaves);
+        if (covered.size >= CAP) return total;
+      }
     }
     if (page.length < PAGE) {
       if (offset + page.length < total) {
@@ -148,10 +174,10 @@ async function* slice(
       break;
     }
   }
-  if (total < CAP) return total;
-  // Capped: partition by a facet and recurse. Overlap is removed by `seen`.
-  const split = bestSplit(facets, applied);
-  if (!split) {
+  if (total < CAP || split) return total;
+  // Capped after the first page (the total grew while paging): partition by a facet and recurse.
+  const leaves = bestSplit(facets, applied);
+  if (!leaves) {
     state.complete = false;
     ctx.record({
       code: "pagination",
@@ -159,9 +185,7 @@ async function* slice(
     });
     return total;
   }
-  for (const leaf of split) {
-    yield* slice(source, ctx, { ...applied, [leaf.param]: [leaf.id] }, seen, state);
-  }
+  yield* splitBy(leaves);
   return total;
 }
 
@@ -174,7 +198,7 @@ export const workday: Platform = {
   async *list(source, ctx) {
     const state: State = { complete: true, unidentified: new Set() };
     const seen = new Set<string>();
-    const total = yield* slice(source, ctx, {}, seen, state);
+    const total = yield* slice(source, ctx, {}, seen, state, new Set());
     // Every row the board reported is either a listed posting or an unidentified row. Only a
     // shortfall beyond both is a real gap.
     const accounted = seen.size + state.unidentified.size;
