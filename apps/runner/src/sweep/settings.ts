@@ -69,7 +69,9 @@ export const LANES: LaneDef[] = [
   // waiting on the limiter 70% of the time while other tenants' pods sat idle, and one board cannot exceed ~1.7
   // requests a second (Workday pages 20 postings at a time and its details wait on the pod). A pod allows 4 a
   // second at a 250 ms gap, so ~2.5 boards per pod saturate one; 105 boards spread over ~40 pods wants a wide lane.
-  multiHost(lane("workday", ["workday"], 30, 2, 250, undefined, 6, 250)),
+  // perHost is per pod and shares that 4 a second: at 6 in parallel a pod did 3.2 a second (1.9 s a request), so
+  // the ceiling is 10 — past the gap's own cap, which is where the polite limit is.
+  multiHost(lane("workday", ["workday"], 30, 4, 250, undefined, 10, 250)),
   multiHost(
     // Oracle answers 8.6 MB in 25 requests a board: source latency, not the limiter, so more boards in parallel is
     // the lever (measured 0.46 requests a second per board with 2 boards in flight). Probing to 100 ms drew 217
@@ -105,8 +107,9 @@ export const LANES: LaneDef[] = [
     ),
   ),
   // Walmart is latency-bound, not gap-bound: a job page takes about 0.7 s, so the old ceiling of 3 requests in
-  // parallel capped it near 2 a second. 8 in parallel is ~5 a second, still one request every 200 ms at most.
-  lane("walmart", ["walmart"], 1, 3, 700, undefined, 8, 250),
+  // parallel capped it near 2 a second. 8 in parallel reaches ~11 a second, which leaves the start gap as the
+  // limit: measured 240 requests a minute, exactly one every 250 ms, so the floor goes to 200 ms (5 a second).
+  lane("walmart", ["walmart"], 1, 3, 700, undefined, 8, 200),
   lane("microsoft", ["microsoft"], 1, 2, 1000, undefined, 4),
   lane("apple", ["apple"], 1, 3, 150, undefined, 6),
   lane("meta", ["meta"], 1, 2, 500, undefined, 4, 250),
