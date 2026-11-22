@@ -1,0 +1,60 @@
+{
+  "status": 200,
+  "error": {
+    "message": "",
+    "body": ""
+  },
+  "data": {
+    "count": 2362,
+    "positions": [
+      {
+        "id": 1970393557071956,
+        "displayJobId": "200067008",
+        "name": "Digital Enterprise Support Specialist- Services Sales",
+        "locations": [
+          "India, Haryana, Gurgaon",
+          "India, Karnataka, Bangalore",
+          "India, Telangana, Hyderabad",
+          "India, Uttar Pradesh, Noida"
+        ],
+        "standardizedLocations": [
+          "Gurugram, HR, IN",
+          "Bengaluru, KA, IN",
+          "Hyderabad, TS, IN",
+          "Noida, UP, IN"
+        ],
+        "postedTs": 1795274517,
+        "solrScore": null,
+        "stars": 0,
+        "department": "Digital Solution Area Specialists",
+        "creationTs": 1794434152,
+        "isHot": 0,
+        "workLocationOption": "onsite",
+        "locationFlexibility": null,
+        "atsJobId": "200067008",
+        "positionUrl": "/careers/job/1970393557071956"
+      },
+      {
+        "id": 1970393557040981,
+        "displayJobId": "200061965",
+        "name": "Account Executive",
+        "locations": [
+          "India, Karnataka, Bangalore"
+        ],
+        "standardizedLocations": [
+          "Bengaluru, KA, IN"
+        ],
+        "postedTs": 1795270120,
+        "solrScore": null,
+        "stars": 0,
+        "department": "Account Management",
+        "creationTs": 1792007770,
+        "isHot": 0,
+        "workLocationOption": "onsite",
+        "locationFlexibility": null,
+        "atsJobId": "200061965",
+        "positionUrl": "/careers/job/1970393557040981"
+      }
+    ]
+  }
+}

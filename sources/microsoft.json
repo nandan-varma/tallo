@@ -1,0 +1,9 @@
+[
+  {
+    "key": "microsoft.com",
+    "company": "Microsoft",
+    "params": {
+      "egress": "local"
+    }
+  }
+]

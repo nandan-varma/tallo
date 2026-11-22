@@ -1,0 +1,126 @@
+{
+  "took": 22,
+  "timed_out": false,
+  "_shards": {
+    "total": 20,
+    "successful": 20,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 5762,
+      "relation": "eq"
+    },
+    "max_score": null,
+    "hits": [
+      {
+        "_index": "genesis-prod-1788036777996",
+        "_id": "b4ff3abf8c6bd2293c8c3d852f34475bafd1ece633fc0ade09fb2335b7b629e4",
+        "_score": null,
+        "_source": {
+          "language": "en",
+          "country": [
+            "in"
+          ],
+          "url": "https://careers.ibm.com/careers/JobDetail?jobId=145865",
+          "dcdate": "2026-11-21",
+          "title": "Data Engineer-Data Platforms-AWS",
+          "description": "A career in IBM Consulting is built on long-term client relationships and close collaboration worldwide. You'll work with leading companies across industries, helping them shape their hybrid cloud and AI journeys. With support from our strategic...",
+          "body": "A career in IBM Consulting is built on long-term client relationships and close collaboration worldwide. You'll work with leading companies across industries, helping them shape their hybrid cloud and AI journeys. With support from our strategic partners, robust IBM technology, and Red Hat, you'll have the tools to drive meaningful change and accelerate client impact. At IBM Consulting, curiosity fuels success. You'll be encouraged to challenge the norm, explore new ideas, and create innovative solutions that deliver real results. Our culture of growth and empathy focuses on your long-term career development while valuing your unique skills and experiences. As a Data Engineer specializing in Data Platforms on AWS, you will advise on, develop, and maintain data engineering solutions on the AWS Cloud ecosystem. You will design, build, and operate batch and real-time data pipelines using various AWS services. Your primary responsibilities will include: • Design and Develop Data Pipelines: Design, build, and operate batch and real-time data pipelines using AWS services such as AWS EMR, AWS Glue, Glue Catalog, and Kinesis, ensuring seamless integration and operation of data engineering solutions. • Create Data Layers: Create data layers on AWS RedShift, Aurora, and DynamoDB, and migrate data using AWS DMS. • Manage Data Services: Schedule and manage data services on the AWS Platform, ensuring efficient operation of data engineering solutions. • Develop Batch and Real-time Pipelines: Develop batch and real-time data pipelines for Data Warehouse and Datalake, utilizing AWS Kinesis and Managed Streaming for Apache Kafka. • Utilize Open Source Technologies: Utilize open source technologies like Apache Airflow and dbt, Spark / Python or Spark / Scala on AWS Platform to support data engineering solutions. • Exposure to AWS Toolset: Experience working with AWS services such as AWS EMR, AWS Glue, Glue Catalog, and Kinesis to design, build, and operate batch and real-time data pipelines. • Data Pipeline Development: Exposure to developing batch and real-time data pipelines for Data Warehouse and Datalake, utilizing AWS Kinesis and Managed Streaming for Apache Kafka. • Data Layer Creation: Experience working with AWS RedShift, Aurora, and DynamoDB to create data layers and migrate data using AWS DMS. • Open Source Technologies: Exposure to utilizing open source technologies like Apache Airflow and dbt, Spark / Python or Spark / Scala on AWS Platform to support data engin",
+          "field_keyword_05": "India",
+          "field_keyword_08": "Software Engineering",
+          "field_keyword_17": "Hybrid",
+          "field_keyword_18": "Professional",
+          "field_keyword_19": "Multiple Cities",
+          "field_keyword_21": [
+            "PUNE",
+            "CHENNAI",
+            "Bangalore"
+          ],
+          "field_keyword_20": "(0063) IBM India Private Limited",
+          "field_keyword_23": [
+            "Amazon Web Services",
+            "Apache Kafka",
+            "Data Processing",
+            "Data Quality",
+            "Data Warehousing",
+            "Design",
+            "Python",
+            "Scheduling",
+            "Spark",
+            "Data Preparation",
+            "Data Engineering",
+            "Data Pipelines",
+            "AWS Lambda",
+            "Amazon Redshift",
+            "Apache Airflow",
+            "Open Source",
+            "Data Analytics",
+            "Amazon DynamoDataBase",
+            "Data Transformation",
+            "Real-time Data",
+            "Dealership Management Systems",
+            "Amazon Web Services Glue",
+            "AWS Kinesis",
+            "AWS Elastic MapReduce",
+            "Service Management"
+          ],
+          "field_text_01": 145865
+        },
+        "sort": [
+          1795219200000,
+          "b4ff3abf8c6bd2293c8c3d852f34475bafd1ece633fc0ade09fb2335b7b629e4"
+        ]
+      },
+      {
+        "_index": "genesis-prod-1788036777996",
+        "_id": "b83f2b30ffe47bac5b773c73a85c14c3537e1fe8bb9deb6cd93f395dc2198ff9",
+        "_score": null,
+        "_source": {
+          "language": "en",
+          "country": [
+            "in"
+          ],
+          "url": "https://careers.ibm.com/careers/JobDetail?jobId=146122",
+          "dcdate": "2026-11-21",
+          "title": "Data Engineer-Data Integration",
+          "description": "A career in IBM Consulting is built on long-term client relationships and close collaboration worldwide. You'll work with leading companies across industries, helping them shape their hybrid cloud and AI journeys. With support from our strategic...",
+          "body": "A career in IBM Consulting is built on long-term client relationships and close collaboration worldwide. You'll work with leading companies across industries, helping them shape their hybrid cloud and AI journeys. With support from our strategic partners, robust IBM technology, and Red Hat, you'll have the tools to drive meaningful change and accelerate client impact. At IBM Consulting, curiosity fuels success. You'll be encouraged to challenge the norm, explore new ideas, and create innovative solutions that deliver real results. Our culture of growth and empathy focuses on your long-term career development while valuing your unique skills and experiences. As a Data Engineer specializing in Data Integration, you will design and build solutions to transfer data from operational and external environments to the business intelligence environment. You will utilize various tools to create and implement Extract, Transform, and Load (ETL) processes, ensuring the seamless flow of data throughout the business intelligence solution's lifecycle. Your primary responsibilities will include: • Design Data Integration Solutions: Create solutions to transfer data from operational and external environments to the business intelligence environment, utilizing tools such as Informatica, Ab Initio software, and DataStage. • Implement ETL Processes: Develop and implement Extract, Transform, and Load (ETL) processes to ensure the seamless flow of data throughout the business intelligence solution's lifecycle. • Utilize Data Integration Tools: Apply knowledge of Informatica, Ab Initio software, and DataStage to design and build data integration solutions. • Ensure Seamless Data Flow: Ensure the smooth flow of data throughout the business intelligence solution's lifecycle by creating and implementing efficient ETL processes. • Support Business Intelligence: Support the business intelligence environment by designing and building solutions to transfer data from operational and external environments. • Exposure to Data Integration Tools: Familiarity with tools such as Informatica, Ab Initio software, and DataStage, with the ability to apply this knowledge to design and build data integration solutions. • Experience with ETL Processes: Understanding of Extract, Transform, and Load (ETL) processes, with the ability to develop and implement these processes to ensure seamless data flow. • Data Solution Design: Exposure to designing solutions to transfer data from operational and externa",
+          "field_keyword_05": "India",
+          "field_keyword_08": "Data & Analytics",
+          "field_keyword_17": "Hybrid",
+          "field_keyword_18": "Professional",
+          "field_keyword_19": "Bangalore, IN",
+          "field_keyword_21": [
+            "Bangalore"
+          ],
+          "field_keyword_20": "(0063) IBM India Private Limited",
+          "field_keyword_23": [
+            "Business Intelligence",
+            "Data Integration",
+            "Data Quality",
+            "IBM DataStage",
+            "Design",
+            "Extract, Transform, Load",
+            "Informatica",
+            "Integration",
+            "Management",
+            "Software",
+            "Data Flow",
+            "Data Mapping",
+            "Solution Design",
+            "Process Development",
+            "Data Transformation",
+            "Ab Initio"
+          ],
+          "field_text_01": 146122
+        },
+        "sort": [
+          1795219200000,
+          "b83f2b30ffe47bac5b773c73a85c14c3537e1fe8bb9deb6cd93f395dc2198ff9"
+        ]
+      }
+    ]
+  }
+}
