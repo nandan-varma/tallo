@@ -57,7 +57,7 @@ export const jobsBatchSchema = z.object({ jobs: z.array(jobFactsSchema).min(1).m
 export const blobCheckSchema = z.object({ hashes: z.array(hex64).max(1000) });
 
 const issueSchema = z.object({
-  code: z.enum(["http", "schema", "pagination", "budget", "detail", "blocked"]),
+  code: z.enum(["http", "schema", "pagination", "budget", "detail", "blocked", "gone"]),
   message: z.string().max(500),
   url: z.string().max(500).optional(),
   postingId: z.string().max(512).optional(),

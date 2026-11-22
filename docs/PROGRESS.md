@@ -41,7 +41,7 @@ microsoft, ibm, goldman, walmart (the single-host ones are tagged `"egress": "lo
 
 ## Open (GitHub issues)
 
-- #182 Walmart: skip expired ids without failing the run. #183 map unread Goldman and Walmart fields.
+- #183 map unread Goldman and Walmart fields.
 - #185 Radancy TalentBrew (AT&T, Walgreens, Kroger). #186 listing surface for Kroger, Starbucks, UPS, Lockheed,
   Albertsons, Dell, Best Buy, FedEx, Publix (Tesla, McDonald's and Dell answer 403 to plain requests; see
   `docs/research/retailers.md`).
@@ -56,6 +56,8 @@ microsoft, ibm, goldman, walmart (the single-host ones are tagged `"egress": "lo
   postings. Two Oracle boards (eeho, edel) end partial with "Short page". Partial runs never close postings.
 - Uber's careers API path is disallowed by its robots.txt, HirePro needs a captcha, and Eightfold tenants answer 403:
   none of them is scraped.
-- A first Walmart sync is about 15,300 requests at one every 700 ms; Microsoft about 2,600.
+- A first Walmart sync is about 15,300 requests, and about 7% of its sitemap ids are expired: those answer a
+  job-not-found page and are dropped from the listing as `gone` (they close by absence), so the board can finish.
+  Microsoft is about 2,600 requests.
 - About 42 Rippling, Gem, Pinpoint and Breezy boards were added without a `tallo verify` run; a failing one shows as
   a partial or dead board.

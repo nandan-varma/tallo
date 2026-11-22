@@ -12,7 +12,7 @@ import type {
   StartedRun,
 } from "@tallo/contracts";
 import { createHostLimiter, createHttp, type HostLimiter, HttpError } from "@tallo/http";
-import { platformFor } from "@tallo/platforms";
+import { PostingGone, platformFor } from "@tallo/platforms";
 import PQueue from "p-queue";
 import { type Cpu, inThreadCpu } from "./cpu.ts";
 import { policyFor } from "./policy.ts";
@@ -111,6 +111,8 @@ export interface Progress {
   requests: number;
   issues: Issue[];
   detailsComplete: boolean;
+  /** Listings whose posting the source no longer has: dropped from `seenIds`, so the posting closes as absent. */
+  gone: string[];
   /** Scratch keys of the raw-pack parts written so far, in order. */
   rawParts: string[];
 }
@@ -142,6 +144,7 @@ export const emptyProgress = (): Progress => ({
   requests: 0,
   issues: [],
   detailsComplete: true,
+  gone: [],
   rawParts: [],
 });
 
@@ -408,6 +411,7 @@ export async function advance(
   const platform = platformFor(plan.source);
   const counter = { requests: progress.requests };
   const issues = [...progress.issues];
+  const gone = [...progress.gone];
   let detailsComplete = progress.detailsComplete;
   const http = httpFor(plan.source, options, counter);
   const ctx: CollectContext = {
@@ -501,8 +505,15 @@ export async function advance(
               postingId: posting.id,
             });
         } catch (error) {
-          detailsComplete = false;
-          issues.push({ code: "detail", message: message(error), postingId: posting.id });
+          // A posting the source no longer has is not a failed detail: drop it from the listing and keep going,
+          // so one stale id cannot make a whole board partial (and unfinishable).
+          if (error instanceof PostingGone) {
+            gone.push(posting.id);
+            issues.push({ code: "gone", message: message(error), postingId: posting.id });
+          } else {
+            detailsComplete = false;
+            issues.push({ code: "detail", message: message(error), postingId: posting.id });
+          }
         }
         if (ready.length >= BATCH) await enqueue(ready.splice(0, BATCH));
       }),
@@ -534,6 +545,7 @@ export async function advance(
     requests: counter.requests,
     issues: issues.slice(0, ISSUE_CAP),
     detailsComplete,
+    gone,
     rawParts,
     ...(rawTail ? { rawTail } : {}),
   };
@@ -565,8 +577,9 @@ export async function complete(
     const packed = await timed(options.meter, "cpuMs", () => regzip(parts));
     rawKey = await options.ingest.putRaw(plan.runId, packed);
   }
+  const gone = new Set(progress.gone);
   const body: Finalize = {
-    seenIds: plan.seenIds,
+    seenIds: gone.size ? plan.seenIds.filter((id) => !gone.has(id)) : plan.seenIds,
     listingComplete: plan.listing.complete,
     detailsComplete: progress.detailsComplete,
     emptyIsAuthoritative: plan.listing.emptyIsAuthoritative,

@@ -9,6 +9,13 @@ const sitemap = `<urlset><url><loc>https://careers.walmart.com/us/en/home</loc><
 <url><loc>https://careers.walmart.com/us/en/jobs/R-2</loc></url></urlset>`;
 
 describe("walmart", () => {
+  it("calls a job-not-found page a gone posting, not a broken one", async () => {
+    const page = `<html><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"path":"/us/en/job-not-found"}}}</script></html>`;
+    const { ctx } = textCtx(page);
+    const posting = { id: "R-404", listing: { id: "R-404", url: "x" } };
+    await expect(walmart.detail!(src, posting, ctx)).rejects.toThrow(/is gone \(job-not-found\)/);
+  });
+
   it("is registered and validates its key", () => {
     expect(platformFor(src).id).toBe("walmart");
     expect(() => walmart.validate(source("walmart", "other"))).toThrow();
