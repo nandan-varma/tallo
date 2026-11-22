@@ -11,17 +11,17 @@ Read `docs/PROGRESS.md` first when resuming: what exists, what is settled, what 
 
 pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/Vite bundle).
 
-| Path                 | Role                                                                                                                                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/contracts` | Shared types and zod schemas. Pure data. Never edited to add a platform.                                                                               |
-| `packages/http`      | Outbound HTTP (ky + p-queue): retries, per-host limits, https/allowlist/SSRF guard, size caps.                                                         |
-| `packages/catalog`   | Pure normalization: HTML→text, hashing, dedupe keys, `prepareJob`. Derives nothing from text (no heuristics).                                          |
-| `packages/platforms` | One folder per ATS: `list` + optional `detail` + pure `map` + `fingerprint`. Registered in `src/index.ts`.                                             |
-| `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` + `dedupe.ts` (catalog writes), `queries.ts`, `BlobStore`.                                                |
-| `apps/api`           | Hono Worker: public read API (`/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, no auth) + ingest/admin (INGEST_TOKEN). D1 + R2.               |
-| `apps/web`           | Astro SSR pages (home, `/search`, `/llms.txt`) and the public proxy `/v1/*` (allowlist, rate limit, edge cache). Talks to the API via service binding. |
-| `apps/runner`        | Mac CLI (`tallo sync`, `verify`, `register`, ...). Collects the `egress: local` boards, runs by hand.                                                  |
-| `sources/*.json`     | Board configs, one array per platform. Reviewed, trusted configuration.                                                                                |
+| Path                 | Role                                                                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/contracts` | Shared types and zod schemas. Pure data. Never edited to add a platform.                                                                                          |
+| `packages/http`      | Outbound HTTP (ky + p-queue): retries, per-host limits, https/allowlist/SSRF guard, size caps.                                                                    |
+| `packages/catalog`   | Pure normalization: HTML→text, hashing, dedupe keys, `prepareJob`. Derives nothing from text (no heuristics).                                                     |
+| `packages/platforms` | One folder per ATS: `list` + optional `detail` + pure `map` + `fingerprint`. Registered in `src/index.ts`.                                                        |
+| `packages/db`        | Drizzle schema + migrations (`drizzle/`), `ingest.ts` + `dedupe.ts` (catalog writes), `queries.ts`, `BlobStore`.                                                  |
+| `apps/api`           | Hono Worker: public read API (`/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, no auth) + ingest/admin (INGEST_TOKEN). D1 + R2.                          |
+| `apps/web`           | Astro SSR pages (homepage search, `/status`, `/llms.txt`) and the public proxy `/v1/*` (allowlist, rate limit, edge cache). Talks to the API via service binding. |
+| `apps/runner`        | Mac CLI (`tallo sync`, `verify`, `register`, ...). Collects the `egress: local` boards, runs by hand.                                                             |
+| `sources/*.json`     | Board configs, one array per platform. Reviewed, trusted configuration.                                                                                           |
 
 ## Rules that must not be broken
 
