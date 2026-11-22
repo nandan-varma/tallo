@@ -1,6 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
 import { RETIRE_MAX_SOURCES, type SourceConfig } from "@tallo/contracts";
-import { collectStatus, type Db, registerSources, retireSources, reviveSources } from "@tallo/db";
+import {
+  collectStatus,
+  type Db,
+  refreshSiteStats,
+  registerSources,
+  retireSources,
+  reviveSources,
+} from "@tallo/db";
 import { platformFor } from "@tallo/platforms";
 import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
@@ -77,6 +84,15 @@ export function adminRoutes({
   routes.post("/v1/admin/sources/retire", write, zValidator("json", retireSchema), async (c) => {
     const { sources, dryRun } = c.req.valid("json");
     return c.json(await retireSources(db, sources, { dryRun }));
+  });
+
+  /**
+   * Store the /status snapshot now instead of at the next hourly cron. `force=1` also recounts the whole catalog (about
+   * 1.5M rows read) even when the stored count is under a day old; without it the stored count is reused.
+   */
+  routes.post("/v1/admin/site-stats/refresh", write, async (c) => {
+    const stats = await refreshSiteStats(db, undefined, { force: c.req.query("force") === "1" });
+    return c.json({ asOf: stats.asOf, catalogAsOf: stats.catalogAsOf, openJobs: stats.openJobs });
   });
 
   routes.get("/v1/admin/collect/status", write, async (c) => {
