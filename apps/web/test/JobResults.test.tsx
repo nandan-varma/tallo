@@ -31,7 +31,7 @@ describe("JobResults", () => {
     expect(link.getAttribute("href")).toBe("https://boards.example.com/acme/apply/1");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
     expect(
-      screen.getByText(/Acme · Seattle, WA · hybrid · USD 150000-180000 per year/),
+      screen.getByText(/Acme · Seattle, WA · hybrid · USD 150,000\u2013180,000 a year/),
     ).toBeTruthy();
     expect(screen.getByText("Showing 1–1")).toBeTruthy();
   });

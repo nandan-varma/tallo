@@ -8,7 +8,16 @@ afterEach(cleanup);
 describe("SearchForm", () => {
   it("is a plain GET form to /search with its fields labelled and filled", () => {
     const { container } = render(
-      <SearchForm values={{ title: "data engineer", company: "", location: "Seattle" }} />,
+      <SearchForm
+        values={{
+          title: "data engineer",
+          company: "",
+          location: "Seattle",
+          country: "",
+          sort: "",
+          postedWithin: "",
+        }}
+      />,
     );
 
     const form = container.querySelector("form");
@@ -20,8 +29,23 @@ describe("SearchForm", () => {
     expect(screen.getByRole("button", { name: "Search" }).getAttribute("type")).toBe("submit");
   });
 
-  it("requires a title", () => {
-    render(<SearchForm values={{ title: "", company: "", location: "" }} />);
-    expect((screen.getByLabelText("Job title") as HTMLInputElement).required).toBe(true);
+  it("lets a company stand in for a title, and offers country, date and sort controls", () => {
+    render(
+      <SearchForm
+        values={{
+          title: "",
+          company: "Stripe",
+          location: "",
+          country: "US",
+          sort: "recent",
+          postedWithin: "7",
+        }}
+      />,
+    );
+    expect((screen.getByLabelText("Job title") as HTMLInputElement).required).toBe(false);
+    expect(screen.getByText(/A title or a company is required/)).toBeTruthy();
+    expect((screen.getByLabelText(/Country/) as HTMLInputElement).name).toBe("country");
+    expect((screen.getByLabelText(/Posted/) as unknown as HTMLSelectElement).value).toBe("7");
+    expect((screen.getByLabelText("Sort") as unknown as HTMLSelectElement).value).toBe("recent");
   });
 });

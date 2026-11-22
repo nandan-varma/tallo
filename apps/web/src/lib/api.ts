@@ -51,13 +51,14 @@ export async function runSearch(
     // The API checks the cursor against uppercased, capped codes; bind the same values.
     country: (spec.countries ?? []).slice(0, 8).map((code) => code.toUpperCase()),
     postedWithin: spec.postedWithin,
-    sort: "relevance" as const,
+    sort: spec.sort ?? ("relevance" as const),
   };
   const params = new URLSearchParams();
   for (const name of ["title", "company", "location", "country"] as const) {
     for (const value of query[name]) params.append(name, value);
   }
   if (query.postedWithin !== undefined) params.set("postedWithin", String(query.postedWithin));
+  if (query.sort !== "relevance") params.set("sort", query.sort);
   params.set("limit", String(PAGE_SIZE));
   if (offset > 0) params.set("cursor", encodeCursor(query, offset));
 
