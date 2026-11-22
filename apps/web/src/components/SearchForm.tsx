@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SearchValues } from "@/lib/search";
 
-/** A plain GET form: no script, the search runs when the browser loads `/search`. */
+/** A plain GET form: no script, the search runs when the browser loads the homepage. */
 export function SearchForm({
   values,
   autoFocus = false,
@@ -11,8 +11,8 @@ export function SearchForm({
   autoFocus?: boolean;
 }) {
   return (
-    <form action="/search" method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="grid gap-1.5">
+    <form action="/" method="get" className="search-form" aria-label="Find jobs">
+      <div className="search-field">
         <label htmlFor="search-title" className="text-sm font-medium">
           Job title
         </label>
@@ -20,12 +20,12 @@ export function SearchForm({
           id="search-title"
           name="title"
           defaultValue={values.title}
-          placeholder="backend engineer, platform engineer"
+          placeholder="e.g. Software engineer"
+          aria-describedby="search-help"
           autoFocus={autoFocus}
         />
-        <p className="text-xs text-muted-foreground">A title or a company is required.</p>
       </div>
-      <div className="grid gap-1.5">
+      <div className="search-field">
         <label htmlFor="search-company" className="text-sm font-medium">
           Company <span className="font-normal text-muted-foreground">(optional)</span>
         </label>
@@ -36,7 +36,7 @@ export function SearchForm({
           placeholder="Stripe"
         />
       </div>
-      <div className="grid gap-1.5">
+      <div className="search-field">
         <label htmlFor="search-location" className="text-sm font-medium">
           Location <span className="font-normal text-muted-foreground">(optional)</span>
         </label>
@@ -47,7 +47,7 @@ export function SearchForm({
           placeholder="Seattle, remote"
         />
       </div>
-      <div className="grid gap-1.5">
+      <div className="search-field">
         <label htmlFor="search-country" className="text-sm font-medium">
           Country <span className="font-normal text-muted-foreground">(optional)</span>
         </label>
@@ -58,7 +58,7 @@ export function SearchForm({
           placeholder="US, CA"
         />
       </div>
-      <div className="grid gap-1.5">
+      <div className="search-field">
         <label htmlFor="search-posted" className="text-sm font-medium">
           Posted <span className="font-normal text-muted-foreground">(optional)</span>
         </label>
@@ -66,7 +66,7 @@ export function SearchForm({
           id="search-posted"
           name="postedWithin"
           defaultValue={values.postedWithin}
-          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+          className="search-select"
         >
           <option value="">Any time</option>
           <option value="1">Last 24 hours</option>
@@ -75,7 +75,7 @@ export function SearchForm({
           <option value="90">Last 90 days</option>
         </select>
       </div>
-      <div className="grid gap-1.5">
+      <div className="search-field">
         <label htmlFor="search-sort" className="text-sm font-medium">
           Sort
         </label>
@@ -83,13 +83,20 @@ export function SearchForm({
           id="search-sort"
           name="sort"
           defaultValue={values.sort || "relevance"}
-          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+          className="search-select"
         >
           <option value="relevance">Best match</option>
           <option value="recent">Newest first</option>
         </select>
       </div>
-      <Button type="submit">Search</Button>
+      <div className="search-actions">
+        <p id="search-help">
+          A title or a company is required. Separate multiple values with commas.
+        </p>
+        <Button type="submit">
+          Search <span aria-hidden="true">→</span>
+        </Button>
+      </div>
     </form>
   );
 }

@@ -11,7 +11,7 @@ session's app fixes is in `docs/plan-polish.md`.
   `/v1/titles`, `/v1/openapi.json`. Served by the web Worker, which proxies to the API Worker (rate limits, edge cache).
 - **`/llms.txt`**: generated from the API's zod schemas (`packages/contracts/src/llms.ts`); `pnpm release` fails if the
   live text differs from the commit's.
-- **Web**: home, `/search`, and `/status` (exact catalog numbers, freshness, collection health and a daily history;
+- **Web**: search on the homepage, and `/status` (exact catalog numbers, freshness, collection health and a daily history;
   stored hourly by the API cron in `site_snapshot`, catalog recount about daily; internal route `GET /v1/site-stats`
   is a one-row read, edge-cached five minutes).
 - **Catalog**: 9,528 boards on 26 platforms (`sources/*.json`), **727,726** open postings at the recount of 2026-11-22

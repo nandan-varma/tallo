@@ -138,10 +138,10 @@ describe("searchHref", () => {
         sort: "",
         postedWithin: "",
       }),
-    ).toBe("/search?title=data+engineer");
+    ).toBe("/?title=data+engineer");
     expect(
       searchHref({ title: "", company: "", location: "", country: "", sort: "", postedWithin: "" }),
-    ).toBe("/search");
+    ).toBe("/");
   });
 
   it("carries the offset of a later page", () => {
@@ -157,7 +157,7 @@ describe("searchHref", () => {
         },
         20,
       ),
-    ).toBe("/search?title=data+engineer&location=Seattle&offset=20");
+    ).toBe("/?title=data+engineer&location=Seattle&offset=20");
   });
 });
 

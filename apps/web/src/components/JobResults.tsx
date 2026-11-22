@@ -21,7 +21,14 @@ export function JobResults({
   expanded?: SearchPage["expanded"];
 }) {
   if (hits.length === 0) {
-    return <p className="text-sm text-muted-foreground">No postings match that search.</p>;
+    return (
+      <div className="empty-state">
+        <h2 className="font-semibold">No postings match that search.</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Try a broader title, another location, or fewer filters.
+        </p>
+      </div>
+    );
   }
   return (
     <section aria-label="Results" className="grid gap-4">
@@ -47,7 +54,7 @@ export function JobResults({
           <JobItem key={hit.id} hit={hit} />
         ))}
       </ol>
-      <nav aria-label="Pages" className="flex justify-between text-sm">
+      <nav aria-label="Pages" className="pagination">
         {prevHref ? (
           <a href={prevHref} className="underline underline-offset-4">
             Previous
@@ -79,13 +86,13 @@ function JobItem({ hit }: { hit: JobHit }) {
     age,
   ].filter((part): part is string => Boolean(part));
   return (
-    <li className="rounded-xl border bg-card p-4">
+    <li className="job-card">
       <div className="flex flex-wrap items-center gap-2">
         {href ? (
           <a
             href={href}
             rel="noopener noreferrer"
-            className="font-semibold underline-offset-4 hover:underline"
+            className="job-title font-semibold underline-offset-4 hover:underline"
           >
             {hit.title}
           </a>
@@ -93,12 +100,16 @@ function JobItem({ hit }: { hit: JobHit }) {
           <span className="font-semibold">{hit.title}</span>
         )}
         {hit.department && (
-          <Badge variant="secondary" className="max-w-full truncate" title={hit.department}>
+          <Badge
+            variant="secondary"
+            className="max-w-full whitespace-normal break-words"
+            title={hit.department}
+          >
             {hit.department}
           </Badge>
         )}
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">{details.join(" · ")}</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{details.join(" · ")}</p>
     </li>
   );
 }

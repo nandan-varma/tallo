@@ -6,7 +6,7 @@ import { SearchForm } from "@/components/SearchForm";
 afterEach(cleanup);
 
 describe("SearchForm", () => {
-  it("is a plain GET form to /search with its fields labelled and filled", () => {
+  it("is a plain GET form to the homepage with its fields labelled and filled", () => {
     const { container } = render(
       <SearchForm
         values={{
@@ -21,7 +21,7 @@ describe("SearchForm", () => {
     );
 
     const form = container.querySelector("form");
-    expect(form?.getAttribute("action")).toBe("/search");
+    expect(form?.getAttribute("action")).toBe("/");
     expect(form?.getAttribute("method")).toBe("get");
     expect((screen.getByLabelText("Job title") as HTMLInputElement).value).toBe("data engineer");
     expect((screen.getByLabelText(/Company/) as HTMLInputElement).name).toBe("company");
