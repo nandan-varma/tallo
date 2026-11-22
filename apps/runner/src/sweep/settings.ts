@@ -72,8 +72,9 @@ export const LANES: LaneDef[] = [
   multiHost(lane("workday", ["workday"], 30, 2, 250, undefined, 6, 250)),
   multiHost(
     // Oracle answers 8.6 MB in 25 requests a board: source latency, not the limiter, so more boards in parallel is
-    // the only lever (measured 0.46 requests a second per board with 2 boards in flight and no 429s).
-    lane("oracle-icims", ["oraclecloud", "icims"], 8, 3, 250, { icims: { perHost: 3 } }, 8, 100),
+    // the lever (measured 0.46 requests a second per board with 2 boards in flight). Probing to 100 ms drew 217
+    // 429s from fa.us2, so its floor is the 250 ms it starts at.
+    lane("oracle-icims", ["oraclecloud", "icims"], 8, 3, 250, { icims: { perHost: 3 } }, 8, 250),
   ),
   multiHost(
     lane(
