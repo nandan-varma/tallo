@@ -84,6 +84,10 @@
   "company": "Authorium"
  },
  {
+  "key": "COMPANY",
+  "company": "COMPANY"
+ },
+ {
   "key": "Commure",
   "company": "Commure"
  },
@@ -132,8 +136,16 @@
   "company": "Kognitos"
  },
  {
+  "key": "Lambda",
+  "company": "Lambda"
+ },
+ {
   "key": "Lance",
   "company": "Lance"
+ },
+ {
+  "key": "LeanTech",
+  "company": "LeanTech"
  },
  {
   "key": "Lightfield",
@@ -518,6 +530,10 @@
  {
   "key": "alpacahealth",
   "company": "Alpaca Health"
+ },
+ {
+  "key": "alpha-design-ai-inc",
+  "company": "Alpha Design Ai Inc"
  },
  {
   "key": "alphalifesci",
@@ -2096,6 +2112,10 @@
   "company": "Circular Economy Systems"
  },
  {
+  "key": "ciroos",
+  "company": "Ciroos"
+ },
+ {
   "key": "citadel-ai",
   "company": "Citadel AI"
  },
@@ -3176,6 +3196,10 @@
   "company": "Ema"
  },
  {
+  "key": "emagine",
+  "company": "Emagine"
+ },
+ {
   "key": "emanate",
   "company": "Emanate"
  },
@@ -3554,6 +3578,10 @@
  {
   "key": "fin",
   "company": "Fin"
+ },
+ {
+  "key": "finagra",
+  "company": "Finagra"
  },
  {
   "key": "finary",
@@ -7886,6 +7914,10 @@
  {
   "key": "primer",
   "company": "Primer"
+ },
+ {
+  "key": "primer.io",
+  "company": "Primer.io"
  },
  {
   "key": "prior-labs",
