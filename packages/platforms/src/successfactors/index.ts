@@ -1,7 +1,7 @@
 import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
 import { obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, lookup, PostingGone, SchemaError } from "../kit.ts";
+import { describe, locations, lookup, PostingGone, SchemaError, stated } from "../kit.ts";
 
 /**
  * SAP SuccessFactors career sites built with the Career Site Builder (the `rmkcdn.successfactors.com` pages).
@@ -23,9 +23,6 @@ const HOSTS = [
 
 const JOB_URL =
   /<(?:loc|link)>\s*(https:\/\/([^/<\s]+)\/(?:[^<\s]*\/)?job\/[^<\s]*?\/(\d{4,18}))\/?\s*<\/(?:loc|link)>/g;
-
-/** Facts the source stated; an empty string is "not stated". */
-const stated = (value: unknown): string | undefined => str(value) || undefined;
 
 const decode = (url: string) => url.replaceAll("&amp;", "&");
 

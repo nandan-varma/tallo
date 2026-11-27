@@ -164,6 +164,9 @@ export const lookup =
     return undefined;
   };
 
+/** A fact the source stated as text; an empty string is "not stated". */
+export const stated = (value: unknown): string | undefined => str(value) || undefined;
+
 /**
  * The parsed JSON of every `<script>` under `root` that matches `selector`; scripts that are not JSON are skipped.
  * A script body is raw text: `rawText` is read, never `text`, because `text` decodes entities and a `&quot;` inside a

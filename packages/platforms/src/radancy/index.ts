@@ -9,7 +9,7 @@ import type {
 } from "@tallo/contracts";
 import { arr, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, jobPostingLd, locations, lookup, SchemaError } from "../kit.ts";
+import { describe, jobPostingLd, locations, lookup, SchemaError, stated } from "../kit.ts";
 
 /**
  * Radancy TalentBrew career sites (`www.att.jobs`, `jobs.walgreens.com`). Their search pages (`/search-jobs/`)
@@ -99,9 +99,6 @@ function resultsOf(data: unknown): { html: string; filters: string } {
     throw new SchemaError("Radancy search response without results");
   return { html, filters: str(body.filters) ?? "" };
 }
-
-/** Facts the source stated; an empty string is "not stated". */
-const stated = (value: unknown): string | undefined => str(value) || undefined;
 
 /** The page's JobPosting JSON-LD and the employer's apply link. */
 function parseJobPage(html: string): JsonObject {
