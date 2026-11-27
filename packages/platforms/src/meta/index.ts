@@ -12,7 +12,15 @@ import type {
 } from "@tallo/contracts";
 import { arr, id, isObject, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, requireKey, rows, SchemaError, strings } from "../kit.ts";
+import {
+  describe,
+  locations,
+  PostingGone,
+  requireKey,
+  rows,
+  SchemaError,
+  strings,
+} from "../kit.ts";
 
 /**
  * Meta Careers is one anonymous Relay surface. The job search page embeds a short-lived `lsd` token;
@@ -192,7 +200,9 @@ function parseJobPage(html: string, postingId: string): JsonObject {
     })
     .find((value) => isObject(value) && value["@type"] === "JobPosting");
   if (!isObject(jobPosting))
-    throw new SchemaError(`Meta job ${postingId} has no JobPosting JSON-LD (closed or moved)`);
+    // A requisition that closed after the listing was read answers 200 without its JSON-LD. That is a closed posting,
+    // not a broken board: it leaves the listing and closes by absence, as Walmart's and FedEx's do.
+    throw new PostingGone(`Meta job ${postingId} has no JobPosting JSON-LD (closed or moved)`);
 
   let details: JsonObject | undefined;
   for (const script of root.querySelectorAll('script[type="application/json"]')) {

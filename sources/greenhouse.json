@@ -800,10 +800,6 @@
   "company": "AMEND Consulting"
  },
  {
-  "key": "americancapitalgroup",
-  "company": "American Capital Group"
- },
- {
   "key": "americaninstitute",
   "company": "American Institute"
  },
@@ -938,10 +934,6 @@
  {
   "key": "apcon",
   "company": "APCON"
- },
- {
-  "key": "aperaaiinc",
-  "company": "Apera AI Inc"
  },
  {
   "key": "aperiasolutions",
@@ -2376,10 +2368,6 @@
   "company": "Bright Network"
  },
  {
-  "key": "brightsign",
-  "company": "BrightSign"
- },
- {
   "key": "brileysecurities",
   "company": "B. Riley Securities"
  },
@@ -2462,10 +2450,6 @@
  {
   "key": "buildkite",
   "company": "Buildkite"
- },
- {
-  "key": "buildops",
-  "company": "BuildOps"
  },
  {
   "key": "builtin",
@@ -6456,10 +6440,6 @@
   "company": "Groome Industrial Service Group"
  },
  {
-  "key": "gropyus",
-  "company": "GROPYUS"
- },
- {
   "key": "groundlogistics",
   "company": "Ground Logistics"
  },
@@ -6482,10 +6462,6 @@
  {
   "key": "grover",
   "company": "Grover"
- },
- {
-  "key": "growe",
-  "company": "GROWE"
  },
  {
   "key": "growthloop",
@@ -7886,10 +7862,6 @@
  {
   "key": "kalshi",
   "company": "Kalshi"
- },
- {
-  "key": "kambi",
-  "company": "kambi"
  },
  {
   "key": "kano",
@@ -12960,10 +12932,6 @@
   "company": "shednycinc"
  },
  {
-  "key": "shein",
-  "company": "SHEIN"
- },
- {
   "key": "shield",
   "company": "shield"
  },
@@ -13010,10 +12978,6 @@
  {
   "key": "shopmy",
   "company": "ShopMy"
- },
- {
-  "key": "shorelightllc",
-  "company": "Shorelight, LLC"
  },
  {
   "key": "showpad",
@@ -14674,14 +14638,6 @@
  {
   "key": "thoughtexchange",
   "company": "thoughtexchange"
- },
- {
-  "key": "thoughtworks",
-  "company": "thoughtworks"
- },
- {
-  "key": "thoughtworksreferral",
-  "company": "Referrals Only"
  },
  {
   "key": "threecolts",

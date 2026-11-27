@@ -1168,10 +1168,6 @@
   "company": "Axelera AI"
  },
  {
-  "key": "axiom",
-  "company": "Axiom"
- },
- {
   "key": "axiom-co",
   "company": "Axiom"
  },
@@ -1378,10 +1374,6 @@
  {
   "key": "beyondreachlabs",
   "company": "Beyond Reach Labs"
- },
- {
-  "key": "bifrost",
-  "company": "Bifrost AI"
  },
  {
   "key": "biggergames",
@@ -1830,10 +1822,6 @@
  {
   "key": "cape",
   "company": "Cape"
- },
- {
-  "key": "capimoney",
-  "company": "Capi Money"
  },
  {
   "key": "capsa",
@@ -2358,10 +2346,6 @@
  {
   "key": "compass-surgical-partners",
   "company": "Compass Surgical Partners"
- },
- {
-  "key": "complement",
-  "company": "Complement"
  },
  {
   "key": "complete",
@@ -3496,10 +3480,6 @@
   "company": "Farel"
  },
  {
-  "key": "farfetch",
-  "company": "Farfetch"
- },
- {
   "key": "faros-ai",
   "company": "Faros AI"
  },
@@ -4086,10 +4066,6 @@
  {
   "key": "genmd",
   "company": "GenMD"
- },
- {
-  "key": "genmo",
-  "company": "Genmo"
  },
  {
   "key": "genomics",
@@ -5952,10 +5928,6 @@
   "company": "Magic"
  },
  {
-  "key": "magical",
-  "company": "Magical"
- },
- {
   "key": "magiceden",
   "company": "Magic Eden"
  },
@@ -6346,14 +6318,6 @@
  {
   "key": "modus",
   "company": "Modus"
- },
- {
-  "key": "moego",
-  "company": "MoeGo"
- },
- {
-  "key": "molecule",
-  "company": "molecule.xyz"
  },
  {
   "key": "mollie",
@@ -8134,10 +8098,6 @@
  {
   "key": "quindar",
   "company": "Quindar"
- },
- {
-  "key": "quippy",
-  "company": "Quippy"
  },
  {
   "key": "qumulo",
@@ -11022,10 +10982,6 @@
  {
   "key": "withdaydream",
   "company": "daydream"
- },
- {
-  "key": "withhopper",
-  "company": "Hopper"
  },
  {
   "key": "within.ai",
