@@ -1479,13 +1479,6 @@
   }
  },
  {
-  "key": "globalhr/Private_Posting_No_TMP",
-  "company": "RTX",
-  "params": {
-   "wd": "wd5"
-  }
- },
- {
   "key": "globalhr/rec_rtx_ext_gateway",
   "company": "RTX",
   "params": {
@@ -2526,13 +2519,6 @@
   "company": "The Ohio State University",
   "params": {
    "wd": "wd1"
-  }
- },
- {
-  "key": "osv-amerisure/Amerisure",
-  "company": "Amerisure",
-  "params": {
-   "wd": "wd5"
   }
  },
  {
@@ -3746,13 +3732,6 @@
   "company": "Wilbur-Ellis",
   "params": {
    "wd": "wd12"
-  }
- },
- {
-  "key": "wmeimg/160over90US",
-  "company": "160over90",
-  "params": {
-   "wd": "wd1"
   }
  },
  {

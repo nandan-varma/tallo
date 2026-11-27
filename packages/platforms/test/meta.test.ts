@@ -3,6 +3,7 @@ import type { CollectContext, Http, Issue, Json, JsonObject, RawPosting } from "
 import { jobFactsSchema, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import { meta, platformFor, SchemaError } from "../src/index.ts";
+import { PostingGone } from "../src/kit.ts";
 import { drain, fixture, source, textFixture } from "./helpers.ts";
 
 const BOOTSTRAP = `<html><body>
@@ -301,18 +302,23 @@ describe("meta", () => {
     expect(job.compensation).toEqual([]);
   });
 
-  it("throws when a job page is closed, broken, or answers for another job", async () => {
+  it("treats a job page without its JSON-LD as a closed posting, not a broken board", async () => {
     const posting = {
       id: "2486789151677735",
       listing: rowsOf(fixture("meta-list"))[0],
     } as RawPosting;
-    for (const html of [
-      "<html></html>",
-      textFixture("meta-detail.html").replaceAll("2486789151677735", "1"),
-    ]) {
-      const { ctx } = metaCtx(() => ({ text: html }));
-      await expect(meta.detail?.(src, posting, ctx)).rejects.toBeInstanceOf(SchemaError);
-    }
+    const { ctx } = metaCtx(() => ({ text: "<html></html>" }));
+    await expect(meta.detail?.(src, posting, ctx)).rejects.toBeInstanceOf(PostingGone);
+  });
+
+  it("throws when a job page is broken or answers for another job", async () => {
+    const posting = {
+      id: "2486789151677735",
+      listing: rowsOf(fixture("meta-list"))[0],
+    } as RawPosting;
+    const html = textFixture("meta-detail.html").replaceAll("2486789151677735", "1");
+    const { ctx } = metaCtx(() => ({ text: html }));
+    await expect(meta.detail?.(src, posting, ctx)).rejects.toBeInstanceOf(SchemaError);
     await expect(
       meta.detail?.(src, { id: "x", listing: {} }, metaCtx(recorded()).ctx),
     ).rejects.toBeInstanceOf(SchemaError);

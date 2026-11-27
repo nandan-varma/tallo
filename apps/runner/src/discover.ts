@@ -65,6 +65,9 @@ const nameOf = (key: string) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
+/** A platform's own demo or sandbox tenant publishes test postings as if they were jobs nobody can apply to. */
+export const SANDBOX_KEY = /(^|[-_/])(example|examples|sandbox|demo|demos|testing|test)([-_/]|$)/i;
+
 export interface Discovery {
   /** Boards that listed jobs and mapped without warnings. */
   accepted: SourceConfig[];
@@ -110,6 +113,10 @@ export async function discover(
     }
     const source: SourceConfig = { id, ...board, company: nameOf(board.key) };
     const slot = n++;
+    if (SANDBOX_KEY.test(board.key)) {
+      results.set(slot, { rejected: { id, reason: "demo or sandbox board" } });
+      continue;
+    }
     void queue.add(async () => {
       try {
         platformFor(source).validate(source);

@@ -60,6 +60,20 @@ describe("discover", () => {
     expect(found.known).toBe(1);
     expect(found.unrecognized).toEqual(["https://example.com/careers"]);
   });
+
+  it("rejects a platform's demo tenant without verifying it", async () => {
+    const checked: string[] = [];
+    const found = await discover(
+      ["https://boards.greenhouse.io/example", "https://boards.greenhouse.io/acme"],
+      [],
+      async (source) => {
+        checked.push(source.id);
+        return { listed: 3, ...clean };
+      },
+    );
+    expect(checked).toEqual(["greenhouse:acme"]);
+    expect(found.rejected).toEqual([{ id: "greenhouse:example", reason: "demo or sandbox board" }]);
+  });
 });
 
 describe("discover concurrency", () => {
