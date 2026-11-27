@@ -36,6 +36,10 @@
   "company": "3Y Health"
  },
  {
+  "key": "42dot",
+  "company": "42dot"
+ },
+ {
   "key": "8fleet-inc",
   "company": "8Fleet Inc."
  },
@@ -46,6 +50,186 @@
  {
   "key": "9fin",
   "company": "9fin"
+ },
+ {
+  "key": "Abound",
+  "company": "Abound"
+ },
+ {
+  "key": "Acorns",
+  "company": "Acorns"
+ },
+ {
+  "key": "AeroVect",
+  "company": "AeroVect"
+ },
+ {
+  "key": "AfterQuery",
+  "company": "AfterQuery"
+ },
+ {
+  "key": "Anima",
+  "company": "Anima"
+ },
+ {
+  "key": "Antares",
+  "company": "Antares Nuclear"
+ },
+ {
+  "key": "Astro-Mechanica",
+  "company": "Astro Mechanica"
+ },
+ {
+  "key": "Authorium",
+  "company": "Authorium"
+ },
+ {
+  "key": "COMPANY",
+  "company": "COMPANY"
+ },
+ {
+  "key": "Commure",
+  "company": "Commure"
+ },
+ {
+  "key": "Conduit",
+  "company": "Conduit"
+ },
+ {
+  "key": "Crusoe",
+  "company": "Crusoe"
+ },
+ {
+  "key": "DatologyAI",
+  "company": "DatologyAI"
+ },
+ {
+  "key": "FSH",
+  "company": "FSH Technologies"
+ },
+ {
+  "key": "Flock",
+  "company": "Flock"
+ },
+ {
+  "key": "G2",
+  "company": "G2"
+ },
+ {
+  "key": "GoVenti",
+  "company": "GoVenti"
+ },
+ {
+  "key": "GovSignals",
+  "company": "GovSignals"
+ },
+ {
+  "key": "Inclined",
+  "company": "Inclined Technologies"
+ },
+ {
+  "key": "Jerry.ai",
+  "company": "Jerry"
+ },
+ {
+  "key": "Kognitos",
+  "company": "Kognitos"
+ },
+ {
+  "key": "Lambda",
+  "company": "Lambda"
+ },
+ {
+  "key": "Lance",
+  "company": "Lance"
+ },
+ {
+  "key": "LeanTech",
+  "company": "LeanTech"
+ },
+ {
+  "key": "Lightfield",
+  "company": "Lightfield"
+ },
+ {
+  "key": "Lunon",
+  "company": "Lunon"
+ },
+ {
+  "key": "MUBI",
+  "company": "MUBI"
+ },
+ {
+  "key": "MaticRobots",
+  "company": "Matic"
+ },
+ {
+  "key": "NPX",
+  "company": "Nuclear Promise X"
+ },
+ {
+  "key": "Nash",
+  "company": "Nash"
+ },
+ {
+  "key": "Niural",
+  "company": "Niural"
+ },
+ {
+  "key": "NormalComputing",
+  "company": "Normal Computing"
+ },
+ {
+  "key": "NorthwoodSpace",
+  "company": "Northwood Space"
+ },
+ {
+  "key": "Ontic",
+  "company": "Ontic"
+ },
+ {
+  "key": "Perchwell",
+  "company": "Perchwell"
+ },
+ {
+  "key": "PointOne",
+  "company": "PointOne"
+ },
+ {
+  "key": "Preference-Model",
+  "company": "Preference Model"
+ },
+ {
+  "key": "REGENT",
+  "company": "REGENT"
+ },
+ {
+  "key": "Ridealso",
+  "company": "ALSO"
+ },
+ {
+  "key": "Sciforium",
+  "company": "Sciforium"
+ },
+ {
+  "key": "Strava",
+  "company": "Strava"
+ },
+ {
+  "key": "Talos-Trading",
+  "company": "Talos"
+ },
+ {
+  "key": "Valon",
+  "company": "Valon"
+ },
+ {
+  "key": "Watershed",
+  "company": "Watershed"
+ },
+ {
+  "key": "Zello",
+  "company": "Zello"
  },
  {
   "key": "a-place-for-mom",
@@ -272,6 +456,10 @@
   "company": "Alcazar Energy"
  },
  {
+  "key": "alchemi",
+  "company": "Alchemi"
+ },
+ {
   "key": "alchemy",
   "company": "Alchemy"
  },
@@ -292,8 +480,16 @@
   "company": "Alex AI"
  },
  {
+  "key": "algo1",
+  "company": "algo1"
+ },
+ {
   "key": "allarahealth",
   "company": "Allara"
+ },
+ {
+  "key": "allen-control-systems",
+  "company": "Allen Control Systems"
  },
  {
   "key": "alleviatehealth",
@@ -334,6 +530,18 @@
  {
   "key": "alpacahealth",
   "company": "Alpaca Health"
+ },
+ {
+  "key": "alpha-design-ai-inc",
+  "company": "Alpha Design Ai Inc"
+ },
+ {
+  "key": "alphalifesci",
+  "company": "AlphaLife Sciences"
+ },
+ {
+  "key": "alta-ares",
+  "company": "Alta Ares"
  },
  {
   "key": "altana",
@@ -432,12 +640,20 @@
   "company": "Anara"
  },
  {
+  "key": "ande",
+  "company": "Ande"
+ },
+ {
   "key": "andela",
   "company": "Andela"
  },
  {
   "key": "andercore",
   "company": "Andercore"
+ },
+ {
+  "key": "ando",
+  "company": "Ando"
  },
  {
   "key": "angi",
@@ -490,6 +706,10 @@
  {
   "key": "anterior",
   "company": "Anterior"
+ },
+ {
+  "key": "anthelioncap",
+  "company": "Anthelion Capital"
  },
  {
   "key": "anthrogen",
@@ -632,12 +852,20 @@
   "company": "Archive"
  },
  {
+  "key": "archy",
+  "company": "Archy"
+ },
+ {
   "key": "arcturus",
   "company": "Arcturus"
  },
  {
   "key": "arena",
   "company": "Arena Intelligence, Inc."
+ },
+ {
+  "key": "ariesglobal",
+  "company": "Aries Global"
  },
  {
   "key": "arini",
@@ -650,6 +878,10 @@
  {
   "key": "arlo",
   "company": "Arlo"
+ },
+ {
+  "key": "armadin",
+  "company": "Armadin"
  },
  {
   "key": "armory",
@@ -760,6 +992,10 @@
   "company": "Astronomer"
  },
  {
+  "key": "atalanta",
+  "company": "Atalanta"
+ },
+ {
   "key": "ataraxis-ai",
   "company": "Ataraxis AI"
  },
@@ -794,6 +1030,10 @@
  {
   "key": "atomic",
   "company": "Atomic"
+ },
+ {
+  "key": "atomic-invest",
+  "company": "Atomic Invest (AtomicVest)"
  },
  {
   "key": "atominvest",
@@ -840,6 +1080,10 @@
   "company": "Audiohook"
  },
  {
+  "key": "augmodo",
+  "company": "Augmodo"
+ },
+ {
   "key": "augur",
   "company": "Augur Initiative Ltd"
  },
@@ -858,6 +1102,10 @@
  {
   "key": "aurelian",
   "company": "Aurelian"
+ },
+ {
+  "key": "aureliussystems",
+  "company": "Aurelius Systems"
  },
  {
   "key": "auror",
@@ -932,6 +1180,10 @@
   "company": "Axiom"
  },
  {
+  "key": "axiommath",
+  "company": "Axiom Math"
+ },
+ {
   "key": "axion",
   "company": "Axion"
  },
@@ -942,6 +1194,10 @@
  {
   "key": "axle-health",
   "company": "Axle Health"
+ },
+ {
+  "key": "ayosemi",
+  "company": "Ayo Semiconductor"
  },
  {
   "key": "baba",
@@ -962,6 +1218,10 @@
  {
   "key": "backmarket",
   "company": "Back Market"
+ },
+ {
+  "key": "bagsfm",
+  "company": "Bags"
  },
  {
   "key": "bankjoy",
@@ -1008,6 +1268,10 @@
   "company": "Basis AI"
  },
  {
+  "key": "basis-research",
+  "company": "Basis Research Institute"
+ },
+ {
   "key": "bastion",
   "company": "Bastion"
  },
@@ -1042,6 +1306,10 @@
  {
   "key": "beamimpact",
   "company": "Beam Impact"
+ },
+ {
+  "key": "bedrock-robotics",
+  "company": "Bedrock Robotics"
  },
  {
   "key": "bedrockocean",
@@ -1140,6 +1408,10 @@
   "company": "Binalyze"
  },
  {
+  "key": "binance.us",
+  "company": "Binance"
+ },
+ {
   "key": "binti",
   "company": "Binti"
  },
@@ -1208,6 +1480,10 @@
   "company": "Blissway Inc."
  },
  {
+  "key": "blitzy",
+  "company": "Blitzy"
+ },
+ {
   "key": "block-labs",
   "company": "Block Labs"
  },
@@ -1242,6 +1518,10 @@
  {
   "key": "bloxd",
   "company": "Bloxd"
+ },
+ {
+  "key": "blp-digital",
+  "company": "blp"
  },
  {
   "key": "blue-energy",
@@ -1300,6 +1580,10 @@
   "company": "Bounce"
  },
  {
+  "key": "bracket-bot",
+  "company": "Bracket Bot"
+ },
+ {
   "key": "braiins",
   "company": "Braiins"
  },
@@ -1350,6 +1634,10 @@
  {
   "key": "brettonai",
   "company": "Bretton AI"
+ },
+ {
+  "key": "bridgeneurotech",
+  "company": "Bridge Neurotech"
  },
  {
   "key": "bridger",
@@ -1412,6 +1700,10 @@
   "company": "Build Technologies"
  },
  {
+  "key": "build-ai",
+  "company": "Build AI"
+ },
+ {
   "key": "builder-prime",
   "company": "Builder Prime"
  },
@@ -1470,6 +1762,10 @@
  {
   "key": "c1",
   "company": "C1"
+ },
+ {
+  "key": "c898d712-c4ab-4157-954a-5df226a781e2",
+  "company": "Thoughtworks"
  },
  {
   "key": "cadregs",
@@ -1562,6 +1858,10 @@
  {
   "key": "cardless",
   "company": "Cardless"
+ },
+ {
+  "key": "careers.mural",
+  "company": "Mural"
  },
  {
   "key": "careerstrengo",
@@ -1668,6 +1968,10 @@
   "company": "Centari"
  },
  {
+  "key": "centerfield",
+  "company": "Centerfield"
+ },
+ {
   "key": "centivo",
   "company": "Centivo"
  },
@@ -1682,6 +1986,10 @@
  {
   "key": "cerebras",
   "company": "Cerebras Systems"
+ },
+ {
+  "key": "certa",
+  "company": "Certa"
  },
  {
   "key": "certifid",
@@ -1708,6 +2016,10 @@
   "company": "Chalk"
  },
  {
+  "key": "chambercardio",
+  "company": "Chamber Cardio"
+ },
+ {
   "key": "change",
   "company": "Change.org"
  },
@@ -1728,6 +2040,10 @@
   "company": "Chariot"
  },
  {
+  "key": "chartahealth",
+  "company": "Charta Health"
+ },
+ {
   "key": "chatbase",
   "company": "Chatbase"
  },
@@ -1742,6 +2058,10 @@
  {
   "key": "checkly",
   "company": "Checkly"
+ },
+ {
+  "key": "checkout.com",
+  "company": "Checkout.com"
  },
  {
   "key": "cheiron",
@@ -1792,6 +2112,10 @@
   "company": "Circular Economy Systems"
  },
  {
+  "key": "ciroos",
+  "company": "Ciroos"
+ },
+ {
   "key": "citadel-ai",
   "company": "Citadel AI"
  },
@@ -1826,6 +2150,14 @@
  {
   "key": "clarium",
   "company": "Clarium"
+ },
+ {
+  "key": "clark",
+  "company": "Clark"
+ },
+ {
+  "key": "clasp",
+  "company": "Clasp"
  },
  {
   "key": "clasp-group",
@@ -1962,6 +2294,10 @@
  {
   "key": "cohere",
   "company": "Cohere"
+ },
+ {
+  "key": "cohort",
+  "company": "Cohort AI Inc."
  },
  {
   "key": "coinflow",
@@ -2104,6 +2440,10 @@
   "company": "Console"
  },
  {
+  "key": "constellationspace",
+  "company": "Constellation Space"
+ },
+ {
   "key": "constructor",
   "company": "Constructor"
  },
@@ -2198,6 +2538,10 @@
  {
   "key": "cow-dao",
   "company": "CoW DAO"
+ },
+ {
+  "key": "cowboyspace",
+  "company": "Cowboy Space"
  },
  {
   "key": "coworker",
@@ -2324,6 +2668,10 @@
   "company": "Cyvl"
  },
  {
+  "key": "d-Matrix",
+  "company": "d-Matrix"
+ },
+ {
   "key": "d-matrix",
   "company": "d-Matrix"
  },
@@ -2448,6 +2796,10 @@
   "company": "Deeter Analytics"
  },
  {
+  "key": "deft-ai",
+  "company": "Deft AI"
+ },
+ {
   "key": "defy-security",
   "company": "Defy Security"
  },
@@ -2480,6 +2832,10 @@
   "company": "Depot"
  },
  {
+  "key": "designrulesco",
+  "company": "The Design Rules Company"
+ },
+ {
   "key": "designworkstalent",
   "company": "Designworks Talent"
  },
@@ -2504,6 +2860,10 @@
   "company": "Diagrid"
  },
  {
+  "key": "didero",
+  "company": "Didero"
+ },
+ {
   "key": "diligencesquared",
   "company": "DiligenceSquared"
  },
@@ -2518,6 +2878,10 @@
  {
   "key": "directive",
   "company": "Directive"
+ },
+ {
+  "key": "discernis",
+  "company": "Discernis"
  },
  {
   "key": "dispatch",
@@ -2538,6 +2902,10 @@
  {
   "key": "ditto",
   "company": "Ditto"
+ },
+ {
+  "key": "dittoai",
+  "company": "Ditto AI"
  },
  {
   "key": "dmodel",
@@ -2648,6 +3016,10 @@
   "company": "Droyd"
  },
  {
+  "key": "dryft",
+  "company": "Dryft"
+ },
+ {
   "key": "dualentry",
   "company": "DualEntry"
  },
@@ -2698,6 +3070,10 @@
  {
   "key": "dyneti",
   "company": "Dyneti"
+ },
+ {
+  "key": "e-source",
+  "company": "E Source Companies"
  },
  {
   "key": "eagle",
@@ -2808,12 +3184,20 @@
   "company": "Eloquent AI"
  },
  {
+  "key": "elveo",
+  "company": "Elveo"
+ },
+ {
   "key": "elyos",
   "company": "Elyos AI"
  },
  {
   "key": "ema",
   "company": "Ema"
+ },
+ {
+  "key": "emagine",
+  "company": "Emagine"
  },
  {
   "key": "emanate",
@@ -2876,6 +3260,10 @@
   "company": "Engram Lab"
  },
  {
+  "key": "engramme",
+  "company": "Engramme"
+ },
+ {
   "key": "enode",
   "company": "Enode"
  },
@@ -2886,6 +3274,10 @@
  {
   "key": "ent-security",
   "company": "Ent Security"
+ },
+ {
+  "key": "envision-horizons",
+  "company": "Envision Horizons LLC"
  },
  {
   "key": "envoy",
@@ -2920,6 +3312,10 @@
   "company": "Equip Health"
  },
  {
+  "key": "eragon",
+  "company": "Eragon"
+ },
+ {
   "key": "escape",
   "company": "Escape Technologies"
  },
@@ -2930,6 +3326,10 @@
  {
   "key": "etched",
   "company": "Etched"
+ },
+ {
+  "key": "ether.fi",
+  "company": "ether.fi"
  },
  {
   "key": "ethereum-foundation",
@@ -3020,6 +3420,10 @@
   "company": "Extend"
  },
  {
+  "key": "extropic",
+  "company": "Extropic"
+ },
+ {
   "key": "eye-security",
   "company": "Eye Security"
  },
@@ -3038,6 +3442,14 @@
  {
   "key": "f2-ai",
   "company": "F2"
+ },
+ {
+  "key": "f40d14d9-07f4-403d-802b-37453deccf0a",
+  "company": "Klaviyo"
+ },
+ {
+  "key": "fab2",
+  "company": "Fab2"
  },
  {
   "key": "fable",
@@ -3068,8 +3480,16 @@
   "company": "Faculty"
  },
  {
+  "key": "faculty-fellowship",
+  "company": "Faculte"
+ },
+ {
   "key": "falconer",
   "company": "Falconer"
+ },
+ {
+  "key": "fanvue.com",
+  "company": "Fanvue"
  },
  {
   "key": "farel",
@@ -3120,6 +3540,10 @@
   "company": "Felix"
  },
  {
+  "key": "fellowai",
+  "company": "Fellow"
+ },
+ {
   "key": "fernstone",
   "company": "Fernstone"
  },
@@ -3154,6 +3578,10 @@
  {
   "key": "fin",
   "company": "Fin"
+ },
+ {
+  "key": "finagra",
+  "company": "Finagra"
  },
  {
   "key": "finary",
@@ -3240,12 +3668,20 @@
   "company": "Flagler Health"
  },
  {
+  "key": "flagright.com",
+  "company": "Flagright"
+ },
+ {
   "key": "flagstone",
   "company": "Flagstone"
  },
  {
   "key": "flai",
   "company": "Flai"
+ },
+ {
+  "key": "flashpoint.io",
+  "company": "Flashpoint"
  },
  {
   "key": "fleek",
@@ -3348,6 +3784,10 @@
   "company": "Fonoa"
  },
  {
+  "key": "footprint",
+  "company": "Footprint"
+ },
+ {
   "key": "forerunner",
   "company": "Forerunner"
  },
@@ -3380,6 +3820,10 @@
   "company": "Formula"
  },
  {
+  "key": "formulary",
+  "company": "Formulary Financial"
+ },
+ {
   "key": "fortell",
   "company": "Fortell"
  },
@@ -3394,6 +3838,10 @@
  {
   "key": "fortuna-health",
   "company": "Fortuna Health"
+ },
+ {
+  "key": "forus",
+  "company": "Forus"
  },
  {
   "key": "found",
@@ -3436,6 +3884,18 @@
   "company": "Foxglove"
  },
  {
+  "key": "fr",
+  "company": "Maya HTT"
+ },
+ {
+  "key": "fractile",
+  "company": "Fractile"
+ },
+ {
+  "key": "frec",
+  "company": "Frec Markets, Inc."
+ },
+ {
   "key": "freed",
   "company": "Freed"
  },
@@ -3454,6 +3914,10 @@
  {
   "key": "frontcareers",
   "company": "Front"
+ },
+ {
+  "key": "frontier-health",
+  "company": "Frontier Health"
  },
  {
   "key": "fs-studio",
@@ -3580,8 +4044,20 @@
   "company": "The General Intelligence Company of New York"
  },
  {
+  "key": "generalintuition-medal",
+  "company": "General Intuition &amp; Medal"
+ },
+ {
   "key": "generalist",
   "company": "Generalist"
+ },
+ {
+  "key": "generalmagic",
+  "company": "General Magic"
+ },
+ {
+  "key": "generaltranslation",
+  "company": "General Translation"
  },
  {
   "key": "generate",
@@ -3592,8 +4068,24 @@
   "company": "Generator Health"
  },
  {
+  "key": "genesis",
+  "company": "Genesis AI"
+ },
+ {
+  "key": "genesis-molecular-ai",
+  "company": "Genesis Molecular AI"
+ },
+ {
   "key": "genies",
   "company": "Genies"
+ },
+ {
+  "key": "geniusai",
+  "company": "Genius AI"
+ },
+ {
+  "key": "genmd",
+  "company": "GenMD"
  },
  {
   "key": "genmo",
@@ -3610,6 +4102,10 @@
  {
   "key": "geoforce",
   "company": "Geoforce"
+ },
+ {
+  "key": "georgian",
+  "company": "Georgian Partners Growth"
  },
  {
   "key": "getground",
@@ -3686,6 +4182,10 @@
  {
   "key": "go-nimbly",
   "company": "Go Nimbly"
+ },
+ {
+  "key": "goaly",
+  "company": "Goaly"
  },
  {
   "key": "goanagram",
@@ -3864,6 +4364,10 @@
   "company": "Gritt Robotics Inc"
  },
  {
+  "key": "grow-therapy",
+  "company": "Grow Therapy"
+ },
+ {
   "key": "gruntwork",
   "company": "Gruntwork"
  },
@@ -3934,6 +4438,10 @@
  {
   "key": "happyhotel",
   "company": "happyhotel"
+ },
+ {
+  "key": "happyrobot.ai",
+  "company": "Happyrobot"
  },
  {
   "key": "harbor",
@@ -4108,6 +4616,10 @@
   "company": "Highbeam"
  },
  {
+  "key": "highlightai",
+  "company": "Highlight AI"
+ },
+ {
   "key": "highlightta",
   "company": "HighlightTA"
  },
@@ -4232,12 +4744,20 @@
   "company": "Hoxhunt"
  },
  {
+  "key": "hoyoverse",
+  "company": "HoYoverse"
+ },
+ {
   "key": "hrs",
   "company": "HRS"
  },
  {
   "key": "httpie",
   "company": "HTTPie"
+ },
+ {
+  "key": "hubs.is",
+  "company": "Hubs.is"
  },
  {
   "key": "hubstaff",
@@ -4262,6 +4782,10 @@
  {
   "key": "human",
   "company": "HUMAN"
+ },
+ {
+  "key": "human-computer-lab",
+  "company": "Human Computer Lab"
  },
  {
   "key": "humanarchive",
@@ -4314,6 +4838,10 @@
  {
   "key": "hyperscale",
   "company": "Hyperscale"
+ },
+ {
+  "key": "hyphenate",
+  "company": "Hyphenate"
  },
  {
   "key": "i3d",
@@ -4400,6 +4928,10 @@
   "company": "Inclined"
  },
  {
+  "key": "inductive-automation-llc",
+  "company": "Inductive Automation"
+ },
+ {
   "key": "inductive-bio",
   "company": "Inductive Bio"
  },
@@ -4448,6 +4980,10 @@
   "company": "InfluxData"
  },
  {
+  "key": "inherent",
+  "company": "Inherent"
+ },
+ {
   "key": "injective",
   "company": "Injective"
  },
@@ -4488,6 +5024,10 @@
   "company": "Instructure, Inc."
  },
  {
+  "key": "integrate",
+  "company": "Integrate"
+ },
+ {
   "key": "intelligence",
   "company": "Intelligence"
  },
@@ -4498,6 +5038,10 @@
  {
   "key": "interface",
   "company": "Interface"
+ },
+ {
+  "key": "interface-ai",
+  "company": "interface.ai"
  },
  {
   "key": "interfere",
@@ -4532,12 +5076,20 @@
   "company": "Invopop"
  },
  {
+  "key": "inworld-ai",
+  "company": "Inworld AI"
+ },
+ {
   "key": "ironcladhq",
   "company": "Ironclad"
  },
  {
   "key": "irregular",
   "company": "irregular"
+ },
+ {
+  "key": "isembard",
+  "company": "Isembard"
  },
  {
   "key": "isometric",
@@ -4556,6 +5108,10 @@
   "company": "Ivo Inc."
  },
  {
+  "key": "ixianrobotics",
+  "company": "Ixian Robotics"
+ },
+ {
   "key": "iyo",
   "company": "iyo"
  },
@@ -4566,6 +5122,10 @@
  {
   "key": "jameda",
   "company": "Jameda"
+ },
+ {
+  "key": "jampack-ai",
+  "company": "Jampack AI"
  },
  {
   "key": "jane",
@@ -4588,6 +5148,10 @@
   "company": "Jiga"
  },
  {
+  "key": "jigsaw",
+  "company": "Jigsaw"
+ },
+ {
   "key": "jobber",
   "company": "Jobber"
  },
@@ -4602,6 +5166,10 @@
  {
   "key": "joinbetter",
   "company": "Better Health"
+ },
+ {
+  "key": "joinpogo",
+  "company": "Pogo Technologies, Inc."
  },
  {
   "key": "joko",
@@ -4692,6 +5260,10 @@
   "company": "Kalshi"
  },
  {
+  "key": "kaluza",
+  "company": "Kaluza"
+ },
+ {
   "key": "kamiwaza",
   "company": "Kamiwaza AI"
  },
@@ -4710,6 +5282,10 @@
  {
   "key": "kayak",
   "company": "KAYAK"
+ },
+ {
+  "key": "keplar",
+  "company": "Keplar"
  },
  {
   "key": "kernel",
@@ -4734,6 +5310,10 @@
  {
   "key": "kindred",
   "company": "Kindred"
+ },
+ {
+  "key": "kineticsystems",
+  "company": "Kinetic Systems"
  },
  {
   "key": "kingdom",
@@ -4774,6 +5354,10 @@
  {
   "key": "klarify",
   "company": "Klarify"
+ },
+ {
+  "key": "kled-ai",
+  "company": "Kled AI"
  },
  {
   "key": "klim",
@@ -4856,6 +5440,10 @@
   "company": "Konvu"
  },
  {
+  "key": "kos.ai",
+  "company": "kos.ai"
+ },
+ {
   "key": "kota",
   "company": "Kota"
  },
@@ -4866,6 +5454,10 @@
  {
   "key": "kraken-kinetics",
   "company": "Kraken Kinetics"
+ },
+ {
+  "key": "kraken.com",
+  "company": "Kraken.com"
  },
  {
   "key": "krea",
@@ -4976,6 +5568,10 @@
   "company": "Lawhive"
  },
  {
+  "key": "layerfi",
+  "company": "Layer Financial Technologies"
+ },
+ {
   "key": "lazer",
   "company": "Lazer"
  },
@@ -5010,6 +5606,10 @@
  {
   "key": "ledger",
   "company": "Ledger"
+ },
+ {
+  "key": "legal-500",
+  "company": "Legal 500"
  },
  {
   "key": "legionhealth",
@@ -5088,6 +5688,10 @@
   "company": "Light"
  },
  {
+  "key": "light-inc",
+  "company": "Light"
+ },
+ {
   "key": "lightdash",
   "company": "Lightdash"
  },
@@ -5128,6 +5732,14 @@
   "company": "Linear"
  },
  {
+  "key": "linkup",
+  "company": "Linkup"
+ },
+ {
+  "key": "linqapp",
+  "company": "LINQ"
+ },
+ {
   "key": "lio",
   "company": "Lio"
  },
@@ -5164,6 +5776,10 @@
   "company": "LiveKit"
  },
  {
+  "key": "liveview-technologies",
+  "company": "LiveView Technologies"
+ },
+ {
   "key": "livinghr",
   "company": "livingHR"
  },
@@ -5174,6 +5790,14 @@
  {
   "key": "loancrate",
   "company": "Loancrate"
+ },
+ {
+  "key": "logiqal",
+  "company": "Logiqal"
+ },
+ {
+  "key": "logos-space",
+  "company": "Logos Space"
  },
  {
   "key": "loki",
@@ -5304,6 +5928,10 @@
   "company": "Mach9"
  },
  {
+  "key": "machinacognita",
+  "company": "Machina Cognita Technologies"
+ },
+ {
   "key": "macroscope",
   "company": "Macroscope"
  },
@@ -5358,6 +5986,10 @@
  {
   "key": "makai-labs",
   "company": "Makai Labs"
+ },
+ {
+  "key": "makermaker.ai",
+  "company": "MakerMaker"
  },
  {
   "key": "maki",
@@ -5432,6 +6064,10 @@
   "company": "Matterworks, Inc."
  },
  {
+  "key": "matx",
+  "company": "MatX"
+ },
+ {
   "key": "maven",
   "company": "Maven"
  },
@@ -5450,6 +6086,14 @@
  {
   "key": "maximustribe",
   "company": "Maximus Health, Inc."
+ },
+ {
+  "key": "maxinsights",
+  "company": "Maxinsights"
+ },
+ {
+  "key": "maya-htt",
+  "company": "Maya HTT"
  },
  {
   "key": "maybern",
@@ -5502,6 +6146,10 @@
  {
   "key": "megazone",
   "company": "Megazone Cloud US"
+ },
+ {
+  "key": "melius",
+  "company": "Melius"
  },
  {
   "key": "melotech",
@@ -5562,6 +6210,10 @@
  {
   "key": "metalenz",
   "company": "Metalenz"
+ },
+ {
+  "key": "metamorphic",
+  "company": "Metamorphic"
  },
  {
   "key": "metaview",
@@ -5656,6 +6308,10 @@
   "company": "Miso Labs"
  },
  {
+  "key": "mistral.ai",
+  "company": "Mistral AI"
+ },
+ {
   "key": "miter",
   "company": "Miter"
  },
@@ -5666,6 +6322,10 @@
  {
   "key": "moab",
   "company": "Moab"
+ },
+ {
+  "key": "mobbin.com",
+  "company": "Mobbin.com"
  },
  {
   "key": "mobilefirst",
@@ -5710,6 +6370,10 @@
  {
   "key": "monaco",
   "company": "Monaco"
+ },
+ {
+  "key": "monad.foundation",
+  "company": "Monad.foundation"
  },
  {
   "key": "monarch-md",
@@ -5776,6 +6440,10 @@
   "company": "Moss"
  },
  {
+  "key": "mossrobotics",
+  "company": "Moss"
+ },
+ {
   "key": "motherduck",
   "company": "MotherDuck"
  },
@@ -5801,6 +6469,10 @@
  },
  {
   "key": "multiply",
+  "company": "Multiply"
+ },
+ {
+  "key": "multiplyai",
   "company": "Multiply"
  },
  {
@@ -5924,6 +6596,10 @@
   "company": "Nen Creative"
  },
  {
+  "key": "neocognition",
+  "company": "NeoCognition"
+ },
+ {
   "key": "neofinancial",
   "company": "Neo Financial"
  },
@@ -5954,6 +6630,10 @@
  {
   "key": "nethermind",
   "company": "Nethermind"
+ },
+ {
+  "key": "netholabs",
+  "company": "Netholabs"
  },
  {
   "key": "netic",
@@ -6000,6 +6680,10 @@
   "company": "Newform"
  },
  {
+  "key": "newlantern",
+  "company": "New Lantern"
+ },
+ {
   "key": "neworbit",
   "company": "NewOrbit Space"
  },
@@ -6016,6 +6700,18 @@
   "company": "NextPatient"
  },
  {
+  "key": "nexttoken",
+  "company": "NextToken"
+ },
+ {
+  "key": "nexus-cognitive",
+  "company": "Nexus Cognitive Technologies"
+ },
+ {
+  "key": "nexus-intelligence",
+  "company": "Nexus Intelligence"
+ },
+ {
   "key": "nexus-marketing",
   "company": "Nexus Marketing"
  },
@@ -6026,6 +6722,10 @@
  {
   "key": "niantic-spatial",
   "company": "Niantic Spatial"
+ },
+ {
+  "key": "nidus-technologies",
+  "company": "Nidus Technologies"
  },
  {
   "key": "niramedical",
@@ -6062,6 +6762,10 @@
  {
   "key": "nomic",
   "company": "Nomic"
+ },
+ {
+  "key": "nomic.foundation",
+  "company": "Nomic.foundation"
  },
  {
   "key": "nomos",
@@ -6216,8 +6920,16 @@
   "company": "Obviant"
  },
  {
+  "key": "obvio",
+  "company": "Obvio"
+ },
+ {
   "key": "obvious",
   "company": "Obvious"
+ },
+ {
+  "key": "oceanus",
+  "company": "Oceanus Marine Technologies"
  },
  {
   "key": "ocra",
@@ -6230,6 +6942,10 @@
  {
   "key": "odin",
   "company": "Odin"
+ },
+ {
+  "key": "odys-aviation",
+  "company": "Odys Aviation"
  },
  {
   "key": "odyssey",
@@ -6250,6 +6966,10 @@
  {
   "key": "oktoberagency",
   "company": "OKTOBER"
+ },
+ {
+  "key": "old-mission-capital",
+  "company": "Old Mission"
  },
  {
   "key": "old-well-labs",
@@ -6324,6 +7044,10 @@
   "company": "Oneleet"
  },
  {
+  "key": "onepot",
+  "company": "onepot"
+ },
+ {
   "key": "onerobot",
   "company": "One Robot"
  },
@@ -6396,8 +7120,16 @@
   "company": "Open Home Foundation"
  },
  {
+  "key": "openloophealth",
+  "company": "OpenLoop"
+ },
+ {
   "key": "openly",
   "company": "Openly"
+ },
+ {
+  "key": "openmind",
+  "company": "OpenMind"
  },
  {
   "key": "opennote",
@@ -6428,6 +7160,10 @@
   "company": "Optimum"
  },
  {
+  "key": "options-it",
+  "company": "Options Technology"
+ },
+ {
   "key": "opus-medical",
   "company": "Opus Medical"
  },
@@ -6450,6 +7186,10 @@
  {
   "key": "orbital",
   "company": "Orbital"
+ },
+ {
+  "key": "orbitalindustries",
+  "company": "Orbital Industries"
  },
  {
   "key": "orca",
@@ -6478,6 +7218,10 @@
  {
   "key": "ourritual",
   "company": "OurRitual"
+ },
+ {
+  "key": "outmarket",
+  "company": "Outmarket AI"
  },
  {
   "key": "outpost",
@@ -6600,6 +7344,10 @@
   "company": "Panther Life Sciences"
  },
  {
+  "key": "parabola-io",
+  "company": "Parabola"
+ },
+ {
   "key": "paradigm",
   "company": "Paradigm"
  },
@@ -6644,6 +7392,10 @@
   "company": "Parameter"
  },
  {
+  "key": "parasail",
+  "company": "Parasail"
+ },
+ {
   "key": "pareto-ai",
   "company": "Pareto.AI"
  },
@@ -6682,6 +7434,10 @@
  {
   "key": "passport",
   "company": "Passport"
+ },
+ {
+  "key": "patch.io",
+  "company": "Patch"
  },
  {
   "key": "pathos",
@@ -6756,6 +7512,10 @@
   "company": "Peek"
  },
  {
+  "key": "pelico",
+  "company": "Pelico"
+ },
+ {
   "key": "pennylane",
   "company": "Pennylane SAS"
  },
@@ -6816,6 +7576,10 @@
   "company": "Persona"
  },
  {
+  "key": "persona.ai",
+  "company": "Persona AI"
+ },
+ {
   "key": "phantom",
   "company": "Phantom"
  },
@@ -6834,6 +7598,14 @@
  {
   "key": "phil",
   "company": "PHIL"
+ },
+ {
+  "key": "phlair",
+  "company": "Phlair"
+ },
+ {
+  "key": "phoebe-work",
+  "company": "Phoebe"
  },
  {
   "key": "phoenix",
@@ -6890,6 +7662,10 @@
  {
   "key": "pivotal-health",
   "company": "Pivotal Health"
+ },
+ {
+  "key": "pivotrobotics",
+  "company": "Pivot Robotics"
  },
  {
   "key": "plaid",
@@ -6958,6 +7734,14 @@
  {
   "key": "plot",
   "company": "Plot Technologies, Inc."
+ },
+ {
+  "key": "plsn",
+  "company": "Polished Snow"
+ },
+ {
+  "key": "plugmotors",
+  "company": "Plug Technologies"
  },
  {
   "key": "plumerai",
@@ -7064,6 +7848,10 @@
   "company": "Powerline"
  },
  {
+  "key": "powertown",
+  "company": "Powertown"
+ },
+ {
   "key": "pplwise",
   "company": "pplwise"
  },
@@ -7078,6 +7866,10 @@
  {
   "key": "prairielearn",
   "company": "PrairieLearn, Inc."
+ },
+ {
+  "key": "pramaana-labs",
+  "company": "Pramaana Labs"
  },
  {
   "key": "praxipal",
@@ -7108,6 +7900,10 @@
   "company": "Preply"
  },
  {
+  "key": "pressw",
+  "company": "PressW"
+ },
+ {
   "key": "primary",
   "company": "Primary"
  },
@@ -7120,6 +7916,10 @@
   "company": "Primer"
  },
  {
+  "key": "primer.io",
+  "company": "Primer.io"
+ },
+ {
   "key": "prior-labs",
   "company": "Prior Labs"
  },
@@ -7130,6 +7930,10 @@
  {
   "key": "probablygenetic",
   "company": "Probably Genetic"
+ },
+ {
+  "key": "probook",
+  "company": "Probook"
  },
  {
   "key": "procurementsciences",
@@ -7248,6 +8052,10 @@
   "company": "Pure"
  },
  {
+  "key": "pureapp",
+  "company": "Pure"
+ },
+ {
   "key": "pursuit",
   "company": "Pursuit"
  },
@@ -7270,6 +8078,14 @@
  {
   "key": "qonto",
   "company": "Qonto"
+ },
+ {
+  "key": "quadric",
+  "company": "Quadric"
+ },
+ {
+  "key": "quadrillion-labs",
+  "company": "Quadrillion"
  },
  {
   "key": "qualified-health-pbc",
@@ -7382,6 +8198,10 @@
  {
   "key": "rallyuxr",
   "company": "Rally"
+ },
+ {
+  "key": "ramielcapital",
+  "company": "Ramiel Capital"
  },
  {
   "key": "ramp",
@@ -7572,6 +8392,10 @@
   "company": "Relling"
  },
  {
+  "key": "remanence",
+  "company": "Remanence"
+ },
+ {
   "key": "remarcable-inc",
   "company": "Remarcable, Inc."
  },
@@ -7644,12 +8468,20 @@
   "company": "Restream"
  },
  {
+  "key": "resurgent-industries",
+  "company": "Resurgent Industries"
+ },
+ {
   "key": "retell-ai",
   "company": "Retell AI"
  },
  {
   "key": "rev",
   "company": "Rev"
+ },
+ {
+  "key": "revel",
+  "company": "Revel"
  },
  {
   "key": "revenuecat",
@@ -7728,6 +8560,10 @@
   "company": "Rivet"
  },
  {
+  "key": "rivianvw.tech",
+  "company": "Rivian and Volkswagen Group Technologies"
+ },
+ {
   "key": "roadrunner",
   "company": "Roadrunner"
  },
@@ -7784,6 +8620,10 @@
   "company": "Rox Data Corp"
  },
  {
+  "key": "rubie",
+  "company": "Rubie"
+ },
+ {
   "key": "ruby-labs",
   "company": "Ruby Labs"
  },
@@ -7810,6 +8650,14 @@
  {
   "key": "runna",
   "company": "Runna"
+ },
+ {
+  "key": "runpod",
+  "company": "Runpod"
+ },
+ {
+  "key": "runsybil-jobs",
+  "company": "RunSybil"
  },
  {
   "key": "runway",
@@ -7876,6 +8724,10 @@
   "company": "Saltz Marketplace"
  },
  {
+  "key": "sampura",
+  "company": "Sampura Research"
+ },
+ {
   "key": "sanctuary",
   "company": "Sanctuary"
  },
@@ -7910,6 +8762,10 @@
  {
   "key": "satispay",
   "company": "Satispay"
+ },
+ {
+  "key": "sauna.ai",
+  "company": "Sauna"
  },
  {
   "key": "savvy",
@@ -7950,6 +8806,10 @@
  {
   "key": "scoreplay",
   "company": "ScorePlay"
+ },
+ {
+  "key": "scout-ai",
+  "company": "Scout AI"
  },
  {
   "key": "scribdinc",
@@ -8012,6 +8872,10 @@
   "company": "SecureBio"
  },
  {
+  "key": "secureframe",
+  "company": "Secureframe"
+ },
+ {
   "key": "seifoundation",
   "company": "Sei Development Foundation"
  },
@@ -8072,6 +8936,10 @@
   "company": "Seon"
  },
  {
+  "key": "seqholdings",
+  "company": "Sequence Holdings"
+ },
+ {
   "key": "sequence",
   "company": "Sequence"
  },
@@ -8112,6 +8980,10 @@
   "company": "The San Francisco Compute Company"
  },
  {
+  "key": "sfdata",
+  "company": "San Francisco Data"
+ },
+ {
   "key": "sfg20",
   "company": "SFG20"
  },
@@ -8134,6 +9006,10 @@
  {
   "key": "shepherd",
   "company": "Shepherd"
+ },
+ {
+  "key": "shield",
+  "company": "Shield AI"
  },
  {
   "key": "shift",
@@ -8708,6 +9584,10 @@
   "company": "Strategic Growth Partners"
  },
  {
+  "key": "stratos",
+  "company": "STRATOS Technologies"
+ },
+ {
   "key": "strava",
   "company": "Strava"
  },
@@ -8742,6 +9622,10 @@
  {
   "key": "substrate",
   "company": "Substrate"
+ },
+ {
+  "key": "subtotal",
+  "company": "Subtotal"
  },
  {
   "key": "subzero",
@@ -8782,6 +9666,10 @@
  {
   "key": "supabase",
   "company": "Supabase"
+ },
+ {
+  "key": "super.com",
+  "company": "Super"
  },
  {
   "key": "supercell",
@@ -8836,6 +9724,10 @@
   "company": "Swarmer"
  },
  {
+  "key": "sweatpals",
+  "company": "Sweatpals"
+ },
+ {
   "key": "sweep",
   "company": "Sweep"
  },
@@ -8850,6 +9742,10 @@
  {
   "key": "swoop",
   "company": "Swoop Technologies"
+ },
+ {
+  "key": "sycamore",
+  "company": "Sycamore"
  },
  {
   "key": "sydecar",
@@ -8904,6 +9800,10 @@
   "company": "Tabs"
  },
  {
+  "key": "tacit",
+  "company": "Tacit"
+ },
+ {
   "key": "tactiq",
   "company": "Tactiq"
  },
@@ -8926,6 +9826,10 @@
  {
   "key": "tako",
   "company": "Tako"
+ },
+ {
+  "key": "takt",
+  "company": "Takt"
  },
  {
   "key": "taktile",
@@ -9052,8 +9956,16 @@
   "company": "Tellos, Inc."
  },
  {
+  "key": "telus-digital",
+  "company": "TELUS Digital"
+ },
+ {
   "key": "tem",
   "company": "tem"
+ },
+ {
+  "key": "tempo-io",
+  "company": "Tempo "
  },
  {
   "key": "tempo-xyz",
@@ -9162,6 +10074,10 @@
  {
   "key": "the-pinnacle-school",
   "company": "The Pinnacle School"
+ },
+ {
+  "key": "the-robotics-company",
+  "company": "The Robotics Company"
  },
  {
   "key": "the-spire-school",
@@ -9308,6 +10224,10 @@
   "company": "Tonal"
  },
  {
+  "key": "tonicai",
+  "company": "Tonic"
+ },
+ {
   "key": "tonies",
   "company": "tonies"
  },
@@ -9392,12 +10312,20 @@
   "company": "Treefera"
  },
  {
+  "key": "treeswift",
+  "company": "Treeswift"
+ },
+ {
   "key": "tremendous",
   "company": "Tremendous"
  },
  {
   "key": "trenchant",
   "company": "Trenchant"
+ },
+ {
+  "key": "trener-robotics",
+  "company": "Trener Robotics"
  },
  {
   "key": "triedge-investments",
@@ -9414,6 +10342,10 @@
  {
   "key": "triomics",
   "company": "Triomics"
+ },
+ {
+  "key": "triumph-arcade",
+  "company": "Triumph"
  },
  {
   "key": "trm-labs",
@@ -9460,6 +10392,10 @@
   "company": "Alma"
  },
  {
+  "key": "tryroam",
+  "company": "Roam"
+ },
+ {
   "key": "tsenta",
   "company": "Tsenta"
  },
@@ -9468,12 +10404,20 @@
   "company": "Tuesday Labs"
  },
  {
+  "key": "tunnl",
+  "company": "Tunnl"
+ },
+ {
   "key": "turbopuffer",
   "company": "turbopuffer"
  },
  {
   "key": "turion-space",
   "company": "Turion Space"
+ },
+ {
+  "key": "turn-river",
+  "company": "Turn/River Capital"
  },
  {
   "key": "turnkey",
@@ -9554,6 +10498,14 @@
  {
   "key": "unit",
   "company": "Unit"
+ },
+ {
+  "key": "united-talent-agency",
+  "company": "United Talent Agency"
+ },
+ {
+  "key": "unitxlabs",
+  "company": "UnitX"
  },
  {
   "key": "unity-advisory",
@@ -9644,6 +10596,10 @@
   "company": "Valon Tech"
  },
  {
+  "key": "valstad",
+  "company": "Valstad"
+ },
+ {
   "key": "vandenboomassociates",
   "company": "van den Boom & Associates"
  },
@@ -9672,12 +10628,20 @@
   "company": "Variance"
  },
  {
+  "key": "varick-agents",
+  "company": "Varick Agents"
+ },
+ {
   "key": "vaulted-deep",
   "company": "Vaulted Deep"
  },
  {
   "key": "vector",
   "company": "Vector"
+ },
+ {
+  "key": "veeda-ai",
+  "company": "Veeda AI"
  },
  {
   "key": "vega",
@@ -9710,6 +10674,10 @@
  {
   "key": "veritus",
   "company": "Veritus"
+ },
+ {
+  "key": "verne",
+  "company": "Verne Robotics"
  },
  {
   "key": "versemedical",
@@ -9820,6 +10788,10 @@
   "company": "VLogic"
  },
  {
+  "key": "vmax",
+  "company": "Vmax AI Corp"
+ },
+ {
   "key": "vogel",
   "company": "Vogel"
  },
@@ -9924,12 +10896,24 @@
   "company": "Warp"
  },
  {
+  "key": "warp-sciences",
+  "company": "Warp Sciences"
+ },
+ {
   "key": "watershed",
   "company": "Watershed"
  },
  {
+  "key": "watney",
+  "company": "Watney"
+ },
+ {
   "key": "wayflyer",
   "company": "Wayflyer"
+ },
+ {
+  "key": "wayve",
+  "company": "Wayve"
  },
  {
   "key": "wealth-com",
@@ -9960,12 +10944,20 @@
   "company": "Webflow"
  },
  {
+  "key": "webfx",
+  "company": "WebFX"
+ },
+ {
   "key": "welltech",
   "company": "Welltech"
  },
  {
   "key": "wemolo",
   "company": "Wemolo"
+ },
+ {
+  "key": "westmag",
+  "company": "Western Magnetics"
  },
  {
   "key": "wetravel",
@@ -9994,6 +10986,10 @@
  {
   "key": "wincent",
   "company": "Wincent"
+ },
+ {
+  "key": "windborne-systems",
+  "company": "WindBorne Systems"
  },
  {
   "key": "windranger",
@@ -10030,6 +11026,14 @@
  {
   "key": "withhopper",
   "company": "Hopper"
+ },
+ {
+  "key": "within.ai",
+  "company": "Within"
+ },
+ {
+  "key": "withpace",
+  "company": "Pace"
  },
  {
   "key": "withpulley",
@@ -10072,6 +11076,10 @@
   "company": "Workyard"
  },
  {
+  "key": "worldengine",
+  "company": "WorldEngine AI"
+ },
+ {
   "key": "worldly",
   "company": "Worldly"
  },
@@ -10100,6 +11108,10 @@
   "company": "Wynd Labs"
  },
  {
+  "key": "xapien",
+  "company": "Xapien"
+ },
+ {
   "key": "xbowcareers",
   "company": "XBOW"
  },
@@ -10118,6 +11130,10 @@
  {
   "key": "xero",
   "company": "Xero"
+ },
+ {
+  "key": "xona-space",
+  "company": "Xona Space Systems"
  },
  {
   "key": "xyz-reality",
@@ -10220,6 +11236,10 @@
   "company": "Zeromark"
  },
  {
+  "key": "zetta2",
+  "company": "ZettaSquared"
+ },
+ {
   "key": "zettabyte-space",
   "company": "Zettabyte"
  },
@@ -10262,6 +11282,10 @@
  {
   "key": "zuru",
   "company": "ZURU"
+ },
+ {
+  "key": "zus-health",
+  "company": "Zus Health"
  },
  {
   "key": "zyphra",

@@ -188,6 +188,10 @@
     "company": "Copado"
   },
   {
+    "key": "core-sound-imaging",
+    "company": "Core Sound Imaging"
+  },
+  {
     "key": "cortex",
     "company": "Cortex"
   },
@@ -362,6 +366,10 @@
   {
     "key": "fragile",
     "company": "Fragile"
+  },
+  {
+    "key": "framework",
+    "company": "Framework"
   },
   {
     "key": "free-market-health",
@@ -720,6 +728,10 @@
     "company": "R2"
   },
   {
+    "key": "raptor-maps-inc",
+    "company": "Raptor Maps Inc"
+  },
+  {
     "key": "recom-careers",
     "company": "Recom"
   },
@@ -762,6 +774,10 @@
   {
     "key": "rugsusa",
     "company": "Rugs USA"
+  },
+  {
+    "key": "saliense",
+    "company": "Saliense"
   },
   {
     "key": "seasoncareers",
@@ -848,6 +864,10 @@
     "company": "Temp"
   },
   {
+    "key": "the-tech",
+    "company": "The Tech"
+  },
+  {
     "key": "theguarantors-open-positions",
     "company": "TheGuarantors"
   },
@@ -860,6 +880,10 @@
     "company": "Tive"
   },
   {
+    "key": "tombrascareers",
+    "company": "Tombrascareers"
+  },
+  {
     "key": "topdoglaw",
     "company": "TopDog Law"
   },
@@ -870,6 +894,10 @@
   {
     "key": "truepointcareers",
     "company": "Truepoint Wealth Counsel"
+  },
+  {
+    "key": "uhin-careers",
+    "company": "Uhin Careers"
   },
   {
     "key": "uplinq",

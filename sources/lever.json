@@ -44,6 +44,30 @@
   "company": "90 Seconds"
  },
  {
+  "key": "CesiumAstro",
+  "company": "CesiumAstro"
+ },
+ {
+  "key": "EnergyVault",
+  "company": "Energy Vault"
+ },
+ {
+  "key": "Farcast",
+  "company": "Farcast"
+ },
+ {
+  "key": "NJStateOfficeofInnovation",
+  "company": "New Jersey State Office of Innovation"
+ },
+ {
+  "key": "Nomagic",
+  "company": "Nomagic"
+ },
+ {
+  "key": "Trend-Health-Partners",
+  "company": "Trend Health Partners"
+ },
+ {
   "key": "ableserve",
   "company": "ABM Industries"
  },
@@ -86,6 +110,10 @@
  {
   "key": "acord",
   "company": "ACORD Corporation"
+ },
+ {
+  "key": "acronaviation",
+  "company": "Acron Aviation"
  },
  {
   "key": "actian",
@@ -256,6 +284,10 @@
   "company": "Alertus Technologies"
  },
  {
+  "key": "algorex",
+  "company": "N1 Health"
+ },
+ {
   "key": "alice-bob",
   "company": "Alice & Bob"
  },
@@ -326,6 +358,10 @@
  {
   "key": "ambergroup",
   "company": "Amber Group"
+ },
+ {
+  "key": "ambirobotics",
+  "company": "Ambi Robotics"
  },
  {
   "key": "americantall",
@@ -672,6 +708,10 @@
   "company": "Avive"
  },
  {
+  "key": "aviahealth",
+  "company": "Avia Health"
+ },
+ {
   "key": "aviyatech",
   "company": "Aviya Aerospace Systems"
  },
@@ -772,8 +812,16 @@
   "company": "Belkins"
  },
  {
+  "key": "bellese",
+  "company": "Bellese"
+ },
+ {
   "key": "bellotalabs",
   "company": "Bellota Labs"
+ },
+ {
+  "key": "bellwetheram-2",
+  "company": "Bellwether"
  },
  {
   "key": "belvederetrading",
@@ -838,6 +886,10 @@
  {
   "key": "bighealth",
   "company": "Big Health"
+ },
+ {
+  "key": "binance",
+  "company": "Binance"
  },
  {
   "key": "bioagilytix",
@@ -1096,6 +1148,10 @@
   "company": "CampusWorks, Inc."
  },
  {
+  "key": "camstex",
+  "company": "CAMS"
+ },
+ {
   "key": "canarytechnologies",
   "company": "Canary Technologies Corp"
  },
@@ -1156,12 +1212,20 @@
   "company": "Caseware"
  },
  {
+  "key": "casino-cash-trac",
+  "company": "CCT"
+ },
+ {
   "key": "caslservice",
   "company": "Chinese American Service League"
  },
  {
   "key": "catalate",
   "company": "Spotlio"
+ },
+ {
+  "key": "catalist",
+  "company": "Catalist"
  },
  {
   "key": "cbtnuggets",
@@ -1282,6 +1346,13 @@
  {
   "key": "cirquedusoleil",
   "company": "Cirque du Soleil Entertainment Group"
+ },
+ {
+  "key": "cirrus",
+  "company": "Cirrus",
+  "params": {
+   "region": "eu"
+  }
  },
  {
   "key": "civitech",
@@ -1444,6 +1515,10 @@
   "company": "ConverseNow.ai"
  },
  {
+  "key": "conversica",
+  "company": "Conversica"
+ },
+ {
   "key": "coolbet",
   "company": "Coolbet"
  },
@@ -1462,6 +1537,13 @@
  {
   "key": "corebts",
   "company": "NRI North America"
+ },
+ {
+  "key": "coretechsecurity",
+  "company": "Coretechsecurity",
+  "params": {
+   "region": "eu"
+  }
  },
  {
   "key": "cority",
@@ -1756,6 +1838,10 @@
   "company": "D&M Auto Leasing"
  },
  {
+  "key": "dnagenotek",
+  "company": "OraSure Technologies"
+ },
+ {
   "key": "dnb",
   "company": "Dun & Bradstreet"
  },
@@ -1924,6 +2010,10 @@
   "company": "e.l.f. Beauty"
  },
  {
+  "key": "eliyan",
+  "company": "Eliyan"
+ },
+ {
   "key": "ellevationeducation",
   "company": "Ellevation"
  },
@@ -2040,6 +2130,10 @@
   "company": "Epsilon3"
  },
  {
+  "key": "epwealth",
+  "company": "EP Wealth Advisors"
+ },
+ {
   "key": "eqbank",
   "company": "EQ Bank | Equitable Bank"
  },
@@ -2100,6 +2194,10 @@
   "company": "Elk Valley Resources"
  },
  {
+  "key": "evrealty-us",
+  "company": "EV Realty"
+ },
+ {
   "key": "evry-health",
   "company": "Evry Health"
  },
@@ -2134,6 +2232,10 @@
  {
   "key": "fantasy",
   "company": "Fantasy"
+ },
+ {
+  "key": "fantom-corporation",
+  "company": "Fantom"
  },
  {
   "key": "farfetch",
@@ -2364,6 +2466,10 @@
   "company": "fun.xyz"
  },
  {
+  "key": "futo-org",
+  "company": "FUTO"
+ },
+ {
   "key": "futurenow",
   "company": "Future Now"
  },
@@ -2590,6 +2696,10 @@
  {
   "key": "gpdq",
   "company": "GPDQ"
+ },
+ {
+  "key": "gr0",
+  "company": "Gr0"
  },
  {
   "key": "gradion",
@@ -3376,6 +3486,10 @@
   "company": "LB Capital"
  },
  {
+  "key": "lcbcchurch",
+  "company": "LCBC Church"
+ },
+ {
   "key": "leadershipconnect",
   "company": "Leadership Connect"
  },
@@ -3414,6 +3528,14 @@
  {
   "key": "leverdemo-8",
   "company": "Lever Implementation Training Environment"
+ },
+ {
+  "key": "leversys",
+  "company": "Leversys"
+ },
+ {
+  "key": "lexeotx",
+  "company": "Lexeo Therapeutics"
  },
  {
   "key": "liatrio",
@@ -3530,6 +3652,10 @@
  {
   "key": "lumafield",
   "company": "Lumafield"
+ },
+ {
+  "key": "lumaril-corporation",
+  "company": "Lumaril"
  },
  {
   "key": "lumotive",
@@ -3840,6 +3966,10 @@
   "company": "MissionWired"
  },
  {
+  "key": "mirego",
+  "company": "Mirego"
+ },
+ {
   "key": "mistplay",
   "company": "Mistplay"
  },
@@ -3872,6 +4002,10 @@
   "company": "Moments Hospice"
  },
  {
+  "key": "momsmeals",
+  "company": "Mom's Meals"
+ },
+ {
   "key": "moneyboxapp",
   "company": "Moneybox"
  },
@@ -3902,6 +4036,10 @@
  {
   "key": "mulberry",
   "company": "Mulberry"
+ },
+ {
+  "key": "mulliganfunding",
+  "company": "Mulligan Funding"
  },
  {
   "key": "multiplylabs",
@@ -4064,6 +4202,10 @@
   "company": "Ninja Van"
  },
  {
+  "key": "nio-usa",
+  "company": "Nio"
+ },
+ {
   "key": "nitra",
   "company": "nitra"
  },
@@ -4134,6 +4276,10 @@
  {
   "key": "NuvoAir",
   "company": "NuvoAir"
+ },
+ {
+  "key": "nuvacore",
+  "company": "NUVACORE"
  },
  {
   "key": "o-p-e-n",
@@ -4234,6 +4380,10 @@
  {
   "key": "orbaerospace",
   "company": "Orb Aerospace"
+ },
+ {
+  "key": "orbitalsidekick",
+  "company": "Orbitalsidekick"
  },
  {
   "key": "orcabiosystems",
@@ -4664,6 +4814,13 @@
   "company": "Prilenia"
  },
  {
+  "key": "prima",
+  "company": "Prima",
+  "params": {
+   "region": "eu"
+  }
+ },
+ {
   "key": "primeexecutiveoffice",
   "company": "Prime Executive Office"
  },
@@ -4678,6 +4835,10 @@
  {
   "key": "print-recruiting",
   "company": "Social Influence LLC"
+ },
+ {
+  "key": "prizeout",
+  "company": "Prizeout"
  },
  {
   "key": "procreate",
@@ -4768,6 +4929,10 @@
   "company": "Purple Land Management"
  },
  {
+  "key": "purvis",
+  "company": "Purvis Systems"
+ },
+ {
   "key": "pushpress",
   "company": "PushPress"
  },
@@ -4808,8 +4973,19 @@
   "company": "Qualysoft"
  },
  {
+  "key": "quandri",
+  "company": "Quandri"
+ },
+ {
   "key": "quantco-",
   "company": "QuantCo"
+ },
+ {
+  "key": "quantinuum",
+  "company": "Quantinuum",
+  "params": {
+   "region": "eu"
+  }
  },
  {
   "key": "quantlane",
@@ -5120,6 +5296,10 @@
   "company": "Rook Coffee"
  },
  {
+  "key": "rosaiclabs",
+  "company": "RosaicLabs"
+ },
+ {
   "key": "roshalimaging",
   "company": "Roshal Health"
  },
@@ -5166,6 +5346,10 @@
  {
   "key": "sakon",
   "company": "Sakon"
+ },
+ {
+  "key": "salesdemo-jr",
+  "company": "Parkdepot"
  },
  {
   "key": "salvohealth",
@@ -5880,6 +6064,10 @@
   "company": "Teller"
  },
  {
+  "key": "telligen",
+  "company": "Telligen"
+ },
+ {
   "key": "tendo",
   "company": "Tendo"
  },
@@ -6158,6 +6346,10 @@
  {
   "key": "trueml",
   "company": "TrueML"
+ },
+ {
+  "key": "trueplatform",
+  "company": "True Platform"
  },
  {
   "key": "truetandem",
