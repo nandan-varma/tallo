@@ -30,8 +30,10 @@ const HOSTS = [
   "jobs.deere.com",
 ];
 
-const JOB_URL =
-  /<(?:loc|link)>\s*(https:\/\/([^/<\s]+)\/(?:[^<\s]*\/)?job\/[^<\s]*?\/(\d{4,18}))\/?\s*<\/(?:loc|link)>/g;
+/** The text of each `<loc>` (urlset) or `<link>` (RSS) element. */
+const URL_ELEMENT = /<(?:loc|link)>([^<]*)<\/(?:loc|link)>/g;
+/** A job address ends `/job/<slug>/<id>`, with the slug one path segment. */
+const JOB_PATH = /\/job\/[^/]+\/(\d{4,18})\/?$/;
 
 const decode = (url: string) => url.replaceAll("&amp;", "&");
 
@@ -79,8 +81,12 @@ function isoDate(value: unknown): string | undefined {
 
 /** The postings a sitemap or feed lists for `host`, with the page url the site gave. */
 function* sitemapPostings(xml: string, host: string): Generator<RawPosting> {
-  for (const [url = "", siteHost = "", id = ""] of captureGroups(JOB_URL, xml)) {
-    if (siteHost === host) yield { id, listing: { id, url: decode(url) } };
+  for (const [text = ""] of captureGroups(URL_ELEMENT, xml)) {
+    const url = decode(text.trim());
+    if (!URL.canParse(url)) continue;
+    const { host: siteHost, pathname } = new URL(url);
+    const id = JOB_PATH.exec(pathname)?.[1];
+    if (id && siteHost === host) yield { id, listing: { id, url } };
   }
 }
 
