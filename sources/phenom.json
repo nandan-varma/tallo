@@ -1,9 +1,51 @@
 [
   {
+    "key": "careers.honda.com",
+    "company": "Honda",
+    "params": {
+      "path": "us/en"
+    }
+  },
+  {
+    "key": "careers.rtx.com",
+    "company": "RTX",
+    "params": {
+      "path": "global/en"
+    }
+  },
+  {
+    "key": "careers.united.com",
+    "company": "United Airlines",
+    "params": {
+      "path": "us/en"
+    }
+  },
+  {
+    "key": "careers.usbank.com",
+    "company": "U.S. Bank",
+    "params": {
+      "path": "global/en"
+    }
+  },
+  {
+    "key": "jobs.bechtel.com",
+    "company": "Bechtel",
+    "params": {
+      "path": "us/en"
+    }
+  },
+  {
     "key": "www.jobs-ups.com",
     "company": "UPS",
     "params": {
       "egress": "local"
+    }
+  },
+  {
+    "key": "www.yelp.careers",
+    "company": "Yelp",
+    "params": {
+      "path": "us/en"
     }
   }
 ]

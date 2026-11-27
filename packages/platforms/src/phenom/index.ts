@@ -26,11 +26,19 @@ import {
  * description is the only reason to fetch a page. `params.path` (default `us/en`) is the site's locale path and
  * `params.lang` (default `en_us`) the widget locale; the US English site holds the whole US board.
  */
-const HOSTS = ["www.jobs-ups.com"];
+const HOSTS = [
+  "www.jobs-ups.com",
+  "careers.rtx.com",
+  "careers.usbank.com",
+  "careers.honda.com",
+  "careers.united.com",
+  "jobs.bechtel.com",
+  "www.yelp.careers",
+];
 const PAGE = 100;
 /** The widget answers nothing past this offset, so a board larger than this cannot be listed whole. */
 const MAX_OFFSET = 10_000;
-const PATH = /^[a-z]{2,4}\/[a-z]{2}$/;
+const PATH = /^[a-z]{2,6}\/[a-z]{2}$/;
 const LANG = /^[a-z]{2}_[a-z]{2}$/;
 
 const pathOf = (source: SourceConfig) =>

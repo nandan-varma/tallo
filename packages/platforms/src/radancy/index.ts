@@ -26,7 +26,15 @@ import { describe, locations, lookup, SchemaError } from "../kit.ts";
  * there instead: 100 ids per request, at most 100 pages (10,000 results) per query, so a query over the cap is
  * split by facet (country, then state) and the union is complete only when it reaches the site's own total.
  */
-const HOSTS = ["www.att.jobs", "jobs.walgreens.com"];
+const HOSTS = [
+  "www.att.jobs",
+  "jobs.walgreens.com",
+  "www.schwabjobs.com",
+  "careers.unitedhealthgroup.com",
+  "careers.l3harris.com",
+  "careers.synopsys.com",
+  "careers.netapp.com",
+];
 /** A TalentBrew sitemap lists at most 500 postings; a full one is a truncated listing, never a complete one. */
 const SITEMAP_CAP = 500;
 const PATH = /^\/[A-Za-z0-9/_.-]*\.xml$/;
