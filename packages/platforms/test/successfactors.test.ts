@@ -27,7 +27,7 @@ describe("successfactors", () => {
     expect(items.map((i) => i.id)).toEqual(["1435275200", "1453825400"]);
     expect(items[0]?.listing).toEqual({
       id: "1435275200",
-      url: "https://careers.jetblue.com/job/Boston-Analyst-%28A%29-MA-02128/1435275200",
+      url: "https://careers.jetblue.com/job/Boston-Analyst-%28A%29-MA-02128/1435275200/",
     });
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
   });

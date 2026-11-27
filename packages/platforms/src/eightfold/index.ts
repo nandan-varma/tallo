@@ -1,7 +1,6 @@
 import type { CollectContext, Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
 import { arr, isObject, num, obj, str } from "@tallo/contracts";
 import {
-  captureGroups,
   describe,
   locations,
   lookup,
@@ -18,10 +17,10 @@ import {
  * "Please try again later" 429 after a few quick requests), so it is read once, for the reported total.
  */
 
-/** One `<url>` block of the sitemap, the job address inside it (`/careers/job/<positionId>-<slug>`), its `lastmod`. */
-const SITEMAP_URL = /<url>([\s\S]*?)<\/url>/g;
-const JOB_LOC = /<loc>[^<]*\/careers\/job\/(\d{1,20})-?[^<]*<\/loc>/;
-const LASTMOD = /<lastmod>([^<]+)<\/lastmod>/;
+/** The job address in a sitemap `<loc>` (`/careers/job/<positionId>-<slug>`), and a block's `lastmod`. */
+const LOC = /<loc>([^<]*)<\/loc>/;
+const JOB_PATH = /\/careers\/job\/(\d{1,20})(?:-|\?|$)/;
+const LASTMOD = /<lastmod>([^<]*)<\/lastmod>/;
 
 export interface EightfoldSite {
   /** Platform id (`microsoft`, `starbucks`). */
@@ -63,10 +62,18 @@ const PAY_FIELDS: [extra: string, field: string][] = [
   ["payRateCanadaRetailHourly", "efcustomTextPcsPayrateCanadaRetailHourly"],
 ];
 
+/** The text of each `<url>` block of a sitemap (a split, not a pattern: no backtracking over a long file). */
+function* urlBlocks(xml: string): Generator<string> {
+  for (const part of xml.split("<url>").slice(1)) {
+    const end = part.indexOf("</url>");
+    if (end >= 0) yield part.slice(0, end);
+  }
+}
+
 /** One posting per job `<url>` block of the sitemap, with its `lastmod` when it states one. */
 function* sitemapPostings(xml: string): Generator<RawPosting> {
-  for (const [block = ""] of captureGroups(SITEMAP_URL, xml)) {
-    const id = JOB_LOC.exec(block)?.[1];
+  for (const block of urlBlocks(xml)) {
+    const id = JOB_PATH.exec(LOC.exec(block)?.[1] ?? "")?.[1];
     if (!id) continue;
     const lastmod = LASTMOD.exec(block)?.[1];
     yield { id, listing: { id, ...(lastmod ? { lastmod } : {}) } };
