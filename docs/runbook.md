@@ -172,6 +172,15 @@ to `"0"` to stop.
 Three first-request 404s in a row mark a board dead (checked every 30 days; a complete listing revives it).
 `tallo sources --dead` lists them. Boards confirmed gone are removed from `sources/*.json`.
 
+### Hosts that refuse us
+
+After 8 answers of 403 or 429 in a row with no success between (per host, or per pod for Workday and Oracle Cloud),
+the HTTP layer stops asking that host for 5 minutes and fails its requests at once (`blocked`, with the wait in
+`retryAfterMs`). Then one probe decides: a normal answer closes the breaker, another refusal reopens it for twice as
+long, up to an hour. A blocked run is partial and closes nothing. This exists because an edge firewall (Starbucks'
+CloudFront) keeps counting the requests made while it blocks an IP, so retrying through a block extends it. Long
+runs log a `progress` line every 30 seconds (`done`, `total`, `perMinute`), so a stalled board is visible.
+
 ### Retire a board
 
 Delete it from `sources/*.json`, then `tallo retire <platform:key>` (it removes the catalog rows, keeps run history and R2
