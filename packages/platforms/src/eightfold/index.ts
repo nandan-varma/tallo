@@ -1,14 +1,18 @@
 import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
-import { arr, id, isObject, num, obj, str } from "@tallo/contracts";
+import { arr, isObject, num, obj, str } from "@tallo/contracts";
 import { describe, locations, lookup, SchemaError, workModeOf } from "../kit.ts";
 
 /**
- * Eightfold "PCSX" career sites (Microsoft, Starbucks). The public search answers 10 rows per request and
- * carries no description, so a posting's text comes from one `position_details` call, made only for
- * postings whose listing changed. Microsoft rate-limits hard (a plain "Please try again later" 429 after a
- * few quick requests); the shared http layer retries those with backoff.
+ * Eightfold "PCSX" career sites (Microsoft, Starbucks). The listing is the site's sitemap (one request, every
+ * posting with its `lastmod`); a posting's text comes from one `position_details` call, made only for postings
+ * whose `lastmod` changed. The `search` endpoint answers only 10 rows per request and rate-limits hard (a plain
+ * "Please try again later" 429 after a few quick requests), so it is read once, for the reported total.
  */
-const PAGE = 10;
+
+/** One `<url>` block of the sitemap, the job address inside it (`/careers/job/<positionId>-<slug>`), its `lastmod`. */
+const SITEMAP_URL = /<url>([\s\S]*?)<\/url>/g;
+const JOB_LOC = /<loc>[^<]*\/careers\/job\/(\d{1,20})-?[^<]*<\/loc>/;
+const LASTMOD = /<lastmod>([^<]+)<\/lastmod>/;
 
 export interface EightfoldSite {
   /** Platform id (`microsoft`, `starbucks`). */
@@ -56,13 +60,6 @@ export function eightfold(site: EightfoldSite): Platform {
   const searchUrl = (start: number): string =>
     `${origin}/api/pcsx/search?domain=${site.domain}&query=&location=&start=${start}&sort_by=timestamp`;
 
-  const positionIdOf = (row: JsonObject): string => {
-    const positionId = id(row.id);
-    if (!positionId || !/^\d{1,20}$/.test(positionId))
-      throw new SchemaError(`${name} listing row without a numeric id`);
-    return positionId;
-  };
-
   /** Only the site's own careers URL is linked. */
   const pageUrlOf = (value: unknown): string | undefined => {
     const link = str(value);
@@ -77,82 +74,64 @@ export function eightfold(site: EightfoldSite): Platform {
 
   return {
     id: site.id,
-    version: 1,
+    version: 2,
     hosts: [site.host],
     validate(source) {
       if (source.key !== site.domain)
         throw new Error(`${name} source key must be ${site.domain}: ${source.key}`);
     },
 
+    /**
+     * The listing is the site's own sitemap (robots.txt allows `/careers`): every posting's id and `lastmod` in one
+     * request, instead of one `search` call per 10 postings. `search` is the endpoint these sites throttle hard (a
+     * plain 429 after a few quick requests); `position_details` is not. One `search` call still reads the reported
+     * total, so a sitemap that is missing postings is an incomplete listing and never closes anything.
+     */
     async *list(_source, ctx) {
+      const xml = (await ctx.http.getText(`${origin}/careers/sitemap.xml?domain=${site.domain}`))
+        .data;
+      if (!xml.includes("<urlset")) throw new SchemaError(`${name} sitemap is not a urlset`);
       const seen = new Set<string>();
-      let total: number | undefined;
-      let complete = true;
-      for (let start = 0; ; start += PAGE) {
-        if (total !== undefined && start >= total) break;
-        const data = dataOf((await ctx.http.getJson(searchUrl(start))).data, `${name} search`);
-        const count = num(data.count);
-        if (count === undefined || !Number.isSafeInteger(count) || count < 0)
-          throw new SchemaError(`${name} search answer without a valid count`);
-        if (!Array.isArray(data.positions) || !data.positions.every(isObject))
-          throw new SchemaError(`${name} search answer without a positions array`);
-        const page = data.positions as JsonObject[];
-        if (page.length > PAGE)
-          throw new SchemaError(`${name} search returned ${page.length} rows for a ${PAGE} page`);
-        if (total === undefined) total = count;
-        else if (count !== total) {
-          // The board moved while paging, so an unread row may have shifted behind the cursor.
-          complete = false;
-          ctx.record({
-            code: "pagination",
-            message: `${name} count changed from ${total} to ${count} at start ${start}`,
-          });
-          total = count;
-        }
-        if (page.length === 0) {
-          if (start < total) {
-            complete = false;
-            ctx.record({
-              code: "pagination",
-              message: `${name} search ended at start ${start} of ${total}`,
-            });
-          }
-          break;
-        }
-        if (page.length < PAGE && start + PAGE < total) {
-          complete = false;
-          ctx.record({
-            code: "pagination",
-            message: `${name} short page (${page.length}) at start ${start} of ${total}`,
-          });
-        }
-        for (const row of page) {
-          const positionId = positionIdOf(row);
-          if (seen.has(positionId)) {
-            complete = false;
-            ctx.record({
-              code: "pagination",
-              message: `${name} repeated position ${positionId} at start ${start}`,
-            });
-            continue;
-          }
-          seen.add(positionId);
-          yield { id: positionId, listing: row } satisfies RawPosting;
-          if (seen.size >= ctx.maxPostings) {
-            ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
-            return { complete: false, emptyIsAuthoritative: false };
-          }
+      for (const match of xml.matchAll(SITEMAP_URL)) {
+        const [, block] = match as unknown as [string, string];
+        const job = JOB_LOC.exec(block);
+        if (!job) continue;
+        const [, positionId] = job as unknown as [string, string];
+        if (seen.has(positionId)) continue;
+        seen.add(positionId);
+        const lastmod = LASTMOD.exec(block)?.[1];
+        yield {
+          id: positionId,
+          listing: { id: positionId, ...(lastmod ? { lastmod } : {}) },
+        } satisfies RawPosting;
+        if (seen.size >= ctx.maxPostings) {
+          ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
+          return { complete: false, emptyIsAuthoritative: false };
         }
       }
-      if (total === undefined) throw new SchemaError(`${name} search returned no page`);
-      if (seen.size < total) {
+      if (seen.size === 0) throw new SchemaError(`${name} sitemap lists no postings`);
+      let complete = true;
+      try {
+        const page = dataOf((await ctx.http.getJson(searchUrl(0))).data, `${name} search`);
+        const reported = num(page.count);
+        if (reported === undefined || !Number.isInteger(reported) || reported < 0)
+          throw new SchemaError(`${name} search reported no valid count`);
+        // The sitemap and the search are read a moment apart, so a few postings may differ either way.
+        if (Math.abs(seen.size - reported) > Math.max(5, Math.ceil(reported * 0.01))) {
+          complete = false;
+          ctx.record({
+            code: "pagination",
+            message: `${name} sitemap lists ${seen.size} postings but the site reports ${reported}`,
+          });
+        }
+      } catch (error) {
+        // Without the reported total the sitemap cannot be checked, so nothing may be closed on it.
         complete = false;
         ctx.record({
           code: "pagination",
-          message: `${name} listing saw ${seen.size} of ${total} reported positions`,
+          message: `${name} total could not be read: ${error instanceof Error ? error.message : String(error)}`,
         });
       }
-      // The count of a real board is never zero; an empty answer proves nothing.
       return { complete, emptyIsAuthoritative: false };
     },
 
@@ -161,11 +140,8 @@ export function eightfold(site: EightfoldSite): Platform {
       return dataOf((await ctx.http.getJson(url)).data, `${name} position_details`);
     },
 
-    /** Stars, relevance score and the "hot" flag are counters and ranking, not the posting. */
-    fingerprint: (listing) => {
-      const { stars, solrScore, isHot, ...stable } = obj(listing);
-      return stable;
-    },
+    /** The sitemap's `lastmod` is the only thing the listing says about a posting changing. */
+    fingerprint: (listing) => ({ lastmod: str(obj(listing).lastmod) ?? null }),
 
     map({ id: postingId, listing, detail }) {
       const j = lookup(detail, listing);

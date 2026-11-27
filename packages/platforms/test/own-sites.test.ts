@@ -1,5 +1,5 @@
 import { prepareJob } from "@tallo/catalog";
-import type { Json, RawPosting } from "@tallo/contracts";
+import type { Http, Issue, Json, RawPosting } from "@tallo/contracts";
 import { arr, jobFactsSchema, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import { goldman, ibm, microsoft, platformFor, SchemaError, starbucks } from "../src/index.ts";
@@ -257,70 +257,104 @@ describe("goldman", () => {
 describe("microsoft", () => {
   const src = source("microsoft", "microsoft.com");
   const rowsOf = (): Json[] => arr(obj(obj(fixture("microsoft-list")).data).positions);
-  const row = (n: number): Json => ({ id: 1_000_000 + n, name: `Job ${n}` });
-  const page = (from: number, count: number, total: number): Json => ({
-    status: 200,
-    data: { count: total, positions: Array.from({ length: count }, (_, i) => row(from + i)) },
-  });
-  const startOf = (url: string): number => Number(new URL(url).searchParams.get("start"));
+  const sitemap = (...entries: { id: string; lastmod?: string }[]): string =>
+    `<?xml version="1.0"?><urlset><url><loc>https://apply.careers.microsoft.com/careers?domain=microsoft.com</loc></url>${entries
+      .map(
+        (e) =>
+          `<url><loc>https://apply.careers.microsoft.com/careers/job/${e.id}-a-title-redmond?domain=microsoft.com</loc>${
+            e.lastmod ? `<lastmod>${e.lastmod}</lastmod>` : ""
+          }</url>`,
+      )
+      .join("")}</urlset>`;
+  /** Fake Http: the sitemap by `getText`, the one search call (for its total) by `getJson`. */
+  const siteCtx = (xml: string, search: () => Json) => {
+    const urls: string[] = [];
+    const http: Http = {
+      getText: async (url) => {
+        urls.push(url);
+        return { status: 200, url, data: xml };
+      },
+      getJson: async (url) => {
+        urls.push(url);
+        return { status: 200, url, data: search() };
+      },
+      postJson: async () => {
+        throw new Error("unexpected postJson");
+      },
+    };
+    const issues: Issue[] = [];
+    return {
+      ctx: { http, maxPostings: 1_000_000, record: (i: Issue) => void issues.push(i) },
+      urls,
+      issues,
+    };
+  };
+  const total = (count: number): Json => ({ status: 200, data: { count, positions: [] } });
 
-  it("lists the fixture rows untouched and reads the stated count", async () => {
-    const { ctx, urls } = fakeCtx(() => ({
-      ...obj(fixture("microsoft-list")),
-      data: { ...obj(obj(fixture("microsoft-list")).data), count: 2 },
-    }));
+  it("lists the sitemap's postings with their lastmod and reads the total once", async () => {
+    const { ctx, urls } = siteCtx(
+      sitemap(
+        { id: "1970393557071956", lastmod: "2026-11-25T00:00:00Z" },
+        { id: "1970393557040981" },
+      ),
+      () => total(2),
+    );
     const { items, result } = await drain(microsoft.list(src, ctx));
     expect(urls).toEqual([
+      "https://apply.careers.microsoft.com/careers/sitemap.xml?domain=microsoft.com",
       "https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&query=&location=&start=0&sort_by=timestamp",
     ]);
-    expect(items.map((i) => i.listing)).toEqual(rowsOf());
     expect(items.map((i) => i.id)).toEqual(["1970393557071956", "1970393557040981"]);
+    expect(items[0]?.listing).toEqual({ id: "1970393557071956", lastmod: "2026-11-25T00:00:00Z" });
+    expect(items[1]?.listing).toEqual({ id: "1970393557040981" });
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
   });
 
-  it("pages 10 rows at a time to the reported count", async () => {
-    const { ctx, urls } = fakeCtx((url) => {
-      const start = startOf(url);
-      return page(start, start === 20 ? 5 : 10, 25);
-    });
-    const { items, result } = await drain(microsoft.list(src, ctx));
-    expect(urls.map(startOf)).toEqual([0, 10, 20]);
-    expect(items).toHaveLength(25);
-    expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
+  it("lists a posting once, and skips the site's home url", async () => {
+    const { ctx } = siteCtx(sitemap({ id: "11" }, { id: "11" }, { id: "12" }), () => total(2));
+    const { items } = await drain(microsoft.list(src, ctx));
+    expect(items.map((i) => i.id)).toEqual(["11", "12"]);
   });
 
-  it("is incomplete on a moved count, a short interior page, repeats or a cut-off end", async () => {
-    const moved = fakeCtx((url) => page(startOf(url), 10, startOf(url) === 0 ? 20 : 21));
-    expect((await drain(microsoft.list(src, moved.ctx))).result.complete).toBe(false);
-
-    const short = fakeCtx((url) => page(startOf(url), startOf(url) === 0 ? 4 : 10, 20));
-    expect((await drain(microsoft.list(src, short.ctx))).result.complete).toBe(false);
-
-    const repeat = fakeCtx(() => page(0, 10, 20));
-    const r = await drain(microsoft.list(src, repeat.ctx));
-    expect(r.items).toHaveLength(10);
+  it("is incomplete when the sitemap and the reported total disagree by more than a few", async () => {
+    const ids = Array.from({ length: 40 }, (_, i) => ({ id: String(100 + i) }));
+    const short = siteCtx(sitemap(...ids), () => total(100));
+    const r = await drain(microsoft.list(src, short.ctx));
     expect(r.result.complete).toBe(false);
-
-    const cut = fakeCtx((url) => page(startOf(url), startOf(url) === 0 ? 10 : 0, 20));
-    const c = await drain(microsoft.list(src, cut.ctx));
-    expect(c.items).toHaveLength(10);
-    expect(c.result.complete).toBe(false);
+    expect(short.issues[0]?.code).toBe("pagination");
+    // A difference of a few is two reads a moment apart, not a missing page.
+    const near = siteCtx(sitemap(...ids), () => total(43));
+    expect((await drain(microsoft.list(src, near.ctx))).result.complete).toBe(true);
   });
 
-  it("throws on error envelopes and malformed answers", async () => {
-    for (const body of [
-      "Please try again later",
-      { status: 500, data: { count: 1, positions: [] } },
-      { status: 200 },
-      { status: 200, data: { positions: [] } },
-      { status: 200, data: { count: 1 } },
-      { status: 200, data: { count: 1, positions: [{ name: "no id" }] } },
-      { status: 200, data: { count: 1, positions: [{ id: "abc" }] } },
-      page(0, 11, 11),
+  it("is incomplete, never failed, when the total cannot be read", async () => {
+    for (const search of [
+      () => {
+        throw new Error("Request failed with status code 429");
+      },
+      () => ({ status: 200, data: { positions: [] } }),
     ]) {
-      const { ctx } = fakeCtx(() => body as Json);
+      const { ctx, issues } = siteCtx(sitemap({ id: "21" }), search as () => Json);
+      const r = await drain(microsoft.list(src, ctx));
+      expect(r.items).toHaveLength(1);
+      expect(r.result.complete).toBe(false);
+      expect(issues[0]?.message).toMatch(/total/);
+    }
+  });
+
+  it("throws on a sitemap that is not a urlset or lists no postings", async () => {
+    for (const xml of ["Please try again later", "<html></html>", sitemap()]) {
+      const { ctx } = siteCtx(xml, () => total(0));
       await expect(drain(microsoft.list(src, ctx))).rejects.toThrow(SchemaError);
     }
+  });
+
+  it("fingerprints a posting by its lastmod only", () => {
+    const a = microsoft.fingerprint?.({ id: "1", lastmod: "2026-11-25T00:00:00Z" });
+    const b = microsoft.fingerprint?.({ id: "1", lastmod: "2026-11-25T00:00:00Z" });
+    const c = microsoft.fingerprint?.({ id: "1", lastmod: "2026-11-26T00:00:00Z" });
+    expect(a).toEqual(b);
+    expect(a).not.toEqual(c);
   });
 
   it("fetches the description for one position through position_details", async () => {
@@ -362,14 +396,6 @@ describe("microsoft", () => {
     expect(job.url).toBe("https://apply.careers.microsoft.com/careers/job/5");
   });
 
-  it("drops only counters and ranking from the fingerprint", () => {
-    const base = obj(rowsOf()[0]);
-    const a = microsoft.fingerprint?.({ ...base, stars: 1, solrScore: 3, isHot: 1 });
-    const b = microsoft.fingerprint?.({ ...base, stars: 9, solrScore: 1, isHot: 0 });
-    expect(a).toEqual(b);
-    expect(obj(a).name).toBe(base.name);
-  });
-
   it("validates the source key", () => {
     expect(() => platformFor(source("microsoft", "other.com"))).toThrow(/microsoft\.com/);
     expect(() => platformFor(src)).not.toThrow();
@@ -380,13 +406,31 @@ describe("starbucks", () => {
   const src = source("starbucks", "starbucks.com");
   const rowsOf = (): Json[] => arr(obj(obj(fixture("starbucks-list")).data).positions);
 
-  it("lists the fixture rows from the Starbucks host with its domain", async () => {
-    const { ctx, urls } = fakeCtx(() => fixture("starbucks-list"));
-    const { items, result } = await drain(starbucks.list(src, ctx));
+  it("lists from the Starbucks sitemap and reads the total from its own host", async () => {
+    const xml =
+      "<urlset><url><loc>https://apply.starbucks.com/careers/job/481081982284-barista-store-1?domain=starbucks.com</loc><lastmod>2026-09-02T14:42:22Z</lastmod></url></urlset>";
+    const urls: string[] = [];
+    const http: Http = {
+      getText: async (url) => {
+        urls.push(url);
+        return { status: 200, url, data: xml };
+      },
+      getJson: async (url) => {
+        urls.push(url);
+        return { status: 200, url, data: { status: 200, data: { count: 1, positions: [] } } };
+      },
+      postJson: async () => {
+        throw new Error("unexpected postJson");
+      },
+    };
+    const { items, result } = await drain(
+      starbucks.list(src, { http, maxPostings: 1_000, record: () => {} }),
+    );
     expect(urls).toEqual([
+      "https://apply.starbucks.com/careers/sitemap.xml?domain=starbucks.com",
       "https://apply.starbucks.com/api/pcsx/search?domain=starbucks.com&query=&location=&start=0&sort_by=timestamp",
     ]);
-    expect(items.map((i) => i.listing)).toEqual(rowsOf());
+    expect(items.map((i) => i.id)).toEqual(["481081982284"]);
     expect(result).toEqual({ complete: true, emptyIsAuthoritative: false });
   });
 
