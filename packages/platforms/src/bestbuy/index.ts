@@ -1,6 +1,7 @@
 import type { Json, Money, Platform, RawPosting } from "@tallo/contracts";
 import { arr, obj, str } from "@tallo/contracts";
 import {
+  captureGroups,
   definedOnly,
   describe,
   locations,
@@ -8,6 +9,7 @@ import {
   PostingGone,
   SchemaError,
   stated,
+  uniqueWithinBudget,
 } from "../kit.ts";
 
 /**
@@ -61,6 +63,13 @@ function jobOf(page: Json): Json {
   return node;
 }
 
+/** Every posting of the sitemap with its `lastmod` (the change marker), when it states one. */
+function* sitemapPostings(xml: string): Generator<RawPosting> {
+  for (const [id = "", lastmod = ""] of captureGroups(JOB_URL, xml)) {
+    yield { id, listing: definedOnly({ id, url: pageUrl(id), lastmod: lastmod || undefined }) };
+  }
+}
+
 export const bestbuy: Platform = {
   id: "bestbuy",
   version: 1,
@@ -72,19 +81,9 @@ export const bestbuy: Platform = {
   async *list(_source, ctx) {
     const xml = (await ctx.http.getText(SITEMAP)).data;
     if (!xml.includes("<urlset")) throw new SchemaError("Best Buy sitemap is not a urlset");
-    const seen = new Set<string>();
-    for (const match of xml.matchAll(JOB_URL)) {
-      const [, id, lastmod] = match as unknown as [string, string, string | undefined];
-      if (seen.has(id)) continue;
-      seen.add(id);
-      yield { id, listing: definedOnly({ id, url: pageUrl(id), lastmod }) } satisfies RawPosting;
-      if (seen.size >= ctx.maxPostings) {
-        ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
-        return { complete: false, emptyIsAuthoritative: false };
-      }
-    }
     // The sitemap was read to its end; an empty one proves nothing.
-    return { complete: true, emptyIsAuthoritative: false };
+    const { complete } = yield* uniqueWithinBudget(sitemapPostings(xml), ctx);
+    return { complete, emptyIsAuthoritative: false };
   },
 
   /** Only the posting record is kept: the rest of the page response is portal chrome (menus, banners). */

@@ -1,7 +1,16 @@
 import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
 import { obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, lookup, PostingGone, SchemaError, stated } from "../kit.ts";
+import {
+  captureGroups,
+  describe,
+  locations,
+  lookup,
+  PostingGone,
+  SchemaError,
+  stated,
+  uniqueWithinBudget,
+} from "../kit.ts";
 
 /**
  * SAP SuccessFactors career sites built with the Career Site Builder (the `rmkcdn.successfactors.com` pages).
@@ -68,6 +77,13 @@ function isoDate(value: unknown): string | undefined {
   return Number.isNaN(time) ? undefined : new Date(time).toISOString();
 }
 
+/** The postings a sitemap or feed lists for `host`, with the page url the site gave. */
+function* sitemapPostings(xml: string, host: string): Generator<RawPosting> {
+  for (const [url = "", siteHost = "", id = ""] of captureGroups(JOB_URL, xml)) {
+    if (siteHost === host) yield { id, listing: { id, url: decode(url) } };
+  }
+}
+
 export const successfactors: Platform = {
   id: "successfactors",
   version: 1,
@@ -81,19 +97,9 @@ export const successfactors: Platform = {
     const xml = (await ctx.http.getText(`https://${source.key}/sitemap.xml`)).data;
     if (!xml.includes("<urlset") && !xml.includes("<rss"))
       throw new SchemaError("SuccessFactors sitemap is neither a urlset nor an RSS feed");
-    const seen = new Set<string>();
-    for (const match of xml.matchAll(JOB_URL)) {
-      const [, url, host, id] = match as unknown as [string, string, string, string];
-      if (host !== source.key || seen.has(id)) continue;
-      seen.add(id);
-      yield { id, listing: { id, url: decode(url) } } satisfies RawPosting;
-      if (seen.size >= ctx.maxPostings) {
-        ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
-        return { complete: false, emptyIsAuthoritative: false };
-      }
-    }
     // The sitemap was read to its end (a failed read throws); an empty one proves nothing.
-    return { complete: true, emptyIsAuthoritative: false };
+    const { complete } = yield* uniqueWithinBudget(sitemapPostings(xml, source.key), ctx);
+    return { complete, emptyIsAuthoritative: false };
   },
 
   async detail(source, posting, ctx) {

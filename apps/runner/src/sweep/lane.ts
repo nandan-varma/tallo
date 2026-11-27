@@ -582,46 +582,52 @@ export class Lane {
    * spreads over forty pods instead of stacking six boards on `wd1` and leaving the rest idle.
    */
   take(now: number): { source: SourceConfig; attempts: number } | undefined {
-    const i = this.pick(
+    const retry = this.pick(
       this.deferred,
       (d) => d.notBefore <= now && !this.blocked(d.source),
       (d) => d.source,
     );
-    if (i >= 0) {
-      const [d] = this.deferred.splice(i, 1);
-      this.remember(d!.source);
-      return { source: d!.source, attempts: d!.attempts };
+    if (retry) {
+      this.remember(retry.source);
+      return { source: retry.source, attempts: retry.attempts };
     }
-    const j = this.pick(
+    const source = this.pick(
       this.pending,
       (s) => !this.blocked(s),
       (s) => s,
     );
-    if (j < 0) return undefined;
-    const [source] = this.pending.splice(j, 1);
-    this.remember(source!);
-    return { source: source!, attempts: 0 };
+    if (!source) return undefined;
+    this.remember(source);
+    return { source, attempts: 0 };
   }
 
-  /** The first candidate that may start, preferring one whose pod has no board running. */
+  /**
+   * Removes and returns the first candidate that may start, preferring one whose pod has no board running; undefined
+   * when none may.
+   */
   private pick<T>(
     list: T[],
     allowed: (item: T) => boolean,
     source: (item: T) => SourceConfig,
-  ): number {
+  ): T | undefined {
     const busy = new Set<string>();
     for (const id of this.inFlight.keys()) {
       const g = this.groups.get(id);
       if (g) busy.add(g);
     }
     let fallback = -1;
+    let chosen = -1;
     for (const [index, item] of list.entries()) {
       if (!allowed(item)) continue;
       const g = boardGroup(source(item));
-      if (!g || !busy.has(g)) return index;
+      if (!g || !busy.has(g)) {
+        chosen = index;
+        break;
+      }
       if (fallback < 0) fallback = index;
     }
-    return fallback;
+    const index = chosen >= 0 ? chosen : fallback;
+    return index < 0 ? undefined : list.splice(index, 1)[0];
   }
 
   private remember(source: SourceConfig): void {

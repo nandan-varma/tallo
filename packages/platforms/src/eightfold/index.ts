@@ -1,6 +1,15 @@
-import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
+import type { CollectContext, Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
 import { arr, isObject, num, obj, str } from "@tallo/contracts";
-import { describe, locations, lookup, PostingGone, SchemaError, workModeOf } from "../kit.ts";
+import {
+  captureGroups,
+  describe,
+  locations,
+  lookup,
+  PostingGone,
+  SchemaError,
+  uniqueWithinBudget,
+  workModeOf,
+} from "../kit.ts";
 
 /**
  * Eightfold "PCSX" career sites (Microsoft, Starbucks). The listing is the site's sitemap (one request, every
@@ -54,6 +63,16 @@ const PAY_FIELDS: [extra: string, field: string][] = [
   ["payRateCanadaRetailHourly", "efcustomTextPcsPayrateCanadaRetailHourly"],
 ];
 
+/** One posting per job `<url>` block of the sitemap, with its `lastmod` when it states one. */
+function* sitemapPostings(xml: string): Generator<RawPosting> {
+  for (const [block = ""] of captureGroups(SITEMAP_URL, xml)) {
+    const id = JOB_LOC.exec(block)?.[1];
+    if (!id) continue;
+    const lastmod = LASTMOD.exec(block)?.[1];
+    yield { id, listing: { id, ...(lastmod ? { lastmod } : {}) } };
+  }
+}
+
 export function eightfold(site: EightfoldSite): Platform {
   const { name } = site;
   const origin = `https://${site.host}`;
@@ -70,6 +89,31 @@ export function eightfold(site: EightfoldSite): Platform {
     } catch {
       return undefined;
     }
+  };
+
+  /**
+   * True when the site's own reported total (one `search` call) matches the sitemap's count. A sitemap that is missing
+   * postings, or a total that cannot be read, is an incomplete listing: nothing may be closed on it.
+   */
+  const agreesWithReportedTotal = async (listed: number, ctx: CollectContext): Promise<boolean> => {
+    try {
+      const page = dataOf((await ctx.http.getJson(searchUrl(0))).data, `${name} search`);
+      const reported = num(page.count);
+      if (reported === undefined || !Number.isInteger(reported) || reported < 0)
+        throw new SchemaError(`${name} search reported no valid count`);
+      // The sitemap and the search are read a moment apart, so a few postings may differ either way.
+      if (Math.abs(listed - reported) <= Math.max(5, Math.ceil(reported * 0.01))) return true;
+      ctx.record({
+        code: "pagination",
+        message: `${name} sitemap lists ${listed} postings but the site reports ${reported}`,
+      });
+    } catch (error) {
+      ctx.record({
+        code: "pagination",
+        message: `${name} total could not be read: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+    return false;
   };
 
   return {
@@ -91,48 +135,10 @@ export function eightfold(site: EightfoldSite): Platform {
       const xml = (await ctx.http.getText(`${origin}/careers/sitemap.xml?domain=${site.domain}`))
         .data;
       if (!xml.includes("<urlset")) throw new SchemaError(`${name} sitemap is not a urlset`);
-      const seen = new Set<string>();
-      for (const match of xml.matchAll(SITEMAP_URL)) {
-        const [, block] = match as unknown as [string, string];
-        const job = JOB_LOC.exec(block);
-        if (!job) continue;
-        const [, positionId] = job as unknown as [string, string];
-        if (seen.has(positionId)) continue;
-        seen.add(positionId);
-        const lastmod = LASTMOD.exec(block)?.[1];
-        yield {
-          id: positionId,
-          listing: { id: positionId, ...(lastmod ? { lastmod } : {}) },
-        } satisfies RawPosting;
-        if (seen.size >= ctx.maxPostings) {
-          ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
-          return { complete: false, emptyIsAuthoritative: false };
-        }
-      }
-      if (seen.size === 0) throw new SchemaError(`${name} sitemap lists no postings`);
-      let complete = true;
-      try {
-        const page = dataOf((await ctx.http.getJson(searchUrl(0))).data, `${name} search`);
-        const reported = num(page.count);
-        if (reported === undefined || !Number.isInteger(reported) || reported < 0)
-          throw new SchemaError(`${name} search reported no valid count`);
-        // The sitemap and the search are read a moment apart, so a few postings may differ either way.
-        if (Math.abs(seen.size - reported) > Math.max(5, Math.ceil(reported * 0.01))) {
-          complete = false;
-          ctx.record({
-            code: "pagination",
-            message: `${name} sitemap lists ${seen.size} postings but the site reports ${reported}`,
-          });
-        }
-      } catch (error) {
-        // Without the reported total the sitemap cannot be checked, so nothing may be closed on it.
-        complete = false;
-        ctx.record({
-          code: "pagination",
-          message: `${name} total could not be read: ${error instanceof Error ? error.message : String(error)}`,
-        });
-      }
-      return { complete, emptyIsAuthoritative: false };
+      const { complete: whole, listed } = yield* uniqueWithinBudget(sitemapPostings(xml), ctx);
+      if (!whole) return { complete: false, emptyIsAuthoritative: false };
+      if (listed === 0) throw new SchemaError(`${name} sitemap lists no postings`);
+      return { complete: await agreesWithReportedTotal(listed, ctx), emptyIsAuthoritative: false };
     },
 
     async detail(_source, posting, ctx) {

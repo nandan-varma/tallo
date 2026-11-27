@@ -1,7 +1,8 @@
-import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
+import type { Http, Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
 import { arr, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
 import {
+  captureGroups,
   describe,
   jobPostingLd,
   locations,
@@ -9,6 +10,7 @@ import {
   PostingGone,
   SchemaError,
   stated,
+  uniqueWithinBudget,
 } from "../kit.ts";
 
 /**
@@ -40,6 +42,16 @@ function parseJobPage(html: string): JsonObject {
   return { jsonLd: ld, applyUrl: applyUrl ?? null };
 }
 
+/** Every posting of the two English sitemaps, in order (a posting can be listed in both). */
+async function* sitemapPostings(http: Http): AsyncGenerator<RawPosting> {
+  for (const path of SITEMAPS) {
+    const xml = (await http.getText(`https://${HOST}${path}`)).data;
+    if (!xml.includes("<urlset")) throw new SchemaError(`FedEx sitemap ${path} is not a urlset`);
+    for (const [url = "", id = ""] of captureGroups(JOB_URL, xml))
+      yield { id, listing: { id, url } };
+  }
+}
+
 export const fedex: Platform = {
   id: "fedex",
   version: 1,
@@ -49,23 +61,9 @@ export const fedex: Platform = {
   },
 
   async *list(_source, ctx) {
-    const seen = new Set<string>();
-    for (const path of SITEMAPS) {
-      const xml = (await ctx.http.getText(`https://${HOST}${path}`)).data;
-      if (!xml.includes("<urlset")) throw new SchemaError(`FedEx sitemap ${path} is not a urlset`);
-      for (const match of xml.matchAll(JOB_URL)) {
-        const [, url, id] = match as unknown as [string, string, string];
-        if (seen.has(id)) continue;
-        seen.add(id);
-        yield { id, listing: { id, url } } satisfies RawPosting;
-        if (seen.size >= ctx.maxPostings) {
-          ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
-          return { complete: false, emptyIsAuthoritative: false };
-        }
-      }
-    }
+    const { complete } = yield* uniqueWithinBudget(sitemapPostings(ctx.http), ctx);
     // Both sitemaps were read to their end (a failed one throws); an empty answer proves nothing.
-    return { complete: true, emptyIsAuthoritative: false };
+    return { complete, emptyIsAuthoritative: false };
   },
 
   async detail(_source, posting, ctx) {

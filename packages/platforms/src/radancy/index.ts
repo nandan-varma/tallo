@@ -9,7 +9,16 @@ import type {
 } from "@tallo/contracts";
 import { arr, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, jobPostingLd, locations, lookup, SchemaError, stated } from "../kit.ts";
+import {
+  captureGroups,
+  describe,
+  jobPostingLd,
+  locations,
+  lookup,
+  SchemaError,
+  stated,
+  uniqueWithinBudget,
+} from "../kit.ts";
 
 /**
  * Radancy TalentBrew career sites (`www.att.jobs`, `jobs.walgreens.com`). Their search pages (`/search-jobs/`)
@@ -170,6 +179,13 @@ async function* listSearch(
   return { complete, emptyIsAuthoritative: false };
 }
 
+/** The postings a sitemap lists for `host`. */
+function* sitemapPostings(xml: string, host: string): Generator<RawPosting> {
+  for (const [url = "", id = ""] of captureGroups(JOB_URL, xml)) {
+    if (new URL(url).host === host) yield { id, listing: { id, url } };
+  }
+}
+
 export const radancy: Platform = {
   id: "radancy",
   version: 1,
@@ -188,24 +204,19 @@ export const radancy: Platform = {
     if (search) return yield* listSearch(source, search, ctx);
     const xml = (await ctx.http.getText(`https://${source.key}${sitemapPath(source.params)}`)).data;
     if (!xml.includes("<urlset")) throw new SchemaError("Radancy sitemap is not a urlset");
-    const seen = new Set<string>();
-    for (const match of xml.matchAll(JOB_URL)) {
-      const [, url, id] = match as unknown as [string, string, string];
-      if (new URL(url).host !== source.key || seen.has(id)) continue;
-      seen.add(id);
-      yield { id, listing: { id, url } } satisfies RawPosting;
-      if (seen.size >= ctx.maxPostings) {
-        ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
-        return { complete: false, emptyIsAuthoritative: false };
-      }
-    }
-    if (seen.size >= SITEMAP_CAP)
+    const { complete: whole, listed } = yield* uniqueWithinBudget(
+      sitemapPostings(xml, source.key),
+      ctx,
+    );
+    if (!whole) return { complete: false, emptyIsAuthoritative: false };
+    const truncated = listed >= SITEMAP_CAP;
+    if (truncated)
       ctx.record({
         code: "pagination",
-        message: `Sitemap holds ${seen.size} postings, the TalentBrew cap; the listing is truncated`,
+        message: `Sitemap holds ${listed} postings, the TalentBrew cap; the listing is truncated`,
       });
     // The sitemap is a snapshot; an empty one proves nothing.
-    return { complete: seen.size < SITEMAP_CAP, emptyIsAuthoritative: false };
+    return { complete: !truncated, emptyIsAuthoritative: false };
   },
 
   async detail(_source, posting, ctx) {
