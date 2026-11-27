@@ -29,6 +29,8 @@ export const POLICY: Record<string, HostPolicy> = {
   // One sitemap, then one ~290 KB portal page JSON per changed posting on one host.
   bestbuy: { concurrency: 2, gapMs: 500 },
   phenom: { concurrency: 2, gapMs: 500 },
+  // One sitemap or RSS feed, then one job page per changed posting, on each company's own host.
+  successfactors: { concurrency: 2, gapMs: 500 },
   ibm: TENANT,
   goldman: TENANT,
   greenhouse: FAST,

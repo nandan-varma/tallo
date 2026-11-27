@@ -26,6 +26,7 @@ import { recruitee } from "./recruitee/index.ts";
 import { rippling } from "./rippling/index.ts";
 import { smartrecruiters } from "./smartrecruiters/index.ts";
 import { starbucks } from "./starbucks/index.ts";
+import { successfactors } from "./successfactors/index.ts";
 import { teamtailor } from "./teamtailor/index.ts";
 import { walmart } from "./walmart/index.ts";
 import { workable } from "./workable/index.ts";
@@ -62,9 +63,11 @@ export const platforms: Record<string, Platform> = Object.fromEntries(
     walmart,
     radancy,
     starbucks,
+    successfactors,
     fedex,
     phenom,
     bestbuy,
+    successfactors,
   ].map((p) => [p.id, p]),
 );
 
@@ -106,6 +109,7 @@ export {
   rippling,
   smartrecruiters,
   starbucks,
+  successfactors,
   teamtailor,
   walmart,
   workable,
