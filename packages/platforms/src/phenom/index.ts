@@ -1,9 +1,10 @@
 import type { Json, JsonObject, Platform, RawPosting, SourceConfig } from "@tallo/contracts";
-import { arr, isObject, obj, str } from "@tallo/contracts";
+import { arr, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
 import {
   definedOnly,
   describe,
+  jobPostingLd,
   locations,
   lookup,
   PostingGone,
@@ -76,17 +77,7 @@ const searchBody = (source: SourceConfig, from: number): Json => ({
 
 /** The page's JobPosting JSON-LD (the only part of the page the collector keeps). */
 function parseJobPage(html: string): JsonObject {
-  const ld = parse(html)
-    .querySelectorAll('script[type="application/ld+json"]')
-    .map((s) => {
-      try {
-        // rawText: a script body is not entity-decoded.
-        return JSON.parse(s.rawText) as Json;
-      } catch {
-        return undefined;
-      }
-    })
-    .find((v) => isObject(v) && v["@type"] === "JobPosting");
+  const ld = jobPostingLd(parse(html));
   if (!ld) throw new SchemaError("Phenom job page without JobPosting JSON-LD");
   return { jsonLd: ld };
 }

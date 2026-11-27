@@ -23,14 +23,18 @@
     }
   },
   {
-    "key": "www.schwabjobs.com",
-    "company": "Charles Schwab"
-  },
-  {
     "key": "www.att.jobs",
     "company": "AT&T",
     "params": {
       "egress": "local"
     }
+  },
+  {
+    "key": "www.kaiserpermanentejobs.org",
+    "company": "Kaiser Permanente"
+  },
+  {
+    "key": "www.schwabjobs.com",
+    "company": "Charles Schwab"
   }
 ]

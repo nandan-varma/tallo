@@ -6,9 +6,9 @@ import type {
   RawPosting,
   SourceConfig,
 } from "@tallo/contracts";
-import { arr, id, isObject, num, obj, str } from "@tallo/contracts";
+import { arr, id, num, obj, str } from "@tallo/contracts";
 import { type HTMLElement, parse } from "node-html-parser";
-import { describe, htmlText, locations, lookup, rows, SchemaError } from "../kit.ts";
+import { describe, htmlText, jobPostingLd, locations, lookup, rows, SchemaError } from "../kit.ts";
 
 /**
  * iCIMS career portals answer in two shapes.
@@ -140,16 +140,7 @@ async function* listJibe(source: SourceConfig, ctx: CollectContext, host: string
 /** JSON-LD, header fields and ad sections of one job page. */
 function parseJobPage(html: string): JsonObject {
   const root = parse(html);
-  const ld = root
-    .querySelectorAll('script[type="application/ld+json"]')
-    .map((s) => {
-      try {
-        return JSON.parse(s.text) as Json;
-      } catch {
-        return undefined;
-      }
-    })
-    .find((v) => isObject(v) && v["@type"] === "JobPosting");
+  const ld = jobPostingLd(root);
   const sections = root.querySelectorAll("h2.iCIMS_InfoField_Job").map((h) => ({
     title: clean(h.text),
     html: h.nextElementSibling?.querySelector(".iCIMS_Expandable_Text")?.innerHTML.trim() ?? "",

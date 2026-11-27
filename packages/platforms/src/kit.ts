@@ -10,6 +10,7 @@ import type {
   WorkMode,
 } from "@tallo/contracts";
 import { arr, isObject, obj, str } from "@tallo/contracts";
+import type { HTMLElement } from "node-html-parser";
 
 /**
  * Bound entity work across every value in one XML response. Escaped HTML in a large feed (every `&lt;` and `&amp;`
@@ -162,3 +163,56 @@ export const lookup =
     }
     return undefined;
   };
+
+/**
+ * The parsed JSON of every `<script>` under `root` that matches `selector`; scripts that are not JSON are skipped.
+ * A script body is raw text: `rawText` is read, never `text`, because `text` decodes entities and a `&quot;` inside a
+ * JSON string then becomes a bare quote that breaks the JSON (a third of Kaiser's postings failed that way).
+ */
+export function jsonScripts(root: HTMLElement, selector: string): Json[] {
+  const found: Json[] = [];
+  for (const script of root.querySelectorAll(selector)) {
+    const value = parseJsonLoosely(script.rawText);
+    if (value !== undefined) found.push(value);
+  }
+  return found;
+}
+
+/**
+ * JSON.parse, and when that fails, once more with the raw control characters inside strings escaped. Browsers and
+ * search engines accept a tab or a newline inside a JSON-LD string (Kaiser's job descriptions carry both), strict JSON
+ * does not. Only the characters the source wrote are kept; nothing is added or guessed. Undefined when it still fails.
+ */
+export function parseJsonLoosely(text: string): Json | undefined {
+  try {
+    return JSON.parse(text) as Json;
+  } catch {
+    try {
+      return JSON.parse(escapeControlCharsInStrings(text)) as Json;
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+function escapeControlCharsInStrings(text: string): string {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] as string;
+    if (inString && ch === "\\") {
+      out += ch + (text[++i] ?? "");
+      continue;
+    }
+    if (ch === '"') inString = !inString;
+    out += inString && ch < " " ? `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}` : ch;
+  }
+  return out;
+}
+
+/** The page's schema.org `JobPosting` JSON-LD, or undefined when it publishes none. */
+export function jobPostingLd(root: HTMLElement): JsonObject | undefined {
+  return jsonScripts(root, 'script[type="application/ld+json"]').find(
+    (value): value is JsonObject => isObject(value) && value["@type"] === "JobPosting",
+  );
+}

@@ -1,7 +1,7 @@
 import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
-import { arr, isObject, obj, str } from "@tallo/contracts";
+import { arr, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, lookup, PostingGone, SchemaError } from "../kit.ts";
+import { describe, jobPostingLd, locations, lookup, PostingGone, SchemaError } from "../kit.ts";
 
 /**
  * FedEx careers (`careers.fedex.com`). robots.txt allows everything and the site has no public list API, so
@@ -29,17 +29,7 @@ const stated = (value: unknown): string | undefined => str(value) || undefined;
 /** The page's JobPosting JSON-LD and the employer's apply link. */
 function parseJobPage(html: string): JsonObject {
   const root = parse(html);
-  const ld = root
-    .querySelectorAll('script[type="application/ld+json"]')
-    .map((s) => {
-      try {
-        // rawText: a script body is not entity-decoded (the page writes `&quot;` inside JSON strings).
-        return JSON.parse(s.rawText) as Json;
-      } catch {
-        return undefined;
-      }
-    })
-    .find((v) => isObject(v) && v["@type"] === "JobPosting");
+  const ld = jobPostingLd(root);
   if (!ld) throw new SchemaError("FedEx job page without JobPosting JSON-LD");
   const applyUrl = root.querySelector("a.apply-button")?.getAttribute("href");
   return { jsonLd: ld, applyUrl: applyUrl ?? null };

@@ -14,6 +14,8 @@ import { arr, id, isObject, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
 import {
   describe,
+  jobPostingLd,
+  jsonScripts,
   locations,
   PostingGone,
   requireKey,
@@ -189,29 +191,14 @@ async function searchWithToken(ctx: CollectContext, teams: string[]): Promise<Js
 /** The job page's JSON-LD and the preloaded detail query, both the source's own JSON. */
 function parseJobPage(html: string, postingId: string): JsonObject {
   const root = parse(html);
-  const jobPosting = root
-    .querySelectorAll('script[type="application/ld+json"]')
-    .map((script) => {
-      try {
-        return JSON.parse(script.text) as Json;
-      } catch {
-        return undefined;
-      }
-    })
-    .find((value) => isObject(value) && value["@type"] === "JobPosting");
+  const jobPosting = jobPostingLd(root);
   if (!isObject(jobPosting))
     // A requisition that closed after the listing was read answers 200 without its JSON-LD. That is a closed posting,
     // not a broken board: it leaves the listing and closes by absence, as Walmart's and FedEx's do.
     throw new PostingGone(`Meta job ${postingId} has no JobPosting JSON-LD (closed or moved)`);
 
   let details: JsonObject | undefined;
-  for (const script of root.querySelectorAll('script[type="application/json"]')) {
-    let value: Json;
-    try {
-      value = JSON.parse(script.text);
-    } catch {
-      continue;
-    }
+  for (const value of jsonScripts(root, 'script[type="application/json"]')) {
     details = findDetails(value, 0);
     if (details) break;
   }
