@@ -1,0 +1,75 @@
+# Runs `tallo sync` for one platform across parallel jobs, each on its own GitHub-hosted machine (so each has its own
+# IP address). Started by hand; nothing here runs on a schedule or from a pull request.
+#
+# Needs two repository secrets: TALLO_API_URL and TALLO_INGEST_TOKEN. A board is collected by exactly one job (a hash
+# of its id picks the shard), and a board finished within `stale_hours` is skipped, so starting the workflow again
+# resumes where the last run stopped. Boards that need the Mac's network (egress: local) are never run here.
+name: sweep
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to sync (workday, oraclecloud, smartrecruiters, ...)
+        default: workday
+        required: true
+      shards:
+        description: Parallel jobs (1 to 20)
+        default: "12"
+        required: true
+      stale_hours:
+        description: Skip boards completed within this many hours
+        default: "20"
+        required: true
+      per_host:
+        description: Concurrent requests per host inside each job
+        default: "4"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sweep-${{ inputs.platform }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - id: plan
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: |
+          if ! [[ "$SHARDS" =~ ^[0-9]+$ ]] || [ "$SHARDS" -lt 1 ] || [ "$SHARDS" -gt 20 ]; then
+            echo "shards must be 1 to 20"; exit 1
+          fi
+          echo "shards=$(seq 0 $((SHARDS - 1)) | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  sync:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Sync this shard
+        env:
+          TALLO_API_URL: ${{ secrets.TALLO_API_URL }}
+          TALLO_INGEST_TOKEN: ${{ secrets.TALLO_INGEST_TOKEN }}
+          TALLO_RUNNER_ID: gha-${{ inputs.platform }}-${{ matrix.shard }}
+          PLATFORM: ${{ inputs.platform }}
+          SHARDS: ${{ inputs.shards }}
+          SHARD: ${{ matrix.shard }}
+          STALE_HOURS: ${{ inputs.stale_hours }}
+          PER_HOST: ${{ inputs.per_host }}
+        run: >
+          pnpm --filter @tallo/runner tallo sync
+          -p "$PLATFORM" --shard "$SHARD/$SHARDS" --skip-local-egress
+          --stale-hours "$STALE_HOURS" --per-host "$PER_HOST"

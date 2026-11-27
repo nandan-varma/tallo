@@ -5,7 +5,9 @@ import {
   formatDead,
   LOCAL_EGRESS_STALE_HOURS,
   localEgressSources,
+  parseShard,
   type SourceState,
+  shardOf,
 } from "../src/due.ts";
 
 const configured = [
@@ -200,5 +202,29 @@ describe("localEgressSources", () => {
     expect(ids(dueSources(localEgressSources(boards), new Map(), { cutoff: 1 }))).toEqual([
       "workday:abb",
     ]);
+  });
+});
+
+describe("shards", () => {
+  it("parses i/n and refuses anything else", () => {
+    expect(parseShard("3/16")).toEqual({ index: 3, count: 16 });
+    expect(parseShard("0/1")).toEqual({ index: 0, count: 1 });
+    for (const bad of ["16/16", "1", "a/b", "1/0", "-1/4"])
+      expect(typeof parseShard(bad)).toBe("string");
+  });
+
+  it("puts every board in exactly one shard, the same one every time", () => {
+    const ids = Array.from({ length: 500 }, (_, i) => `workday:tenant${i}/site`);
+    const count = 7;
+    const slices = Array.from({ length: count }, (_, index) =>
+      dueSources(
+        ids.map((id) => ({ id, platform: "workday" })),
+        new Map(),
+        { cutoff: 1, shard: { index, count } },
+      ).map((s) => s.id),
+    );
+    expect(slices.flat().sort()).toEqual([...ids].sort());
+    for (const slice of slices) expect(slice.length).toBeGreaterThan(30);
+    expect(shardOf("workday:a/b", count)).toBe(shardOf("workday:a/b", count));
   });
 });
