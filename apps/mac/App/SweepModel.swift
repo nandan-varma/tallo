@@ -59,7 +59,6 @@ final class SweepModel {
   private var tasks: [Task<Void, Never>] = []
   private var polls = 0
   private var stoppedByUser = false
-  private var adopted = false
   private var wasAlive = false
   private var announcedBudgetFor: Date?
   private var lastControlWrite: Date = .distantPast
@@ -220,20 +219,30 @@ final class SweepModel {
     if isAlive || health == .alive { isStarting = false }
     if case .alive = health { wasAlive = true }
 
-    adoptPauseIfNeeded()
+    followExternalPause()
     handle(.budgetHeld(status?.cost.budgetHeld ?? false))
     handle(.clock)
     notifyOnTransitions(from: previous)
     refreshKeepAwake()
-    if !isAlive { adopted = false }
   }
 
-  /// A sweep that was already paused when we first see it stays paused: that was somebody's decision.
-  private func adoptPauseIfNeeded() {
-    guard case .alive = health, !adopted else { return }
-    adopted = true
-    if status?.global.paused == true, !pause.isPaused { handle(.userPaused(true)) }
+  /// A pause or resume made outside the app (`tallo sweep pause`, a sweep that was already paused when the app opened)
+  /// is a decision too, so the app follows it instead of undoing it. The sweep takes a few seconds to report our own
+  /// writes, so a difference that soon after one is just that lag.
+  private func followExternalPause() {
+    guard case .alive = health, let paused = status?.global.paused,
+      Date.now.timeIntervalSince(lastControlWrite) > Self.reportLag
+    else { return }
+    if paused, !pause.isPaused {
+      handle(.userPaused(true))
+    } else if !paused, pause.reasons == [.user] {
+      handle(.userPaused(false))
+    }
   }
+
+  /// How long the sweep may take to show a change we wrote to the control file (it reads every 3 seconds, writes
+  /// its status every 5).
+  private static let reportLag: TimeInterval = 10
 
   // MARK: Pausing
 
@@ -249,7 +258,7 @@ final class SweepModel {
   /// sweep reads the file every three, so the status needs time to catch up.
   private func reconcileControl() {
     guard case .alive = health, status?.global.paused != pause.isPaused else { return }
-    guard Date.now.timeIntervalSince(lastControlWrite) > 4 else { return }
+    guard Date.now.timeIntervalSince(lastControlWrite) > Self.reportLag else { return }
     writeControl(paused: pause.isPaused)
   }
 

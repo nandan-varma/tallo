@@ -115,6 +115,36 @@ struct SweepModelTests {
     #expect(rig.model.pause.reasons.contains(.user))
   }
 
+  @Test func followsAPauseMadeFromTheTerminalAndDoesNotUndoIt() async throws {
+    let rig = try rig()
+    await rig.model.refresh()
+    #expect(rig.model.phase == .running)
+    try writeStatus(rig, state: "paused", paused: true)
+    await rig.model.refresh()
+    #expect(rig.model.phase == .held(.user))
+    await rig.model.refresh()
+    #expect(!FileManager.default.fileExists(atPath: rig.paths.control.path))
+  }
+
+  @Test func followsAResumeMadeFromTheTerminal() async throws {
+    let rig = try rig()
+    try writeStatus(rig, state: "paused", paused: true)
+    await rig.model.refresh()
+    #expect(rig.model.phase == .held(.user))
+    try writeStatus(rig, paused: false)
+    await rig.model.refresh()
+    #expect(rig.model.phase == .running)
+  }
+
+  @Test func anAutomaticPauseIsNotLiftedByTheSweepSayingItIsRunning() async throws {
+    let rig = try rig()
+    await rig.model.refresh()
+    rig.model.handle(.network(online: false))
+    try writeStatus(rig, paused: false)
+    await rig.model.refresh()
+    #expect(rig.model.phase == .held(.offline))
+  }
+
   @Test func theBudgetHoldIsShown() async throws {
     let rig = try rig()
     try writeStatus(rig, budgetHeld: true)
