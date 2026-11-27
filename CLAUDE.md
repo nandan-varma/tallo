@@ -21,6 +21,7 @@ pnpm workspace, TypeScript everywhere, no build step (Node runs `.ts`; Wrangler/
 | `apps/api`           | Hono Worker: public read API (`/v1/search`, `/v1/jobs/:id`, `/v1/jobs/:id/description`, no auth) + ingest/admin (INGEST_TOKEN). D1 + R2.                          |
 | `apps/web`           | Astro SSR pages (homepage search, `/status`, `/llms.txt`) and the public proxy `/v1/*` (allowlist, rate limit, edge cache). Talks to the API via service binding. |
 | `apps/runner`        | Mac CLI (`tallo sync`, `verify`, `register`, ...). Collects the `egress: local` boards, runs by hand.                                                             |
+| `apps/mac`           | macOS menu-bar app (SwiftUI, Liquid Glass) that starts, pauses and shows the sweep; pauses on sleep, offline, heat. Not a pnpm package: see its README. |
 | `sources/*.json`     | Board configs, one array per platform. Reviewed, trusted configuration.                                                                                           |
 
 ## Rules that must not be broken

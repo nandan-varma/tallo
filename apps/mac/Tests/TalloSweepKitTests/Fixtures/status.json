@@ -1,0 +1,125 @@
+{
+  "updatedAt": "2026-11-27T06:42:21.039Z",
+  "startedAt": "2026-11-27T00:31:18.718Z",
+  "elapsedSec": 22262,
+  "pid": 89858,
+  "state": "running",
+  "global": {
+    "inFlight": 31,
+    "maxInFlight": 160,
+    "capacity": 160,
+    "paused": false,
+    "stop": false,
+    "startsPausedUntil": null,
+    "ingestLatencyMs": 395
+  },
+  "cost": {
+    "rowsWritten": 5446708,
+    "r2Puts": 144966,
+    "rowsPerMin": 14680,
+    "budget": 10000000,
+    "budgetUsedPct": 54.5,
+    "budgetHeld": false
+  },
+  "lanes": {
+    "greenhouse": {
+      "state": "done",
+      "due": 4099,
+      "done": 4088,
+      "pending": 0,
+      "failedPermanent": 11,
+      "stuck": 0,
+      "deferred": 0,
+      "nextRetryAt": null,
+      "inFlight": [],
+      "requests": 4099,
+      "r429": 0,
+      "concurrency": 24,
+      "ceiling": 24,
+      "perHost": 12,
+      "perHostCeiling": 12,
+      "perHostWhy": "set by owner",
+      "learned": false,
+      "gapMs": 0,
+      "gapFloorMs": 0,
+      "hostsSlowed": 0,
+      "worstHostGapMs": 0,
+      "boardsPerMin": 0,
+      "requestsPerMin": 0,
+      "etaMin": null,
+      "errors": [
+        "thoughtworksreferral: 404 board gone",
+        "gropyus: 404 board gone"
+      ]
+    },
+    "workday": {
+      "state": "running",
+      "due": 549,
+      "done": 487,
+      "pending": 0,
+      "failedPermanent": 24,
+      "stuck": 7,
+      "deferred": 0,
+      "nextRetryAt": null,
+      "inFlight": [
+        {
+          "id": "workday:dollartree/dollartreeus",
+          "runningSec": 22262
+        },
+        {
+          "id": "workday:oreillyauto/oreilly",
+          "runningSec": 22214
+        }
+      ],
+      "requests": 308141,
+      "r429": 881,
+      "concurrency": 36,
+      "ceiling": 36,
+      "perHost": 28,
+      "perHostCeiling": 28,
+      "perHostWhy": "set by owner",
+      "learned": false,
+      "gapMs": 150,
+      "gapFloorMs": 150,
+      "hostsSlowed": 0,
+      "worstHostGapMs": 0,
+      "boardsPerMin": 0.8,
+      "requestsPerMin": 799.4,
+      "etaMin": 39,
+      "errors": [
+        "hpe/WFMathpe: detail: Request failed with status code 403: GET https://hpe.wd5.myworkdayjobs.com/wday/cxs/hpe/WFMathpe/job/Bengaluru-Karntaka-",
+        "ppg/PPG_CAREERS: detail: Request failed with status code 403: GET https://ppg.wd5.myworkdayjobs.com/wday/cxs/ppg/PPG_CAREERS/job/MEX---Tepexpan-P"
+      ]
+    },
+    "microsoft": {
+      "state": "done",
+      "due": 1,
+      "done": 0,
+      "pending": 0,
+      "failedPermanent": 1,
+      "stuck": 0,
+      "deferred": 0,
+      "nextRetryAt": null,
+      "inFlight": [],
+      "requests": 113,
+      "r429": 18,
+      "concurrency": 1,
+      "ceiling": 1,
+      "perHost": 1,
+      "perHostCeiling": 4,
+      "perHostWhy": "429 at 1, halved, held 60 s",
+      "learned": false,
+      "gapMs": 120000,
+      "gapFloorMs": 120000,
+      "hostsSlowed": 0,
+      "worstHostGapMs": 0,
+      "boardsPerMin": 0,
+      "requestsPerMin": 0,
+      "etaMin": null,
+      "errors": [
+        "microsoft.com: http: Request failed with status code 403: GET https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&query=",
+        "microsoft.com: Request failed with status code 429: GET https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&query="
+      ]
+    }
+  }
+}

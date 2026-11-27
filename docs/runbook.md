@@ -150,6 +150,8 @@ and _where the time goes_ per lane: shares of source, limiter wait, cpu, ingest 
 requests per second per board (also in `--json`). A lane whose dominant cost stays put for five minutes says so in an
 event, so a slow sweep can be read rather than guessed.
 
+**Menu-bar app.** `apps/mac` is a macOS app that starts the sweep, shows its lanes, ETA and budget, and pauses it when the Mac sleeps, goes offline or runs hot (it writes `control.json` as `tallo sweep pause` does). It adopts a sweep that is already running. See `apps/mac/README.md`.
+
 **Cloud (built, off).** The API Worker can collect a board itself: a queue consumer collects, maps and ingests it, and a
 `HostGate` Durable Object spaces requests per host. `COLLECT_ENABLED` is `"0"`: the five-minute cron is still deployed, but while the switch is off the tick enqueues nothing.
 To try a few boards once, name them (this works with the switch off):

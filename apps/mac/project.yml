@@ -1,0 +1,62 @@
+name: TalloSweep
+options:
+  bundleIdPrefix: dev.nandan
+  deploymentTarget:
+    macOS: "27.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 72CW7UW6RB
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  TalloSweepKit:
+    path: .
+targets:
+  TalloSweep:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: TalloSweepKit
+    settings:
+      base:
+        PRODUCT_NAME: TalloSweep
+        INFOPLIST_KEY_CFBundleDisplayName: Tallo Sweep
+        PRODUCT_BUNDLE_IDENTIFIER: dev.nandan.TalloSweep
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Tallo"
+        ENABLE_APP_SANDBOX: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  TalloSweepTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: AppTests
+    dependencies:
+      - target: TalloSweep
+      - package: TalloSweepKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.nandan.TalloSweepTests
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+schemes:
+  TalloSweep:
+    build:
+      targets:
+        TalloSweep: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - TalloSweepTests
