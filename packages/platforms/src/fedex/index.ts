@@ -1,7 +1,15 @@
 import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
 import { arr, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, jobPostingLd, locations, lookup, PostingGone, SchemaError } from "../kit.ts";
+import {
+  describe,
+  jobPostingLd,
+  locations,
+  lookup,
+  PostingGone,
+  SchemaError,
+  stated,
+} from "../kit.ts";
 
 /**
  * FedEx careers (`careers.fedex.com`). robots.txt allows everything and the site has no public list API, so
@@ -22,9 +30,6 @@ const HOST = "careers.fedex.com";
 const SITEMAPS = ["/sitemap-a0a4453b-en.xml", "/sitemap-c84076ce-en.xml"];
 const JOB_URL =
   /<loc>(https:\/\/careers\.fedex\.com\/[^<\s/]+\/job\/([A-Za-z0-9_-]{1,80}))<\/loc>/g;
-
-/** Facts the source stated; an empty string is "not stated". */
-const stated = (value: unknown): string | undefined => str(value) || undefined;
 
 /** The page's JobPosting JSON-LD and the employer's apply link. */
 function parseJobPage(html: string): JsonObject {

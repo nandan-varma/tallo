@@ -9,6 +9,7 @@ import {
   lookup,
   PostingGone,
   SchemaError,
+  stated,
   strings,
 } from "../kit.ts";
 
@@ -46,9 +47,6 @@ const pathOf = (source: SourceConfig) =>
   typeof source.params.path === "string" ? source.params.path : "us/en";
 const langOf = (source: SourceConfig) =>
   typeof source.params.lang === "string" ? source.params.lang : "en_us";
-
-/** Facts the source stated; an empty string is "not stated". */
-const stated = (value: unknown): string | undefined => str(value) || undefined;
 
 /** The request body the site's own search page sends (everything but paging is its fixed default). */
 const searchBody = (source: SourceConfig, from: number): Json => ({

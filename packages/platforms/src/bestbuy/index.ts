@@ -1,6 +1,14 @@
 import type { Json, Money, Platform, RawPosting } from "@tallo/contracts";
 import { arr, obj, str } from "@tallo/contracts";
-import { definedOnly, describe, locations, lookup, PostingGone, SchemaError } from "../kit.ts";
+import {
+  definedOnly,
+  describe,
+  locations,
+  lookup,
+  PostingGone,
+  SchemaError,
+  stated,
+} from "../kit.ts";
 
 /**
  * Best Buy careers (`jobs.bestbuy.com/bby`), a ServiceNow Service Portal that renders in the browser.
@@ -21,7 +29,6 @@ const JOB_URL =
   /<loc>https:\/\/jobs\.bestbuy\.com\/bby\?id=job_details&amp;req_id=([A-Za-z0-9_-]{1,40})<\/loc>(?:\s*<lastmod>([^<]*)<\/lastmod>)?/g;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const stated = (value: unknown): string | undefined => str(value) || undefined;
 const pageUrl = (id: string) =>
   `https://${HOST}/bby?id=job_details&req_id=${encodeURIComponent(id)}`;
 
