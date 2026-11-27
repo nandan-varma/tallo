@@ -16,6 +16,7 @@ import { createHttp, failureOf, type HostLimiter, HttpError } from "@tallo/http"
 import { PostingGone, platformFor, SchemaError } from "@tallo/platforms";
 import PQueue from "p-queue";
 import { type Cpu, inThreadCpu } from "./cpu.ts";
+import { createHeartbeat } from "./heartbeat.ts";
 import { createPlatformLimiter, policyFor } from "./policy.ts";
 import {
   meterCpu,
@@ -481,7 +482,13 @@ export async function advance(
   };
 
   let started = 0;
+  let finished = 0;
   let boundedReports = 0;
+  const beat = createHeartbeat(
+    options.log,
+    { source: plan.source.id },
+    plan.changed.length - progress.offset,
+  );
   const queue = new PQueue({
     concurrency: options.detailConcurrency ?? policyFor(platform.id).concurrency,
   });
@@ -525,6 +532,7 @@ export async function advance(
             });
           }
         }
+        beat(++finished);
         if (ready.length >= BATCH) await enqueue(ready.splice(0, BATCH));
       }),
     ),

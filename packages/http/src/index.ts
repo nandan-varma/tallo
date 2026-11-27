@@ -37,6 +37,118 @@ export function podKey(host: string): string {
   return m ? m[1]! : h;
 }
 
+/** A circuit breaker for one host key, shared by every client that shares a limiter. */
+export interface HostBreaker {
+  /**
+   * Throws a `blocked` HttpError (with `retryAfterMs`) while the host is cooling down. When the cooldown ends it lets
+   * exactly one probe request through; every other request keeps failing until that probe is reported.
+   */
+  admit(host: string, url: string): void;
+  /** The final HTTP status of a request (after its retries), or 0 when no answer came back. */
+  report(host: string, status: number): void;
+}
+
+interface HostBreakerOptions {
+  /** Consecutive 403 or 429 answers that open the breaker. Default 8. */
+  threshold?: number;
+  /** First cooldown; it doubles with each further trip. Default 5 minutes (a typical edge rate-limit window). */
+  cooldownMs?: number;
+  /** Upper bound for the doubling cooldown. Default 60 minutes. */
+  maxCooldownMs?: number;
+  /** Clock, for tests. */
+  now?: () => number;
+}
+
+interface BreakerState {
+  refusals: number;
+  trips: number;
+  openUntil: number;
+  probing: boolean;
+}
+
+/**
+ * Stops hammering a host that refuses us. An edge firewall (Starbucks' CloudFront) answers 403 to every request once an
+ * IP passes its rate rule, and keeps counting the requests made while blocked; the collector's retries and its next
+ * postings would extend the block for as long as they kept going. After `threshold` 403 or 429 answers in a row with
+ * no success between, the host fails fast for a cooldown (5 minutes, doubling to an hour while probes keep being
+ * refused), then one probe decides: an answer that is not a refusal closes the breaker, another refusal reopens it.
+ * Any answer that is not a 403 or 429 (a 404, a 5xx) is neither: it does not count, and it does not reset the count.
+ */
+export function createHostBreaker(options: HostBreakerOptions = {}): HostBreaker {
+  const threshold = options.threshold ?? 8;
+  const baseMs = options.cooldownMs ?? 5 * 60_000;
+  const maxMs = options.maxCooldownMs ?? 60 * 60_000;
+  const now = options.now ?? Date.now;
+  const states = new Map<string, BreakerState>();
+  const stateOf = (host: string): BreakerState => {
+    let state = states.get(host);
+    if (!state) {
+      state = { refusals: 0, trips: 0, openUntil: 0, probing: false };
+      states.set(host, state);
+    }
+    return state;
+  };
+  const trip = (state: BreakerState): void => {
+    state.openUntil = now() + Math.min(maxMs, baseMs * 2 ** state.trips);
+    state.trips++;
+    state.probing = false;
+  };
+  return {
+    admit(host, url) {
+      const state = states.get(host);
+      if (!state || state.openUntil === 0) return;
+      const wait = state.openUntil - now();
+      if (wait > 0) {
+        throw new HttpError(
+          "blocked",
+          `${host} refused ${threshold} requests in a row (403 or 429); not asking again for ${Math.ceil(wait / 1000)} s`,
+          url,
+          0,
+          wait,
+        );
+      }
+      if (state.probing)
+        throw new HttpError("blocked", `${host} is being probed after a cooldown`, url, 0, 5_000);
+      state.probing = true;
+    },
+    report(host, status) {
+      const state = stateOf(host);
+      const refused = status === 403 || status === 429;
+      if (state.probing) {
+        if (refused) trip(state);
+        else if (status === 0) state.probing = false;
+        else {
+          state.refusals = 0;
+          state.trips = 0;
+          state.openUntil = 0;
+          state.probing = false;
+        }
+        return;
+      }
+      if (refused) {
+        state.refusals++;
+        if (state.refusals >= threshold) {
+          state.refusals = 0;
+          trip(state);
+        }
+      } else if (status >= 200 && status < 300) {
+        state.refusals = 0;
+      }
+    },
+  };
+}
+
+/** One breaker per limiter, so every client that shares a limiter shares what it learned about a host. */
+const breakers = new WeakMap<HostLimiter, HostBreaker>();
+function breakerFor(limiter: HostLimiter): HostBreaker {
+  let breaker = breakers.get(limiter);
+  if (!breaker) {
+    breaker = createHostBreaker();
+    breakers.set(limiter, breaker);
+  }
+  return breaker;
+}
+
 interface HostLimiterOptions {
   /** Maps a host to its limiting key (see `podKey`). Default: the host itself. */
   hostKey?: (host: string) => string;
@@ -115,6 +227,11 @@ interface HttpOptions {
    * Default: a private limiter built from perHostConcurrency / minHostIntervalMs.
    */
   limiter?: HostLimiter;
+  /**
+   * Fails requests fast to a host that keeps refusing us (see `createHostBreaker`). Default: one breaker per
+   * limiter, so clients that share a limiter share it. Pass one to share it across limiters.
+   */
+  breaker?: HostBreaker;
   /** Only used when no `limiter` is passed. */
   perHostConcurrency?: number;
   /** Only used when no `limiter` is passed. Gates new requests; retries (ky) run inside the slot without this gap. */
@@ -254,6 +371,7 @@ export function createHttp(options: HttpOptions): Http {
         ? { minHostIntervalMs: options.minHostIntervalMs }
         : {}),
     });
+  const breaker = options.breaker ?? breakerFor(limiter);
   const client = ky.create({
     ...(options.fetch ? { fetch: options.fetch } : {}),
     timeout: options.timeoutMs ?? 30_000,
@@ -310,30 +428,41 @@ export function createHttp(options: HttpOptions): Http {
         const queuedAt = Date.now();
         // Set when a failed response arrives; the next retry hook measures the sleep since then.
         let failedAt = 0;
+        const key = podKey(url.hostname);
         const response = await limiter.run(url.hostname, async () => {
+          // Checked at the start of the slot, so requests that queued before the breaker opened fail fast too,
+          // and a refused request does not count as a request made.
+          breaker.admit(key, url.href);
           options.onWait?.("limiter", Date.now() - queuedAt);
           options.onRequest?.();
-          return client(url, {
-            hooks: {
-              afterResponse: [
-                ({ response: r }: { response: Response }) => {
-                  if (!r.ok) failedAt = Date.now();
-                },
-              ],
-              beforeRetry: [
-                () => {
-                  if (failedAt) options.onWait?.("retry", Date.now() - failedAt);
-                  failedAt = 0;
-                },
-              ],
-            },
-            method: verb,
-            ...(payload === undefined ? {} : { json: payload }),
-            ...(init?.headers ? { headers: init.headers } : {}),
-            ...(options.signal ? { signal: options.signal } : {}),
-            throwHttpErrors: (status) =>
-              !(status >= 300 && status < 400) && !init?.okStatuses?.includes(status),
-          });
+          try {
+            const answer = await client(url, {
+              hooks: {
+                afterResponse: [
+                  ({ response: r }: { response: Response }) => {
+                    if (!r.ok) failedAt = Date.now();
+                  },
+                ],
+                beforeRetry: [
+                  () => {
+                    if (failedAt) options.onWait?.("retry", Date.now() - failedAt);
+                    failedAt = 0;
+                  },
+                ],
+              },
+              method: verb,
+              ...(payload === undefined ? {} : { json: payload }),
+              ...(init?.headers ? { headers: init.headers } : {}),
+              ...(options.signal ? { signal: options.signal } : {}),
+              throwHttpErrors: (status) =>
+                !(status >= 300 && status < 400) && !init?.okStatuses?.includes(status),
+            });
+            breaker.report(key, answer.status);
+            return answer;
+          } catch (error) {
+            breaker.report(key, error instanceof HTTPError ? error.response.status : 0);
+            throw error;
+          }
         });
         // A 304 is the answer to a conditional request, not a redirect; only when the caller allows it.
         if (response.status === 304 && init?.okStatuses?.includes(304)) {
