@@ -101,13 +101,14 @@ extension KeyedDecodingContainer {
 }
 
 public enum RunState: Equatable, Sendable, Decodable {
-  case running, draining, finished, stopped
+  case running, paused, draining, finished, stopped
   case unknown(String)
 
   public init(from decoder: any Decoder) throws {
     let text = try decoder.singleValueContainer().decode(String.self)
     switch text {
     case "running": self = .running
+    case "paused": self = .paused
     case "draining": self = .draining
     case "finished": self = .finished
     case "stopped": self = .stopped
