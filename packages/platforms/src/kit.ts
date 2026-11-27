@@ -6,6 +6,7 @@ import type {
   Json,
   JsonObject,
   Listing,
+  RawPosting,
   SourceConfig,
   WorkMode,
 } from "@tallo/contracts";
@@ -218,4 +219,34 @@ export function jobPostingLd(root: HTMLElement): JsonObject | undefined {
   return jsonScripts(root, 'script[type="application/ld+json"]').find(
     (value): value is JsonObject => isObject(value) && value["@type"] === "JobPosting",
   );
+}
+
+/**
+ * The capture groups of every match of a global `pattern` in `text`, as strings (a group that did not take part is
+ * ""). Destructure with defaults: `for (const [url = "", id = ""] of captureGroups(JOB_URL, xml))`.
+ */
+export function* captureGroups(pattern: RegExp, text: string): Generator<string[]> {
+  for (const match of text.matchAll(pattern)) yield match.slice(1).map((group) => group ?? "");
+}
+
+/**
+ * Passes on each posting once, in order, and stops with an incomplete listing at `ctx.maxPostings`. For a listing read
+ * from a sitemap or a feed, where a posting can appear twice and the whole file is one read: `yield*` it, and the
+ * returned `complete` is false only when the budget cut the listing short; `listed` counts the distinct postings.
+ */
+export async function* uniqueWithinBudget(
+  postings: AsyncIterable<RawPosting> | Iterable<RawPosting>,
+  ctx: CollectContext,
+): AsyncGenerator<RawPosting, { complete: boolean; listed: number }> {
+  const seen = new Set<string>();
+  for await (const posting of postings) {
+    if (seen.has(posting.id)) continue;
+    seen.add(posting.id);
+    yield posting;
+    if (seen.size >= ctx.maxPostings) {
+      ctx.record({ code: "budget", message: `Stopped at ${ctx.maxPostings} postings` });
+      return { complete: false, listed: seen.size };
+    }
+  }
+  return { complete: true, listed: seen.size };
 }

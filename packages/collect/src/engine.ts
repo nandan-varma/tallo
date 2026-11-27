@@ -180,6 +180,7 @@ export async function loadPlan(scratch: Scratch, runId: string): Promise<Plan> {
 
 function httpFor(source: SourceConfig, options: EngineOptions, counter: { requests: number }) {
   const platform = platformFor(source);
+  const { meter } = options;
   return createHttp({
     ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.retryDelay ? { retryDelay: options.retryDelay } : {}),
@@ -190,15 +191,15 @@ function httpFor(source: SourceConfig, options: EngineOptions, counter: { reques
     limiter: options.limiter ?? createPlatformLimiter(),
     onRequest: () => {
       counter.requests++;
-      if (options.meter) options.meter.sourceRequests++;
+      if (meter) meter.sourceRequests++;
     },
-    ...(options.meter
+    ...(meter
       ? {
           onWait: (kind: "limiter" | "retry", ms: number) => {
-            options.meter![kind === "limiter" ? "limiterWaitMs" : "retryWaitMs"] += ms;
+            meter[kind === "limiter" ? "limiterWaitMs" : "retryWaitMs"] += ms;
           },
           onBytes: (n: number) => {
-            options.meter!.bytesIn += n;
+            meter.bytesIn += n;
           },
         }
       : {}),
