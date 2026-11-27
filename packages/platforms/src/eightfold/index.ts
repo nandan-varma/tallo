@@ -1,6 +1,6 @@
 import type { Json, JsonObject, Platform, RawPosting } from "@tallo/contracts";
 import { arr, isObject, num, obj, str } from "@tallo/contracts";
-import { describe, locations, lookup, SchemaError, workModeOf } from "../kit.ts";
+import { describe, locations, lookup, PostingGone, SchemaError, workModeOf } from "../kit.ts";
 
 /**
  * Eightfold "PCSX" career sites (Microsoft, Starbucks). The listing is the site's sitemap (one request, every
@@ -137,7 +137,14 @@ export function eightfold(site: EightfoldSite): Platform {
 
     async detail(_source, posting, ctx) {
       const url = `${origin}/api/pcsx/position_details?position_id=${encodeURIComponent(posting.id)}&domain=${site.domain}&hl=en`;
-      return dataOf((await ctx.http.getJson(url)).data, `${name} position_details`);
+      try {
+        return dataOf((await ctx.http.getJson(url)).data, `${name} position_details`);
+      } catch (error) {
+        // A closed position is a 404 while the sitemap may still list it for a while.
+        if ((error as { status?: unknown } | null)?.status === 404)
+          throw new PostingGone(`${name} position ${posting.id} is gone (404)`);
+        throw error;
+      }
     },
 
     /** The sitemap's `lastmod` is the only thing the listing says about a posting changing. */

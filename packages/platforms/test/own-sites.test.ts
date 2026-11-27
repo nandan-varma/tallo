@@ -3,6 +3,7 @@ import type { Http, Issue, Json, RawPosting } from "@tallo/contracts";
 import { arr, jobFactsSchema, obj } from "@tallo/contracts";
 import { describe, expect, it } from "vitest";
 import { goldman, ibm, microsoft, platformFor, SchemaError, starbucks } from "../src/index.ts";
+import { PostingGone } from "../src/kit.ts";
 import { drain, fakeCtx, fixture, source } from "./helpers.ts";
 
 const sha = "a".repeat(64);
@@ -347,6 +348,27 @@ describe("microsoft", () => {
       const { ctx } = siteCtx(xml, () => total(0));
       await expect(drain(microsoft.list(src, ctx))).rejects.toThrow(SchemaError);
     }
+  });
+
+  it("treats a 404 from position_details as a gone posting", async () => {
+    const http: Http = {
+      getText: async () => {
+        throw new Error("unexpected getText");
+      },
+      getJson: async () => {
+        throw Object.assign(new Error("Request failed with status code 404"), { status: 404 });
+      },
+      postJson: async () => {
+        throw new Error("unexpected postJson");
+      },
+    };
+    await expect(
+      microsoft.detail?.(
+        src,
+        { id: "7", listing: { id: "7" } },
+        { http, maxPostings: 10, record: () => {} },
+      ),
+    ).rejects.toBeInstanceOf(PostingGone);
   });
 
   it("fingerprints a posting by its lastmod only", () => {

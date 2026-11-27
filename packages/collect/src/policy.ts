@@ -21,8 +21,10 @@ export const POLICY: Record<string, HostPolicy> = {
   gem: TENANT,
   pinpoint: TENANT,
   breezy: TENANT,
-  microsoft: TENANT,
-  starbucks: TENANT,
+  // Eightfold sites sit behind an edge firewall with a per-IP rate rule: Starbucks blocked the Mac's IP after about
+  // 1,000 requests at 2 a second (everything answered 403 for about 5 minutes). Stay well under it.
+  microsoft: { concurrency: 1, gapMs: 1000 },
+  starbucks: { concurrency: 1, gapMs: 2000 },
   // About 4,500 job pages of ~150 KB each, on one host.
   fedex: { concurrency: 2, gapMs: 500 },
   // One 100-row search page per request, then one ~85 KB job page per changed posting, on one host.
