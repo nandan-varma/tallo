@@ -13,6 +13,7 @@
       "!**/fixtures",
       "!**/test/golden",
       "!sources",
+      "!apps/mac",
       "!**/*.md",
       "!**/*.astro",
       "!**/*.css",
