@@ -7,9 +7,9 @@ import type {
   RawPosting,
   SourceConfig,
 } from "@tallo/contracts";
-import { arr, isObject, obj, str } from "@tallo/contracts";
+import { arr, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, lookup, SchemaError } from "../kit.ts";
+import { describe, jobPostingLd, locations, lookup, SchemaError } from "../kit.ts";
 
 /**
  * Radancy TalentBrew career sites (`www.att.jobs`, `jobs.walgreens.com`). Their search pages (`/search-jobs/`)
@@ -29,6 +29,7 @@ import { describe, locations, lookup, SchemaError } from "../kit.ts";
 const HOSTS = [
   "www.att.jobs",
   "jobs.walgreens.com",
+  "www.kaiserpermanentejobs.org",
   "www.schwabjobs.com",
   "careers.unitedhealthgroup.com",
   "careers.l3harris.com",
@@ -105,16 +106,7 @@ const stated = (value: unknown): string | undefined => str(value) || undefined;
 /** The page's JobPosting JSON-LD and the employer's apply link. */
 function parseJobPage(html: string): JsonObject {
   const root = parse(html);
-  const ld = root
-    .querySelectorAll('script[type="application/ld+json"]')
-    .map((s) => {
-      try {
-        return JSON.parse(s.text) as Json;
-      } catch {
-        return undefined;
-      }
-    })
-    .find((v) => isObject(v) && v["@type"] === "JobPosting");
+  const ld = jobPostingLd(root);
   if (!ld) throw new SchemaError("Radancy job page without JobPosting JSON-LD");
   const applyUrl = root.querySelector("a.job-apply")?.getAttribute("data-apply-url");
   return { jsonLd: ld, applyUrl: applyUrl ?? null };

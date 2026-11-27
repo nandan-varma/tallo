@@ -1,7 +1,16 @@
 import type { Json, JsonObject, Money, PayInterval, Platform } from "@tallo/contracts";
-import { arr, id, isObject, num, obj, str } from "@tallo/contracts";
+import { arr, id, num, obj, str } from "@tallo/contracts";
 import { parse } from "node-html-parser";
-import { describe, locations, lookup, requireKey, rows, SchemaError, workModeOf } from "../kit.ts";
+import {
+  describe,
+  jobPostingLd,
+  locations,
+  lookup,
+  requireKey,
+  rows,
+  SchemaError,
+  workModeOf,
+} from "../kit.ts";
 
 const INTERVALS: Record<string, PayInterval> = {
   YEAR: "year",
@@ -15,17 +24,7 @@ const host = (key: string) => `https://${key}.breezy.hr`;
 
 /** The schema.org JobPosting a Breezy job page publishes for search engines (not every portal does). */
 function jobPostingOf(html: string): Json {
-  const found = parse(html)
-    .querySelectorAll('script[type="application/ld+json"]')
-    .map((s) => {
-      try {
-        return JSON.parse(s.text) as Json;
-      } catch {
-        return undefined;
-      }
-    })
-    .find((v) => isObject(v) && v["@type"] === "JobPosting");
-  return found ?? null;
+  return jobPostingLd(parse(html)) ?? null;
 }
 
 export const breezy: Platform = {
