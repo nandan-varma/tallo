@@ -152,6 +152,8 @@ event, so a slow sweep can be read rather than guessed.
 
 **Menu-bar app.** `apps/mac` is a macOS app that starts the sweep, shows its lanes, ETA and budget, and pauses it when the Mac sleeps, goes offline or runs hot (it writes `control.json` as `tallo sweep pause` does). It adopts a sweep that is already running. See `apps/mac/README.md`.
 
+**Parallel runners on GitHub Actions.** `.github/workflows/sweep.yml` (started by hand: `gh workflow run sweep.yml -f platform=workday -f shards=12`) runs `tallo sync -p <platform> --shard i/n --skip-local-egress` as n parallel jobs, each on its own GitHub-hosted machine and IP, up to 6 hours each. A hash of the board id picks the shard, so each board is collected by one job, and `--stale-hours` makes a second dispatch resume where the first stopped. It needs the repository secrets `TALLO_API_URL` and `TALLO_INGEST_TOKEN` (set them with `gh secret set`; never commit them). Boards with `egress: local` stay on the Mac. The runs write through the same API, so Cloudflare usage is the same as a Mac sweep.
+
 **Cloud (built, off).** The API Worker can collect a board itself: a queue consumer collects, maps and ingests it, and a
 `HostGate` Durable Object spaces requests per host. `COLLECT_ENABLED` is `"0"`: the five-minute cron is still deployed, but while the switch is off the tick enqueues nothing.
 To try a few boards once, name them (this works with the switch off):

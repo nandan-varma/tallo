@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
 import { createPlatformLimiter } from "@tallo/collect";
+import { needsLocalEgress } from "@tallo/contracts";
 import { Command, InvalidArgumentError } from "commander";
 import PQueue from "p-queue";
 import pino from "pino";
@@ -15,6 +16,7 @@ import {
   formatDead,
   LOCAL_EGRESS_STALE_HOURS,
   localEgressSources,
+  parseShard,
 } from "./due.ts";
 import { createPooledFetch } from "./net.ts";
 import { createCpuPool, defaultThreads } from "./pool.ts";
@@ -112,6 +114,14 @@ program
     "min gap between request starts per host (env TALLO_HOST_INTERVAL_MS, default platform policy)",
     numberFlag("--host-interval-ms", 0),
   )
+  .option(
+    "--shard <i/n>",
+    "only slice i of n (0-based, by a hash of the source id): run the same sync on n machines, each taking its own boards",
+  )
+  .option(
+    "--skip-local-egress",
+    'skip boards with params.egress "local" (for a runner that is not on the Mac\'s network)',
+  )
   .option("--include-dead", "also sync boards marked dead after repeated 404s")
   .action(async (opts) => {
     // Validate all knobs before any network call (api.sources, startRun).
@@ -130,7 +140,15 @@ program
     const staleHours =
       (opts.staleHours as number | undefined) ??
       (opts.localEgress ? LOCAL_EGRESS_STALE_HOURS : CLOUD_STALE_HOURS);
-    const due = dueSources(opts.localEgress ? localEgressSources(configured) : configured, state, {
+    const shard = opts.shard ? parseShard(opts.shard as string) : undefined;
+    if (typeof shard === "string") throw new Error(shard);
+    const base = opts.localEgress
+      ? localEgressSources(configured)
+      : opts.skipLocalEgress
+        ? configured.filter((s) => !needsLocalEgress(s))
+        : configured;
+    const due = dueSources(base, state, {
+      ...(shard ? { shard } : {}),
       ...(opts.platform ? { platform: opts.platform as string } : {}),
       ...(opts.excludePlatform ? { excludePlatforms: opts.excludePlatform as string[] } : {}),
       ...(opts.source ? { source: opts.source as string } : {}),

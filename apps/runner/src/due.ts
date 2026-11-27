@@ -19,12 +19,37 @@ export interface SourceState {
   lastPostingsAt?: number | null;
 }
 
+/** One slice of the due boards, for running the same sync on several machines: `index` of `count` (0-based). */
+export interface Shard {
+  index: number;
+  count: number;
+}
+
+/** `i/n` as a shard (`--shard 3/16` is the fourth of sixteen), or an Error message. */
+export function parseShard(text: string): Shard | string {
+  const match = /^(\d+)\/(\d+)$/.exec(text);
+  if (!match) return `--shard must look like 0/16, got ${text}`;
+  const index = Number(match[1]);
+  const count = Number(match[2]);
+  if (count < 1 || index >= count) return `--shard index must be below the count: ${text}`;
+  return { index, count };
+}
+
+/** FNV-1a over the source id: stable across machines and runs, so every board lands in exactly one shard. */
+export function shardOf(id: string, count: number): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 0x01000193) >>> 0;
+  return hash % count;
+}
+
 interface DueOptions {
   platform?: string;
   /** Platforms to skip (`--exclude-platform`). Nothing is excluded by default. */
   excludePlatforms?: readonly string[];
   source?: string;
   includeDead?: boolean;
+  /** Only this slice of the boards (`--shard`). */
+  shard?: Shard;
   /** Skip sources whose last complete run is at or after this epoch second. */
   cutoff: number;
   limit?: number;
@@ -56,6 +81,7 @@ export function dueSources<T extends { id: string; platform: string }>(
     .filter((s) => !options.platform || s.platform === options.platform)
     .filter((s) => !options.excludePlatforms?.includes(s.platform))
     .filter((s) => !options.source || s.id === options.source)
+    .filter((s) => !options.shard || shardOf(s.id, options.shard.count) === options.shard.index)
     .filter((s) => options.includeDead || state.get(s.id)?.status !== "dead")
     .filter((s) => options.source || last(s.id) < options.cutoff)
     .filter((s) => options.source || !backedOff(s.id))
