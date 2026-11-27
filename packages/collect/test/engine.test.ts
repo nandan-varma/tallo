@@ -208,6 +208,26 @@ describe("timings", () => {
   });
 });
 
+describe("an oversized raw pack", () => {
+  it("is left out with an issue, and the run still finalizes", async () => {
+    const { ingest, calls } = fakeIngest();
+    const opts = options(ingest);
+    const begun = await begin(opts, { ...meta, source, startedAt: 1 });
+    if (!("plan" in begun)) throw new Error("listing failed");
+    const progress = await advance(opts, begun.plan, begun.progress);
+    // Random bytes do not compress, so a 30 MiB gzip member stays over the limit when it is recompressed.
+    const big = new Uint8Array(30 * 1024 * 1024);
+    for (let at = 0; at < big.length; at += 65536)
+      crypto.getRandomValues(big.subarray(at, Math.min(at + 65536, big.length)));
+    const stream = new Blob([big]).stream().pipeThrough(new CompressionStream("gzip"));
+    progress.rawTail = new Uint8Array(await new Response(stream).arrayBuffer());
+    await complete(opts, begun.plan, progress, { planStored: false });
+    expect(calls.raw).toHaveLength(0);
+    expect(calls.finalize[0]?.rawKey).toBeNull();
+    expect(calls.finalize[0]?.issues.some((i) => /over the 24 MiB/.test(i.message))).toBe(true);
+  }, 60000);
+});
+
 describe("bounded fields and rejected postings", () => {
   it("reports a bounded field as a schema issue and still applies and completes the run", async () => {
     const { ingest, calls } = fakeIngest();

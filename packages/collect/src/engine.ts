@@ -128,6 +128,13 @@ export type Outcome = Finalize & {
 
 /** Issues kept on the run row. */
 export const ISSUE_CAP = 50;
+
+/**
+ * The raw pack is replay evidence, uploaded in one request that the API caps at 25 MiB. A pack over this size
+ * (a first Walmart sync is well past it) is left out, with an issue, so the run still finalizes: failing the run
+ * at the upload would throw away every fetch it just made.
+ */
+export const MAX_RAW_PACK_BYTES = 24 * 1024 * 1024;
 /** Postings with a bounded field reported per slice: enough to see the pattern, not enough to hide other issues. */
 const MAX_BOUND_REPORTS = 5;
 const BATCH = 100;
@@ -578,7 +585,12 @@ export async function complete(
     }
     if (progress.rawTail) parts.push(progress.rawTail);
     const packed = await timed(options.meter, "cpuMs", () => regzip(parts));
-    rawKey = await options.ingest.putRaw(plan.runId, packed);
+    if (packed.byteLength > MAX_RAW_PACK_BYTES) {
+      progress.issues.push({
+        code: "budget",
+        message: `Raw pack of ${Math.round(packed.byteLength / 1048576)} MiB is over the ${MAX_RAW_PACK_BYTES / 1048576} MiB upload limit; not stored`,
+      });
+    } else rawKey = await options.ingest.putRaw(plan.runId, packed);
   }
   const gone = new Set(progress.gone);
   const body: Finalize = {
