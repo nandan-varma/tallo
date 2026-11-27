@@ -869,6 +869,13 @@
   }
  },
  {
+  "key": "coke/coca-cola-careers",
+  "company": "The Coca-Cola Company",
+  "params": {
+   "wd": "wd1"
+  }
+ },
+ {
   "key": "collectorsuniverse/collectors",
   "company": "Collectors",
   "params": {
@@ -1224,6 +1231,13 @@
   "company": "Essentia Health",
   "params": {
    "wd": "wd1"
+  }
+ },
+ {
+  "key": "etsy/Etsy_Careers",
+  "company": "Etsy",
+  "params": {
+   "wd": "wd5"
   }
  },
  {
@@ -3725,6 +3739,13 @@
   "company": "Western Alliance",
   "params": {
    "wd": "wd5"
+  }
+ },
+ {
+  "key": "wf/WellsFargoJobs",
+  "company": "Wells Fargo",
+  "params": {
+   "wd": "wd1"
   }
  },
  {

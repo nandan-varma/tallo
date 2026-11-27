@@ -1,10 +1,30 @@
 [
   {
+    "key": "careers.l3harris.com",
+    "company": "L3Harris"
+  },
+  {
+    "key": "careers.netapp.com",
+    "company": "NetApp"
+  },
+  {
+    "key": "careers.synopsys.com",
+    "company": "Synopsys"
+  },
+  {
+    "key": "careers.unitedhealthgroup.com",
+    "company": "UnitedHealth Group"
+  },
+  {
     "key": "jobs.walgreens.com",
     "company": "Walgreens",
     "params": {
       "searchPath": "/en/search-jobs/results"
     }
+  },
+  {
+    "key": "www.schwabjobs.com",
+    "company": "Charles Schwab"
   },
   {
     "key": "www.att.jobs",

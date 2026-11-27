@@ -1,5 +1,23 @@
 [
   {
+    "key": "ebwh.fa.us2.oraclecloud.com",
+    "company": "Macy's",
+    "params": {
+      "siteNumber": "CX_1001",
+      "sitePath": "CX_1001",
+      "defaultSite": true
+    }
+  },
+  {
+    "key": "edbz.fa.us2.oraclecloud.com",
+    "company": "Texas Instruments",
+    "params": {
+      "siteNumber": "CX",
+      "sitePath": "CX",
+      "defaultSite": true
+    }
+  },
+  {
     "key": "jpmc.fa.oraclecloud.com",
     "company": "JPMorgan Chase",
     "params": {
