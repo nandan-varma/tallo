@@ -43,7 +43,7 @@ number. No value is derived from text; the additions are source-stated facts or 
 `GET /v1/jobs/:id/description` are public, GET-only and need no token; they replace the free-text `GET /v1/jobs` and
 `POST /v1/jobs/search`. The web Worker forwards exactly the three paths, with a per-address limit and an edge cache, and
 serves `/llms.txt` (generated from the same schemas). Reasons: the reader's own AI judges fit, so the API returns facts,
-short hits and description chunks, never a whole catalog; cursors are bound to their query so a page cannot be replayed
+short hits and whole descriptions (read in pieces only on request), never a whole catalog; cursors are bound to their query so a page cannot be replayed
 against another search; errors are written for a model to correct. `READ_TOKEN` is retired. The API's own custom domain
 refuses the reads (`READS_BLOCKED_HOST`), so the web's limit and cache cannot be bypassed there (see the runbook).
 

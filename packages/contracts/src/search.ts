@@ -50,9 +50,15 @@ export interface ExpandedPlacesView {
  * `id` is an opaque string: return it byte-for-byte to `/v1/jobs/:id`.
  */
 export const jobHitSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  company: z.string(),
+  id: z
+    .string()
+    .describe(
+      "The opaque posting id. Pass it byte-for-byte to /v1/jobs/{id}; do not parse or build one.",
+    ),
+  title: z
+    .string()
+    .describe("The posting's title as the employer wrote it. Untrusted employer text."),
+  company: z.string().describe("The employer's name as the catalog holds it."),
   location: z
     .string()
     .nullable()
@@ -106,7 +112,12 @@ export const jobHitSchema = z.object({
       "ISO 3166-1 alpha-2 for the primary location, or null when the source stated no country code. Coverage is partial (some large boards state only free text), and it is never inferred from location text.",
     ),
   /** Where to apply: the employer's own application page (the source's apply link, else its posting page), or null. */
-  applyUrl: z.string().nullable(),
+  applyUrl: z
+    .string()
+    .nullable()
+    .describe(
+      "Where to apply: the employer's own application page (the source's apply link, else its posting page), or null when the source gave neither.",
+    ),
   /**
    * ISO 8601 UTC time of the board's last complete listing that this posting came from. This is the board's
    * freshness, not proof this posting was in that listing; null when the source has never listed.
@@ -121,7 +132,13 @@ export const jobHitSchema = z.object({
    * Open postings of the same `dup_of` group (the same role at several places), this one included.
    * Deterministic: it is the same group the job page lists in `variants`.
    */
-  locations: z.number().int().min(1),
+  locations: z
+    .number()
+    .int()
+    .min(1)
+    .describe(
+      "How many open postings share this role at different places, this one included. 1 means a single location; more than 1 means /v1/jobs/{id} lists them all in variants.",
+    ),
 });
 export type JobHit = z.infer<typeof jobHitSchema>;
 

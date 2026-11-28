@@ -126,7 +126,7 @@ export function openApiDocument(): Record<string, unknown> {
       "/v1/jobs/{id}": {
         get: {
           operationId: "job",
-          summary: "One open posting, its open locations and the first description chunk",
+          summary: "One open posting: its facts, every open location and its whole description",
           parameters: [idParameter],
           responses: {
             "200": { description: "The posting", content: jsonResponse("PublicJob") },
@@ -137,7 +137,8 @@ export function openApiDocument(): Record<string, unknown> {
       "/v1/jobs/{id}/description": {
         get: {
           operationId: "description",
-          summary: "A chunk of the posting's description",
+          summary:
+            "Optional: a part of the posting's description, for reading a long one in pieces",
           parameters: [idParameter, ...descriptionParameters],
           responses: {
             "200": {

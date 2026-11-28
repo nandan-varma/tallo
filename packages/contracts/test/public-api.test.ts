@@ -247,6 +247,24 @@ describe("openapi", () => {
       expect(doc.components.schemas[name]).toBeDefined();
   });
 
+  it("describes every response field, and says the posting's description comes whole", () => {
+    const doc = openApiDocument() as {
+      paths: Record<string, { get: { summary: string } }>;
+      components: {
+        schemas: Record<string, { properties: Record<string, { description?: string }> }>;
+      };
+    };
+    expect(doc.paths["/v1/jobs/{id}"]?.get.summary).toContain("whole description");
+    for (const name of ["JobHit", "PublicSearchPage", "PublicJob", "PublicDescriptionResponse"]) {
+      const properties = doc.components.schemas[name]?.properties ?? {};
+      // Only the version literal and the plain identifiers may go without a description.
+      const bare = Object.entries(properties)
+        .filter(([key, field]) => !field.description && !["apiVersion", "id"].includes(key))
+        .map(([key]) => key);
+      expect(bare, `${name} fields without a description`).toEqual([]);
+    }
+  });
+
   it("carries the field-availability caveat on countryCode and postedAt", () => {
     const doc = openApiDocument() as {
       components: {
